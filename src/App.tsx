@@ -47,11 +47,13 @@ function App() {
     let last = "";
     void hydrate().finally(() => {
       unsub = useStore.subscribe((state) => {
+        if (!state.root) return;
         const key = JSON.stringify(sessionSnapshot(state));
         if (key === last) return;
         last = key;
         window.clearTimeout(timer);
-        timer = window.setTimeout(() => void saveSession(sessionSnapshot(state)), 400);
+        const ws = state.root;
+        timer = window.setTimeout(() => void saveSession(ws, sessionSnapshot(state)), 400);
       });
     });
     return () => {

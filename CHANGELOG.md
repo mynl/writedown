@@ -5,6 +5,16 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.14.0] - 2026-07-06
+
+### Changed
+
+- **Per-workspace session** — open tabs and pane widths are now saved per workspace
+  (`~/.writedown/sessions/<hash>.json`); `session.json` keeps only the last-opened folder
+  for cold start. **Multiple instances on different folders no longer clobber** each
+  other's tabs. (Two instances on the *same* folder still share that folder's session —
+  true per-window state can follow if needed.)
+
 ## [1.13.0] - 2026-07-06
 
 ### Added

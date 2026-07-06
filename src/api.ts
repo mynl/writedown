@@ -31,17 +31,23 @@ export async function pickFolder(defaultPath?: string): Promise<string | null> {
 }
 
 export type Session = {
-  workspace: string | null;
   open_tabs: string[];
   active_tab: string | null;
   tree_width: number | null;
   outline_width: number | null;
 };
 
-export const loadSession = () => invoke<Session>("load_session");
+// Session is keyed per workspace; session.json holds only the last workspace.
+export const loadLastWorkspace = () => invoke<string | null>("load_last_workspace");
 
-export const saveSession = (session: Session) =>
-  invoke<void>("save_session", { session });
+export const saveLastWorkspace = (workspace: string | null) =>
+  invoke<void>("save_last_workspace", { workspace });
+
+export const loadSession = (workspace: string) =>
+  invoke<Session>("load_session", { workspace });
+
+export const saveSession = (workspace: string, session: Session) =>
+  invoke<void>("save_session", { workspace, session });
 
 export type ScopeRule = {
   scope: string;

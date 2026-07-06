@@ -3,6 +3,24 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-06 — Feedback round 3: autosave + languages + math + per-session (v1.11–1.14)
+
+Steve fed back (testing ~1.9/1.10), "keep going!". Delivered:
+- **1.11.0 autosave** (spec §12): window blur (focus lost), tab-switch (leaving tab saves),
+  ~1.5s idle. Atomic EOL-preserving. TODO: save-on-close, configurable idle timeout.
+- **1.12.0 languages**: open py/json/yaml/toml (+txt/sh/r plain) by ext; **CSV/TSV rainbow**
+  columns; **Quarto `{python}`/`{r}`/`{=html}`** cells highlight nested lang (strip braces).
+  Expanded backend SUPPORT_EXTS so they show in tree/quick-open.
+- **1.13.0 math/TeX**: inline `$…$` (needs `\^_` signal → avoids currency) + display `$$…$$`
+  in md/qmd; `.tex/.sty/.latex` → stex language.
+- **1.14.0 per-workspace session**: keyed by workspace hash (`sessions/<hash>.json`);
+  `session.json` = last workspace only. Different-folder instances don't clobber; same-
+  folder-twice still shares (per-window later).
+- **Two-schemes**: only Loudoun exists in his ST; `Markdown.sublime-settings` covers md+qmd
+  with NO color_scheme → ST uses Loudoun for both; md/qmd differ by SYNTAX. Awaiting where
+  his 2 schemes are (may be a misremember). Per-ext scheme infra pending that.
+- Multi-instance Q answered: Tauri = multiple instances by default.
+
 ## 2026-07-06 — Feedback round 2 + theme tuning (v1.10.0)
 
 - **Investigated the "two schemes" claim**: searched the whole ST tree. ONLY `Loudoun`

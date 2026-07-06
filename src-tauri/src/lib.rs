@@ -24,6 +24,8 @@ pub fn run() {
             config::load_editor_settings,
             session::load_session,
             session::save_session,
+            session::load_last_workspace,
+            session::save_last_workspace,
             sublime::load_sublime_theme,
         ])
         .run(tauri::generate_context!())

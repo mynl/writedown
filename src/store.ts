@@ -3,10 +3,12 @@ import {
   configPath,
   listDirectory,
   loadEditorSettings,
+  loadLastWorkspace,
   loadSession,
   loadSublimeTheme,
   pickFolder,
   readFile,
+  saveLastWorkspace,
   writeFile,
   type EditorSettings,
   type Entry,
@@ -88,24 +90,29 @@ export const useStore = create<AppState>((set, get) => ({
   treeWidth: 240,
   outlineWidth: 220,
 
-  // Restore the last session on startup (spec §24). Missing folders/files are
-  // skipped silently — a stale session must never block launch.
+  // Restore the last session on startup (spec §24), keyed by workspace. Missing
+  // folders/files are skipped silently — a stale session must never block launch.
   hydrate: async () => {
+    let ws: string | null = null;
+    try {
+      ws = await loadLastWorkspace();
+    } catch {
+      return;
+    }
+    if (!ws) return;
+    try {
+      await get().setRoot(ws);
+    } catch {
+      return; // workspace no longer exists
+    }
     let s: Session;
     try {
-      s = await loadSession();
+      s = await loadSession(ws);
     } catch {
       return;
     }
     if (s.tree_width != null) set({ treeWidth: clamp(s.tree_width) });
     if (s.outline_width != null) set({ outlineWidth: clamp(s.outline_width) });
-    if (s.workspace) {
-      try {
-        await get().setRoot(s.workspace);
-      } catch {
-        /* workspace no longer exists */
-      }
-    }
     for (const p of s.open_tabs ?? []) {
       try {
         await get().openFile(p);
@@ -126,6 +133,7 @@ export const useStore = create<AppState>((set, get) => ({
   setRoot: async (path: string) => {
     const rootEntries = await listDirectory(path);
     set((s) => ({ root: path, rootEntries, treeVersion: s.treeVersion + 1 }));
+    void saveLastWorkspace(path); // remember for the next cold start
   },
 
   // Re-list the workspace and remount the tree (F5 / Ctrl+Shift+R). External-change
@@ -311,7 +319,6 @@ export const useStore = create<AppState>((set, get) => ({
 
 /** The persistable slice of state (spec §24). */
 export const sessionSnapshot = (s: AppState): Session => ({
-  workspace: s.root,
   // Preview tabs are transient — persist only permanent tabs.
   open_tabs: s.tabs.filter((t) => !t.preview).map((t) => t.path),
   active_tab: s.activePath,
