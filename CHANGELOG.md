@@ -5,6 +5,14 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.3.1] - 2026-07-06
+
+### Fixed
+
+- Double scrollbar in the editor region — the editor container and the textarea were
+  both scrolling; the textarea now owns scrolling. Scrollbars are also thinner and more
+  unobtrusive throughout (tab strip, tree, editor).
+
 ## [1.3.0] - 2026-07-06
 
 Config directory and session restore — Phase 1 complete (spec §30).

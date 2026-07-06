@@ -28,6 +28,26 @@ body,
   margin: 0;
 }
 
+/* Thin, unobtrusive scrollbars everywhere (tab strip, tree, editor). */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 body {
   background: var(--bg);
   color: var(--fg);
@@ -281,6 +301,7 @@ body {
 /* Editable document */
 .editor-body {
   padding: 0;
+  overflow: hidden; /* the textarea/editor owns scrolling — no double scrollbar */
 }
 
 .editor {
