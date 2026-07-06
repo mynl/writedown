@@ -27,3 +27,6 @@ Thumbs.db
 
 # Scratch (machine-specific / experiments)
 hacks/
+
+# sublime
+*.sublime*

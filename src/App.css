@@ -70,6 +70,12 @@ body {
 
 .pane-header {
   flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 30px;
+  box-sizing: border-box;
   padding: 6px 12px;
   font-size: 12px;
   font-weight: 600;
@@ -79,6 +85,31 @@ body {
   background: var(--pane-header-bg);
   border-bottom: 1px solid var(--border);
   user-select: none;
+  overflow: hidden;
+}
+
+.pane-header > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hdr-btn {
+  flex: 0 0 auto;
+  font: inherit;
+  font-size: 11px;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.hdr-btn:hover {
+  background: var(--border);
 }
 
 .pane-body {
@@ -107,6 +138,109 @@ body {
   user-select: none;
 }
 
+.status-left {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: 12px;
+}
+
 .status-right {
+  flex: 0 0 auto;
   opacity: 0.85;
+}
+
+/* Draggable pane divider */
+.resizer {
+  flex: 0 0 5px;
+  cursor: col-resize;
+  background: transparent;
+  position: relative;
+}
+
+.resizer:hover,
+.resizer:active {
+  background: var(--accent, #4a90d9);
+  opacity: 0.5;
+}
+
+/* File tree */
+.tree-body {
+  padding: 4px 0;
+}
+
+.tree {
+  font-size: 13px;
+}
+
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px 2px 0;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.tree-row:hover {
+  background: var(--pane-header-bg);
+}
+
+.tree-row.active {
+  background: var(--accent, #4a90d9);
+  color: #fff;
+}
+
+.tree-icon {
+  flex: 0 0 auto;
+  width: 1em;
+  text-align: center;
+  color: var(--muted);
+}
+
+.tree-row.active .tree-icon {
+  color: #fff;
+}
+
+.tree-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tree-loading,
+.tree-empty,
+.tree-error {
+  font-size: 12px;
+  color: var(--muted);
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.tree-error {
+  color: #c0392b;
+  white-space: pre-wrap;
+}
+
+/* Read-only document viewer (editable in 1.2.0) */
+.editor-body {
+  padding: 0;
+}
+
+.viewer {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  border: 0;
+  resize: none;
+  outline: none;
+  padding: 12px 16px;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--mono);
+  font-size: 14px;
+  line-height: 1.5;
+  tab-size: 4;
+  white-space: pre;
+  overflow: auto;
 }

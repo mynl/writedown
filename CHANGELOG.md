@@ -5,6 +5,24 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.1.0] - 2026-07-06
+
+Phase 1 begins (spec §30) — you can now open a folder and browse it.
+
+### Added
+
+- **Open a workspace** via a native folder picker (`tauri-plugin-dialog`); the chosen
+  folder becomes the workspace root, shown in the footer.
+- **Recursive file tree** (left pane) that loads lazily one directory at a time, so it
+  stays responsive on large trees (spec §12). Directories first, then supported files
+  (`.md`, `.qmd`, `.markdown`, `.bib`, `.csl`, `.yml`, `.yaml`, `.toml`); dotfiles hidden.
+  Click a folder to expand/collapse, a file to open it (read-only for now — editing lands
+  in 1.2.0).
+- **Draggable, resizable sidebars** — drag the dividers to resize the Files and Outline
+  panes (widths will persist across sessions in 1.3.0).
+- Backend commands `list_directory` and `read_file` (`src-tauri/src/files.rs`); all
+  filesystem access is backend-mediated (spec §4, §26). Frontend state via `zustand`.
+
 ## [1.0.0] - 2026-07-06
 
 Initial scaffold — a running Tauri 2 + React + TypeScript desktop app baseline. No
