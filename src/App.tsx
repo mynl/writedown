@@ -7,6 +7,7 @@ import { FileTree } from "./tree/FileTree";
 import { Tabs } from "./Tabs";
 import { Editor } from "./editor/Editor";
 import { Preview } from "./preview/Preview";
+import { Outline } from "./outline/Outline";
 import { isMarkdownDoc } from "./editor/languages";
 import { Resizer } from "./Resizer";
 import { Palette } from "./Palette";
@@ -209,7 +210,7 @@ function App() {
         >
           <div className="pane-header">Outline</div>
           <div className="pane-body">
-            <div className="placeholder">&mdash;</div>
+            <Outline />
           </div>
         </aside>
       </div>

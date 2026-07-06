@@ -5,6 +5,17 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.19.0] - 2026-07-06
+
+Phase 5 complete (spec §18) — the document **outline**.
+
+### Added
+
+- **Document outline** in the right pane: parses ATX headings (skipping front matter and
+  fenced code, stripping Quarto `{#id}` markers), preserves hierarchy, **click a heading to
+  jump** the editor there, and **highlights the heading at the cursor**. Updates live as
+  you edit.
+
 ## [1.18.0] - 2026-07-06
 
 Phase 5 begins (spec §15) — the Markdown/Quarto **preview pane**.

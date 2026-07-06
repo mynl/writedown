@@ -3,6 +3,28 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-06 — Phase 5: preview + outline (v1.18–1.19) + fixes (v1.17.1)
+
+- **1.17.1**: removed footer flicker (dropped transient "Saving…"); tabs always close —
+  `window.confirm()` was unreliable in the webview and blocked closing a dirty tab, so
+  close is now save-then-close (no dialog). This also explains Steve's "config won't close".
+- **1.18.0 preview**: markdown-it (footnotes, task-lists, tables); view modes
+  editor/split/preview (topbar button + Ctrl+Shift+V + palette command); external links →
+  browser via `openUrl` (added `opener:allow-open-url` capability); frontmatter stripped;
+  `html:false` so preview can't execute code.
+- **1.19.0 outline**: parse ATX headings (skip frontmatter/code, strip `{#id}`), click-to-
+  jump via `editor/editorView.ts` bridge (`onCreateEditor`), active-heading highlight from
+  `cursorLine` (Editor `onUpdate` → `setCursorLine`).
+- Windows gotcha: `outline.ts` vs `Outline.tsx` differ only in case → TS error; renamed
+  parser to `parse.ts`. (Watch same-basename-different-case files.)
+- Answers given: TeX colors in ST come from scheme × LaTeX syntax scopes (Loudoun has no
+  TeX rules → generic); conflict is rare *because* autosave; font still needs config edit
+  to Source Code Pro.
+- **Preview follow-ups**: KaTeX math, relative-image resolution (convertFileSrc), sync
+  scroll, preview code-block highlighting.
+- **Phase 5 DONE.** Next: **Phase 6** — BibTeX + fzf citation autocomplete (Rust
+  `SkimMatcherV2` for the ~7,000-entry library). The other biggie.
+
 ## 2026-07-06 — features/ scrub + TeX tokens + file watching (v1.15–1.17)
 
 - **1.15.0**: real YAML frontmatter (yamlFrontmatter) → keys orange/values green; inline

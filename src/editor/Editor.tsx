@@ -11,9 +11,11 @@ import { csvRainbow } from "./csvRainbow";
 import { mathHighlight } from "./math";
 import { isCsv, isMarkdownDoc, languageForPath } from "./languages";
 import { sublimeEditing } from "./keymap";
+import { setActiveView } from "./editorView";
 
 export function Editor({ path, content }: { path: string; content: string }) {
   const editActive = useStore((s) => s.editActive);
+  const setCursorLine = useStore((s) => s.setCursorLine);
   const st = useStore((s) => s.sublimeTheme);
   const settings = useStore((s) => s.editorSettings);
 
@@ -49,6 +51,12 @@ export function Editor({ path, content }: { path: string; content: string }) {
       theme={built ? built.theme : editorTheme}
       extensions={extensions}
       onChange={(v) => editActive(v)}
+      onCreateEditor={(view) => setActiveView(view)}
+      onUpdate={(vu) => {
+        if (vu.selectionSet || vu.docChanged) {
+          setCursorLine(vu.state.doc.lineAt(vu.state.selection.main.head).number);
+        }
+      }}
       basicSetup={{
         lineNumbers: true,
         foldGutter: true,

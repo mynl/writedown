@@ -59,6 +59,7 @@ type AppState = {
   treeVersion: number;
   palette: "files" | "commands" | null;
   viewMode: "editor" | "split" | "preview";
+  cursorLine: number;
   sublimeTheme: SublimeTheme | null;
   editorSettings: EditorSettings | null;
   configFile: string | null;
@@ -83,6 +84,7 @@ type AppState = {
   openPalette: (mode: "files" | "commands") => void;
   closePalette: () => void;
   cycleView: () => void;
+  setCursorLine: (n: number) => void;
   setTreeWidth: (w: number) => void;
   setOutlineWidth: (w: number) => void;
 };
@@ -96,6 +98,7 @@ export const useStore = create<AppState>((set, get) => ({
   treeVersion: 0,
   palette: null,
   viewMode: "split",
+  cursorLine: 1,
   sublimeTheme: null,
   editorSettings: null,
   configFile: null,
@@ -382,6 +385,10 @@ export const useStore = create<AppState>((set, get) => ({
       viewMode:
         s.viewMode === "editor" ? "split" : s.viewMode === "split" ? "preview" : "editor",
     })),
+
+  setCursorLine: (n) => {
+    if (get().cursorLine !== n) set({ cursorLine: n });
+  },
 
   setTreeWidth: (w) => set({ treeWidth: clamp(w) }),
   setOutlineWidth: (w) => set({ outlineWidth: clamp(w) }),

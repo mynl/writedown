@@ -193,13 +193,16 @@ math, and CSV-rainbow highlighting; multi-language open (py/json/yaml/toml/tex/�
 Quarto `{python}` code cells; **autosave** (focus-loss/idle/tab-switch); **per-workspace
 session**.
 
-**Phase 4 nearly done** (through v1.17.0): autosave, per-workspace session, external file
-**watching + conflict handling** (tree auto-refresh, reload/conflict on external change).
-Also delivered along the way: multi-language editor, CSV rainbow, YAML/LaTeX-math/TeX
-highlighting, config-selectable font + Edit Config.
+**Phases 1–5 complete** (through v1.19.0). Beyond the editor + Sublime theme: multi-language
+open, CSV rainbow, YAML/LaTeX-math/TeX highlighting, config-selectable font + Edit Config,
+autosave, per-workspace session, external file watching + conflict, **Markdown/Quarto
+preview pane**, and **document outline** (click-to-jump, cursor tracking).
 
-Remaining **Phase 4** (minor): save-on-close (window blur mostly covers it), configurable
-idle timeout, logging. Then §30 **Phase 5** (preview + outline), **6** (BibTeX + fzf
-citations via Rust SkimMatcherV2), **7** (Quarto render). Backlog: Sublime-project
-multi-folder browser; per-window session; Ctrl+M / Ctrl+K Ctrl+D; heading-appearance
-polish. (The user's ST has only the Loudoun scheme — md/qmd differ by syntax, not scheme.)
+Next: §30 **Phase 6** — authoritative **BibTeX** database + **fzf citation autocomplete**
+(`@` in prose), using the Rust `fuzzy-matcher` **SkimMatcherV2** for the ~7,000-entry
+library (the user's `default_file` in `config.toml`). Then **Phase 7** (Quarto render).
+
+Preview follow-ups: KaTeX math, relative-image resolution, sync scroll, preview code
+highlighting. Minor Phase-4 leftovers: save-on-close, configurable idle timeout, logging.
+Backlog: Sublime-project multi-folder browser; per-window session; Ctrl+M / Ctrl+K Ctrl+D.
+(The user's ST has only the Loudoun scheme — md/qmd differ by syntax, not scheme.)
