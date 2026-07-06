@@ -5,6 +5,16 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.8.1] - 2026-07-06
+
+### Fixed
+
+- **Selection is now visible** — overrode CodeMirror's injected selection styles with
+  plain global CSS (`!important`); the theme-object approach in 1.6.1 wasn't sticking.
+- **Folders** now use a clear 📁 / 📂 (closed/open) icon instead of a small chevron.
+- **Active tab** is marked with an accent bar; tabs shrink to fit as more open, then the
+  strip scrolls.
+
 ## [1.8.0] - 2026-07-06
 
 Phase 2 complete (spec §30) — the editor now has quick navigation.

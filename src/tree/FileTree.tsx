@@ -3,7 +3,8 @@ import { listDirectory, type Entry } from "../api";
 import { useStore } from "../store";
 
 function icon(entry: Entry, expanded: boolean): string {
-  if (entry.is_dir) return expanded ? "▾" : "▸";
+  // Folders get a clearly-distinct folder glyph (open/closed), not a small chevron.
+  if (entry.is_dir) return expanded ? "📂" : "📁";
   switch (entry.ext) {
     case "md":
     case "markdown":
