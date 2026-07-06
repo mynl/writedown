@@ -28,5 +28,10 @@ Thumbs.db
 # Scratch (machine-specific / experiments)
 hacks/
 
+# Test workspaces / personal content dropped into the project dir (NOT app files)
+features/
+tmp/
+playground/
+
 # sublime
 *.sublime*
