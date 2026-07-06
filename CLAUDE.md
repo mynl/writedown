@@ -183,6 +183,9 @@ marketplace. Light theme + dark theme + imported Sublime-derived theme is enough
 
 ## Status
 
-Greenfield. Docs and standing instructions in place; no code scaffolded yet.
-Implementation sequence follows spec §30 (Phase 1 shell/files → … → Phase 7 Quarto).
-Confirm the `V:` dev-drive paths before the first churn-generating build.
+**Phase 1 complete** (spec §30), shipped as v1.0.0 → v1.3.0 on `mynl/writedown`:
+workspace open, lazy file tree, resizable panes, tabs, editing, atomic save, config
+directory, and session restore. Editor is a plain textarea for now.
+
+Next: **Phase 2** — CodeMirror 6, Markdown/Quarto/YAML syntax, Sublime keybindings,
+multicursor, find/replace, quick-open, command palette. Then §30 Phases 3–7.

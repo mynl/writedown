@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
-import { isDirty, useStore } from "./store";
+import { saveSession } from "./api";
+import { isDirty, sessionSnapshot, useStore } from "./store";
 import { FileTree } from "./tree/FileTree";
 import { Tabs } from "./Tabs";
 import { Resizer } from "./Resizer";
@@ -13,6 +14,28 @@ function App() {
   useEffect(() => {
     getVersion().then(setVersion).catch(() => setVersion("?"));
   }, []);
+
+  const hydrate = useStore((s) => s.hydrate);
+  // Restore last session, then persist the session slice on change (debounced,
+  // skipping no-op changes so typing doesn't trigger writes).
+  useEffect(() => {
+    let unsub: (() => void) | undefined;
+    let timer: number | undefined;
+    let last = "";
+    void hydrate().finally(() => {
+      unsub = useStore.subscribe((state) => {
+        const key = JSON.stringify(sessionSnapshot(state));
+        if (key === last) return;
+        last = key;
+        window.clearTimeout(timer);
+        timer = window.setTimeout(() => void saveSession(sessionSnapshot(state)), 400);
+      });
+    });
+    return () => {
+      unsub?.();
+      window.clearTimeout(timer);
+    };
+  }, [hydrate]);
 
   const root = useStore((s) => s.root);
   const treeWidth = useStore((s) => s.treeWidth);

@@ -1,10 +1,12 @@
 import { create } from "zustand";
 import {
   listDirectory,
+  loadSession,
   pickFolder,
   readFile,
   writeFile,
   type Entry,
+  type Session,
 } from "./api";
 
 const MIN_PANE = 140;
@@ -35,6 +37,7 @@ type AppState = {
   treeWidth: number;
   outlineWidth: number;
 
+  hydrate: () => Promise<void>;
   openFolder: () => Promise<void>;
   setRoot: (path: string) => Promise<void>;
   openFile: (path: string) => Promise<void>;
@@ -53,6 +56,36 @@ export const useStore = create<AppState>((set, get) => ({
   activePath: null,
   treeWidth: 240,
   outlineWidth: 220,
+
+  // Restore the last session on startup (spec §24). Missing folders/files are
+  // skipped silently — a stale session must never block launch.
+  hydrate: async () => {
+    let s: Session;
+    try {
+      s = await loadSession();
+    } catch {
+      return;
+    }
+    if (s.tree_width != null) set({ treeWidth: clamp(s.tree_width) });
+    if (s.outline_width != null) set({ outlineWidth: clamp(s.outline_width) });
+    if (s.workspace) {
+      try {
+        await get().setRoot(s.workspace);
+      } catch {
+        /* workspace no longer exists */
+      }
+    }
+    for (const p of s.open_tabs ?? []) {
+      try {
+        await get().openFile(p);
+      } catch {
+        /* file no longer exists */
+      }
+    }
+    if (s.active_tab && get().tabs.some((t) => t.path === s.active_tab)) {
+      set({ activePath: s.active_tab });
+    }
+  },
 
   openFolder: async () => {
     const picked = await pickFolder();
@@ -126,3 +159,12 @@ export const useStore = create<AppState>((set, get) => ({
   setTreeWidth: (w) => set({ treeWidth: clamp(w) }),
   setOutlineWidth: (w) => set({ outlineWidth: clamp(w) }),
 }));
+
+/** The persistable slice of state (spec §24). */
+export const sessionSnapshot = (s: AppState): Session => ({
+  workspace: s.root,
+  open_tabs: s.tabs.map((t) => t.path),
+  active_tab: s.activePath,
+  tree_width: s.treeWidth,
+  outline_width: s.outlineWidth,
+});

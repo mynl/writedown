@@ -24,3 +24,17 @@ export async function pickFolder(defaultPath?: string): Promise<string | null> {
   const result = await open({ directory: true, multiple: false, defaultPath });
   return typeof result === "string" ? result : null;
 }
+
+export type Session = {
+  workspace: string | null;
+  open_tabs: string[];
+  active_tab: string | null;
+  tree_width: number | null;
+  outline_width: number | null;
+};
+
+export const loadSession = () => invoke<Session>("load_session");
+
+export const saveSession = (session: Session) =>
+  invoke<void>("save_session", { session });
+

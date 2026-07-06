@@ -5,6 +5,21 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.3.0] - 2026-07-06
+
+Config directory and session restore — Phase 1 complete (spec §30).
+
+### Added
+
+- **`~/.writedown/`** created on first launch (spec §5): `cache/`, `index/`, `logs/`,
+  `themes/`, and a commented default `config.toml`. Writedown does not rewrite
+  `config.toml` during ordinary use, so your edits and comments are safe.
+- **Session restore** (spec §24) via `~/.writedown/session.json`: on restart Writedown
+  reopens the last workspace, the open tabs, the active tab, and the pane widths.
+  Missing files/folders are skipped silently so a stale session never blocks launch.
+  Saved debounced on change (no writes while you type). Backend commands `load_config`,
+  `load_session`, `save_session`.
+
 ## [1.2.0] - 2026-07-06
 
 Editing and saving — open files, edit, and save without mangling them.
