@@ -5,6 +5,18 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.4.0] - 2026-07-06
+
+Phase 2 begins (spec §30) — the editor is now CodeMirror 6.
+
+### Changed
+
+- **Editor is now CodeMirror 6** (replacing the textarea): Markdown syntax highlighting
+  with nested fenced-code languages, line numbers, code folding, bracket matching,
+  active-line highlight, and word wrap. `.qmd` is treated as Markdown. A clean dark/light
+  theme (Sublime colour-scheme import is Phase 3). Dirty tracking, EOL preservation, and
+  atomic `Ctrl+S` save all carry over unchanged.
+
 ## [1.3.1] - 2026-07-06
 
 ### Fixed

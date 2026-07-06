@@ -1,0 +1,58 @@
+// CodeMirror theme + Markdown highlight style. A clean built-in dark/light look for
+// now; importing the user's Sublime colour scheme is Phase 3 (spec §11).
+import { EditorView } from "@codemirror/view";
+import { HighlightStyle } from "@codemirror/language";
+import { tags as t } from "@lezer/highlight";
+
+export const isDark =
+  window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? true;
+
+const p = isDark
+  ? {
+      bg: "#1e1e1e", fg: "#e6e6e6", caret: "#e6e6e6", sel: "#264f78",
+      gutterFg: "#6b6b6b", active: "#262626",
+      heading: "#4ec9b0", emphasis: "#c586c0", strong: "#dcdcaa",
+      link: "#4a90d9", code: "#ce9178", comment: "#6a9955",
+      kw: "#569cd6", str: "#ce9178", num: "#b5cea8", meta: "#9cdcfe",
+    }
+  : {
+      bg: "#ffffff", fg: "#1c1c1c", caret: "#000000", sel: "#add6ff",
+      gutterFg: "#9b9b9b", active: "#f3f3f3",
+      heading: "#0b7285", emphasis: "#a626a4", strong: "#8a6d00",
+      link: "#1a56c4", code: "#a03030", comment: "#41924b",
+      kw: "#0000ff", str: "#a03030", num: "#116644", meta: "#005cc5",
+    };
+
+export const editorTheme = EditorView.theme(
+  {
+    "&": { color: p.fg, backgroundColor: p.bg, height: "100%", fontSize: "14px" },
+    ".cm-content": {
+      fontFamily: '"Cascadia Mono","Consolas",ui-monospace,monospace',
+      caretColor: p.caret,
+    },
+    ".cm-cursor, .cm-dropCursor": { borderLeftColor: p.caret },
+    "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection":
+      { backgroundColor: p.sel },
+    ".cm-gutters": { backgroundColor: p.bg, color: p.gutterFg, border: "none" },
+    ".cm-activeLine": { backgroundColor: p.active },
+    ".cm-activeLineGutter": { backgroundColor: p.active },
+    ".cm-foldPlaceholder": { backgroundColor: p.active, border: "none", color: p.gutterFg },
+  },
+  { dark: isDark },
+);
+
+export const editorHighlight = HighlightStyle.define([
+  { tag: t.heading, color: p.heading, fontWeight: "bold" },
+  { tag: t.emphasis, color: p.emphasis, fontStyle: "italic" },
+  { tag: t.strong, color: p.strong, fontWeight: "bold" },
+  { tag: [t.link, t.url], color: p.link, textDecoration: "underline" },
+  { tag: t.monospace, color: p.code },
+  { tag: t.comment, color: p.comment, fontStyle: "italic" },
+  { tag: t.keyword, color: p.kw },
+  { tag: [t.string, t.regexp], color: p.str },
+  { tag: [t.number, t.bool, t.atom], color: p.num },
+  { tag: [t.propertyName, t.attributeName], color: p.meta },
+  { tag: t.quote, color: p.comment },
+  { tag: t.list, color: p.fg },
+  { tag: t.contentSeparator, color: p.gutterFg },
+]);

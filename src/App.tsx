@@ -4,6 +4,7 @@ import { saveSession } from "./api";
 import { isDirty, sessionSnapshot, useStore } from "./store";
 import { FileTree } from "./tree/FileTree";
 import { Tabs } from "./Tabs";
+import { Editor } from "./editor/Editor";
 import { Resizer } from "./Resizer";
 import "./App.css";
 
@@ -43,7 +44,6 @@ function App() {
   const tabs = useStore((s) => s.tabs);
   const activePath = useStore((s) => s.activePath);
   const openFolder = useStore((s) => s.openFolder);
-  const editActive = useStore((s) => s.editActive);
   const saveActive = useStore((s) => s.saveActive);
   const setTreeWidth = useStore((s) => s.setTreeWidth);
   const setOutlineWidth = useStore((s) => s.setOutlineWidth);
@@ -101,12 +101,7 @@ function App() {
           {tabs.length > 0 ? <Tabs /> : <div className="pane-header">Editor</div>}
           <div className="pane-body editor-body">
             {activeDoc ? (
-              <textarea
-                className="editor"
-                value={activeDoc.content}
-                onChange={(e) => editActive(e.target.value)}
-                spellCheck={false}
-              />
+              <Editor path={activeDoc.path} content={activeDoc.content} />
             ) : (
               <div className="placeholder">No document open.</div>
             )}

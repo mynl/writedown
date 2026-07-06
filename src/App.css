@@ -304,22 +304,16 @@ body {
   overflow: hidden; /* the textarea/editor owns scrolling — no double scrollbar */
 }
 
-.editor {
-  width: 100%;
+/* CodeMirror host fills the editor pane; the CM scroller owns scrolling. */
+.cm-host,
+.cm-host > .cm-editor {
   height: 100%;
-  box-sizing: border-box;
-  border: 0;
-  resize: none;
-  outline: none;
-  padding: 12px 16px;
-  background: var(--bg);
-  color: var(--fg);
-  font-family: var(--mono);
-  font-size: 14px;
-  line-height: 1.5;
-  tab-size: 4;
-  white-space: pre;
+}
+.cm-host .cm-scroller {
   overflow: auto;
+}
+.cm-host .cm-content {
+  padding: 8px 0;
 }
 
 .status-mid {
