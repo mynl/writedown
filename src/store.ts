@@ -33,6 +33,8 @@ type AppState = {
 
   tabs: Doc[];
   activePath: string | null;
+  /** Paths of recently closed tabs, for reopen (Ctrl+Shift+T). */
+  closedStack: string[];
 
   treeWidth: number;
   outlineWidth: number;
@@ -43,6 +45,8 @@ type AppState = {
   openFile: (path: string) => Promise<void>;
   setActive: (path: string) => void;
   closeTab: (path: string) => void;
+  reopenClosed: () => Promise<void>;
+  nextTab: (dir: 1 | -1) => void;
   editActive: (content: string) => void;
   saveActive: () => Promise<void>;
   setTreeWidth: (w: number) => void;
@@ -54,6 +58,7 @@ export const useStore = create<AppState>((set, get) => ({
   rootEntries: [],
   tabs: [],
   activePath: null,
+  closedStack: [],
   treeWidth: 240,
   outlineWidth: 220,
 
@@ -119,8 +124,28 @@ export const useStore = create<AppState>((set, get) => ({
       if (s.activePath === path) {
         activePath = tabs.length ? tabs[Math.min(idx, tabs.length - 1)].path : null;
       }
-      return { tabs, activePath };
+      return { tabs, activePath, closedStack: [...s.closedStack, path] };
     }),
+
+  reopenClosed: async () => {
+    const { closedStack } = get();
+    if (!closedStack.length) return;
+    const path = closedStack[closedStack.length - 1];
+    set({ closedStack: closedStack.slice(0, -1) });
+    try {
+      await get().openFile(path);
+    } catch {
+      /* file no longer exists */
+    }
+  },
+
+  nextTab: (dir) => {
+    const { tabs, activePath } = get();
+    if (tabs.length < 2) return;
+    const i = tabs.findIndex((t) => t.path === activePath);
+    const n = (i + dir + tabs.length) % tabs.length;
+    set({ activePath: tabs[n].path });
+  },
 
   editActive: (content) =>
     set((s) => ({

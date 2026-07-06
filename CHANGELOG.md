@@ -5,6 +5,23 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.5.0] - 2026-07-06
+
+Sublime-style editing (spec §10) — the core reason this app exists.
+
+### Added
+
+- **Sublime keybindings + multicursor**, as one command layer:
+  - `Ctrl+D` select next occurrence · `Ctrl+L` select line · `Ctrl+Shift+D` duplicate
+    line · `Ctrl+Shift+Up/Down` move line · `Ctrl+/` toggle comment.
+  - `Ctrl+Alt+Up/Down` add cursor above/below · `Ctrl+Shift+L` split selection into lines.
+  - **Column selection** via `Alt+drag` (rectangular selection + crosshair cursor).
+  - A multicursor edit is a single undo step.
+- **Tab navigation**: `Ctrl+Tab` / `Ctrl+Shift+Tab` next/previous · `Ctrl+W` close
+  (confirms if unsaved) · `Ctrl+Shift+T` reopen last closed.
+
+Deferred to a later bump: `Ctrl+M` matching bracket, `Ctrl+K Ctrl+D` skip occurrence.
+
 ## [1.4.0] - 2026-07-06
 
 Phase 2 begins (spec §30) — the editor is now CodeMirror 6.

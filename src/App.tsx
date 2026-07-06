@@ -45,22 +45,42 @@ function App() {
   const activePath = useStore((s) => s.activePath);
   const openFolder = useStore((s) => s.openFolder);
   const saveActive = useStore((s) => s.saveActive);
+  const nextTab = useStore((s) => s.nextTab);
+  const reopenClosed = useStore((s) => s.reopenClosed);
   const setTreeWidth = useStore((s) => s.setTreeWidth);
   const setOutlineWidth = useStore((s) => s.setOutlineWidth);
 
   const activeDoc = tabs.find((t) => t.path === activePath) ?? null;
 
-  // Ctrl+S / Cmd+S saves the active document (autosave arrives in Phase 4).
+  // App-level (non-editor) keybindings: save, tab close/reopen/switch (spec §10).
+  // Editor-scoped Sublime bindings live in src/editor/keymap.ts.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+      const mod = e.ctrlKey || e.metaKey;
+      const k = e.key.toLowerCase();
+      if (mod && !e.shiftKey && k === "s") {
         e.preventDefault();
         void saveActive();
+      } else if (mod && k === "w") {
+        e.preventDefault();
+        const { tabs: ts, activePath: ap, closeTab: close } = useStore.getState();
+        const doc = ts.find((t) => t.path === ap);
+        if (!doc) return;
+        if (isDirty(doc) && !window.confirm(`${doc.path} has unsaved changes. Close anyway?`)) {
+          return;
+        }
+        close(doc.path);
+      } else if (e.ctrlKey && e.key === "Tab") {
+        e.preventDefault();
+        nextTab(e.shiftKey ? -1 : 1);
+      } else if (mod && e.shiftKey && k === "t") {
+        e.preventDefault();
+        void reopenClosed();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [saveActive]);
+  }, [saveActive, nextTab, reopenClosed]);
 
   const saveStatus = activeDoc
     ? activeDoc.error

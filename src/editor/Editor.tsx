@@ -6,6 +6,7 @@ import { syntaxHighlighting } from "@codemirror/language";
 import { EditorView } from "@codemirror/view";
 import { useStore } from "../store";
 import { editorHighlight, editorTheme } from "./theme";
+import { sublimeEditing } from "./keymap";
 
 // `.qmd` is treated as Markdown; fenced code blocks pick up nested language
 // highlighting from @codemirror/language-data (spec §9, §16).
@@ -13,6 +14,7 @@ const baseExtensions = [
   markdown({ base: markdownLanguage, codeLanguages: languages }),
   syntaxHighlighting(editorHighlight),
   EditorView.lineWrapping,
+  ...sublimeEditing,
 ];
 
 export function Editor({ content }: { path: string; content: string }) {
