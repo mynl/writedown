@@ -3,6 +3,15 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-06 — Phase 2 complete: v1.8.0
+
+- **1.8.0** quick-open (Ctrl+P, all workspace files) + command palette (Ctrl+Shift+P),
+  both with a fzf-style TS matcher (`src/fuzzy.ts`) showing matched-char highlights.
+  Backend `list_all_files`. **Phases 1 + 2 now complete.**
+- Next: **Phase 3** — import Steve's Sublime colour scheme into a CodeMirror theme (§11).
+- Citations (Phase 6) will use the Rust `fuzzy-matcher` SkimMatcherV2 for the ~7,000-entry
+  index (per Steve; `src/fuzzy.ts` handles the smaller quick-open/palette lists).
+
 ## 2026-07-06 — Feedback round 1 (Steve tested 1.6.0): v1.6.1 + v1.7.0
 
 Steve tested and confirmed all favourite editing commands work (Ctrl+D / L / arrows / `/`
