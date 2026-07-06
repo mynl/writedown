@@ -222,12 +222,68 @@ body {
   white-space: pre-wrap;
 }
 
-/* Read-only document viewer (editable in 1.2.0) */
+/* Tab strip */
+.tabs {
+  flex: 0 0 auto;
+  display: flex;
+  min-height: 30px;
+  background: var(--pane-header-bg);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 0 12px;
+  max-width: 200px;
+  font-size: 13px;
+  color: var(--muted);
+  border-right: 1px solid var(--border);
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.tab.active {
+  color: var(--fg);
+  background: var(--bg);
+}
+
+.tab-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab-dirty {
+  flex: 0 0 auto;
+  font-size: 10px;
+  color: var(--fg);
+}
+
+.tab-close {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  line-height: 16px;
+  text-align: center;
+  border-radius: 3px;
+  font-size: 15px;
+}
+
+.tab-close:hover {
+  background: var(--border);
+  color: var(--fg);
+}
+
+/* Editable document */
 .editor-body {
   padding: 0;
 }
 
-.viewer {
+.editor {
   width: 100%;
   height: 100%;
   box-sizing: border-box;
@@ -243,4 +299,17 @@ body {
   tab-size: 4;
   white-space: pre;
   overflow: auto;
+}
+
+.status-mid {
+  flex: 1 1 auto;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-error {
+  color: #e06c5a;
+  font-weight: 600;
 }

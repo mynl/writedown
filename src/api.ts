@@ -16,6 +16,9 @@ export const listDirectory = (path: string) =>
 export const readFile = (path: string) =>
   invoke<string>("read_file", { path });
 
+export const writeFile = (path: string, content: string) =>
+  invoke<void>("write_file", { path, content });
+
 /** Native folder picker. Returns the chosen absolute path, or null if cancelled. */
 export async function pickFolder(defaultPath?: string): Promise<string | null> {
   const result = await open({ directory: true, multiple: false, defaultPath });

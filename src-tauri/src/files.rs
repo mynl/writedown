@@ -69,3 +69,45 @@ pub fn list_directory(path: String) -> Result<Vec<DirEntry>, String> {
 pub fn read_file(path: String) -> Result<String, String> {
     std::fs::read_to_string(&path).map_err(|e| format!("read {path}: {e}"))
 }
+
+/// Atomic save (spec §12): write to a temp file in the SAME directory, flush and
+/// fsync, then rename over the original. On Windows `std::fs::rename` replaces the
+/// destination atomically (MoveFileExW + MOVEFILE_REPLACE_EXISTING). `content` is
+/// written byte-for-byte as UTF-8 — the frontend is responsible for the newline
+/// convention and any whitespace policy, so this never rewrites the user's bytes.
+#[tauri::command]
+pub fn write_file(path: String, content: String) -> Result<(), String> {
+    use std::io::Write;
+
+    let target = std::path::Path::new(&path);
+    let dir = target
+        .parent()
+        .ok_or_else(|| format!("no parent directory for {path}"))?;
+    let name = target
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or_else(|| format!("bad file name for {path}"))?;
+
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let tmp = dir.join(format!(".{name}.wd-tmp-{nanos}"));
+
+    let write_tmp = || -> std::io::Result<()> {
+        let mut f = std::fs::File::create(&tmp)?;
+        f.write_all(content.as_bytes())?;
+        f.flush()?;
+        f.sync_all()?;
+        Ok(())
+    };
+    if let Err(e) = write_tmp() {
+        let _ = std::fs::remove_file(&tmp);
+        return Err(format!("write temp for {path}: {e}"));
+    }
+
+    std::fs::rename(&tmp, target).map_err(|e| {
+        let _ = std::fs::remove_file(&tmp);
+        format!("replace {path}: {e}")
+    })
+}

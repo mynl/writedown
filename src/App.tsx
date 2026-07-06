@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
-import { useStore } from "./store";
+import { isDirty, useStore } from "./store";
 import { FileTree } from "./tree/FileTree";
+import { Tabs } from "./Tabs";
 import { Resizer } from "./Resizer";
 import "./App.css";
-
-const basename = (p: string) => p.split(/[\\/]/).pop() ?? p;
 
 function App() {
   // Version is single-sourced in tauri.conf.json and read at runtime — never
@@ -18,11 +17,37 @@ function App() {
   const root = useStore((s) => s.root);
   const treeWidth = useStore((s) => s.treeWidth);
   const outlineWidth = useStore((s) => s.outlineWidth);
+  const tabs = useStore((s) => s.tabs);
   const activePath = useStore((s) => s.activePath);
-  const activeContent = useStore((s) => s.activeContent);
   const openFolder = useStore((s) => s.openFolder);
+  const editActive = useStore((s) => s.editActive);
+  const saveActive = useStore((s) => s.saveActive);
   const setTreeWidth = useStore((s) => s.setTreeWidth);
   const setOutlineWidth = useStore((s) => s.setOutlineWidth);
+
+  const activeDoc = tabs.find((t) => t.path === activePath) ?? null;
+
+  // Ctrl+S / Cmd+S saves the active document (autosave arrives in Phase 4).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        void saveActive();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [saveActive]);
+
+  const saveStatus = activeDoc
+    ? activeDoc.error
+      ? "Save failed"
+      : activeDoc.saving
+        ? "Saving…"
+        : isDirty(activeDoc)
+          ? "Modified"
+          : "Saved"
+    : "";
 
   return (
     <div className="app">
@@ -50,10 +75,15 @@ function App() {
         <Resizer onDrag={(x) => setTreeWidth(x)} />
 
         <main className="pane pane-editor" aria-label="Editor">
-          <div className="pane-header">{activePath ? basename(activePath) : "Editor"}</div>
+          {tabs.length > 0 ? <Tabs /> : <div className="pane-header">Editor</div>}
           <div className="pane-body editor-body">
-            {activePath ? (
-              <textarea className="viewer" readOnly value={activeContent} spellCheck={false} />
+            {activeDoc ? (
+              <textarea
+                className="editor"
+                value={activeDoc.content}
+                onChange={(e) => editActive(e.target.value)}
+                spellCheck={false}
+              />
             ) : (
               <div className="placeholder">No document open.</div>
             )}
@@ -77,6 +107,12 @@ function App() {
       <footer className="statusbar" aria-label="Status">
         <span className="status-left" title={root ?? ""}>
           {root ?? "Writedown"}
+        </span>
+        <span
+          className={"status-mid" + (activeDoc?.error ? " status-error" : "")}
+          title={activeDoc?.error ?? ""}
+        >
+          {saveStatus}
         </span>
         <span className="status-right">v{version}</span>
       </footer>

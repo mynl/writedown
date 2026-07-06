@@ -5,6 +5,22 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.2.0] - 2026-07-06
+
+Editing and saving — open files, edit, and save without mangling them.
+
+### Added
+
+- **Tabs** — open multiple files; click to switch, `×` to close (a confirm guards
+  closing a tab with unsaved edits). A dirty dot marks unsaved tabs.
+- **Editable documents** (plain textarea for now; CodeMirror is Phase 2).
+- **Atomic save** on `Ctrl+S` (spec §12): temp file in the same directory → flush +
+  fsync → rename over the original. The file's original **newline convention is
+  preserved** — a CRLF file stays CRLF — so saving never rewrites bytes you didn't
+  touch. Backend command `write_file`.
+- **Save status in the footer**: `Saved` / `Modified` / `Saving…` / `Save failed`
+  (failures show the error and stay visible).
+
 ## [1.1.0] - 2026-07-06
 
 Phase 1 begins (spec §30) — you can now open a folder and browse it.
