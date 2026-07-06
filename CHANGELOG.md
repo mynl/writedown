@@ -5,6 +5,16 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.17.1] - 2026-07-06
+
+### Fixed
+
+- **Footer no longer flickers** — dropped the transient "Saving…" status (atomic saves are
+  instant); it just shows Modified / Saved now.
+- **Tabs always close** — the close `×` and `Ctrl+W` relied on a `window.confirm()` dialog
+  (unreliable in the webview) that could block closing a modified tab. Closing now saves
+  the tab first (autosave) with no dialog — fixes the "tab won't close" case.
+
 ## [1.17.0] - 2026-07-06
 
 Phase 4 reliability — external file watching (spec §14).

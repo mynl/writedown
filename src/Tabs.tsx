@@ -8,15 +8,14 @@ export function Tabs() {
   const setActive = useStore((s) => s.setActive);
   const promoteTab = useStore((s) => s.promoteTab);
   const closeTab = useStore((s) => s.closeTab);
+  const saveDoc = useStore((s) => s.saveDoc);
 
   if (tabs.length === 0) return null;
 
-  function onClose(e: React.MouseEvent, path: string, dirty: boolean) {
+  function onClose(e: React.MouseEvent, path: string) {
     e.stopPropagation();
-    if (dirty && !window.confirm(`${basename(path)} has unsaved changes. Close anyway?`)) {
-      return;
-    }
-    closeTab(path);
+    // Save-then-close (no confirm dialog — autosave means edits are never lost).
+    void saveDoc(path).finally(() => closeTab(path));
   }
 
   return (
@@ -39,11 +38,7 @@ export function Tabs() {
           >
             {dirty && <span className="tab-dirty">●</span>}
             <span className="tab-name">{basename(t.path)}</span>
-            <span
-              className="tab-close"
-              onClick={(e) => onClose(e, t.path, dirty)}
-              title="Close tab"
-            >
+            <span className="tab-close" onClick={(e) => onClose(e, t.path)} title="Close tab">
               ×
             </span>
           </div>

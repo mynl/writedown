@@ -99,13 +99,8 @@ function App() {
         void saveActive();
       } else if (mod && k === "w") {
         e.preventDefault();
-        const { tabs: ts, activePath: ap, closeTab: close } = useStore.getState();
-        const doc = ts.find((t) => t.path === ap);
-        if (!doc) return;
-        if (isDirty(doc) && !window.confirm(`${doc.path} has unsaved changes. Close anyway?`)) {
-          return;
-        }
-        close(doc.path);
+        const { activePath: ap, saveDoc, closeTab } = useStore.getState();
+        if (ap) void saveDoc(ap).finally(() => closeTab(ap)); // save-then-close (autosave)
       } else if (e.ctrlKey && e.key === "Tab") {
         e.preventDefault();
         nextTab(e.shiftKey ? -1 : 1);
@@ -128,16 +123,15 @@ function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [saveActive, nextTab, reopenClosed, refreshTree, openPalette]);
 
+  // No transient "Saving…" — atomic saves are instant and it just flickered.
   const saveStatus = activeDoc
     ? activeDoc.conflict
       ? "Modified externally — click to reload"
       : activeDoc.error
         ? "Save failed"
-        : activeDoc.saving
-          ? "Saving…"
-          : isDirty(activeDoc)
-            ? "Modified"
-            : "Saved"
+        : isDirty(activeDoc)
+          ? "Modified"
+          : "Saved"
     : "";
 
   return (
