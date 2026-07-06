@@ -3,6 +3,25 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-06 — Phase 2 (editor) underway: v1.4.0 → v1.6.0
+
+- **1.3.1** fixed the double-scrollbar Steve reported (editor container + textarea both
+  scrolled); scrollbars are now thin throughout.
+- **1.4.0** CodeMirror 6 replaces the textarea: markdown syntax + nested fenced-code
+  languages, line numbers, folding, bracket matching, wrap, dark/light theme. Dirty
+  tracking / EOL preservation / atomic Ctrl+S all carry over.
+- **1.5.0** Sublime keymap as one command layer (`src/editor/keymap.ts`): Ctrl+D, Ctrl+L,
+  Ctrl+Shift+D, move-line, Ctrl+/, add-cursor above/below (Ctrl+Alt+Up/Down), split-into-
+  lines (Ctrl+Shift+L), Alt+drag column select. Tab nav: Ctrl+Tab / Ctrl+Shift+Tab /
+  Ctrl+W (confirm if dirty) / Ctrl+Shift+T reopen.
+- **1.6.0** find / replace / goto-line (Ctrl+F / Ctrl+H / Ctrl+G, F3).
+- **Remaining Phase 2:** 1.7.0 quick-open (Ctrl+P) + command palette (Ctrl+Shift+P) —
+  plan to build a reusable fzf matcher (Phase 6 citations reuse it).
+- **Known/deferred:** tree doesn't auto-refresh on external change (Steve noted; → Phase 4
+  file-watching); Ctrl+M matching-bracket + Ctrl+K Ctrl+D skip-occurrence deferred.
+- Editor bundle ~855 KB (CM + markdown); benign for a local desktop app — nested code
+  languages already lazy-load as separate chunks.
+
 ## 2026-07-06 — Phase 1 (files) shipped: v1.1.0 → v1.3.0
 
 - **1.1.0** open workspace (native dialog) + lazy recursive file tree + **draggable,

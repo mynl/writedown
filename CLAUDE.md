@@ -187,5 +187,7 @@ marketplace. Light theme + dark theme + imported Sublime-derived theme is enough
 workspace open, lazy file tree, resizable panes, tabs, editing, atomic save, config
 directory, and session restore. Editor is a plain textarea for now.
 
-Next: **Phase 2** — CodeMirror 6, Markdown/Quarto/YAML syntax, Sublime keybindings,
-multicursor, find/replace, quick-open, command palette. Then §30 Phases 3–7.
+**Phase 2 in progress** (v1.4.0–1.6.0 shipped): CodeMirror 6, Markdown/Quarto syntax,
+Sublime keybindings, multicursor, column selection, find/replace/goto. Remaining:
+**1.7.0** quick-open (Ctrl+P) + command palette (Ctrl+Shift+P). Then §30 Phases 3–7
+(Sublime theme import, reliability/autosave/watching, preview+outline, BibTeX, Quarto).
