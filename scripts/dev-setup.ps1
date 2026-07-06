@@ -25,7 +25,8 @@ if ($item -and $item.LinkType -eq 'Junction') {
 elseif ($item) {
     # npm rebuilt a real node_modules on C: — move it to V: and re-junction.
     Write-Host 'Relocating real node_modules -> V: ...'
-    robocopy $projNode $vNode /MOVE /E /NFL /NDL /NJH /NJS /NC /NS | Out-Null
+    # /R:1 /W:1 so a transiently-locked file can't hang the move for minutes.
+    robocopy $projNode $vNode /MOVE /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NC /NS | Out-Null
     if (Test-Path $projNode) { Remove-Item $projNode -Recurse -Force -ErrorAction SilentlyContinue }
     New-Item -ItemType Junction -Path $projNode -Target $vNode | Out-Null
     Write-Host 'Done.'

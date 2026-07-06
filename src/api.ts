@@ -77,7 +77,12 @@ export type SublimeTheme = {
 
 export const loadSublimeTheme = () => invoke<SublimeTheme>("load_sublime_theme");
 
-export type EditorSettings = { font_size: number | null; font_family: string | null };
+export type EditorSettings = {
+  font_size: number | null;
+  font_family: string | null;
+  outline_font_family: string | null;
+  outline_font_size: number | null;
+};
 
 export const loadEditorSettings = () => invoke<EditorSettings>("load_editor_settings");
 

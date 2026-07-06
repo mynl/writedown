@@ -379,10 +379,10 @@ body {
   border-left: 1px solid var(--border);
 }
 
-/* Document outline (Arial Narrow, matching the user's ST sidebar) */
+/* Document outline — font from config [outline] (default Arial Narrow 10pt). */
 .outline {
-  font-family: "Arial Narrow", "Arial", sans-serif;
-  font-size: 10pt;
+  font-family: var(--outline-font, "Arial Narrow"), "Arial", sans-serif;
+  font-size: var(--outline-size, 10pt);
   padding: 4px 0;
 }
 .outline-item {

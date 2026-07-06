@@ -17,8 +17,25 @@ export function parseOutline(src: string): Heading[] {
 
   let inFence = false;
   let fenceChar = "";
+  let inComment = false;
   for (; i < lines.length; i++) {
-    const line = lines[i];
+    let line = lines[i];
+
+    // Strip HTML comments so commented-out headings don't appear in the outline,
+    // tracking multi-line comments while preserving original line numbers.
+    if (inComment) {
+      const close = line.indexOf("-->");
+      if (close === -1) continue;
+      line = line.slice(close + 3);
+      inComment = false;
+    }
+    line = line.replace(/<!--[\s\S]*?-->/g, "");
+    const open = line.indexOf("<!--");
+    if (open !== -1) {
+      line = line.slice(0, open);
+      inComment = true;
+    }
+
     const fence = /^\s*(`{3,}|~{3,})/.exec(line);
     if (fence) {
       const marker = fence[1][0];

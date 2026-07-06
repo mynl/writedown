@@ -380,7 +380,13 @@ export const useStore = create<AppState>((set, get) => ({
       /* no Sublime install / unreadable — the built-in theme stays */
     }
     try {
-      set({ editorSettings: await loadEditorSettings() });
+      const es = await loadEditorSettings();
+      set({ editorSettings: es });
+      const root = document.documentElement.style;
+      if (es.outline_font_family) root.setProperty("--outline-font", es.outline_font_family);
+      if (es.outline_font_size != null) {
+        root.setProperty("--outline-size", `${es.outline_font_size}pt`);
+      }
     } catch {
       /* config unreadable — editor defaults stay */
     }

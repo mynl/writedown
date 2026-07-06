@@ -5,6 +5,20 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.20.1] - 2026-07-06
+
+### Fixed
+
+- **HTML comments** (`<!-- … -->`) no longer show in the preview, and commented-out
+  headings no longer appear in the outline. (Preview now renders raw HTML and sanitises
+  it with DOMPurify, which strips comments and any scripts.)
+- **Bidirectional scroll sync** — scrolling the preview now scrolls the editor too.
+
+### Added
+
+- **Outline font is config-driven** — `[outline] font_family` / `font_size` in
+  `config.toml` (default Arial Narrow 10pt).
+
 ## [1.20.0] - 2026-07-06
 
 ### Added
