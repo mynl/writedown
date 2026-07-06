@@ -1,0 +1,29 @@
+# Writedown .gitignore
+
+# Build churn — physically lives on V:, but guard against it landing here
+node_modules/
+src-tauri/target/
+target/
+dist/
+dist-ssr/
+*.local
+
+# Rust
+**/*.rs.bk
+Cargo.lock.orig
+
+# Node / Vite
+.vite/
+*.tsbuildinfo
+npm-debug.log*
+yarn-error.log*
+
+# Editor / OS
+WRITEDOWN.sublime-*
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Scratch (machine-specific / experiments)
+hacks/

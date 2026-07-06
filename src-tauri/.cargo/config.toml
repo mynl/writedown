@@ -1,0 +1,4 @@
+# Churn firewall: keep Rust build output OFF the Synology-synced project tree.
+# See CLAUDE.md "READ THIS FIRST". target/ is hundreds of MB and rewrites every build.
+[build]
+target-dir = "V:/dev/writedown/target"
