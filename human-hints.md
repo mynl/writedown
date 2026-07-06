@@ -3,6 +3,31 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-06 — Feedback round 1 (Steve tested 1.6.0): v1.6.1 + v1.7.0
+
+Steve tested and confirmed all favourite editing commands work (Ctrl+D / L / arrows / `/`
+/ F / H / G / W, edits, save). Playground of dummy files at **`c:\tmp`**. His issues + fixes:
+
+- Selection had no visible highlight (other matches did) → **1.6.1** (theme `!important` on
+  `.cm-selectionBackground`; distinct `.cm-selectionMatch` colour).
+- Ctrl+Tab didn't switch tabs → **1.6.1** bound at the editor level (works when editor focused).
+- Clicking an open file "reopened" it / tabs cluttered → **1.7.0 preview tabs** (single-click =
+  transient italic tab reused for the next click; double-click or edit promotes to permanent).
+- Folders not distinct from files → **1.7.0** bold + accent chevron.
+- Little md/qmd colour → **1.7.0**: root cause was headings tagged `heading1..6` while the theme
+  only styled generic `heading`; now styles heading1-6 (sized) + markers + more.
+- Wanted F5 / Ctrl+Shift+R refresh → **1.7.0** (remounts tree; webview reload suppressed).
+
+**Backlog (Steve requested, later):**
+- **Sublime-project-style browser**: add multiple arbitrary folders to the side panel (not
+  just one workspace root); ties into the open-tabs-at-top idea. Not in spec yet.
+- Tree auto-refresh on external change → Phase 4 (file watching).
+- **fzf matcher**: Steve uses the Rust `fuzzy-matcher` crate's `SkimMatcherV2` (see
+  gh:mynl/skimmatch, FYI not to copy). Plan to expose a Rust command and use it for citation
+  autocomplete (Phase 6, ~7000 entries) and possibly quick-open (1.8.0).
+- Still TODO Phase 2: **1.8.0 quick-open (Ctrl+P) + command palette (Ctrl+Shift+P)**;
+  Ctrl+M matching bracket, Ctrl+K Ctrl+D skip-occurrence; YAML front-matter highlight/fold.
+
 ## 2026-07-06 — Phase 2 (editor) underway: v1.4.0 → v1.6.0
 
 - **1.3.1** fixed the double-scrollbar Steve reported (editor container + textarea both

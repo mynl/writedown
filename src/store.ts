@@ -21,6 +21,9 @@ export type Doc = {
   savedContent: string;
   /** The file's original newline convention, reapplied on save (spec §12). */
   eol: "\n" | "\r\n";
+  /** Sublime-style preview tab: single-click opens here and is replaced by the next
+   *  single-click; double-clicking or editing promotes it to a permanent tab. */
+  preview: boolean;
   saving: boolean;
   error: string | null;
 };
@@ -39,11 +42,15 @@ type AppState = {
   treeWidth: number;
   outlineWidth: number;
 
+  treeVersion: number;
+
   hydrate: () => Promise<void>;
   openFolder: () => Promise<void>;
   setRoot: (path: string) => Promise<void>;
-  openFile: (path: string) => Promise<void>;
+  refreshTree: () => Promise<void>;
+  openFile: (path: string, preview?: boolean) => Promise<void>;
   setActive: (path: string) => void;
+  promoteTab: (path: string) => void;
   closeTab: (path: string) => void;
   reopenClosed: () => Promise<void>;
   nextTab: (dir: 1 | -1) => void;
@@ -59,6 +66,7 @@ export const useStore = create<AppState>((set, get) => ({
   tabs: [],
   activePath: null,
   closedStack: [],
+  treeVersion: 0,
   treeWidth: 240,
   outlineWidth: 220,
 
@@ -99,22 +107,61 @@ export const useStore = create<AppState>((set, get) => ({
 
   setRoot: async (path: string) => {
     const rootEntries = await listDirectory(path);
-    set({ root: path, rootEntries });
+    set((s) => ({ root: path, rootEntries, treeVersion: s.treeVersion + 1 }));
   },
 
-  openFile: async (path: string) => {
-    if (get().tabs.some((t) => t.path === path)) {
-      set({ activePath: path });
+  // Re-list the workspace and remount the tree (F5 / Ctrl+Shift+R). External-change
+  // auto-refresh via file watching is Phase 4.
+  refreshTree: async () => {
+    const { root } = get();
+    if (!root) return;
+    try {
+      const rootEntries = await listDirectory(root);
+      set((s) => ({ rootEntries, treeVersion: s.treeVersion + 1 }));
+    } catch {
+      /* folder gone */
+    }
+  },
+
+  openFile: async (path: string, preview = false) => {
+    const existing = get().tabs.find((t) => t.path === path);
+    if (existing) {
+      // Already open: focus it, and promote if this was a permanent open.
+      set((s) => ({
+        activePath: path,
+        tabs:
+          !preview && existing.preview
+            ? s.tabs.map((t) => (t.path === path ? { ...t, preview: false } : t))
+            : s.tabs,
+      }));
       return;
     }
     const raw = await readFile(path);
     const eol: Doc["eol"] = raw.includes("\r\n") ? "\r\n" : "\n";
     const content = raw.split("\r\n").join("\n");
-    const doc: Doc = { path, content, savedContent: content, eol, saving: false, error: null };
-    set((s) => ({ tabs: [...s.tabs, doc], activePath: path }));
+    const doc: Doc = {
+      path, content, savedContent: content, eol, preview, saving: false, error: null,
+    };
+    set((s) => {
+      // A single preview slot: a new preview replaces the current preview tab.
+      if (preview) {
+        const idx = s.tabs.findIndex((t) => t.preview);
+        if (idx >= 0) {
+          const tabs = s.tabs.slice();
+          tabs[idx] = doc;
+          return { tabs, activePath: path };
+        }
+      }
+      return { tabs: [...s.tabs, doc], activePath: path };
+    });
   },
 
   setActive: (path) => set({ activePath: path }),
+
+  promoteTab: (path) =>
+    set((s) => ({
+      tabs: s.tabs.map((t) => (t.path === path ? { ...t, preview: false } : t)),
+    })),
 
   closeTab: (path) =>
     set((s) => {
@@ -149,7 +196,10 @@ export const useStore = create<AppState>((set, get) => ({
 
   editActive: (content) =>
     set((s) => ({
-      tabs: s.tabs.map((t) => (t.path === s.activePath ? { ...t, content } : t)),
+      // Editing promotes a preview tab to permanent (Sublime behaviour).
+      tabs: s.tabs.map((t) =>
+        t.path === s.activePath ? { ...t, content, preview: false } : t,
+      ),
     })),
 
   saveActive: async () => {
@@ -188,7 +238,8 @@ export const useStore = create<AppState>((set, get) => ({
 /** The persistable slice of state (spec §24). */
 export const sessionSnapshot = (s: AppState): Session => ({
   workspace: s.root,
-  open_tabs: s.tabs.map((t) => t.path),
+  // Preview tabs are transient — persist only permanent tabs.
+  open_tabs: s.tabs.filter((t) => !t.preview).map((t) => t.path),
   active_tab: s.activePath,
   tree_width: s.treeWidth,
   outline_width: s.outlineWidth,

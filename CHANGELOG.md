@@ -5,6 +5,25 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.7.0] - 2026-07-06
+
+### Added
+
+- **Preview tabs** (Sublime-style): single-click a file to open it in a transient preview
+  tab (shown italic); the next single-click reuses that slot instead of piling up tabs.
+  Double-clicking the file or tab, or editing, promotes it to a permanent tab — so
+  clicking around the tree no longer clutters the editor.
+- **Distinct folders** in the tree — bold, with an accented disclosure chevron.
+- **Tree refresh** on `F5` / `Ctrl+Shift+R` (the default webview reload is suppressed).
+  External-change auto-refresh via file watching is still Phase 4.
+
+### Fixed
+
+- **Markdown/Quarto syntax colouring** — headings are tagged `heading1`–`heading6`, which
+  the theme wasn't styling, so most colour was missing. Headings (sized by level),
+  emphasis/strong/strikethrough, links, inline code, list/quote markers, and fenced-code
+  languages now colour properly.
+
 ## [1.6.1] - 2026-07-06
 
 ### Fixed

@@ -212,6 +212,18 @@ body {
   color: #fff;
 }
 
+/* Folders read as distinct from files: bold, with an accented disclosure chevron. */
+.tree-row.folder {
+  font-weight: 600;
+}
+.tree-row.folder .tree-icon {
+  color: var(--accent, #4a90d9);
+  font-weight: 700;
+}
+.tree-row.active .tree-icon {
+  color: #fff;
+}
+
 .tree-icon {
   flex: 0 0 auto;
   width: 1em;
@@ -270,6 +282,11 @@ body {
 .tab.active {
   color: var(--fg);
   background: var(--bg);
+}
+
+/* Preview (transient) tab shows its name in italics, Sublime-style. */
+.tab.preview .tab-name {
+  font-style: italic;
 }
 
 .tab-name {

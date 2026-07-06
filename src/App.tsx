@@ -47,6 +47,7 @@ function App() {
   const saveActive = useStore((s) => s.saveActive);
   const nextTab = useStore((s) => s.nextTab);
   const reopenClosed = useStore((s) => s.reopenClosed);
+  const refreshTree = useStore((s) => s.refreshTree);
   const setTreeWidth = useStore((s) => s.setTreeWidth);
   const setOutlineWidth = useStore((s) => s.setOutlineWidth);
 
@@ -77,11 +78,15 @@ function App() {
       } else if (mod && e.shiftKey && k === "t") {
         e.preventDefault();
         void reopenClosed();
+      } else if (e.key === "F5" || (mod && e.shiftKey && k === "r")) {
+        // Refresh the file tree; prevent the default webview reload.
+        e.preventDefault();
+        void refreshTree();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [saveActive, nextTab, reopenClosed]);
+  }, [saveActive, nextTab, reopenClosed, refreshTree]);
 
   const saveStatus = activeDoc
     ? activeDoc.error

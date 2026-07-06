@@ -47,17 +47,33 @@ export const editorTheme = EditorView.theme(
 );
 
 export const editorHighlight = HighlightStyle.define([
-  { tag: t.heading, color: p.heading, fontWeight: "bold" },
+  // Markdown headings are tagged heading1..6 (not the generic `heading`).
+  { tag: t.heading1, color: p.heading, fontWeight: "bold", fontSize: "1.4em" },
+  { tag: t.heading2, color: p.heading, fontWeight: "bold", fontSize: "1.3em" },
+  { tag: t.heading3, color: p.heading, fontWeight: "bold", fontSize: "1.15em" },
+  {
+    tag: [t.heading4, t.heading5, t.heading6, t.heading],
+    color: p.heading,
+    fontWeight: "bold",
+  },
   { tag: t.emphasis, color: p.emphasis, fontStyle: "italic" },
   { tag: t.strong, color: p.strong, fontWeight: "bold" },
+  { tag: t.strikethrough, textDecoration: "line-through" },
   { tag: [t.link, t.url], color: p.link, textDecoration: "underline" },
+  { tag: t.labelName, color: p.link },
   { tag: t.monospace, color: p.code },
-  { tag: t.comment, color: p.comment, fontStyle: "italic" },
+  // Markdown markers (#, -, *, >, `, emphasis marks) — the punctuation of prose.
+  { tag: t.processingInstruction, color: p.meta },
+  { tag: t.list, color: p.meta },
+  { tag: [t.quote], color: p.comment, fontStyle: "italic" },
+  { tag: [t.comment], color: p.comment, fontStyle: "italic" },
+  { tag: t.escape, color: p.num },
+  { tag: t.contentSeparator, color: p.gutterFg },
+  // Fenced-code / YAML content (nested languages emit these standard tags).
   { tag: t.keyword, color: p.kw },
   { tag: [t.string, t.regexp], color: p.str },
   { tag: [t.number, t.bool, t.atom], color: p.num },
   { tag: [t.propertyName, t.attributeName], color: p.meta },
-  { tag: t.quote, color: p.comment },
-  { tag: t.list, color: p.fg },
-  { tag: t.contentSeparator, color: p.gutterFg },
+  { tag: [t.typeName, t.className], color: p.heading },
+  { tag: t.meta, color: p.meta },
 ]);

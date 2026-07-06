@@ -42,16 +42,27 @@ function TreeNode({ entry, depth }: { entry: Entry; depth: number }) {
         }
       }
     } else {
-      openFile(entry.path).catch((e) => setError(String(e)));
+      // Single-click = preview (Sublime): opens in the transient preview tab.
+      openFile(entry.path, true).catch((e) => setError(String(e)));
     }
+  }
+
+  function onDoubleClick() {
+    // Double-click = open permanently.
+    if (!entry.is_dir) openFile(entry.path, false).catch((e) => setError(String(e)));
   }
 
   return (
     <div className="tree-node">
       <div
-        className={"tree-row" + (isActive ? " active" : "")}
+        className={
+          "tree-row" +
+          (entry.is_dir ? " folder" : " file") +
+          (isActive ? " active" : "")
+        }
         style={{ paddingLeft: 6 + depth * 14 }}
         onClick={onClick}
+        onDoubleClick={onDoubleClick}
         title={entry.path}
       >
         <span className="tree-icon">{icon(entry, expanded)}</span>
@@ -78,10 +89,12 @@ function TreeNode({ entry, depth }: { entry: Entry; depth: number }) {
 export function FileTree() {
   const rootEntries = useStore((s) => s.rootEntries);
   const root = useStore((s) => s.root);
+  const treeVersion = useStore((s) => s.treeVersion);
 
   if (!root) return null;
+  // Keyed by treeVersion so a refresh remounts the tree (re-fetches all levels).
   return (
-    <div className="tree">
+    <div className="tree" key={treeVersion}>
       {rootEntries.map((e) => (
         <TreeNode key={e.path} entry={e} depth={0} />
       ))}
