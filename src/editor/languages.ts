@@ -7,7 +7,7 @@ import { LanguageDescription, StreamLanguage } from "@codemirror/language";
 import type { Extension } from "@codemirror/state";
 import { python } from "@codemirror/lang-python";
 import { json } from "@codemirror/lang-json";
-import { yaml } from "@codemirror/lang-yaml";
+import { yaml, yamlFrontmatter } from "@codemirror/lang-yaml";
 import { toml } from "@codemirror/legacy-modes/mode/toml";
 import { stex } from "@codemirror/legacy-modes/mode/stex";
 
@@ -18,7 +18,11 @@ function codeLanguages(info: string): LanguageDescription | null {
   return name ? LanguageDescription.matchLanguageName(languages, name, true) : null;
 }
 
-const markdownExt = markdown({ base: markdownLanguage, codeLanguages });
+// Markdown with real YAML front matter parsing (spec §17), so `---` keys/values get
+// proper scopes coloured by the imported scheme (keys orange, string values green).
+const markdownExt = yamlFrontmatter({
+  content: markdown({ base: markdownLanguage, codeLanguages }),
+});
 
 export function languageForPath(path: string): Extension | null {
   const ext = path.split(".").pop()?.toLowerCase() ?? "";

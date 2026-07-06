@@ -23,9 +23,11 @@ function build(view: EditorView): DecorationSet {
   let m: RegExpExecArray | null;
   while ((m = display.exec(text))) ranges.push([m.index, m.index + m[0].length]);
 
-  const inline = /(?<![\\$])\$(?![\s$])([^$\n]*?)\$/g;
+  // Pair `$…$` where the content doesn't start/end with a space and the closing `$`
+  // isn't followed by a digit — matches real inline math ($P(x)$, $x$) while rejecting
+  // currency ($5 and $10). No backslash required.
+  const inline = /(?<![\\$\d])\$(?![\s$])((?:[^$\n\\]|\\.)+?)(?<!\s)\$(?!\d)/g;
   while ((m = inline.exec(text))) {
-    if (!/[\\^_]/.test(m[1])) continue; // require a math signal
     const from = m.index;
     const to = from + m[0].length;
     if (ranges.some(([a, b]) => from < b && to > a)) continue; // inside a $$ block

@@ -5,6 +5,18 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.15.0] - 2026-07-06
+
+### Fixed
+
+- **YAML front matter** is now parsed as real YAML (keys orange, string values green,
+  numbers/bools per the scheme) instead of a weak regex — fixes the "all orange" look.
+- **Inline math** matches `$…$` pairs without needing a `\` inside (so `$P(x)$` colours)
+  while still ignoring currency; math now also wins over list/other syntax, so it colours
+  inside bullets.
+- **Python** no longer paints every keyword the same hot-pink — control-flow keywords use
+  Loudoun's python-control colour, other keywords the plain keyword colour (closer to ST).
+
 ## [1.14.0] - 2026-07-06
 
 ### Changed

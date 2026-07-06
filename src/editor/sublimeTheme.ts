@@ -75,14 +75,27 @@ export function buildSublimeTheme(
   add([t.string], colorFor(r, "string"));
   add(t.regexp, colorFor(r, "string.regexp"));
   add([t.number, t.bool, t.atom], colorFor(r, "constant"));
-  add(t.keyword, colorFor(r, "keyword.control.python", "keyword"));
+  // Control-flow keywords use Loudoun's python-control colour; other keywords the plain
+  // keyword colour — so code isn't a wall of one garish hue.
+  add(t.controlKeyword, colorFor(r, "keyword.control.python", "keyword"));
+  add(
+    [t.keyword, t.moduleKeyword, t.definitionKeyword, t.operatorKeyword, t.modifier],
+    colorFor(r, "keyword"),
+  );
   add(t.variableName, colorFor(r, "variable"));
   add(
-    [t.function(t.variableName), t.function(t.propertyName)],
+    [
+      t.function(t.variableName),
+      t.function(t.definition(t.variableName)),
+      t.function(t.propertyName),
+    ],
     colorFor(r, "entity.name.function.python", "entity"),
   );
   add([t.typeName, t.className], colorFor(r, "storage", "entity"));
-  add([t.propertyName, t.attributeName], colorFor(r, "entity.name.tag.yaml", "keyword"));
+  add(
+    [t.propertyName, t.definition(t.propertyName), t.attributeName],
+    colorFor(r, "entity.name.tag.yaml", "keyword"),
+  );
 
   return {
     theme,

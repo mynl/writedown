@@ -2,11 +2,11 @@ import { useMemo } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { syntaxHighlighting } from "@codemirror/language";
 import { EditorView } from "@codemirror/view";
+import { Prec } from "@codemirror/state";
 import { search } from "@codemirror/search";
 import { useStore } from "../store";
 import { editorHighlight, editorTheme } from "./theme";
 import { buildSublimeTheme } from "./sublimeTheme";
-import { frontmatterHighlight } from "./frontmatter";
 import { csvRainbow } from "./csvRainbow";
 import { mathHighlight } from "./math";
 import { isCsv, isMarkdownDoc, languageForPath } from "./languages";
@@ -29,13 +29,13 @@ export function Editor({ path, content }: { path: string; content: string }) {
     const lang = languageForPath(path);
     const ext = [
       ...(lang ? [lang] : []),
-      frontmatterHighlight, // only activates when line 1 is `---`
       EditorView.lineWrapping,
       search({ top: true }),
       ...sublimeEditing,
       built ? built.highlight : syntaxHighlighting(editorHighlight),
     ];
-    if (isMarkdownDoc(path)) ext.push(mathHighlight);
+    // Prec.highest so math colouring wins over list/other syntax marks (e.g. in bullets).
+    if (isMarkdownDoc(path)) ext.push(Prec.highest(mathHighlight));
     if (isCsv(path)) ext.push(csvRainbow);
     if (!built && fontSize) ext.push(EditorView.theme({ "&": { fontSize: `${fontSize}px` } }));
     return ext;
