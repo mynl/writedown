@@ -5,6 +5,23 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.18.0] - 2026-07-06
+
+Phase 5 begins (spec §15) — the Markdown/Quarto **preview pane**.
+
+### Added
+
+- **Live preview** rendered with markdown-it: headings, lists, **tables**, blockquotes,
+  code blocks, inline code, links, images, **footnotes**, and **task lists**. YAML front
+  matter is stripped from the render; raw HTML is escaped (the preview never executes code).
+- **View modes** — toggle **editor / split / preview** via the button in the editor top
+  bar, `Ctrl+Shift+V`, or the command palette. Non-Markdown files always show the editor.
+- External links in the preview open in your **default browser**; in-app navigation is
+  suppressed.
+
+Follow-ups: KaTeX math rendering, relative-image resolution, synchronised scrolling,
+preview code-block syntax highlighting.
+
 ## [1.17.1] - 2026-07-06
 
 ### Fixed

@@ -6,6 +6,8 @@ import { isDirty, sessionSnapshot, useStore } from "./store";
 import { FileTree } from "./tree/FileTree";
 import { Tabs } from "./Tabs";
 import { Editor } from "./editor/Editor";
+import { Preview } from "./preview/Preview";
+import { isMarkdownDoc } from "./editor/languages";
 import { Resizer } from "./Resizer";
 import { Palette } from "./Palette";
 import "./App.css";
@@ -82,10 +84,15 @@ function App() {
   const refreshTree = useStore((s) => s.refreshTree);
   const openPalette = useStore((s) => s.openPalette);
   const reloadDoc = useStore((s) => s.reloadDoc);
+  const viewMode = useStore((s) => s.viewMode);
+  const cycleView = useStore((s) => s.cycleView);
   const setTreeWidth = useStore((s) => s.setTreeWidth);
   const setOutlineWidth = useStore((s) => s.setOutlineWidth);
 
   const activeDoc = tabs.find((t) => t.path === activePath) ?? null;
+  const md = activeDoc ? isMarkdownDoc(activeDoc.path) : false;
+  const showEditor = !md || viewMode !== "preview";
+  const showPreview = md && viewMode !== "editor";
 
   // App-level (non-editor) keybindings: save, tab close/reopen/switch (spec §10).
   // Editor-scoped Sublime bindings live in src/editor/keymap.ts.
@@ -117,11 +124,14 @@ function App() {
       } else if (mod && !e.shiftKey && k === "p") {
         e.preventDefault(); // also suppresses the browser print dialog
         openPalette("files");
+      } else if (mod && e.shiftKey && k === "v") {
+        e.preventDefault();
+        cycleView();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [saveActive, nextTab, reopenClosed, refreshTree, openPalette]);
+  }, [saveActive, nextTab, reopenClosed, refreshTree, openPalette, cycleView]);
 
   // No transient "Saving…" — atomic saves are instant and it just flickered.
   const saveStatus = activeDoc
@@ -160,10 +170,30 @@ function App() {
         <Resizer onDrag={(x) => setTreeWidth(x)} />
 
         <main className="pane pane-editor" aria-label="Editor">
-          {tabs.length > 0 ? <Tabs /> : <div className="pane-header">Editor</div>}
-          <div className="pane-body editor-body">
+          <div className="editor-topbar">
+            {tabs.length > 0 ? <Tabs /> : <div className="pane-header">Editor</div>}
+            <button
+              className="view-toggle"
+              onClick={() => cycleView()}
+              title="Cycle editor / split / preview (Ctrl+Shift+V)"
+            >
+              {viewMode === "editor" ? "◧ Editor" : viewMode === "split" ? "◧◨ Split" : "◨ Preview"}
+            </button>
+          </div>
+          <div className="editor-body">
             {activeDoc ? (
-              <Editor path={activeDoc.path} content={activeDoc.content} />
+              <div className="split-body">
+                {showEditor && (
+                  <div className="split-pane">
+                    <Editor path={activeDoc.path} content={activeDoc.content} />
+                  </div>
+                )}
+                {showPreview && (
+                  <div className="split-pane preview-pane">
+                    <Preview content={activeDoc.content} />
+                  </div>
+                )}
+              </div>
             ) : (
               <div className="placeholder">No document open.</div>
             )}

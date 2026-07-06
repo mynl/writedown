@@ -11,6 +11,7 @@ export function appCommands(): Command[] {
     { id: "open-folder", title: "Open Folder…", run: () => void s().openFolder() },
     { id: "save", title: "Save", run: () => void s().saveActive() },
     { id: "refresh-tree", title: "Refresh File Tree", run: () => void s().refreshTree() },
+    { id: "toggle-preview", title: "Toggle Preview (editor / split / preview)", run: () => s().cycleView() },
     {
       id: "edit-config",
       title: "Edit Config (config.toml)",
