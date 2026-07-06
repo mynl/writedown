@@ -65,7 +65,9 @@ type AppState = {
   reopenClosed: () => Promise<void>;
   nextTab: (dir: 1 | -1) => void;
   editActive: (content: string) => void;
+  saveDoc: (path: string) => Promise<void>;
   saveActive: () => Promise<void>;
+  saveAll: () => Promise<void>;
   openPalette: (mode: "files" | "commands") => void;
   closePalette: () => void;
   setTreeWidth: (w: number) => void;
@@ -172,7 +174,11 @@ export const useStore = create<AppState>((set, get) => ({
     });
   },
 
-  setActive: (path) => set({ activePath: path }),
+  setActive: (path) => {
+    const prev = get().activePath;
+    if (prev && prev !== path) void get().saveDoc(prev); // autosave the tab we leave
+    set({ activePath: path });
+  },
 
   promoteTab: (path) =>
     set((s) => ({
@@ -218,34 +224,41 @@ export const useStore = create<AppState>((set, get) => ({
       ),
     })),
 
-  saveActive: async () => {
-    const { tabs, activePath } = get();
-    const doc = tabs.find((t) => t.path === activePath);
-    if (!doc || !isDirty(doc)) return;
+  saveDoc: async (path) => {
+    const doc = get().tabs.find((t) => t.path === path);
+    if (!doc || !isDirty(doc) || doc.saving) return;
 
     const snapshot = doc.content;
     set((s) => ({
-      tabs: s.tabs.map((t) =>
-        t.path === doc.path ? { ...t, saving: true, error: null } : t,
-      ),
+      tabs: s.tabs.map((t) => (t.path === path ? { ...t, saving: true, error: null } : t)),
     }));
 
     const out = doc.eol === "\r\n" ? snapshot.split("\n").join("\r\n") : snapshot;
     try {
-      await writeFile(doc.path, out);
+      await writeFile(path, out);
       set((s) => ({
         tabs: s.tabs.map((t) =>
-          t.path === doc.path ? { ...t, saving: false, savedContent: snapshot } : t,
+          t.path === path ? { ...t, saving: false, savedContent: snapshot } : t,
         ),
       }));
       // Saving config.toml re-applies appearance live (e.g. font_size).
-      if (doc.path === get().configFile) void get().loadTheme();
+      if (path === get().configFile) void get().loadTheme();
     } catch (e) {
       set((s) => ({
-        tabs: s.tabs.map((t) =>
-          t.path === doc.path ? { ...t, saving: false, error: String(e) } : t,
-        ),
+        tabs: s.tabs.map((t) => (t.path === path ? { ...t, saving: false, error: String(e) } : t)),
       }));
+    }
+  },
+
+  saveActive: async () => {
+    const a = get().activePath;
+    if (a) await get().saveDoc(a);
+  },
+
+  // Autosave every dirty document (window blur, idle, app close — spec §12).
+  saveAll: async () => {
+    for (const t of get().tabs) {
+      if (isDirty(t)) await get().saveDoc(t.path);
     }
   },
 

@@ -5,6 +5,17 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.11.0] - 2026-07-06
+
+Phase 4 begins — **autosave** (spec §12).
+
+### Added
+
+- **Autosave** of dirty documents on **window focus loss**, on **switching tabs** (the
+  tab you leave saves), and after a short **idle pause** (~1.5s) once anything is dirty.
+  Uses the same atomic, EOL-preserving save as `Ctrl+S`. (Explicit save-on-close and the
+  configurable idle timeout land with the rest of Phase 4.)
+
 ## [1.10.0] - 2026-07-06
 
 ### Added

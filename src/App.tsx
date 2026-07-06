@@ -20,6 +20,24 @@ function App() {
   const loadTheme = useStore((s) => s.loadTheme);
   useEffect(() => void loadTheme(), [loadTheme]);
 
+  // Autosave (spec §12): on window blur (focus lost), and after a short idle pause once
+  // anything is dirty. Tab-switch autosave lives in the store's setActive.
+  useEffect(() => {
+    const saveAll = () => void useStore.getState().saveAll();
+    window.addEventListener("blur", saveAll);
+    let idle: number | undefined;
+    const unsub = useStore.subscribe((s) => {
+      if (!s.tabs.some((t) => t.content !== t.savedContent)) return;
+      window.clearTimeout(idle);
+      idle = window.setTimeout(saveAll, 1500);
+    });
+    return () => {
+      window.removeEventListener("blur", saveAll);
+      unsub();
+      window.clearTimeout(idle);
+    };
+  }, []);
+
   const hydrate = useStore((s) => s.hydrate);
   // Restore last session, then persist the session slice on change (debounced,
   // skipping no-op changes so typing doesn't trigger writes).
