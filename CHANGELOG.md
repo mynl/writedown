@@ -5,6 +5,22 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.8.0] - 2026-07-06
+
+Phase 2 complete (spec §30) — the editor now has quick navigation.
+
+### Added
+
+- **Quick-open** (`Ctrl+P`): fuzzy-search every supported file in the workspace by path,
+  matched characters highlighted; `Enter` opens, arrows move, `Esc` closes.
+- **Command palette** (`Ctrl+Shift+P`): fuzzy-search and run app commands (open folder,
+  save, refresh tree, close/next/previous/reopen tab).
+- **fzf-style matcher** (`src/fuzzy.ts`) with matched positions and fzf-like ranking
+  (contiguous runs, word/camelCase boundaries, earlier-is-better). The 7,000-entry
+  citation index (Phase 6) will use the Rust `fuzzy-matcher` SkimMatcherV2, as Steve does.
+- Backend `list_all_files` — recursive workspace walk (skips hidden and build/VCS dirs,
+  capped for safety).
+
 ## [1.7.0] - 2026-07-06
 
 ### Added

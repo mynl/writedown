@@ -43,6 +43,7 @@ type AppState = {
   outlineWidth: number;
 
   treeVersion: number;
+  palette: "files" | "commands" | null;
 
   hydrate: () => Promise<void>;
   openFolder: () => Promise<void>;
@@ -56,6 +57,8 @@ type AppState = {
   nextTab: (dir: 1 | -1) => void;
   editActive: (content: string) => void;
   saveActive: () => Promise<void>;
+  openPalette: (mode: "files" | "commands") => void;
+  closePalette: () => void;
   setTreeWidth: (w: number) => void;
   setOutlineWidth: (w: number) => void;
 };
@@ -67,6 +70,7 @@ export const useStore = create<AppState>((set, get) => ({
   activePath: null,
   closedStack: [],
   treeVersion: 0,
+  palette: null,
   treeWidth: 240,
   outlineWidth: 220,
 
@@ -230,6 +234,9 @@ export const useStore = create<AppState>((set, get) => ({
       }));
     }
   },
+
+  openPalette: (mode) => set({ palette: mode }),
+  closePalette: () => set({ palette: null }),
 
   setTreeWidth: (w) => set({ treeWidth: clamp(w) }),
   setOutlineWidth: (w) => set({ outlineWidth: clamp(w) }),

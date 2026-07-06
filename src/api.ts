@@ -13,6 +13,11 @@ export type Entry = {
 export const listDirectory = (path: string) =>
   invoke<Entry[]>("list_directory", { path });
 
+export type FileItem = { name: string; path: string; rel: string };
+
+export const listAllFiles = (root: string) =>
+  invoke<FileItem[]>("list_all_files", { root });
+
 export const readFile = (path: string) =>
   invoke<string>("read_file", { path });
 

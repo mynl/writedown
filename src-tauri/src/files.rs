@@ -64,6 +64,71 @@ pub fn list_directory(path: String) -> Result<Vec<DirEntry>, String> {
     Ok(entries)
 }
 
+#[derive(Serialize)]
+pub struct FileItem {
+    name: String,
+    path: String,
+    rel: String,
+}
+
+/// Directories skipped when walking the whole workspace (build churn / VCS).
+const SKIP_DIRS: &[&str] = &["node_modules", "target", ".git", "__pycache__", ".venv"];
+
+/// Recursively list every supported file under `root` (for quick-open, spec §10, §23).
+/// Skips hidden entries and heavy build/VCS directories; capped for safety.
+#[tauri::command]
+pub fn list_all_files(root: String) -> Result<Vec<FileItem>, String> {
+    let root_path = std::path::Path::new(&root);
+    let mut out: Vec<FileItem> = Vec::new();
+    let mut stack = vec![root_path.to_path_buf()];
+    const CAP: usize = 50_000;
+
+    while let Some(dir) = stack.pop() {
+        let read = match std::fs::read_dir(&dir) {
+            Ok(r) => r,
+            Err(_) => continue,
+        };
+        for item in read.flatten() {
+            let name = item.file_name().to_string_lossy().to_string();
+            if name.starts_with('.') {
+                continue;
+            }
+            let full = item.path();
+            let is_dir = item.file_type().map(|f| f.is_dir()).unwrap_or(false);
+            if is_dir {
+                if !SKIP_DIRS.contains(&name.as_str()) {
+                    stack.push(full);
+                }
+                continue;
+            }
+            let keep = full
+                .extension()
+                .map(|e| e.to_string_lossy().to_lowercase())
+                .map(|e| DOC_EXTS.contains(&e.as_str()) || SUPPORT_EXTS.contains(&e.as_str()))
+                .unwrap_or(false);
+            if !keep {
+                continue;
+            }
+            let rel = full
+                .strip_prefix(root_path)
+                .unwrap_or(&full)
+                .to_string_lossy()
+                .replace('\\', "/");
+            out.push(FileItem {
+                name,
+                path: full.to_string_lossy().to_string(),
+                rel,
+            });
+            if out.len() >= CAP {
+                return Ok(out);
+            }
+        }
+    }
+
+    out.sort_by(|a, b| a.rel.to_lowercase().cmp(&b.rel.to_lowercase()));
+    Ok(out)
+}
+
 /// Read a UTF-8 text file. Returns the content verbatim (no normalisation).
 #[tauri::command]
 pub fn read_file(path: String) -> Result<String, String> {

@@ -6,6 +6,7 @@ import { FileTree } from "./tree/FileTree";
 import { Tabs } from "./Tabs";
 import { Editor } from "./editor/Editor";
 import { Resizer } from "./Resizer";
+import { Palette } from "./Palette";
 import "./App.css";
 
 function App() {
@@ -48,6 +49,7 @@ function App() {
   const nextTab = useStore((s) => s.nextTab);
   const reopenClosed = useStore((s) => s.reopenClosed);
   const refreshTree = useStore((s) => s.refreshTree);
+  const openPalette = useStore((s) => s.openPalette);
   const setTreeWidth = useStore((s) => s.setTreeWidth);
   const setOutlineWidth = useStore((s) => s.setOutlineWidth);
 
@@ -82,11 +84,17 @@ function App() {
         // Refresh the file tree; prevent the default webview reload.
         e.preventDefault();
         void refreshTree();
+      } else if (mod && e.shiftKey && k === "p") {
+        e.preventDefault();
+        openPalette("commands");
+      } else if (mod && !e.shiftKey && k === "p") {
+        e.preventDefault(); // also suppresses the browser print dialog
+        openPalette("files");
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [saveActive, nextTab, reopenClosed, refreshTree]);
+  }, [saveActive, nextTab, reopenClosed, refreshTree, openPalette]);
 
   const saveStatus = activeDoc
     ? activeDoc.error
@@ -160,6 +168,8 @@ function App() {
         </span>
         <span className="status-right">v{version}</span>
       </footer>
+
+      <Palette />
     </div>
   );
 }

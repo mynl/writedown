@@ -90,6 +90,17 @@ export const sublimeEditing = [
         run: () => (useStore.getState().nextTab(-1), true),
         preventDefault: true,
       },
+      // Quick-open / command palette (bound here too so the print dialog never fires).
+      {
+        key: "Mod-p",
+        run: () => (useStore.getState().openPalette("files"), true),
+        preventDefault: true,
+      },
+      {
+        key: "Mod-Shift-p",
+        run: () => (useStore.getState().openPalette("commands"), true),
+        preventDefault: true,
+      },
     ]),
   ),
 ];
