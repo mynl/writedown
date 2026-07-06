@@ -5,6 +5,16 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.6.1] - 2026-07-06
+
+### Fixed
+
+- **Invisible selection** — the active selection (and each `Ctrl+D` multicursor
+  selection) now shows a visible highlight; other matching occurrences use a distinct
+  colour so selection vs. matches are tellable apart.
+- **Ctrl+Tab / Ctrl+Shift+Tab** now switch tabs while the editor has focus (bound at the
+  editor level; the window handler defers to it).
+
 ## [1.6.0] - 2026-07-06
 
 ### Added

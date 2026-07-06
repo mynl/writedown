@@ -56,6 +56,7 @@ function App() {
   // Editor-scoped Sublime bindings live in src/editor/keymap.ts.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return; // already handled by the editor keymap
       const mod = e.ctrlKey || e.metaKey;
       const k = e.key.toLowerCase();
       if (mod && !e.shiftKey && k === "s") {

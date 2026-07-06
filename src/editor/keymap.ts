@@ -14,6 +14,7 @@ import {
   toggleComment,
 } from "@codemirror/commands";
 import { gotoLine, openSearchPanel, selectNextOccurrence } from "@codemirror/search";
+import { useStore } from "../store";
 
 /** Add a cursor on the line above (-1) or below (+1) each existing cursor, same column. */
 function addCursorVertically(dir: -1 | 1): StateCommand {
@@ -78,6 +79,17 @@ export const sublimeEditing = [
       { key: "Mod-f", run: openSearchPanel, preventDefault: true },
       { key: "Mod-h", run: openSearchPanel, preventDefault: true },
       { key: "Mod-g", run: gotoLine, preventDefault: true },
+      // Tab switching also bound here so it works while the editor has focus.
+      {
+        key: "Ctrl-Tab",
+        run: () => (useStore.getState().nextTab(1), true),
+        preventDefault: true,
+      },
+      {
+        key: "Ctrl-Shift-Tab",
+        run: () => (useStore.getState().nextTab(-1), true),
+        preventDefault: true,
+      },
     ]),
   ),
 ];

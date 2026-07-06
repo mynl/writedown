@@ -9,15 +9,15 @@ export const isDark =
 
 const p = isDark
   ? {
-      bg: "#1e1e1e", fg: "#e6e6e6", caret: "#e6e6e6", sel: "#264f78",
-      gutterFg: "#6b6b6b", active: "#262626",
+      bg: "#1e1e1e", fg: "#e6e6e6", caret: "#e6e6e6", sel: "#3a5f8a",
+      match: "rgba(255,214,0,0.20)", gutterFg: "#6b6b6b", active: "#262626",
       heading: "#4ec9b0", emphasis: "#c586c0", strong: "#dcdcaa",
       link: "#4a90d9", code: "#ce9178", comment: "#6a9955",
       kw: "#569cd6", str: "#ce9178", num: "#b5cea8", meta: "#9cdcfe",
     }
   : {
       bg: "#ffffff", fg: "#1c1c1c", caret: "#000000", sel: "#add6ff",
-      gutterFg: "#9b9b9b", active: "#f3f3f3",
+      match: "rgba(255,193,7,0.30)", gutterFg: "#9b9b9b", active: "#f3f3f3",
       heading: "#0b7285", emphasis: "#a626a4", strong: "#8a6d00",
       link: "#1a56c4", code: "#a03030", comment: "#41924b",
       kw: "#0000ff", str: "#a03030", num: "#116644", meta: "#005cc5",
@@ -31,8 +31,13 @@ export const editorTheme = EditorView.theme(
       caretColor: p.caret,
     },
     ".cm-cursor, .cm-dropCursor": { borderLeftColor: p.caret },
-    "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection":
-      { backgroundColor: p.sel },
+    // CodeMirror draws its own selection layer; it must override the base theme,
+    // hence !important (otherwise the active selection shows no highlight).
+    "&.cm-focused .cm-selectionBackground, .cm-selectionBackground": {
+      background: p.sel + " !important",
+    },
+    ".cm-content ::selection": { background: p.sel },
+    ".cm-selectionMatch": { background: p.match },
     ".cm-gutters": { backgroundColor: p.bg, color: p.gutterFg, border: "none" },
     ".cm-activeLine": { backgroundColor: p.active },
     ".cm-activeLineGutter": { backgroundColor: p.active },
