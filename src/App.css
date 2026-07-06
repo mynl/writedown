@@ -539,6 +539,30 @@ body {
   border-radius: 6px;
 }
 
+/* Citation dropdown: wider, and matched characters highlighted. */
+.cm-tooltip.cm-tooltip-autocomplete {
+  max-width: 640px;
+}
+.cm-tooltip-autocomplete ul li {
+  padding: 3px 10px;
+}
+.cm-tooltip-autocomplete .cm-completionLabel {
+  display: none; /* replaced by our highlighted .cite-label */
+}
+.cite-label {
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+.cite-hl {
+  color: var(--accent, #4a90d9);
+  font-weight: 700;
+}
+.cm-tooltip-autocomplete .cm-completionDetail {
+  color: var(--muted);
+  font-style: normal;
+  margin-left: 10px;
+}
+
 /* LaTeX math ($…$, $$…$$) in Markdown/Quarto — tokens coloured ST-style. */
 .wd-math-delim { color: var(--wd-math-delim, #f8f8f8) !important; } /* the $ signs */
 .wd-math-text  { color: var(--wd-math-text, #f8f8f8) !important; }  /* variables / prose */

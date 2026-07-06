@@ -92,15 +92,28 @@ export type BibEntry = {
   key: string;
   entry_type: string;
   author: string;
+  coauthors: string;
   year: string;
   title: string;
   container: string;
 };
 
+/** A search hit: the "key  title" label plus matched char indices for highlighting. */
+export type CiteMatch = {
+  key: string;
+  label: string;
+  author: string;
+  coauthors: string;
+  year: string;
+  title: string;
+  container: string;
+  positions: number[];
+};
+
 export const loadBibliography = () => invoke<number>("load_bibliography");
 
 export const searchBibliography = (query: string) =>
-  invoke<BibEntry[]>("search_bibliography", { query });
+  invoke<CiteMatch[]>("search_bibliography", { query });
 
 export const getCitation = (key: string) =>
   invoke<BibEntry | null>("get_citation", { key });

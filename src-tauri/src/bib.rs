@@ -1,9 +1,9 @@
 //! Authoritative BibTeX database (spec §19–22). Parses the configured `.bib` into a
-//! disposable in-memory index, fuzzy-searches it with SkimMatcherV2, and re-parses on
-//! external change (the user updates the file often). The `.bib` is never modified.
+//! disposable in-memory index, fuzzy-searches **key + title** with an fzf-style matcher
+//! (ported from the user's csv-grid: space-separated ANDed terms, `'exact` substrings,
+//! smart-case, scored subsequence) that returns matched indices for highlighting, and
+//! re-parses on external change. The `.bib` is never modified.
 
-use fuzzy_matcher::skim::SkimMatcherV2;
-use fuzzy_matcher::FuzzyMatcher;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
 use std::collections::HashMap;
@@ -14,12 +14,30 @@ use tauri::{AppHandle, Emitter, Manager};
 pub struct BibEntry {
     key: String,
     entry_type: String,
-    author: String,    // short display, e.g. "Mildenhall and Major"
+    author: String,    // full short "A and B" (hover / detail)
+    coauthors: String, // co-authors beyond the first (display; first is in the key)
     year: String,
     title: String,
-    container: String, // journal / booktitle / publisher
+    container: String,
     #[serde(skip)]
-    search: String,    // lowercased blob for fuzzy matching
+    label: String, // "key  title" (cased) — display + match target
+    #[serde(skip)]
+    label_lower: Vec<char>,
+    #[serde(skip)]
+    label_cased: Vec<char>,
+}
+
+/// A search hit: the display label plus the char indices matched (for highlighting).
+#[derive(Serialize)]
+pub struct CiteMatch {
+    key: String,
+    label: String,
+    author: String,
+    coauthors: String,
+    year: String,
+    title: String,
+    container: String,
+    positions: Vec<usize>,
 }
 
 #[derive(Default)]
@@ -28,8 +46,6 @@ pub struct BibState {
     watcher: Mutex<Option<RecommendedWatcher>>,
 }
 
-/// Flatten a BibTeX value to display text: drop braces, `~`→space, `\cmd`→removed,
-/// `\&`→`&`, collapse whitespace.
 fn clean(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     let mut chars = s.chars().peekable();
@@ -52,9 +68,8 @@ fn clean(s: &str) -> String {
     out.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-/// "Last, First and A B" → "Last and B"; 3+ authors → "Last et al."
-fn format_authors(field: &str) -> String {
-    let lasts: Vec<String> = field
+fn last_names(field: &str) -> Vec<String> {
+    field
         .split(" and ")
         .map(str::trim)
         .filter(|s| !s.is_empty())
@@ -66,13 +81,30 @@ fn format_authors(field: &str) -> String {
             }
         })
         .filter(|s| !s.is_empty())
-        .collect();
-    match lasts.len() {
+        .collect()
+}
+
+fn short_authors(field: &str) -> String {
+    let l = last_names(field);
+    match l.len() {
         0 => String::new(),
-        1 => lasts[0].clone(),
-        2 => format!("{} and {}", lasts[0], lasts[1]),
-        _ => format!("{} et al.", lasts[0]),
+        1 => l[0].clone(),
+        2 => format!("{} and {}", l[0], l[1]),
+        _ => format!("{} et al.", l[0]),
     }
+}
+
+/// Co-authors = last names beyond the first (the first author is already in the key).
+fn coauthors(field: &str) -> String {
+    let l = last_names(field);
+    if l.len() <= 1 {
+        return String::new();
+    }
+    let mut s = l[1..].iter().take(2).cloned().collect::<Vec<_>>().join(", ");
+    if l.len() > 3 {
+        s.push_str(", …");
+    }
+    s
 }
 
 fn parse_fields(s: &str, strings: &HashMap<String, String>) -> HashMap<String, String> {
@@ -97,7 +129,7 @@ fn parse_fields(s: &str, strings: &HashMap<String, String>) -> HashMap<String, S
         if i >= b.len() {
             break;
         }
-        i += 1; // '='
+        i += 1;
 
         let mut value = String::new();
         loop {
@@ -152,10 +184,7 @@ fn parse_fields(s: &str, strings: &HashMap<String, String>) -> HashMap<String, S
                         i += 1;
                     }
                     let word = s[vs..i].trim();
-                    strings
-                        .get(&word.to_lowercase())
-                        .cloned()
-                        .unwrap_or_else(|| word.to_string())
+                    strings.get(&word.to_lowercase()).cloned().unwrap_or_else(|| word.to_string())
                 }
             };
             value.push_str(&part);
@@ -164,7 +193,7 @@ fn parse_fields(s: &str, strings: &HashMap<String, String>) -> HashMap<String, S
             }
             if i < b.len() && b[i] == b'#' {
                 i += 1;
-                continue; // concatenation
+                continue;
             }
             break;
         }
@@ -188,7 +217,7 @@ pub fn parse_bib(src: &str) -> Vec<BibEntry> {
         if i >= b.len() {
             break;
         }
-        i += 1; // '@'
+        i += 1;
         let ts = i;
         while i < b.len() && (b[i] as char).is_ascii_alphabetic() {
             i += 1;
@@ -217,13 +246,12 @@ pub fn parse_bib(src: &str) -> Vec<BibEntry> {
             i += 1;
         }
         let body = &src[bs..i.min(src.len())];
-        i += 1; // closing brace
+        i += 1;
 
         match etype.as_str() {
             "comment" | "preamble" => continue,
             "string" => {
-                let f = parse_fields(body, &strings);
-                for (k, v) in f {
+                for (k, v) in parse_fields(body, &strings) {
                     strings.insert(k, clean(&v));
                 }
                 continue;
@@ -240,7 +268,6 @@ pub fn parse_bib(src: &str) -> Vec<BibEntry> {
         }
         let f = parse_fields(rest, &strings);
         let author_field = f.get("author").or_else(|| f.get("editor")).cloned().unwrap_or_default();
-        let author = format_authors(&author_field);
         let year = f
             .get("year")
             .cloned()
@@ -254,29 +281,174 @@ pub fn parse_bib(src: &str) -> Vec<BibEntry> {
                 .cloned()
                 .unwrap_or_default(),
         );
-        let keywords = clean(&f.get("keywords").cloned().unwrap_or_default());
-        let search = format!(
-            "{} {} {} {} {} {}",
-            key,
-            clean(&author_field),
-            year,
-            title,
-            container,
-            keywords
-        )
-        .to_lowercase();
-
+        let label = format!("{}  {}", key, title);
         out.push(BibEntry {
+            author: short_authors(&author_field),
+            coauthors: coauthors(&author_field),
+            label_lower: label.to_lowercase().chars().collect(),
+            label_cased: label.chars().collect(),
             key,
             entry_type: etype,
-            author,
             year,
             title,
             container,
-            search,
+            label,
         });
     }
     out
+}
+
+// ---- fzf-style matcher (ported from csv-grid) over key+title ----
+
+struct Term {
+    exact: bool,
+    cs: bool,
+    s: Vec<char>,
+}
+
+fn parse_terms(q: &str) -> Vec<Term> {
+    let chars: Vec<char> = q.chars().collect();
+    let mut terms = Vec::new();
+    let mut i = 0;
+    while i < chars.len() {
+        while i < chars.len() && chars[i].is_whitespace() {
+            i += 1;
+        }
+        if i >= chars.len() {
+            break;
+        }
+        let exact = chars[i] == '\'';
+        if exact {
+            i += 1;
+        }
+        let start = i;
+        while i < chars.len() && chars[i] != '\'' && !chars[i].is_whitespace() {
+            i += 1;
+        }
+        let raw: String = chars[start..i].iter().collect();
+        if raw.is_empty() {
+            continue;
+        }
+        let cs = raw.chars().any(|c| c.is_uppercase());
+        let s = if cs {
+            raw.chars().collect()
+        } else {
+            raw.to_lowercase().chars().collect()
+        };
+        terms.push(Term { exact, cs, s });
+    }
+    terms
+}
+
+fn is_boundary(c: char) -> bool {
+    c.is_whitespace() || "_-/\\.,:;()[]{}\"'".contains(c)
+}
+
+fn fuzzy(hay: &[char], needle: &[char]) -> Option<(i64, Vec<usize>)> {
+    let (n, m) = (hay.len(), needle.len());
+    if m == 0 {
+        return Some((0, vec![]));
+    }
+    if m > n {
+        return None;
+    }
+    let mut j = 0;
+    let mut end = None;
+    for i in 0..n {
+        if hay[i] == needle[j] {
+            j += 1;
+            if j == m {
+                end = Some(i);
+                break;
+            }
+        }
+    }
+    let end = end?;
+    j = m - 1;
+    let mut start = end;
+    let mut i = end as isize;
+    while i >= 0 {
+        let ii = i as usize;
+        if hay[ii] == needle[j] {
+            start = ii;
+            if j == 0 {
+                break;
+            }
+            j -= 1;
+        }
+        i -= 1;
+    }
+    let mut score = 100 - 3 * (end as i64 - start as i64 + 1 - m as i64) - start.min(20) as i64;
+    let mut idx = Vec::new();
+    j = 0;
+    let mut prev = false;
+    let mut k = start;
+    while k <= end && j < m {
+        if hay[k] == needle[j] {
+            if k == 0 || is_boundary(hay[k - 1]) {
+                score += 8;
+            }
+            if prev {
+                score += 4;
+            }
+            prev = true;
+            idx.push(k);
+            j += 1;
+        } else {
+            prev = false;
+        }
+        k += 1;
+    }
+    Some((score, idx))
+}
+
+fn exact(hay: &[char], needle: &[char]) -> Option<(i64, Vec<usize>)> {
+    if needle.is_empty() {
+        return Some((0, vec![]));
+    }
+    if needle.len() > hay.len() {
+        return None;
+    }
+    for p in 0..=(hay.len() - needle.len()) {
+        if hay[p..p + needle.len()] == needle[..] {
+            let mut score = 120 + needle.len() as i64 * 4;
+            if p == 0 || is_boundary(hay[p - 1]) {
+                score += 8;
+            }
+            return Some((score, (p..p + needle.len()).collect()));
+        }
+    }
+    None
+}
+
+fn match_entry(e: &BibEntry, terms: &[Term]) -> Option<(i64, Vec<usize>)> {
+    if terms.is_empty() {
+        return Some((0, vec![]));
+    }
+    let mut total = 0i64;
+    let mut all: Vec<usize> = Vec::new();
+    for t in terms {
+        let hay = if t.cs { &e.label_cased } else { &e.label_lower };
+        let (sc, idx) = if t.exact { exact(hay, &t.s) } else { fuzzy(hay, &t.s) }?;
+        total += sc;
+        all.extend(idx);
+    }
+    all.sort_unstable();
+    all.dedup();
+    Some((total, all))
+}
+
+fn to_match(e: &BibEntry, positions: Vec<usize>) -> CiteMatch {
+    CiteMatch {
+        key: e.key.clone(),
+        label: e.label.clone(),
+        author: e.author.clone(),
+        coauthors: e.coauthors.clone(),
+        year: e.year.clone(),
+        title: e.title.clone(),
+        container: e.container.clone(),
+        positions,
+    }
 }
 
 fn bib_path(app: &AppHandle) -> Result<String, String> {
@@ -315,7 +487,6 @@ fn watch_bib(app: &AppHandle, path: &str, state: &BibState) {
     }
 }
 
-/// Parse + index the configured `.bib` and start watching it. Safe to call repeatedly.
 pub fn reload(app: &AppHandle) -> Result<usize, String> {
     let path = bib_path(app)?;
     if path.is_empty() {
@@ -336,19 +507,18 @@ pub fn load_bibliography(app: AppHandle) -> Result<usize, String> {
 }
 
 #[tauri::command]
-pub fn search_bibliography(query: String, state: tauri::State<BibState>) -> Vec<BibEntry> {
+pub fn search_bibliography(query: String, state: tauri::State<BibState>) -> Vec<CiteMatch> {
     let entries = state.entries.lock().unwrap();
-    let q = query.trim().to_lowercase();
-    if q.is_empty() {
-        return entries.iter().take(30).cloned().collect();
+    let terms = parse_terms(&query);
+    if terms.is_empty() {
+        return entries.iter().take(40).map(|e| to_match(e, vec![])).collect();
     }
-    let matcher = SkimMatcherV2::default().ignore_case();
-    let mut scored: Vec<(i64, &BibEntry)> = entries
+    let mut scored: Vec<(i64, &BibEntry, Vec<usize>)> = entries
         .iter()
-        .filter_map(|e| matcher.fuzzy_match(&e.search, &q).map(|s| (s, e)))
+        .filter_map(|e| match_entry(e, &terms).map(|(s, idx)| (s, e, idx)))
         .collect();
     scored.sort_by(|a, b| b.0.cmp(&a.0));
-    scored.into_iter().take(30).map(|(_, e)| e.clone()).collect()
+    scored.into_iter().take(40).map(|(_, e, idx)| to_match(e, idx)).collect()
 }
 
 #[tauri::command]
@@ -362,28 +532,28 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parses_entries_strings_and_dates() {
+    fn parses_and_matches() {
         let src = r#"
         @string{jrm = "Journal of Risk"}
-        % a comment
         @article{MildenhallMajor2022,
           author = {Mildenhall, Stephen J. and Major, John A.},
           title  = {Pricing Insurance Risk: Theory and Practice},
-          year   = {2022},
-        }
+          year   = {2022}}
         @book{Smith2020, author = {Smith, Jane}, title = {A {Nested} Title},
               journal = jrm, date = {2020-05-01}}
         "#;
         let e = parse_bib(src);
         assert_eq!(e.len(), 2);
         assert_eq!(e[0].key, "MildenhallMajor2022");
-        assert_eq!(e[0].author, "Mildenhall and Major");
-        assert_eq!(e[0].year, "2022");
-        assert_eq!(e[0].title, "Pricing Insurance Risk: Theory and Practice");
-        assert_eq!(e[1].key, "Smith2020");
-        assert_eq!(e[1].author, "Smith");
+        assert_eq!(e[0].coauthors, "Major");
         assert_eq!(e[1].title, "A Nested Title");
         assert_eq!(e[1].container, "Journal of Risk");
         assert_eq!(e[1].year, "2020");
+
+        // 'mild'pric → exact "mild" and exact "pric", both hit the first entry.
+        let terms = parse_terms("'mild'pric");
+        let (_, idx) = match_entry(&e[0], &terms).unwrap();
+        assert!(!idx.is_empty());
+        assert!(match_entry(&e[1], &terms).is_none());
     }
 }

@@ -5,6 +5,16 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.22.0] - 2026-07-06
+
+### Changed
+
+- **Citation matcher upgraded** to the csv-grid fzf grammar — space-separated ANDed terms,
+  **`'exact`** contiguous substrings (e.g. `'mild'pric` = exact "mild" AND exact "pric"),
+  and smart-case — matched over **key + title** (the author is already in the key).
+- **Matched characters are highlighted** in the popup, the dropdown is **wider**, and
+  **co-authors** + year show on the detail line.
+
 ## [1.21.0] - 2026-07-06
 
 Phase 6 (spec §19–22) — authoritative **BibTeX** + citation autocomplete.

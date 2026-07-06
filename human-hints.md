@@ -3,6 +3,22 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-06 — Citation matcher = csv-grid fzf + highlighting (v1.22.0)
+
+- Replaced SkimMatcherV2 with a **port of csv-grid's fzf** (removed fuzzy-matcher dep):
+  space-sep ANDed terms, `'exact` contiguous (and `'mild'pric` = two exact terms via
+  `'`-delimiting), smart-case. Matched over **key+title** only (author redundant — in key).
+  Returns matched char indices. Unit-tested (`'mild'pric` hits entry 0 not 1).
+- Match target/display label = `"{key}  {title}"`; co-authors (last names 2..3) + year in
+  the completion **detail**. Popup **highlights** matched chars (custom `addToOptions`
+  render; default `.cm-completionLabel` hidden via CSS; wider dropdown).
+- Steve's asks all covered: `'exact`, key+title key, wider dropdown, highlighting, coauthors.
+  Still per-request idea: interleave coauthors between key and title on one line (deferred —
+  chose key+title highlighted line + coauthors detail line for clean index alignment).
+- **Quarto (Phase 7)**: Steve unsure he wants it — I'm to EXPLAIN not build. Priorities per
+  Steve: polish + bibtex (done a lot) → visuals → ST-style project explorer w/ multiple
+  arbitrary folders (he knows it's involved).
+
 ## 2026-07-06 — Phase 6: BibTeX + citations (v1.21.0)
 
 - **Hand-rolled tolerant BibTeX parser** (`src-tauri/src/bib.rs`): `@string` subst, `#`
