@@ -60,6 +60,7 @@ type AppState = {
   palette: "files" | "commands" | null;
   viewMode: "editor" | "split" | "preview";
   cursorLine: number;
+  cursorCol: number;
   sublimeTheme: SublimeTheme | null;
   editorSettings: EditorSettings | null;
   configFile: string | null;
@@ -84,7 +85,7 @@ type AppState = {
   openPalette: (mode: "files" | "commands") => void;
   closePalette: () => void;
   cycleView: () => void;
-  setCursorLine: (n: number) => void;
+  setCursorPos: (line: number, col: number) => void;
   setTreeWidth: (w: number) => void;
   setOutlineWidth: (w: number) => void;
 };
@@ -99,6 +100,7 @@ export const useStore = create<AppState>((set, get) => ({
   palette: null,
   viewMode: "split",
   cursorLine: 1,
+  cursorCol: 1,
   sublimeTheme: null,
   editorSettings: null,
   configFile: null,
@@ -186,6 +188,18 @@ export const useStore = create<AppState>((set, get) => ({
       conflict: false,
     };
     set((s) => {
+      // A concurrent openFile (e.g. double-click firing click twice) may have added
+      // this tab during our `await readFile` — dedupe here so we never get two tabs.
+      const dup = s.tabs.find((t) => t.path === path);
+      if (dup) {
+        return {
+          activePath: path,
+          tabs:
+            !preview && dup.preview
+              ? s.tabs.map((t) => (t.path === path ? { ...t, preview: false } : t))
+              : s.tabs,
+        };
+      }
       // A single preview slot: a new preview replaces the current preview tab.
       if (preview) {
         const idx = s.tabs.findIndex((t) => t.preview);
@@ -386,8 +400,9 @@ export const useStore = create<AppState>((set, get) => ({
         s.viewMode === "editor" ? "split" : s.viewMode === "split" ? "preview" : "editor",
     })),
 
-  setCursorLine: (n) => {
-    if (get().cursorLine !== n) set({ cursorLine: n });
+  setCursorPos: (line, col) => {
+    const s = get();
+    if (s.cursorLine !== line || s.cursorCol !== col) set({ cursorLine: line, cursorCol: col });
   },
 
   setTreeWidth: (w) => set({ treeWidth: clamp(w) }),

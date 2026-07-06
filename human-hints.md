@@ -3,6 +3,25 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-06 — Preview polish: KaTeX, sync, dup-tab fix (v1.20.0)
+
+- **Duplicate-tab bug** (Steve: "two tabs per file"): race in `openFile` — `await readFile`
+  between the dedup check and the tab-add; double-click fires openFile 2–3× → 2 tabs.
+  Fixed by re-checking for the tab *inside* the atomic `set()`.
+- **KaTeX math in preview** (essential — Steve does lots of math): markdown-it-texmath +
+  katex, `$…$`/`$$…$$`, `throwOnError:false`. 19 KaTeX woff2 fonts bundle into dist (offline).
+- **Sync scroll**: preview follows editor scroll proportionally (editorView.ts getActiveView
+  + onActiveViewChange; Preview attaches to view.scrollDOM). Outline jump → editor scroll →
+  preview follows.
+- **Footer**: dropped "Saved" (tabs show dirty), added **Ln/Col** (store cursorLine+cursorCol
+  via Editor onUpdate → setCursorPos).
+- **Outline font** → Arial Narrow 10pt (Steve's ST sidebar). Tree/tab fonts still TODO
+  (he wants ST project-explorer font — needs .sublime-theme discovery; deferred).
+- Config nagging: STOP — Steve set font_family=Source Code Pro himself. (If he wants 14 he
+  adds font_size; his current [editor] has only font_family.)
+- Next: **Phase 6 BibTeX** — `@` fzf autocomplete + hover-title tooltip; use Rust
+  SkimMatcherV2 (Steve endorsed; I agree it fits ~7k entries).
+
 ## 2026-07-06 — Phase 5: preview + outline (v1.18–1.19) + fixes (v1.17.1)
 
 - **1.17.1**: removed footer flicker (dropped transient "Saving…"); tabs always close —

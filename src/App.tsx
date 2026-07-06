@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { listen } from "@tauri-apps/api/event";
 import { saveSession } from "./api";
-import { isDirty, sessionSnapshot, useStore } from "./store";
+import { sessionSnapshot, useStore } from "./store";
 import { FileTree } from "./tree/FileTree";
 import { Tabs } from "./Tabs";
 import { Editor } from "./editor/Editor";
@@ -87,6 +87,8 @@ function App() {
   const reloadDoc = useStore((s) => s.reloadDoc);
   const viewMode = useStore((s) => s.viewMode);
   const cycleView = useStore((s) => s.cycleView);
+  const cursorLine = useStore((s) => s.cursorLine);
+  const cursorCol = useStore((s) => s.cursorCol);
   const setTreeWidth = useStore((s) => s.setTreeWidth);
   const setOutlineWidth = useStore((s) => s.setOutlineWidth);
 
@@ -134,16 +136,12 @@ function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [saveActive, nextTab, reopenClosed, refreshTree, openPalette, cycleView]);
 
-  // No transient "Saving…" — atomic saves are instant and it just flickered.
-  const saveStatus = activeDoc
-    ? activeDoc.conflict
-      ? "Modified externally — click to reload"
-      : activeDoc.error
-        ? "Save failed"
-        : isDirty(activeDoc)
-          ? "Modified"
-          : "Saved"
-    : "";
+  // Footer shows only exceptional states (tabs already show dirty). Line/col live at right.
+  const midStatus = activeDoc?.conflict
+    ? "Modified externally — click to reload"
+    : activeDoc?.error
+      ? "Save failed"
+      : "";
 
   return (
     <div className="app">
@@ -230,9 +228,16 @@ function App() {
             if (activeDoc?.conflict) void reloadDoc(activeDoc.path);
           }}
         >
-          {saveStatus}
+          {midStatus}
         </span>
-        <span className="status-right">v{version}</span>
+        <span className="status-right">
+          {activeDoc && (
+            <span className="status-pos">
+              Ln {cursorLine}, Col {cursorCol}
+            </span>
+          )}
+          <span className="status-ver">v{version}</span>
+        </span>
       </footer>
 
       <Palette />

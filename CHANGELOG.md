@@ -5,6 +5,24 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.20.0] - 2026-07-06
+
+### Added
+
+- **LaTeX math in the preview** (KaTeX) — inline `$…$` and display `$$…$$` render properly;
+  KaTeX fonts are bundled so it works offline.
+- **Synchronised scrolling** — the preview follows the editor's scroll (and outline jumps),
+  so source and render stay aligned.
+- **Line / column** in the footer (replacing the "Saved" indicator — tabs already show the
+  dirty dot).
+- Outline now uses **Arial Narrow** (matching the ST sidebar).
+
+### Fixed
+
+- **Duplicate tabs** — a race in `openFile` (the `await readFile` between the "already
+  open?" check and the tab add) let a double-click open the same file in two tabs. It's now
+  deduped atomically inside the state update.
+
 ## [1.19.0] - 2026-07-06
 
 Phase 5 complete (spec §18) — the document **outline**.

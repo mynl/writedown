@@ -15,7 +15,7 @@ import { setActiveView } from "./editorView";
 
 export function Editor({ path, content }: { path: string; content: string }) {
   const editActive = useStore((s) => s.editActive);
-  const setCursorLine = useStore((s) => s.setCursorLine);
+  const setCursorPos = useStore((s) => s.setCursorPos);
   const st = useStore((s) => s.sublimeTheme);
   const settings = useStore((s) => s.editorSettings);
 
@@ -54,7 +54,9 @@ export function Editor({ path, content }: { path: string; content: string }) {
       onCreateEditor={(view) => setActiveView(view)}
       onUpdate={(vu) => {
         if (vu.selectionSet || vu.docChanged) {
-          setCursorLine(vu.state.doc.lineAt(vu.state.selection.main.head).number);
+          const head = vu.state.selection.main.head;
+          const line = vu.state.doc.lineAt(head);
+          setCursorPos(line.number, head - line.from + 1);
         }
       }}
       basicSetup={{
