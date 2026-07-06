@@ -8,12 +8,14 @@ import { search } from "@codemirror/search";
 import { useStore } from "../store";
 import { editorHighlight, editorTheme } from "./theme";
 import { buildSublimeTheme } from "./sublimeTheme";
+import { frontmatterHighlight } from "./frontmatter";
 import { sublimeEditing } from "./keymap";
 
 // Language + editing behaviour is constant; the theme/highlight swap in when the
 // user's Sublime scheme is imported (spec §11). `.qmd` is treated as Markdown.
 const languageExtensions = [
   markdown({ base: markdownLanguage, codeLanguages: languages }),
+  frontmatterHighlight,
   EditorView.lineWrapping,
   search({ top: true }),
   ...sublimeEditing,
@@ -22,12 +24,25 @@ const languageExtensions = [
 export function Editor({ content }: { path: string; content: string }) {
   const editActive = useStore((s) => s.editActive);
   const st = useStore((s) => s.sublimeTheme);
+  const settings = useStore((s) => s.editorSettings);
 
-  const built = useMemo(() => (st ? buildSublimeTheme(st) : null), [st]);
-  const extensions = useMemo(
-    () => [...languageExtensions, built ? built.highlight : syntaxHighlighting(editorHighlight)],
-    [built],
+  const fontSize = settings?.font_size ?? undefined;
+  const fontFamily = settings?.font_family ?? undefined;
+
+  const built = useMemo(
+    () => (st ? buildSublimeTheme(st, { fontSize, fontFamily }) : null),
+    [st, fontSize, fontFamily],
   );
+
+  const extensions = useMemo(() => {
+    const ext = [
+      ...languageExtensions,
+      built ? built.highlight : syntaxHighlighting(editorHighlight),
+    ];
+    // Config font size also applies when there's no imported Sublime theme.
+    if (!built && fontSize) ext.push(EditorView.theme({ "&": { fontSize: `${fontSize}px` } }));
+    return ext;
+  }, [built, fontSize]);
 
   return (
     <CodeMirror

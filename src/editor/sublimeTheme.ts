@@ -18,25 +18,30 @@ function ruleFor(rules: ScopeRule[], ...scopes: string[]): ScopeRule | undefined
   return undefined;
 }
 
-function colorFor(rules: ScopeRule[], ...scopes: string[]): string | undefined {
+export function colorFor(rules: ScopeRule[], ...scopes: string[]): string | undefined {
   return ruleFor(rules, ...scopes)?.foreground ?? undefined;
 }
 
-export function buildSublimeTheme(st: SublimeTheme): {
+export function buildSublimeTheme(
+  st: SublimeTheme,
+  overrides?: { fontSize?: number; fontFamily?: string },
+): {
   theme: Extension;
   highlight: Extension;
   selection: string;
 } {
+  const fontSize = overrides?.fontSize ?? st.font_size;
+  const fontFamily = overrides?.fontFamily ?? st.font_face;
   const theme = EditorView.theme(
     {
       "&": {
         color: st.foreground,
         backgroundColor: st.background,
         height: "100%",
-        fontSize: `${st.font_size}px`,
+        fontSize: `${fontSize}px`,
       },
       ".cm-content": {
-        fontFamily: `"${st.font_face}", "Cascadia Mono", "Consolas", monospace`,
+        fontFamily: `"${fontFamily}", "Cascadia Mono", "Consolas", monospace`,
         caretColor: st.caret,
       },
       ".cm-cursor, .cm-dropCursor": { borderLeftColor: st.caret },
@@ -59,8 +64,10 @@ export function buildSublimeTheme(st: SublimeTheme): {
   };
 
   const heading = colorFor(r, "markup.heading");
-  add([t.heading1, t.heading2, t.heading3], heading, { fontWeight: "bold" });
-  add([t.heading4, t.heading5, t.heading6, t.heading], heading, { fontWeight: "bold" });
+  const headingBg = ruleFor(r, "markup.heading")?.background ?? undefined;
+  const headingStyle = { fontWeight: "bold", ...(headingBg ? { backgroundColor: headingBg } : {}) };
+  add([t.heading1, t.heading2, t.heading3], heading, headingStyle);
+  add([t.heading4, t.heading5, t.heading6, t.heading], heading, headingStyle);
   add(t.strong, undefined, { fontWeight: "bold" });
   add(t.emphasis, undefined, { fontStyle: "italic" });
   add(t.list, colorFor(r, "markup.list"));

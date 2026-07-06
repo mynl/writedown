@@ -3,6 +3,26 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-06 — Feedback round 2 + theme tuning (v1.10.0)
+
+- **Investigated the "two schemes" claim**: searched the whole ST tree. ONLY `Loudoun`
+  exists (+ RainbowCSV/ANSI). `Markdown.sublime-settings` covers both `md`+`qmd` and sets
+  NO `color_scheme`. So ST uses Loudoun for BOTH; md/qmd differences are syntax scopes,
+  not schemes. **Asked Steve where the separate md/qmd schemes are** (couldn't find them).
+- **"YAML waaay off"** root cause: CM's markdown parser doesn't scope `---` front matter,
+  so nothing coloured. **1.10.0** adds a decoration layer (`editor/frontmatter.ts`):
+  keys/values coloured via `--wd-yaml-key/val/delim` CSS vars from the scheme (Loudoun =
+  orange keys, green values). Delimiters green.
+- **Font**: Steve says 17 too big → wants 14, config-selectable. **1.10.0** editor font
+  size/family now from `config.toml [editor]` (overrides Sublime import); fresh default 14.
+  **His existing config.toml still says 15** (auto-created at 1.3.0) — he must Edit Config →
+  14. Added **Edit Config command** (Ctrl+Shift+P) + live re-apply on save.
+- Titles: added heading background from the scheme (Loudoun markup.heading grey bg).
+- **Multiple instances**: Tauri does NOT single-instance by default → multiple windows/
+  processes DO run. Caveat: they share `~/.writedown/session.json` (last-writer-wins) —
+  fine for now; per-instance session is a later consideration if it bites.
+- Per-ext scheme selection: architecture pending the two scheme files from Steve.
+
 ## 2026-07-06 — Phase 3: Sublime theme import (v1.9.0) + polish (v1.8.1)
 
 - **1.8.1** fixed the still-invisible selection (global CSS `!important` via `--cm-sel`

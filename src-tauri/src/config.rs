@@ -1,6 +1,7 @@
 //! The `~/.writedown/` application directory (spec §5). Holds derived/disposable app
 //! state only — never user documents.
 
+use serde::Serialize;
 use std::path::PathBuf;
 use tauri::Manager;
 
@@ -14,8 +15,9 @@ const DEFAULT_CONFIG: &str = r#"# Writedown configuration (~/.writedown/config.t
 restore_session = true
 
 [editor]
-font_family = "Cascadia Mono"
-font_size = 15
+# font_family/font_size override the imported Sublime font (leave unset to use Sublime's).
+font_family = "Source Code Pro"
+font_size = 14
 tab_size = 4
 word_wrap = true
 strip_trailing_whitespace = true
@@ -79,4 +81,36 @@ pub fn load_config(app: tauri::AppHandle) -> Result<String, String> {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
         Err(e) => Err(format!("read config.toml: {e}")),
     }
+}
+
+/// Absolute path to `config.toml` (for the "Edit Config" command).
+#[tauri::command]
+pub fn config_path(app: tauri::AppHandle) -> Result<String, String> {
+    Ok(writedown_dir(&app)?.join("config.toml").to_string_lossy().to_string())
+}
+
+#[derive(Serialize, Default)]
+pub struct EditorSettings {
+    font_size: Option<u32>,
+    font_family: Option<String>,
+}
+
+/// Parse `[editor]` font settings from `config.toml`. These override the imported
+/// Sublime font (spec §5). Missing/invalid config yields defaults (all None).
+#[tauri::command]
+pub fn load_editor_settings(app: tauri::AppHandle) -> Result<EditorSettings, String> {
+    let cfg = writedown_dir(&app)?.join("config.toml");
+    let txt = std::fs::read_to_string(&cfg).unwrap_or_default();
+    let val: toml::Value = txt.parse().map_err(|e: toml::de::Error| e.to_string())?;
+    let ed = val.get("editor");
+    Ok(EditorSettings {
+        font_size: ed
+            .and_then(|e| e.get("font_size"))
+            .and_then(|v| v.as_integer())
+            .map(|i| i as u32),
+        font_family: ed
+            .and_then(|e| e.get("font_family"))
+            .and_then(|v| v.as_str())
+            .map(str::to_string),
+    })
 }

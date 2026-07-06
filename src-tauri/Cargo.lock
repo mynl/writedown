@@ -4837,7 +4837,7 @@ checksum = "1ffae5123b2d3fc086436f8834ae3ab053a283cfac8fe0a0b8eaae044768a4c4"
 
 [[package]]
 name = "writedown"
-version = "1.8.1"
+version = "1.9.0"
 dependencies = [
  "json5",
  "serde",
@@ -4846,6 +4846,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-dialog",
  "tauri-plugin-opener",
+ "toml 0.8.2",
 ]
 
 [[package]]

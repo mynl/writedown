@@ -1,5 +1,6 @@
 // The command registry behind the command palette (Ctrl+Shift+P). Kept small and
 // declarative so the palette is one source of truth for user-invocable actions.
+import { configPath } from "./api";
 import { useStore } from "./store";
 
 export type Command = { id: string; title: string; run: () => void };
@@ -10,6 +11,18 @@ export function appCommands(): Command[] {
     { id: "open-folder", title: "Open Folder…", run: () => void s().openFolder() },
     { id: "save", title: "Save", run: () => void s().saveActive() },
     { id: "refresh-tree", title: "Refresh File Tree", run: () => void s().refreshTree() },
+    {
+      id: "edit-config",
+      title: "Edit Config (config.toml)",
+      run: () =>
+        void (async () => {
+          try {
+            await s().openFile(await configPath(), false);
+          } catch {
+            /* ignore */
+          }
+        })(),
+    },
     {
       id: "close-tab",
       title: "Close Tab",

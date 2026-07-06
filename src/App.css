@@ -336,6 +336,17 @@ body {
   padding: 8px 0;
 }
 
+/* YAML front-matter (coloured from the imported scheme: orange keys, green values). */
+.wd-yaml-key {
+  color: var(--wd-yaml-key, #cda869) !important;
+}
+.wd-yaml-val {
+  color: var(--wd-yaml-val, #8f9d6a) !important;
+}
+.wd-yaml-delim {
+  color: var(--wd-yaml-delim, #99cc99) !important;
+}
+
 /* Selection MUST be visible. Plain global CSS with !important reliably overrides
    CodeMirror's injected styles; the colour comes from --cm-sel (set to the imported
    Sublime selection colour, or the fallback below). */

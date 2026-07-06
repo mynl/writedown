@@ -5,6 +5,21 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.10.0] - 2026-07-06
+
+### Added
+
+- **YAML front-matter highlighting** (spec §17) — the `---` block now colours keys and
+  values from the imported scheme (Loudoun → orange keys, green values). CodeMirror's
+  Markdown parser doesn't scope front matter, so this is a dedicated decoration layer.
+- **Config-selectable editor font** — the editor font size/family come from `[editor]`
+  in `~/.writedown/config.toml`, overriding the imported Sublime font. Fresh-install
+  default is now **14** (was importing Sublime's 17).
+- **Edit Config command** — Ctrl+Shift+P → "Edit Config (config.toml)" opens it in a tab;
+  saving re-applies the appearance live (e.g. font size).
+- Heading background imported from the Sublime scheme.
+- Backend `config_path`, `load_editor_settings`.
+
 ## [1.9.0] - 2026-07-06
 
 Phase 3 (spec §30, §11) — the editor now wears your Sublime look.

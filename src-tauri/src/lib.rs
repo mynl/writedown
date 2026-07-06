@@ -20,6 +20,8 @@ pub fn run() {
             files::read_file,
             files::write_file,
             config::load_config,
+            config::config_path,
+            config::load_editor_settings,
             session::load_session,
             session::save_session,
             sublime::load_sublime_theme,

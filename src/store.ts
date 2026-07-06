@@ -1,11 +1,14 @@
 import { create } from "zustand";
 import {
+  configPath,
   listDirectory,
+  loadEditorSettings,
   loadSession,
   loadSublimeTheme,
   pickFolder,
   readFile,
   writeFile,
+  type EditorSettings,
   type Entry,
   type Session,
   type SublimeTheme,
@@ -47,6 +50,8 @@ type AppState = {
   treeVersion: number;
   palette: "files" | "commands" | null;
   sublimeTheme: SublimeTheme | null;
+  editorSettings: EditorSettings | null;
+  configFile: string | null;
 
   hydrate: () => Promise<void>;
   loadTheme: () => Promise<void>;
@@ -76,6 +81,8 @@ export const useStore = create<AppState>((set, get) => ({
   treeVersion: 0,
   palette: null,
   sublimeTheme: null,
+  editorSettings: null,
+  configFile: null,
   treeWidth: 240,
   outlineWidth: 220,
 
@@ -231,6 +238,8 @@ export const useStore = create<AppState>((set, get) => ({
           t.path === doc.path ? { ...t, saving: false, savedContent: snapshot } : t,
         ),
       }));
+      // Saving config.toml re-applies appearance live (e.g. font_size).
+      if (doc.path === get().configFile) void get().loadTheme();
     } catch (e) {
       set((s) => ({
         tabs: s.tabs.map((t) =>
@@ -240,15 +249,43 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  // Import the user's Sublime colour scheme (spec §11); on failure keep the built-in.
+  // Load appearance: Sublime colour scheme (spec §11) + config editor settings. On any
+  // failure the built-in theme / defaults stay. Re-run to pick up config.toml edits.
   loadTheme: async () => {
     try {
       const st = await loadSublimeTheme();
-      // Selection colour goes through a CSS var — global CSS reliably overrides CM.
-      document.documentElement.style.setProperty("--cm-sel", st.selection);
+      const root = document.documentElement.style;
+      // Selection + YAML front-matter colours go through CSS vars (global CSS reliably
+      // overrides CodeMirror). Loudoun → orange keys, green values.
+      root.setProperty("--cm-sel", st.selection);
+      const pick = (...scopes: string[]) => {
+        for (const s of scopes) {
+          const r =
+            st.rules.find((x) => x.scope === s) ??
+            st.rules.find((x) => x.scope.split(/[ ,]+/).includes(s));
+          if (r?.foreground) return r.foreground;
+        }
+        return undefined;
+      };
+      const key = pick("entity.name.tag.yaml", "keyword");
+      const val = pick("string");
+      const delim = pick("comment");
+      if (key) root.setProperty("--wd-yaml-key", key);
+      if (val) root.setProperty("--wd-yaml-val", val);
+      if (delim) root.setProperty("--wd-yaml-delim", delim);
       set({ sublimeTheme: st });
     } catch {
       /* no Sublime install / unreadable — the built-in theme stays */
+    }
+    try {
+      set({ editorSettings: await loadEditorSettings() });
+    } catch {
+      /* config unreadable — editor defaults stay */
+    }
+    try {
+      set({ configFile: await configPath() });
+    } catch {
+      /* ignore */
     }
   },
 
