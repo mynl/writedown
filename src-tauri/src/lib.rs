@@ -1,6 +1,7 @@
 mod config;
 mod files;
 mod session;
+mod sublime;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -21,6 +22,7 @@ pub fn run() {
             config::load_config,
             session::load_session,
             session::save_session,
+            sublime::load_sublime_theme,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,6 +1,6 @@
 [package]
 name = "writedown"
-version = "1.8.1"
+version = "1.9.0"
 description = "A fast, local, predictable Markdown and Quarto editor for Windows"
 authors = ["Stephen J. Mildenhall"]
 edition = "2021"
@@ -23,4 +23,5 @@ tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+json5 = "0.4"
 

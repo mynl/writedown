@@ -5,6 +5,27 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.9.0] - 2026-07-06
+
+Phase 3 (spec §30, §11) — the editor now wears your Sublime look.
+
+### Added
+
+- **Sublime colour-scheme import**: on launch Writedown reads your
+  `Preferences.sublime-settings` and the active `.sublime-color-scheme` (your **Loudoun**
+  scheme), resolves `var(...)` and `color(… alpha …)` values, and applies them to
+  CodeMirror — background, foreground, caret, selection, current-line, plus headings,
+  comments, strings, keywords, constants, YAML keys, and fenced-code colours. Your editor
+  **font (Source Code Pro 17)** and line padding are imported too. Falls back to the
+  built-in theme if Sublime isn't found. Writedown never modifies your Sublime config.
+- Backend `load_sublime_theme` (`src-tauri/src/sublime.rs`), JSON5-tolerant (Sublime
+  config allows comments + trailing commas).
+
+### Fixed
+
+- Selection colour now comes from the imported scheme, applied through a reliable global
+  CSS variable.
+
 ## [1.8.1] - 2026-07-06
 
 ### Fixed

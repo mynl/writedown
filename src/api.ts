@@ -43,3 +43,27 @@ export const loadSession = () => invoke<Session>("load_session");
 export const saveSession = (session: Session) =>
   invoke<void>("save_session", { session });
 
+export type ScopeRule = {
+  scope: string;
+  foreground: string | null;
+  background: string | null;
+  font_style: string | null;
+};
+
+export type SublimeTheme = {
+  name: string;
+  dark: boolean;
+  background: string;
+  foreground: string;
+  caret: string;
+  selection: string;
+  line_highlight: string;
+  font_face: string;
+  font_size: number;
+  line_padding_top: number;
+  line_padding_bottom: number;
+  rules: ScopeRule[];
+};
+
+export const loadSublimeTheme = () => invoke<SublimeTheme>("load_sublime_theme");
+

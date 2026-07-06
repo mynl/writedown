@@ -17,6 +17,9 @@ function App() {
     getVersion().then(setVersion).catch(() => setVersion("?"));
   }, []);
 
+  const loadTheme = useStore((s) => s.loadTheme);
+  useEffect(() => void loadTheme(), [loadTheme]);
+
   const hydrate = useStore((s) => s.hydrate);
   // Restore last session, then persist the session slice on change (debounced,
   // skipping no-op changes so typing doesn't trigger writes).

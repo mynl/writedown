@@ -187,11 +187,14 @@ marketplace. Light theme + dark theme + imported Sublime-derived theme is enough
 workspace open, lazy file tree, resizable panes, tabs, editing, atomic save, config
 directory, and session restore. Editor is a plain textarea for now.
 
-**Phase 1 + Phase 2 complete** (through v1.8.0): files/tabs/save/session + the full
-CodeMirror editor (syntax, Sublime keybindings, multicursor, column select,
-find/replace/goto, preview tabs, quick-open, command palette, fzf matcher).
+**Phases 1–3 complete** (through v1.9.0): files/tabs/save/session; the full CodeMirror
+editor (syntax, Sublime keybindings, multicursor, column select, find/replace/goto,
+preview tabs, quick-open, command palette, fzf matcher); and **Sublime colour-scheme +
+font import** (the user's Loudoun scheme, Source Code Pro 17).
 
-Next: **Phase 3** — import the user's Sublime colour scheme (spec §11) into a CodeMirror
-theme. Then §30 Phases 4–7 (reliability: autosave/atomic/watching/conflict; preview +
+Next: **Phase 4** — reliability: autosave (focus-loss/idle/tab-switch), external file
+watching + conflict handling, logging. (Phase 4's watcher also delivers the tree
+auto-refresh-on-external-change the user asked for.) Then §30 Phases 5–7 (preview +
 outline; BibTeX + fzf citations via Rust SkimMatcherV2; Quarto). Backlog: Sublime-project
-multi-folder browser; Ctrl+M / Ctrl+K Ctrl+D; YAML front-matter highlight/fold.
+multi-folder browser; Ctrl+M / Ctrl+K Ctrl+D; YAML front-matter highlight/fold; math/TeX
+highlighting; config-selectable font size; config `theme.sublime_user_directory` override.

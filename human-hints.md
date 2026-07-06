@@ -3,6 +3,26 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-06 — Phase 3: Sublime theme import (v1.9.0) + polish (v1.8.1)
+
+- **1.8.1** fixed the still-invisible selection (global CSS `!important` via `--cm-sel`
+  var — the theme-object approach never stuck); 📁/📂 folder icons; active-tab accent bar +
+  tabs shrink-to-fit.
+- Read Steve's Sublime config: active scheme = **Loudoun** (his own; dark, bg `#141414`,
+  fg `#f8f8f8`, selection `white3`@0.2), font **Source Code Pro 17**, line padding 2/1.
+- **1.9.0** Rust `load_sublime_theme` (`src-tauri/src/sublime.rs`, json5) parses
+  Preferences + the `.sublime-color-scheme`, resolves `var()` / `color(alpha)`, returns
+  globals + resolved scope rules. Frontend `editor/sublimeTheme.ts` builds a CM theme +
+  markdown highlight, applied on launch; falls back to built-in if no Sublime. Never
+  writes to Sublime config. `config.toml theme.sublime_user_directory` override not wired
+  (uses `%APPDATA%` default).
+- **Couldn't visually verify** the imported look (no GUI here) — Steve to eyeball; the
+  import is best-effort with a safe fallback.
+- Steve's earlier "need smaller font": his Sublime is 17, now imported. If still too big,
+  config-selectable font size is the fix (backlog).
+- Next: **Phase 4** reliability (autosave, file-watching+conflict, logging) — also gives
+  the tree auto-refresh-on-external-change he wants. Also outstanding: math/TeX highlight.
+
 ## 2026-07-06 — Phase 2 complete: v1.8.0
 
 - **1.8.0** quick-open (Ctrl+P, all workspace files) + command palette (Ctrl+Shift+P),

@@ -2,11 +2,13 @@ import { create } from "zustand";
 import {
   listDirectory,
   loadSession,
+  loadSublimeTheme,
   pickFolder,
   readFile,
   writeFile,
   type Entry,
   type Session,
+  type SublimeTheme,
 } from "./api";
 
 const MIN_PANE = 140;
@@ -44,8 +46,10 @@ type AppState = {
 
   treeVersion: number;
   palette: "files" | "commands" | null;
+  sublimeTheme: SublimeTheme | null;
 
   hydrate: () => Promise<void>;
+  loadTheme: () => Promise<void>;
   openFolder: () => Promise<void>;
   setRoot: (path: string) => Promise<void>;
   refreshTree: () => Promise<void>;
@@ -71,6 +75,7 @@ export const useStore = create<AppState>((set, get) => ({
   closedStack: [],
   treeVersion: 0,
   palette: null,
+  sublimeTheme: null,
   treeWidth: 240,
   outlineWidth: 220,
 
@@ -232,6 +237,18 @@ export const useStore = create<AppState>((set, get) => ({
           t.path === doc.path ? { ...t, saving: false, error: String(e) } : t,
         ),
       }));
+    }
+  },
+
+  // Import the user's Sublime colour scheme (spec §11); on failure keep the built-in.
+  loadTheme: async () => {
+    try {
+      const st = await loadSublimeTheme();
+      // Selection colour goes through a CSS var — global CSS reliably overrides CM.
+      document.documentElement.style.setProperty("--cm-sel", st.selection);
+      set({ sublimeTheme: st });
+    } catch {
+      /* no Sublime install / unreadable — the built-in theme stays */
     }
   },
 

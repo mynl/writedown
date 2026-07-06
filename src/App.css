@@ -337,20 +337,14 @@ body {
 }
 
 /* Selection MUST be visible. Plain global CSS with !important reliably overrides
-   CodeMirror's injected theme styles (the theme-object approach did not stick). */
+   CodeMirror's injected styles; the colour comes from --cm-sel (set to the imported
+   Sublime selection colour, or the fallback below). */
 .cm-editor .cm-selectionBackground,
 .cm-editor.cm-focused .cm-selectionBackground {
-  background-color: #3a5f8a !important;
+  background-color: var(--cm-sel, #3a5f8a) !important;
 }
 .cm-editor .cm-content ::selection {
-  background-color: #3a5f8a !important;
-}
-@media (prefers-color-scheme: light) {
-  .cm-editor .cm-selectionBackground,
-  .cm-editor.cm-focused .cm-selectionBackground,
-  .cm-editor .cm-content ::selection {
-    background-color: #add6ff !important;
-  }
+  background-color: var(--cm-sel, #3a5f8a) !important;
 }
 
 .status-mid {

@@ -7,13 +7,13 @@ import { EditorView } from "@codemirror/view";
 import { search } from "@codemirror/search";
 import { useStore } from "../store";
 import { editorHighlight, editorTheme } from "./theme";
+import { buildSublimeTheme } from "./sublimeTheme";
 import { sublimeEditing } from "./keymap";
 
-// `.qmd` is treated as Markdown; fenced code blocks pick up nested language
-// highlighting from @codemirror/language-data (spec §9, §16).
-const baseExtensions = [
+// Language + editing behaviour is constant; the theme/highlight swap in when the
+// user's Sublime scheme is imported (spec §11). `.qmd` is treated as Markdown.
+const languageExtensions = [
   markdown({ base: markdownLanguage, codeLanguages: languages }),
-  syntaxHighlighting(editorHighlight),
   EditorView.lineWrapping,
   search({ top: true }),
   ...sublimeEditing,
@@ -21,14 +21,20 @@ const baseExtensions = [
 
 export function Editor({ content }: { path: string; content: string }) {
   const editActive = useStore((s) => s.editActive);
-  const extensions = useMemo(() => baseExtensions, []);
+  const st = useStore((s) => s.sublimeTheme);
+
+  const built = useMemo(() => (st ? buildSublimeTheme(st) : null), [st]);
+  const extensions = useMemo(
+    () => [...languageExtensions, built ? built.highlight : syntaxHighlighting(editorHighlight)],
+    [built],
+  );
 
   return (
     <CodeMirror
       className="cm-host"
       value={content}
       height="100%"
-      theme={editorTheme}
+      theme={built ? built.theme : editorTheme}
       extensions={extensions}
       onChange={(v) => editActive(v)}
       basicSetup={{
