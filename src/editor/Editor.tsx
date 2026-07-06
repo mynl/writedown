@@ -4,6 +4,7 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
 import { syntaxHighlighting } from "@codemirror/language";
 import { EditorView } from "@codemirror/view";
+import { search } from "@codemirror/search";
 import { useStore } from "../store";
 import { editorHighlight, editorTheme } from "./theme";
 import { sublimeEditing } from "./keymap";
@@ -14,6 +15,7 @@ const baseExtensions = [
   markdown({ base: markdownLanguage, codeLanguages: languages }),
   syntaxHighlighting(editorHighlight),
   EditorView.lineWrapping,
+  search({ top: true }),
   ...sublimeEditing,
 ];
 

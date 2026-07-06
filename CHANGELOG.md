@@ -5,6 +5,14 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.6.0] - 2026-07-06
+
+### Added
+
+- **Find / replace / go-to-line** in the editor (spec §23): `Ctrl+F` find, `Ctrl+H`
+  replace, `Ctrl+G` go to line; `F3` / `Shift+F3` next/previous match. (Find-in-files
+  across the workspace comes later, with backend search.)
+
 ## [1.5.0] - 2026-07-06
 
 Sublime-style editing (spec §10) — the core reason this app exists.

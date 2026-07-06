@@ -13,7 +13,7 @@ import {
   selectLine,
   toggleComment,
 } from "@codemirror/commands";
-import { selectNextOccurrence } from "@codemirror/search";
+import { gotoLine, openSearchPanel, selectNextOccurrence } from "@codemirror/search";
 
 /** Add a cursor on the line above (-1) or below (+1) each existing cursor, same column. */
 function addCursorVertically(dir: -1 | 1): StateCommand {
@@ -74,6 +74,10 @@ export const sublimeEditing = [
       { key: "Mod-Alt-ArrowUp", run: addCursorVertically(-1), preventDefault: true },
       { key: "Mod-Alt-ArrowDown", run: addCursorVertically(1), preventDefault: true },
       { key: "Mod-Shift-l", run: splitSelectionIntoLines, preventDefault: true },
+      // Find / replace / go-to-line (Sublime: Ctrl+F, Ctrl+H, Ctrl+G).
+      { key: "Mod-f", run: openSearchPanel, preventDefault: true },
+      { key: "Mod-h", run: openSearchPanel, preventDefault: true },
+      { key: "Mod-g", run: gotoLine, preventDefault: true },
     ]),
   ),
 ];
