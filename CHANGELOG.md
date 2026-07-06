@@ -5,6 +5,21 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.17.0] - 2026-07-06
+
+Phase 4 reliability — external file watching (spec §14).
+
+### Added
+
+- **External file watching** (Rust `notify`): the workspace is watched, so the **tree
+  auto-refreshes** when files are added/removed/changed externally — a soft refresh that
+  keeps your expanded folders open.
+- **External-change handling** for open files: a file changed on disk with **no** unsaved
+  edits **reloads** automatically; one changed **with** unsaved edits shows **"Modified
+  externally — click to reload"** in the footer (click reloads; `Ctrl+S` keeps your
+  version). Writedown ignores the events its own saves trigger.
+- Backend `watch_workspace`.
+
 ## [1.16.0] - 2026-07-06
 
 ### Added

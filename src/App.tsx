@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
+import { listen } from "@tauri-apps/api/event";
 import { saveSession } from "./api";
 import { isDirty, sessionSnapshot, useStore } from "./store";
 import { FileTree } from "./tree/FileTree";
@@ -19,6 +20,13 @@ function App() {
 
   const loadTheme = useStore((s) => s.loadTheme);
   useEffect(() => void loadTheme(), [loadTheme]);
+
+  // React to external file changes (spec §14): reload/conflict + tree refresh.
+  const onFsChange = useStore((s) => s.onFsChange);
+  useEffect(() => {
+    const p = listen<string[]>("fs-change", (e) => onFsChange(e.payload));
+    return () => void p.then((un) => un());
+  }, [onFsChange]);
 
   // Autosave (spec §12): on window blur (focus lost), and after a short idle pause once
   // anything is dirty. Tab-switch autosave lives in the store's setActive.
@@ -73,6 +81,7 @@ function App() {
   const reopenClosed = useStore((s) => s.reopenClosed);
   const refreshTree = useStore((s) => s.refreshTree);
   const openPalette = useStore((s) => s.openPalette);
+  const reloadDoc = useStore((s) => s.reloadDoc);
   const setTreeWidth = useStore((s) => s.setTreeWidth);
   const setOutlineWidth = useStore((s) => s.setOutlineWidth);
 
@@ -120,13 +129,15 @@ function App() {
   }, [saveActive, nextTab, reopenClosed, refreshTree, openPalette]);
 
   const saveStatus = activeDoc
-    ? activeDoc.error
-      ? "Save failed"
-      : activeDoc.saving
-        ? "Saving…"
-        : isDirty(activeDoc)
-          ? "Modified"
-          : "Saved"
+    ? activeDoc.conflict
+      ? "Modified externally — click to reload"
+      : activeDoc.error
+        ? "Save failed"
+        : activeDoc.saving
+          ? "Saving…"
+          : isDirty(activeDoc)
+            ? "Modified"
+            : "Saved"
     : "";
 
   return (
@@ -184,8 +195,15 @@ function App() {
           {root ?? "Writedown"}
         </span>
         <span
-          className={"status-mid" + (activeDoc?.error ? " status-error" : "")}
+          className={
+            "status-mid" +
+            (activeDoc?.error || activeDoc?.conflict ? " status-error" : "") +
+            (activeDoc?.conflict ? " status-action" : "")
+          }
           title={activeDoc?.error ?? ""}
+          onClick={() => {
+            if (activeDoc?.conflict) void reloadDoc(activeDoc.path);
+          }}
         >
           {saveStatus}
         </span>

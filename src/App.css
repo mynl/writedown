@@ -389,6 +389,11 @@ body {
   font-weight: 600;
 }
 
+.status-action {
+  cursor: pointer;
+  text-decoration: underline;
+}
+
 /* Command palette / quick-open overlay */
 .palette-backdrop {
   position: fixed;

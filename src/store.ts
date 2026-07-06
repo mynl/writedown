@@ -9,12 +9,17 @@ import {
   pickFolder,
   readFile,
   saveLastWorkspace,
+  watchWorkspace,
   writeFile,
   type EditorSettings,
   type Entry,
   type Session,
   type SublimeTheme,
 } from "./api";
+
+// Paths Writedown just saved — used to ignore the watcher event our own write triggers.
+const justSaved = new Set<string>();
+let fsRefreshTimer: ReturnType<typeof setTimeout> | undefined;
 
 const MIN_PANE = 140;
 const MAX_PANE = 600;
@@ -33,6 +38,8 @@ export type Doc = {
   preview: boolean;
   saving: boolean;
   error: string | null;
+  /** Changed on disk externally while this tab had unsaved edits (spec §14). */
+  conflict: boolean;
 };
 
 export const isDirty = (d: Doc) => d.content !== d.savedContent;
@@ -61,6 +68,8 @@ type AppState = {
   setRoot: (path: string) => Promise<void>;
   refreshTree: () => Promise<void>;
   openFile: (path: string, preview?: boolean) => Promise<void>;
+  reloadDoc: (path: string) => Promise<void>;
+  onFsChange: (paths: string[]) => void;
   setActive: (path: string) => void;
   promoteTab: (path: string) => void;
   closeTab: (path: string) => void;
@@ -134,6 +143,7 @@ export const useStore = create<AppState>((set, get) => ({
     const rootEntries = await listDirectory(path);
     set((s) => ({ root: path, rootEntries, treeVersion: s.treeVersion + 1 }));
     void saveLastWorkspace(path); // remember for the next cold start
+    void watchWorkspace(path).catch(() => {}); // watch for external changes (spec §14)
   },
 
   // Re-list the workspace and remount the tree (F5 / Ctrl+Shift+R). External-change
@@ -167,6 +177,7 @@ export const useStore = create<AppState>((set, get) => ({
     const content = raw.split("\r\n").join("\n");
     const doc: Doc = {
       path, content, savedContent: content, eol, preview, saving: false, error: null,
+      conflict: false,
     };
     set((s) => {
       // A single preview slot: a new preview replaces the current preview tab.
@@ -192,6 +203,52 @@ export const useStore = create<AppState>((set, get) => ({
     set((s) => ({
       tabs: s.tabs.map((t) => (t.path === path ? { ...t, preview: false } : t)),
     })),
+
+  reloadDoc: async (path) => {
+    if (!get().tabs.some((t) => t.path === path)) return;
+    try {
+      const raw = await readFile(path);
+      const eol: Doc["eol"] = raw.includes("\r\n") ? "\r\n" : "\n";
+      const content = raw.split("\r\n").join("\n");
+      set((s) => ({
+        tabs: s.tabs.map((t) =>
+          t.path === path
+            ? { ...t, content, savedContent: content, eol, conflict: false, error: null }
+            : t,
+        ),
+      }));
+    } catch {
+      /* file removed/unreadable — leave the tab as-is */
+    }
+  },
+
+  // React to external filesystem changes (spec §14): refresh the tree (soft, so expanded
+  // folders stay open), reload unmodified open files, flag conflicts on modified ones.
+  // Ignores the events our own saves trigger.
+  onFsChange: (paths) => {
+    const root = get().root;
+    if (root) {
+      clearTimeout(fsRefreshTimer);
+      fsRefreshTimer = setTimeout(() => {
+        listDirectory(root)
+          .then((rootEntries) => set({ rootEntries }))
+          .catch(() => {});
+      }, 400);
+    }
+    const open = new Map(get().tabs.map((t) => [t.path, t]));
+    for (const p of paths) {
+      if (justSaved.has(p)) continue;
+      const doc = open.get(p);
+      if (!doc) continue;
+      if (isDirty(doc)) {
+        set((s) => ({
+          tabs: s.tabs.map((t) => (t.path === p ? { ...t, conflict: true } : t)),
+        }));
+      } else {
+        void get().reloadDoc(p);
+      }
+    }
+  },
 
   closeTab: (path) =>
     set((s) => {
@@ -244,9 +301,13 @@ export const useStore = create<AppState>((set, get) => ({
     const out = doc.eol === "\r\n" ? snapshot.split("\n").join("\r\n") : snapshot;
     try {
       await writeFile(path, out);
+      justSaved.add(path); // ignore the watcher event our own write will trigger
+      setTimeout(() => justSaved.delete(path), 1500);
       set((s) => ({
         tabs: s.tabs.map((t) =>
-          t.path === path ? { ...t, saving: false, savedContent: snapshot } : t,
+          t.path === path
+            ? { ...t, saving: false, savedContent: snapshot, conflict: false }
+            : t,
         ),
       }));
       // Saving config.toml re-applies appearance live (e.g. font_size).

@@ -193,9 +193,13 @@ math, and CSV-rainbow highlighting; multi-language open (py/json/yaml/toml/tex/�
 Quarto `{python}` code cells; **autosave** (focus-loss/idle/tab-switch); **per-workspace
 session**.
 
-Remaining **Phase 4**: external file **watching + conflict handling**, save-on-close,
-configurable idle timeout, logging. (The watcher also delivers tree auto-refresh on
-external change.) Then §30 Phases 5–7 (preview + outline; BibTeX + fzf citations via Rust
-SkimMatcherV2; Quarto). Backlog: per-extension Sublime scheme (needs the user's md/qmd
-schemes — only Loudoun found); Sublime-project multi-folder browser; per-window session;
-Ctrl+M / Ctrl+K Ctrl+D; heading-appearance polish.
+**Phase 4 nearly done** (through v1.17.0): autosave, per-workspace session, external file
+**watching + conflict handling** (tree auto-refresh, reload/conflict on external change).
+Also delivered along the way: multi-language editor, CSV rainbow, YAML/LaTeX-math/TeX
+highlighting, config-selectable font + Edit Config.
+
+Remaining **Phase 4** (minor): save-on-close (window blur mostly covers it), configurable
+idle timeout, logging. Then §30 **Phase 5** (preview + outline), **6** (BibTeX + fzf
+citations via Rust SkimMatcherV2), **7** (Quarto render). Backlog: Sublime-project
+multi-folder browser; per-window session; Ctrl+M / Ctrl+K Ctrl+D; heading-appearance
+polish. (The user's ST has only the Loudoun scheme — md/qmd differ by syntax, not scheme.)

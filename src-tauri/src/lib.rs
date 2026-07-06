@@ -2,12 +2,14 @@ mod config;
 mod files;
 mod session;
 mod sublime;
+mod watch;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .manage(watch::WatchState::default())
         .setup(|app| {
             if let Err(e) = config::ensure_setup(&app.handle()) {
                 eprintln!("writedown: setup failed: {e}");
@@ -27,6 +29,7 @@ pub fn run() {
             session::load_last_workspace,
             session::save_last_workspace,
             sublime::load_sublime_theme,
+            watch::watch_workspace,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -3,6 +3,27 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-06 — features/ scrub + TeX tokens + file watching (v1.15–1.17)
+
+- **1.15.0**: real YAML frontmatter (yamlFrontmatter) → keys orange/values green; inline
+  math pairs `$…$` without needing `\` (avoids currency) + Prec.highest so it colours in
+  bullets; Python keywords split (control=pink, other=orange) — less garish.
+- **Committed features/ by accident** (git add -A swept Steve's dropped notes). Untracked +
+  gitignored, then **scrubbed from history** (filter-branch + force push) per his request.
+  Still on disk. LESSON: `git status` before `git add -A`.
+- **1.16.0 intra-math TeX**: tokenize $…$/$$…$$ → delim/text foreground, `\cmd` blue, num
+  red, op orange, brace grey (was one flat colour). Classes `.wd-math-*` in App.css.
+- **1.17.0 file watching** (Rust notify): `watch_workspace` emits `fs-change`; frontend
+  soft-refreshes tree (no collapse — re-lists root only), reloads unmodified open files,
+  flags conflict on modified ones (footer "Modified externally — click to reload").
+  `justSaved` guard ignores our own writes. Watcher (re)starts in setRoot.
+- **Font**: Steve's config.toml still `font_family = "Cascadia Mono"`, `font_size = 15` →
+  Edit Config to Source Code Pro / 14 to match ST (the import is overridden by his config).
+- md/qmd "context" = SYNTAX not scheme (only Loudoun exists); qmd `{python}` cells fixed
+  in 1.12.0 — that thread is settled.
+- Remaining Phase 4: save-on-close (blur mostly covers it), configurable idle timeout,
+  logging. Then Phase 5 (preview + outline).
+
 ## 2026-07-06 — Feedback round 3: autosave + languages + math + per-session (v1.11–1.14)
 
 Steve fed back (testing ~1.9/1.10), "keep going!". Delivered:

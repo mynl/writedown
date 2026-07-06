@@ -13,6 +13,10 @@ export type Entry = {
 export const listDirectory = (path: string) =>
   invoke<Entry[]>("list_directory", { path });
 
+/** Start watching a workspace for external changes; emits `fs-change` events. */
+export const watchWorkspace = (path: string) =>
+  invoke<void>("watch_workspace", { path });
+
 export type FileItem = { name: string; path: string; rel: string };
 
 export const listAllFiles = (root: string) =>
