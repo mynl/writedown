@@ -3,6 +3,26 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-06 — Phase 6: BibTeX + citations (v1.21.0)
+
+- **Hand-rolled tolerant BibTeX parser** (`src-tauri/src/bib.rs`): `@string` subst, `#`
+  concat, nested braces, `{…}`/`"…"`/bareword values, `date`→year, author short-form
+  (Last / Last and Last / Last et al.), TeX clean (braces, `~`, `\cmd`, `\&`). Byte-scanner
+  slicing only at ASCII delimiters → UTF-8 safe. **cargo test passes** (@string+nested+date).
+- **Index+search**: `BibState` (Mutex<Vec<BibEntry>>), SkimMatcherV2 over a per-entry search
+  blob; `search_bibliography` → top 30; `get_citation` for hover. Loaded at startup in a
+  spawned thread (7k off main).
+- **Watch**: notify watcher on the `.bib` (NonRecursive) re-parses + emits `bib-updated` on
+  change (Steve edits often, references quickly).
+- **Frontend** (`editor/citations.ts`): CM `autocompletion` override → `searchBibliography`
+  (`filter:false`, Rust ranks); `inProse` guard via syntaxTree (skip code/yaml/frontmatter);
+  `hoverTooltip` → `getCitation`; Ctrl+Shift+C inserts `@`+startCompletion. md/qmd only.
+  Config-save reloads bib.
+- **Steve must set `[bibliography] default_file`** to his `.bib` path (Edit Config).
+- **Deferred**: matched-char highlighting in popup (filter:false loses CM highlight — need
+  custom render/return indices); bracketed `[@key]` forms; doc-YAML bibliography override.
+- Next: **Phase 7 Quarto render**.
+
 ## 2026-07-06 — Preview polish: KaTeX, sync, dup-tab fix (v1.20.0)
 
 - **Duplicate-tab bug** (Steve: "two tabs per file"): race in `openFile` — `await readFile`

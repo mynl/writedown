@@ -11,6 +11,7 @@ import { csvRainbow } from "./csvRainbow";
 import { mathHighlight } from "./math";
 import { isCsv, isMarkdownDoc, languageForPath } from "./languages";
 import { sublimeEditing } from "./keymap";
+import { citationExtensions } from "./citations";
 import { setActiveView } from "./editorView";
 
 export function Editor({ path, content }: { path: string; content: string }) {
@@ -37,7 +38,10 @@ export function Editor({ path, content }: { path: string; content: string }) {
       built ? built.highlight : syntaxHighlighting(editorHighlight),
     ];
     // Prec.highest so math colouring wins over list/other syntax marks (e.g. in bullets).
-    if (isMarkdownDoc(path)) ext.push(Prec.highest(mathHighlight));
+    if (isMarkdownDoc(path)) {
+      ext.push(Prec.highest(mathHighlight));
+      ext.push(...citationExtensions); // @-citation autocomplete + hover
+    }
     if (isCsv(path)) ext.push(csvRainbow);
     if (!built && fontSize) ext.push(EditorView.theme({ "&": { fontSize: `${fontSize}px` } }));
     return ext;

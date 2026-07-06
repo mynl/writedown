@@ -2,6 +2,7 @@ import { create } from "zustand";
 import {
   configPath,
   listDirectory,
+  loadBibliography,
   loadEditorSettings,
   loadLastWorkspace,
   loadSession,
@@ -330,8 +331,11 @@ export const useStore = create<AppState>((set, get) => ({
             : t,
         ),
       }));
-      // Saving config.toml re-applies appearance live (e.g. font_size).
-      if (path === get().configFile) void get().loadTheme();
+      // Saving config.toml re-applies appearance + reindexes the bibliography live.
+      if (path === get().configFile) {
+        void get().loadTheme();
+        void loadBibliography().catch(() => {});
+      }
     } catch (e) {
       set((s) => ({
         tabs: s.tabs.map((t) => (t.path === path ? { ...t, saving: false, error: String(e) } : t)),

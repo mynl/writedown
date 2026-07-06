@@ -88,3 +88,20 @@ export const loadEditorSettings = () => invoke<EditorSettings>("load_editor_sett
 
 export const configPath = () => invoke<string>("config_path");
 
+export type BibEntry = {
+  key: string;
+  entry_type: string;
+  author: string;
+  year: string;
+  title: string;
+  container: string;
+};
+
+export const loadBibliography = () => invoke<number>("load_bibliography");
+
+export const searchBibliography = (query: string) =>
+  invoke<BibEntry[]>("search_bibliography", { query });
+
+export const getCitation = (key: string) =>
+  invoke<BibEntry | null>("get_citation", { key });
+

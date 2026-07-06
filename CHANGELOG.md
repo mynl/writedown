@@ -5,6 +5,26 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.21.0] - 2026-07-06
+
+Phase 6 (spec §19–22) — authoritative **BibTeX** + citation autocomplete.
+
+### Added
+
+- **BibTeX index**: on launch (and when you save config) Writedown parses the
+  `[bibliography] default_file` from `config.toml` into an in-memory index (key, author,
+  year, title, journal). Tolerant parser (`@string`, `#` concatenation, nested braces,
+  `date`→year). The `.bib` is **watched and re-indexed on external change**, so
+  newly-added references appear right away. It is never modified.
+- **`@` citation autocomplete** in Markdown/Quarto prose: a live popup ranked in Rust by
+  **SkimMatcherV2** (fzf-like) across key/author/year/title/journal; Enter/Tab inserts
+  `@key`. Suppressed inside code / YAML / front matter. **Ctrl+Shift+C** opens it directly.
+- **Hover a `@key`** to see its full title / author / year.
+- Backend `load_bibliography`, `search_bibliography`, `get_citation` (parser unit-tested).
+
+Point it at your library: set `[bibliography] default_file` in config (Ctrl+Shift+P →
+Edit Config).
+
 ## [1.20.1] - 2026-07-06
 
 ### Fixed

@@ -1,3 +1,4 @@
+mod bib;
 mod config;
 mod files;
 mod session;
@@ -10,10 +11,18 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(watch::WatchState::default())
+        .manage(bib::BibState::default())
         .setup(|app| {
             if let Err(e) = config::ensure_setup(&app.handle()) {
                 eprintln!("writedown: setup failed: {e}");
             }
+            // Index the BibTeX database off the main thread (7k entries take a moment).
+            let handle = app.handle().clone();
+            std::thread::spawn(move || {
+                if let Err(e) = bib::reload(&handle) {
+                    eprintln!("writedown: bibliography load failed: {e}");
+                }
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -30,6 +39,9 @@ pub fn run() {
             session::save_last_workspace,
             sublime::load_sublime_theme,
             watch::watch_workspace,
+            bib::load_bibliography,
+            bib::search_bibliography,
+            bib::get_citation,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

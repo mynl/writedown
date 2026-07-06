@@ -193,16 +193,19 @@ math, and CSV-rainbow highlighting; multi-language open (py/json/yaml/toml/tex/�
 Quarto `{python}` code cells; **autosave** (focus-loss/idle/tab-switch); **per-workspace
 session**.
 
-**Phases 1–5 complete** (through v1.19.0). Beyond the editor + Sublime theme: multi-language
-open, CSV rainbow, YAML/LaTeX-math/TeX highlighting, config-selectable font + Edit Config,
-autosave, per-workspace session, external file watching + conflict, **Markdown/Quarto
-preview pane**, and **document outline** (click-to-jump, cursor tracking).
+**Phases 1–6 complete** (through v1.21.0). The editor + Sublime theme; multi-language open;
+CSV rainbow; YAML/LaTeX-math/TeX highlighting; config-selectable fonts + Edit Config;
+autosave; per-workspace session; file watching + conflict; **preview pane** (KaTeX math,
+DOMPurify, sync scroll); **outline**; and **BibTeX** — parsed/indexed/**watched**, `@`
+autocomplete ranked by Rust **SkimMatcherV2**, hover-for-title, Ctrl+Shift+C.
 
-Next: §30 **Phase 6** — authoritative **BibTeX** database + **fzf citation autocomplete**
-(`@` in prose), using the Rust `fuzzy-matcher` **SkimMatcherV2** for the ~7,000-entry
-library (the user's `default_file` in `config.toml`). Then **Phase 7** (Quarto render).
+Next: §30 **Phase 7** — **Quarto render** (`quarto render`/`preview` via discovered
+`quarto.exe`, explicit command only).
 
-Preview follow-ups: KaTeX math, relative-image resolution, sync scroll, preview code
-highlighting. Minor Phase-4 leftovers: save-on-close, configurable idle timeout, logging.
-Backlog: Sublime-project multi-folder browser; per-window session; Ctrl+M / Ctrl+K Ctrl+D.
-(The user's ST has only the Loudoun scheme — md/qmd differ by syntax, not scheme.)
+Backlog / refinements: matched-char highlighting in the citation popup (needs custom
+render — `filter:false` drops CM's highlight); bracketed `[@key]` insertion forms;
+document-YAML `bibliography:` override; relative-image resolution + preview code
+highlighting; save-on-close, configurable idle timeout, logging; ST tree/tab fonts;
+Sublime-project multi-folder browser; Ctrl+M / Ctrl+K Ctrl+D. (ST has only Loudoun — md/qmd
+differ by syntax.) node_modules relocation can hang if installs race — `dev-setup.ps1` is
+now `/R:1 /W:1`; run installs one at a time.
