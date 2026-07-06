@@ -5,6 +5,15 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.13.0] - 2026-07-06
+
+### Added
+
+- **LaTeX math highlighting** in Markdown/Quarto — inline `$…$` (only when it contains a
+  math signal `\ ^ _`, so prose and currency like `$5` aren't miscoloured) and display
+  `$$…$$` blocks. Full **`.tex` / `.sty` / `.latex`** files use a proper TeX (stex)
+  language.
+
 ## [1.12.0] - 2026-07-06
 
 ### Added

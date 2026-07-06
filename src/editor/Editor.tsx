@@ -8,7 +8,8 @@ import { editorHighlight, editorTheme } from "./theme";
 import { buildSublimeTheme } from "./sublimeTheme";
 import { frontmatterHighlight } from "./frontmatter";
 import { csvRainbow } from "./csvRainbow";
-import { isCsv, languageForPath } from "./languages";
+import { mathHighlight } from "./math";
+import { isCsv, isMarkdownDoc, languageForPath } from "./languages";
 import { sublimeEditing } from "./keymap";
 
 export function Editor({ path, content }: { path: string; content: string }) {
@@ -34,6 +35,7 @@ export function Editor({ path, content }: { path: string; content: string }) {
       ...sublimeEditing,
       built ? built.highlight : syntaxHighlighting(editorHighlight),
     ];
+    if (isMarkdownDoc(path)) ext.push(mathHighlight);
     if (isCsv(path)) ext.push(csvRainbow);
     if (!built && fontSize) ext.push(EditorView.theme({ "&": { fontSize: `${fontSize}px` } }));
     return ext;

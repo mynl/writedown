@@ -9,6 +9,7 @@ import { python } from "@codemirror/lang-python";
 import { json } from "@codemirror/lang-json";
 import { yaml } from "@codemirror/lang-yaml";
 import { toml } from "@codemirror/legacy-modes/mode/toml";
+import { stex } from "@codemirror/legacy-modes/mode/stex";
 
 // Quarto / RMarkdown code cells use ```{python}, ```{r, echo=FALSE}, ```{=html} — strip
 // the braces/options so the nested language still highlights (spec §16).
@@ -35,9 +36,16 @@ export function languageForPath(path: string): Extension | null {
       return yaml();
     case "toml":
       return StreamLanguage.define(toml);
+    case "tex":
+    case "latex":
+    case "sty":
+      return StreamLanguage.define(stex);
     default:
       return null; // csv/tsv/txt etc. — plain text (csv also gets the rainbow layer)
   }
 }
 
 export const isCsv = (path: string): boolean => /\.(csv|tsv)$/i.test(path);
+
+/** Markdown/Quarto docs get the inline `$…$` / `$$…$$` math layer. */
+export const isMarkdownDoc = (path: string): boolean => /\.(md|markdown|qmd)$/i.test(path);

@@ -346,6 +346,11 @@ body {
 .wd-col-6 { color: #d19a66; }
 .wd-col-7 { color: #abb2bf; }
 
+/* LaTeX math ($…$, $$…$$) in Markdown/Quarto. */
+.wd-math {
+  color: var(--wd-math, #6cc6b8) !important;
+}
+
 /* YAML front-matter (coloured from the imported scheme: orange keys, green values). */
 .wd-yaml-key {
   color: var(--wd-yaml-key, #cda869) !important;
