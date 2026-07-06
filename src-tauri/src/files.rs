@@ -5,8 +5,11 @@ use serde::Serialize;
 
 /// First-class document extensions (spec §6).
 const DOC_EXTS: &[&str] = &["md", "qmd", "markdown"];
-/// Supporting files shown in the tree where useful (spec §6).
-const SUPPORT_EXTS: &[&str] = &["bib", "csl", "yml", "yaml", "toml"];
+/// Supporting / openable files shown in the tree where useful (spec §6). Includes code
+/// and data files Writedown can open and colourise (Python, JSON, CSV, TOML, YAML, …).
+const SUPPORT_EXTS: &[&str] = &[
+    "bib", "csl", "yml", "yaml", "toml", "json", "py", "r", "sh", "csv", "tsv", "txt", "tex",
+];
 
 #[derive(Serialize)]
 pub struct DirEntry {

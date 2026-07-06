@@ -336,6 +336,16 @@ body {
   padding: 8px 0;
 }
 
+/* CSV/TSV rainbow columns (à la Sublime RainbowCSV). */
+.wd-col-0 { color: #e06c75; }
+.wd-col-1 { color: #e5c07b; }
+.wd-col-2 { color: #98c379; }
+.wd-col-3 { color: #56b6c2; }
+.wd-col-4 { color: #61afef; }
+.wd-col-5 { color: #c678dd; }
+.wd-col-6 { color: #d19a66; }
+.wd-col-7 { color: #abb2bf; }
+
 /* YAML front-matter (coloured from the imported scheme: orange keys, green values). */
 .wd-yaml-key {
   color: var(--wd-yaml-key, #cda869) !important;

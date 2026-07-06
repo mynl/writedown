@@ -5,6 +5,18 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.12.0] - 2026-07-06
+
+### Added
+
+- **Open more file types** — the editor now colourises by extension: **Python**, **JSON**,
+  **YAML**, **TOML**, plus Markdown/Quarto; other text (`.txt`, `.tex`, `.sh`, `.r`) opens
+  as plain text. These now appear in the file tree and quick-open.
+- **CSV/TSV rainbow columns** (à la Sublime RainbowCSV) — each column coloured by index.
+- **Quarto code cells** — ` ```{python} `, ` ```{r} `, ` ```{=html} ` now highlight the
+  nested language (braces/options stripped for matching), so `.qmd` code blocks colour
+  like `.md` ones.
+
 ## [1.11.0] - 2026-07-06
 
 Phase 4 begins — **autosave** (spec §12).

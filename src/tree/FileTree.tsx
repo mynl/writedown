@@ -13,6 +13,18 @@ function icon(entry: Entry, expanded: boolean): string {
       return "◈";
     case "bib":
       return "❝";
+    case "py":
+      return "🐍";
+    case "csv":
+    case "tsv":
+      return "▦";
+    case "json":
+    case "toml":
+    case "yaml":
+    case "yml":
+      return "⚙";
+    case "tex":
+      return "∑";
     default:
       return "·";
   }
