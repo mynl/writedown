@@ -346,10 +346,13 @@ body {
 .wd-col-6 { color: #d19a66; }
 .wd-col-7 { color: #abb2bf; }
 
-/* LaTeX math ($…$, $$…$$) in Markdown/Quarto. */
-.wd-math {
-  color: var(--wd-math, #6cc6b8) !important;
-}
+/* LaTeX math ($…$, $$…$$) in Markdown/Quarto — tokens coloured ST-style. */
+.wd-math-delim { color: var(--wd-math-delim, #f8f8f8) !important; } /* the $ signs */
+.wd-math-text  { color: var(--wd-math-text, #f8f8f8) !important; }  /* variables / prose */
+.wd-math-cmd   { color: var(--wd-math-cmd, #7fb3d5) !important; }   /* \commands */
+.wd-math-num   { color: var(--wd-math-num, #cf6a4c) !important; }   /* numbers */
+.wd-math-op    { color: var(--wd-math-op, #cda869) !important; }    /* operators */
+.wd-math-brace { color: var(--wd-math-brace, #8a9a95) !important; } /* { } ( ) [ ] */
 
 /* YAML front-matter (coloured from the imported scheme: orange keys, green values). */
 .wd-yaml-key {

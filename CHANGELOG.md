@@ -5,6 +5,15 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.16.0] - 2026-07-06
+
+### Added
+
+- **Intra-math TeX colouring** — inside `$…$` / `$$…$$`, tokens are now coloured
+  separately (ST-style): `$` delimiters and variables stay foreground, while `\commands`,
+  numbers, operators, and braces each get their own colour (previously the whole span was
+  one flat colour).
+
 ## [1.15.0] - 2026-07-06
 
 ### Fixed
