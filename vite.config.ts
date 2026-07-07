@@ -5,10 +5,11 @@ import { realpathSync } from "node:fs";
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
-// Use the REAL project path as root. When launched via the `C:\S` junction, vite resolves
-// index.html to its real path but leaves root as the junction, producing a cross-path
-// asset name rollup rejects (breaks `tauri build`). Resolving root fixes the mismatch.
-const root = (() => {
+// Real (junction-resolved) project path. Used ONLY for `build`: when launched via the
+// `C:\S` junction, vite resolves index.html to its real path but leaves root as the
+// junction, producing a cross-path asset name rollup rejects. For `serve`, overriding root
+// upsets vite's dep optimizer, so we leave the default (cwd) there.
+const realRoot = (() => {
   try {
     // @ts-expect-error process is a nodejs global
     return realpathSync(process.cwd());
@@ -19,8 +20,8 @@ const root = (() => {
 })();
 
 // https://vite.dev/config/
-export default defineConfig(async () => ({
-  root,
+export default defineConfig(async ({ command }) => ({
+  ...(command === "build" ? { root: realRoot } : {}),
   plugins: [react()],
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`

@@ -5,6 +5,15 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.23.6] - 2026-07-07
+
+### Fixed
+
+- **`npm run tauri dev` crashed** in vite's dependency optimizer ("Cannot read properties of
+  undefined") after the 1.23.5 root change. The resolved-real-path `root` is now applied only
+  for `build` (where the `C:\S` junction needs it); `serve` uses the default root, which the
+  dev optimizer requires. Dev and build both work from the junction.
+
 ## [1.23.5] - 2026-07-07
 
 ### Fixed
