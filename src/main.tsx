@@ -1,4 +1,3 @@
-import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import { ErrorBoundary } from "./ErrorBoundary";
@@ -13,10 +12,10 @@ window.addEventListener("unhandledrejection", (e) => {
   void logError(`unhandled rejection: ${String(e.reason)}\n${r?.stack ?? ""}`);
 });
 
+// No StrictMode: its dev-only double-mounting of effects desyncs imperative libraries
+// (CodeMirror via @uiw). The error boundary + logging above are the safety net.
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-  <React.StrictMode>
-    <ErrorBoundary>
-      <App />
-    </ErrorBoundary>
-  </React.StrictMode>,
+  <ErrorBoundary>
+    <App />
+  </ErrorBoundary>,
 );

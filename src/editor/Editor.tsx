@@ -13,6 +13,13 @@ import { isCsv, isMarkdownDoc, languageForPath } from "./languages";
 import { sublimeEditing } from "./keymap";
 import { citationExtensions } from "./citations";
 import { setActiveView } from "./editorView";
+import { logError } from "../api";
+
+// Log any exception thrown during a CodeMirror update (these can leave the view stale).
+const cmExceptionLogger = EditorView.exceptionSink.of((err: unknown) => {
+  const e = err as { stack?: string } | undefined;
+  void logError("CodeMirror exception: " + (e?.stack ?? String(err)));
+});
 
 export function Editor({ path, content }: { path: string; content: string }) {
   const editActive = useStore((s) => s.editActive);
@@ -31,6 +38,7 @@ export function Editor({ path, content }: { path: string; content: string }) {
   const extensions = useMemo(() => {
     const lang = languageForPath(path);
     const ext = [
+      cmExceptionLogger,
       ...(lang ? [lang] : []),
       EditorView.lineWrapping,
       search({ top: true }),

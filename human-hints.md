@@ -3,6 +3,19 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-07 — 1.23.2: stale-view-after-delete hardening + probe
+
+- Steve's precise repro: test.qmd, select bottom→line-above-title, delete → CM **view**
+  stale (lines shown, no line numbers) but STATE + DISK correct. 1.23.1's try/catch turned
+  the earlier blank-crash into this stale-view → a decoration was stalling the CM update.
+- Best-effort fixes (couldn't repro headless): (1) **bounded math regexes** (display
+  `{0,4000}?`, inline `[^$\n]{1,240}?`, alternation-free → can't ReDoS/stall); (2) **removed
+  React StrictMode** (dev double-mount desyncs @uiw/CodeMirror); (3) **EditorView.exceptionSink**
+  → `logError` → `~/.writedown/logs/writedown.log`.
+- NOT root-caused with certainty. If it recurs → get the log line from Steve. If it persists,
+  next step is replacing @uiw/react-codemirror with a thin raw-CM wrapper (full control of the
+  view lifecycle).
+
 ## 2026-07-07 — 1.23.1: BIG bib parser fix + crash resilience + telemetry
 
 - **Bib parser bug (systemic)**: entry-body brace reader counted `(`/`)` as depth → an

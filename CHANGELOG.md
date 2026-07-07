@@ -5,6 +5,18 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.23.2] - 2026-07-07
+
+### Fixed
+
+- **Editor view could go stale after a large multi-line delete** — the deleted lines stayed
+  on screen (with no line numbers) even though the document state and the file on disk were
+  correct. Hardened the likely causes: **bounded the LaTeX-math regexes** (alternation-free,
+  length-capped) so they can't stall the editor's update cycle, and **removed React
+  StrictMode** (its dev-only double-mounting desyncs CodeMirror). Also added a **CodeMirror
+  exception probe** that logs any update-time error to `~/.writedown/logs/` — so if it
+  recurs, the log pinpoints the exact cause.
+
 ## [1.23.1] - 2026-07-07
 
 ### Fixed

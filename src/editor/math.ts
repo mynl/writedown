@@ -77,10 +77,12 @@ function buildInner(view: EditorView): DecorationSet {
   const regions: Array<[number, number]> = [];
   let m: RegExpExecArray | null;
 
-  const display = /\$\$[\s\S]*?\$\$/g;
+  // Bounded, alternation-free patterns — avoids catastrophic backtracking (a ReDoS hang
+  // that froze the editor's update, leaving a stale view).
+  const display = /\$\$[\s\S]{0,4000}?\$\$/g;
   while ((m = display.exec(text))) regions.push([m.index, m.index + m[0].length]);
 
-  const inline = /(?<![\\$\d])\$(?![\s$])((?:[^$\n\\]|\\.)+?)(?<!\s)\$(?!\d)/g;
+  const inline = /(?<![\\$\d])\$(?![\s$])[^$\n]{1,240}?(?<!\s)\$(?!\d)/g;
   while ((m = inline.exec(text))) {
     const from = m.index;
     const to = from + m[0].length;
