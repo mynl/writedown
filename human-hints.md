@@ -3,6 +3,17 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-07 — 1.23.3: configurable Quarto command (env/Python)
+
+- **Delete stale-view bug: CONFIRMED FIXED by Steve** (bounded math regex + StrictMode
+  removal, 1.23.2).
+- Quarto ran but `.qmd` python cells failed: "Python was not found" — Writedown's PATH lacks
+  Steve's conda env (working313). Fix: **`[quarto] command` in config.toml** with `{file}`
+  placeholder; `quarto.rs::quarto_command()` reads it (default `quarto render "{file}"`).
+  Steve sets `conda run -n working313 quarto render "{file}"`. Quick alt: launch `tauri dev`
+  from an activated env (inherits PATH). render_with_quarto now takes AppHandle.
+- Next: **1.24 ST multi-folder project — DESIGN Q&A first.**
+
 ## 2026-07-07 — 1.23.2: stale-view-after-delete hardening + probe
 
 - Steve's precise repro: test.qmd, select bottom→line-above-title, delete → CM **view**

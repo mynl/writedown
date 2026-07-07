@@ -51,6 +51,14 @@ read_only = true
 [files]
 extensions = ["md", "qmd", "markdown"]
 show_hidden = false
+
+[quarto]
+# How "Render with Quarto" (Ctrl+Shift+Q) runs. {file} is the document path.
+# Plain quarto uses whatever Python is on PATH — which may be none. To run inside a
+# conda / mamba / venv that has Quarto + Python (so code cells execute), set e.g.:
+#   command = "conda run -n working313 quarto render \"{file}\""
+#   command = "cmd /c \"call activate working313 && quarto render \\\"{file}\\\"\""
+command = 'quarto render "{file}"'
 "#;
 
 /// `~/.writedown/`.

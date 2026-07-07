@@ -5,6 +5,15 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.23.3] - 2026-07-07
+
+### Added
+
+- **Configurable Quarto command** — `[quarto] command` in `config.toml` (with a `{file}`
+  placeholder), so you can render inside the environment that actually has Python/Quarto,
+  e.g. `command = "conda run -n working313 quarto render \"{file}\""`. Fixes Quarto's
+  "Python was not found" when the app's PATH lacks your conda/venv.
+
 ## [1.23.2] - 2026-07-07
 
 ### Fixed

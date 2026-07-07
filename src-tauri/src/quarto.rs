@@ -22,18 +22,35 @@ pub fn find_quarto() -> bool {
         .unwrap_or(false)
 }
 
+/// The render command line from config `[quarto] command` ({file} = document path).
+/// Default runs plain `quarto`; set it to activate a conda/venv that has Python so code
+/// cells execute (e.g. `conda run -n myenv quarto render "{file}"`).
+fn quarto_command(app: &tauri::AppHandle) -> String {
+    let default = || "quarto render \"{file}\"".to_string();
+    let Ok(dir) = crate::config::writedown_dir(app) else { return default() };
+    let Ok(txt) = std::fs::read_to_string(dir.join("config.toml")) else { return default() };
+    let Ok(val) = txt.parse::<toml::Value>() else { return default() };
+    val.get("quarto")
+        .and_then(|q| q.get("command"))
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.trim().is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(default)
+}
+
 /// Render a `.qmd`/`.md` with Quarto, capturing the log. Returns the produced `.html`
-/// (next to the source) if it exists.
+/// (next to the source) if it exists. The command is configurable (see `quarto_command`).
 #[tauri::command]
-pub fn render_with_quarto(path: String) -> Result<QuartoResult, String> {
+pub fn render_with_quarto(app: tauri::AppHandle, path: String) -> Result<QuartoResult, String> {
     let file = std::path::Path::new(&path);
     let dir = file
         .parent()
         .ok_or_else(|| format!("no parent directory for {path}"))?;
 
+    let cmdline = quarto_command(&app).replace("{file}", &path.replace('"', ""));
     // raw_arg avoids Rust's quoting fighting cmd's own parsing (paths with spaces).
     let output = Command::new("cmd")
-        .raw_arg(format!("/C quarto render \"{}\"", path.replace('"', "")))
+        .raw_arg(format!("/C {cmdline}"))
         .current_dir(dir)
         .output()
         .map_err(|e| format!("failed to run quarto: {e}"))?;
