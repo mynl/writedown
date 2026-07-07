@@ -48,6 +48,11 @@ citation_style = "pandoc"
 watch_for_changes = true
 read_only = true
 
+[tree]
+# Left file/project panel font (like ST's sidebar).
+font_family = "Segoe UI"
+font_size = 9
+
 [files]
 extensions = ["md", "qmd", "markdown"]
 show_hidden = false
@@ -118,10 +123,12 @@ pub struct EditorSettings {
     font_family: Option<String>,
     outline_font_family: Option<String>,
     outline_font_size: Option<f64>,
+    tree_font_family: Option<String>,
+    tree_font_size: Option<f64>,
 }
 
-/// Parse `[editor]`/`[outline]` font settings from `config.toml` (spec §5). These
-/// override the imported Sublime font. Missing/invalid config yields defaults.
+/// Parse `[editor]`/`[outline]`/`[tree]` font settings from `config.toml` (spec §5).
+/// These override the imported Sublime font. Missing/invalid config yields defaults.
 #[tauri::command]
 pub fn load_editor_settings(app: tauri::AppHandle) -> Result<EditorSettings, String> {
     let cfg = writedown_dir(&app)?.join("config.toml");
@@ -129,6 +136,7 @@ pub fn load_editor_settings(app: tauri::AppHandle) -> Result<EditorSettings, Str
     let val: toml::Value = txt.parse().map_err(|e: toml::de::Error| e.to_string())?;
     let ed = val.get("editor");
     let ol = val.get("outline");
+    let tr = val.get("tree");
     let num = |v: &toml::Value| v.as_float().or_else(|| v.as_integer().map(|i| i as f64));
     Ok(EditorSettings {
         font_size: ed
@@ -144,5 +152,10 @@ pub fn load_editor_settings(app: tauri::AppHandle) -> Result<EditorSettings, Str
             .and_then(|v| v.as_str())
             .map(str::to_string),
         outline_font_size: ol.and_then(|o| o.get("font_size")).and_then(num),
+        tree_font_family: tr
+            .and_then(|t| t.get("font_family"))
+            .and_then(|v| v.as_str())
+            .map(str::to_string),
+        tree_font_size: tr.and_then(|t| t.get("font_size")).and_then(num),
     })
 }

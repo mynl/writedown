@@ -209,10 +209,15 @@ dependencies) so the author can make an eyes-open build/skip decision.
 in-process, no external Python) + duplicate Quarto label detection, surfaced as CM lint
 squiggles/gutter, auto after ~½s idle.
 
-Roadmap: **next** = Sublime-project-style **multi-folder explorer** (design Q&A first),
-then final visual polish (menus, tab font/height, explorer font, exact menu options) — run
-as an **interactive look-and-feel loop**: keep `npm run tauri dev` open (Vite HMR
-hot-reloads frontend/CSS edits live), make small changes, get feedback, repeat.
+**v1.26–1.28: punch-up batch** — py/toml/yaml outlines (capped children); New File/Folder;
+window-geometry restore; smart TOC-click scroll; **ST-style projects** (`.wdproj`, palette
+verbs, MRU quick-switch, multi-root watch/quick-open, per-project session, title bar);
+Folder|Project panel tabs; `[tree]` font config + quiet-chrome baseline (thin tabs, small
+muted headers).
+
+Roadmap: **next** = final visual polish against `st-screenshot.png` — run as an
+**interactive look-and-feel loop**: keep `npm run tauri dev` open (Vite HMR hot-reloads
+frontend/CSS edits live), make small changes, get feedback, repeat.
 
 Backlog / refinements: matched-char highlighting in the citation popup (needs custom
 render — `filter:false` drops CM's highlight); bracketed `[@key]` insertion forms;

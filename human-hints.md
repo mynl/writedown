@@ -3,6 +3,27 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-07 — 1.26–1.28: punch-up batch (9 requests)
+
+- Steve fired 9 general punch-ups; tracked as tasks, shipped in three versions:
+  **1.26.0** py/toml/yaml outlines (cap: >30 direct children → descendants dropped);
+  New File/Folder (palette + Prompt.tsx modal; create_file refuses to overwrite); window
+  geometry via tauri-plugin-window-state; smart TOC click (below-midpoint → near top).
+  **1.27.0** ST projects: .wdproj JSON (name+folders), project.rs (load/save/recents MRU
+  10 in ~/.writedown/recent-projects.json); palette verbs Add Folder/Save As/Open/Close/
+  Switch-to-recent; watch_workspace now takes Vec<String>; quick-open spans folders
+  (rel prefixed); session keyed by project file (sessionKey()); window title = project
+  name (core:window:allow-set-title). Left panel Folder|Project tabs.
+  **1.28.0** look&feel baseline: [tree] font config → --tree-font/-size; thin 26px tabs,
+  10px caps pane headers, denser tree, 22px statusbar. NOT-ST tells (deliberate): colored
+  tree glyphs, accent bar on active tab, version in footer.
+- txt/tex/json: verified ALREADY supported (SUPPORT_EXTS). If Steve hit a failure it's
+  likely a non-UTF-8 file (read_to_string) — offered encoding detection if he shows one.
+- macOS: Tauri is cross-platform; codebase now has no cmd/pwsh dependencies; needs a Mac
+  to build (.icns already generated). Told Steve: mostly yes, needs a build+test pass.
+- **Look&feel fine-tuning still to do as interactive HMR loop** (his ST screenshot is the
+  target: st-screenshot.png).
+
 ## 2026-07-07 — 1.25.0: document checks SHIPPED (python syntax + dup labels)
 
 - Steve approved the eyes-open pitch ("a fast syntax check is a big help"). Built as

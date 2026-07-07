@@ -464,6 +464,10 @@ export const useStore = create<AppState>((set, get) => ({
       if (es.outline_font_size != null) {
         root.setProperty("--outline-size", `${es.outline_font_size}pt`);
       }
+      if (es.tree_font_family) root.setProperty("--tree-font", es.tree_font_family);
+      if (es.tree_font_size != null) {
+        root.setProperty("--tree-size", `${es.tree_font_size}pt`);
+      }
     } catch {
       /* config unreadable — editor defaults stay */
     }

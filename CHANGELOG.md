@@ -5,6 +5,21 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.28.0] - 2026-07-07
+
+### Added
+
+- **`[tree]` font config** — the left file/project panel now has its own
+  `font_family`/`font_size` in `config.toml`, alongside `[editor]` and `[outline]`.
+
+### Changed
+
+- **Quieter, ST-style chrome** (first pass; fine-tuning continues interactively): thin
+  tabs (26px, 11.5px font), small-caps muted pane headers, denser tree rows with an 11.5px
+  default sidebar font, 22px status bar in the UI font. Anything that is not document text
+  is smaller and in the background. Deliberate not-ST tells kept: colored folder/file
+  glyphs in the tree, the accent bar on the active tab, and the version in the footer.
+
 ## [1.27.0] - 2026-07-07
 
 ### Added
