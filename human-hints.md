@@ -3,6 +3,23 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-07 — Quarto: project-root CWD, live log, error banner (1.23.7)
+
+- Steve's `static/load-app.html` FATAL: his "standalone" test file was physically INSIDE the
+  ConvexConsiderations tree, so **Quarto auto-detected its `_quarto.yml`** (`include-in-header:
+  static/load-app.html`, relative to project root) and applied the whole project. Render from
+  the file's subdir → static/ not found. PROVEN: rendering `index.qmd` at the project root
+  SUCCEEDS. This is **Quarto's** project auto-detection (walks up for `_quarto.yml`), NOT
+  Writedown — not overridable per render; a truly standalone file must live OUTSIDE any
+  `_quarto.yml` tree (`C:\tmp\wdq\clean.qmd` rendered fine standalone).
+- Fixes (1.23.7): (1) run quarto from `project_root()` (walk up for `_quarto.y[a]ml`) so
+  project resources resolve; (2) STREAM stdout/stderr line-by-line → `quarto-log` events →
+  live panel + autoscroll (quarto.rs spawn+2 threads+emit; App listener; store
+  quartoLog/appendQuartoLog); (3) error banner in QuartoPanel hoisting ERROR/FATAL/unable-to-
+  open lines; (4) `output_file` parsed from "Output created:" (honors output-dir like docs/).
+- Still on Quarto per Steve's "do NOT carry on to 1.24 until fixed". 1.24 (ST multi-folder,
+  design Q&A) still queued.
+
 ## 2026-07-07 — Quarto WORKS + tauri-build junction fix (1.23.5)
 
 - **WinError 5 FIXED by pwsh+profile** (1.23.4): Steve's render got "Starting python3

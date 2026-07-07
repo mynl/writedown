@@ -5,6 +5,24 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.23.7] - 2026-07-07
+
+### Added
+
+- **Live Quarto render progress** — the panel streams each output line as it happens (was:
+  the whole log only at the end) and auto-scrolls to the newest line.
+- **Prominent render errors** — on failure the panel hoists the key lines (ERROR / FATAL /
+  "unable to open file" / traceback) into a red banner above the full log, so a buried
+  failure is obvious at a glance.
+
+### Changed
+
+- **Quarto renders from the project root** — Writedown walks up to the enclosing
+  `_quarto.yml`/`_quarto.yaml` and runs quarto there, so project-relative resources
+  (`static/…`, `styles.css`, `include-in-header`) resolve. Standalone files with no
+  enclosing project still render from their own folder. The output path is read from
+  Quarto's "Output created:" line (honors `output-dir`, e.g. `docs/`).
+
 ## [1.23.6] - 2026-07-07
 
 ### Fixed

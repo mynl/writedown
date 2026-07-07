@@ -32,6 +32,14 @@ function App() {
     return () => void p.then((un) => un());
   }, [onFsChange]);
 
+  // Live Quarto render output (spec §16.2): append each streamed line to the panel.
+  useEffect(() => {
+    const p = listen<string>("quarto-log", (e) =>
+      useStore.getState().appendQuartoLog(e.payload),
+    );
+    return () => void p.then((un) => un());
+  }, []);
+
   // Autosave (spec §12): on window blur (focus lost), and after a short idle pause once
   // anything is dirty. Tab-switch autosave lives in the store's setActive.
   useEffect(() => {

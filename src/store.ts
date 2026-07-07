@@ -66,6 +66,7 @@ type AppState = {
   cursorCol: number;
   quartoStatus: "idle" | "running";
   quartoResult: QuartoResult | null;
+  quartoLog: string;
   sublimeTheme: SublimeTheme | null;
   editorSettings: EditorSettings | null;
   configFile: string | null;
@@ -93,6 +94,7 @@ type AppState = {
   setCursorPos: (line: number, col: number) => void;
   renderQuarto: () => Promise<void>;
   closeQuarto: () => void;
+  appendQuartoLog: (line: string) => void;
   setTreeWidth: (w: number) => void;
   setOutlineWidth: (w: number) => void;
 };
@@ -110,6 +112,7 @@ export const useStore = create<AppState>((set, get) => ({
   cursorCol: 1,
   quartoStatus: "idle",
   quartoResult: null,
+  quartoLog: "",
   sublimeTheme: null,
   editorSettings: null,
   configFile: null,
@@ -429,18 +432,22 @@ export const useStore = create<AppState>((set, get) => ({
     const doc = tabs.find((t) => t.path === activePath);
     if (!doc || !/\.(qmd|md|markdown)$/i.test(doc.path)) return;
     await get().saveDoc(doc.path);
-    set({ quartoStatus: "running", quartoResult: null });
+    set({ quartoStatus: "running", quartoResult: null, quartoLog: "" });
     try {
       set({ quartoStatus: "idle", quartoResult: await renderWithQuarto(doc.path) });
     } catch (e) {
-      set({
+      set((s) => ({
         quartoStatus: "idle",
-        quartoResult: { success: false, log: String(e), output_file: null },
-      });
+        quartoLog: s.quartoLog + "\n" + String(e),
+        quartoResult: { success: false, log: "", output_file: null },
+      }));
     }
   },
 
-  closeQuarto: () => set({ quartoStatus: "idle", quartoResult: null }),
+  closeQuarto: () => set({ quartoStatus: "idle", quartoResult: null, quartoLog: "" }),
+
+  // Live line from the render process (see the quarto-log listener in App).
+  appendQuartoLog: (line) => set((s) => ({ quartoLog: s.quartoLog + line + "\n" })),
 
   setTreeWidth: (w) => set({ treeWidth: clamp(w) }),
   setOutlineWidth: (w) => set({ outlineWidth: clamp(w) }),
