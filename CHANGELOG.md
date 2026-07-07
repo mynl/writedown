@@ -5,6 +5,17 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.23.8] - 2026-07-07
+
+### Added
+
+- **Render log names the governing config.** The first line of every Quarto render now
+  states which `_quarto.yml` Quarto will apply (or "standalone render" when none exists
+  above the file). A `_quarto.yml` sitting anywhere in or above the file's folder silently
+  reshapes the whole render — title-prefix, css, includes, `output-dir` — and this was the
+  root cause of the mystery "unable to open file static/load-app.html" failure: a copy of a
+  blog's `_quarto.yml` sat next to the test file. Now the panel says so up front.
+
 ## [1.23.7] - 2026-07-07
 
 ### Added

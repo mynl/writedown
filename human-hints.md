@@ -3,6 +3,20 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-07 — Quarto mystery SOLVED: features\_quarto.yml (1.23.8)
+
+- The "standalone" test.qmd failure was NOT CConsid reach-back (that theory was wrong):
+  **`C:\S\AI\writedown\features\_quarto.yml` is a COPY of the blog config** sitting next to
+  test.qmd (features\ also has _freeze, .quarto, docs — blog apparatus was copied there).
+  Line 10 title "Knowledge is the Only Good", line 61 include-in-header static/load-app.html,
+  line 3 output-dir docs → every symptom. features\ lacks static\ → FATAL.
+- PROVEN: identical test.qmd copied to C:\tmp\wdq renders clean.
+- Did NOT touch features\_quarto.yml (Steve's file — his call to delete/rename/move test
+  files elsewhere).
+- 1.23.8: render log line 1 now names the governing `_quarto.yml` (or "standalone render")
+  so a nearby config can never be invisible again.
+- Steve switched model to Fable 5 after frustration; this was the "last iteration" — solved.
+
 ## 2026-07-07 — Quarto: project-root CWD, live log, error banner (1.23.7)
 
 - Steve's `static/load-app.html` FATAL: his "standalone" test file was physically INSIDE the

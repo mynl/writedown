@@ -66,7 +66,16 @@ pub fn render_with_quarto(app: tauri::AppHandle, path: String) -> Result<QuartoR
         .parent()
         .ok_or_else(|| format!("no parent directory for {path}"))?;
     // Prefer the project root so project-relative resources resolve; else the file's dir.
-    let cwd = project_root(file).unwrap_or_else(|| dir.to_path_buf());
+    let root = project_root(file);
+    let cwd = root.clone().unwrap_or_else(|| dir.to_path_buf());
+
+    // Say up front which config governs this render — a nearby _quarto.yml silently
+    // reshapes everything (title-prefix, css, includes, output-dir), so make it visible.
+    let context = match &root {
+        Some(r) => format!("[writedown] Quarto project: {}\\_quarto.yml", r.display()),
+        None => format!("[writedown] standalone render (no _quarto.yml above file); cwd: {}", dir.display()),
+    };
+    let _ = app.emit("quarto-log", &context);
 
     let cmdline = quarto_command(&app).replace("{file}", &path);
     // Run through pwsh (the user's shell, so their profile/env is set up) via a temp
@@ -83,7 +92,7 @@ pub fn render_with_quarto(app: tauri::AppHandle, path: String) -> Result<QuartoR
         .map_err(|e| format!("failed to run pwsh: {e}"))?;
 
     // Stream stdout + stderr line-by-line: emit each line and accumulate the full log.
-    let log = Arc::new(Mutex::new(String::new()));
+    let log = Arc::new(Mutex::new(context + "\n"));
     let streams: [Option<Box<dyn Read + Send>>; 2] = [
         child.stdout.take().map(|s| Box::new(s) as Box<dyn Read + Send>),
         child.stderr.take().map(|s| Box::new(s) as Box<dyn Read + Send>),
