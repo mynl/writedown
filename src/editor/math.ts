@@ -10,6 +10,7 @@ import {
   type ViewUpdate,
 } from "@codemirror/view";
 import { RangeSetBuilder } from "@codemirror/state";
+import { logError } from "../api";
 
 const cls = {
   delim: Decoration.mark({ class: "wd-math-delim" }),
@@ -60,6 +61,15 @@ function tokenize(text: string, from: number, to: number, out: Span[]) {
 }
 
 function build(view: EditorView): DecorationSet {
+  try {
+    return buildInner(view);
+  } catch (e) {
+    void logError("math highlight failed: " + String(e));
+    return Decoration.none;
+  }
+}
+
+function buildInner(view: EditorView): DecorationSet {
   const doc = view.state.doc;
   if (doc.length > MAX) return Decoration.none;
   const text = doc.toString();

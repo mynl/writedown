@@ -5,6 +5,22 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.23.1] - 2026-07-07
+
+### Fixed
+
+- **BibTeX parser dropped ~⅓ of the library.** An unbalanced `(` in a field value (e.g.
+  `booktitle = {… (March 2013}`) was counted as brace depth, so one stray paren made the
+  parser swallow every following entry until a stray `)` turned up — **2,536 of 7,160
+  entries lost**, including `Delbaen2006a`. The entry scanner now counts only the entry's
+  own braces; **all 7,160 index correctly**.
+- **Editor could crash to a blank window.** Added a React **error boundary** (shows the
+  error + a Reload button instead of blanking) and **global error logging** to
+  `~/.writedown/logs/`. The math and CSV highlighters are wrapped so a bad input can't take
+  down the editor.
+- **`@'` no longer auto-inserts `''`** — auto-close brackets is off (it also interfered with
+  prose).
+
 ## [1.23.0] - 2026-07-07
 
 Phase 7 (spec §16.2) + citation polish.

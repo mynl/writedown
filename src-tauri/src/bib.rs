@@ -229,19 +229,22 @@ pub fn parse_bib(src: &str) -> Vec<BibEntry> {
         if i >= b.len() || (b[i] != b'{' && b[i] != b'(') {
             continue;
         }
+        // Count ONLY the delimiter that opened the entry. Field values routinely contain
+        // unbalanced parens (e.g. "(March 2013"), which must not shift the brace depth —
+        // counting them made one stray `(` swallow every following entry.
+        let (open, close) = if b[i] == b'{' { (b'{', b'}') } else { (b'(', b')') };
         i += 1;
         let bs = i;
         let mut depth = 1;
         while i < b.len() && depth > 0 {
-            match b[i] {
-                b'{' | b'(' => depth += 1,
-                b'}' | b')' => {
-                    depth -= 1;
-                    if depth == 0 {
-                        break;
-                    }
+            let c = b[i];
+            if c == open {
+                depth += 1;
+            } else if c == close {
+                depth -= 1;
+                if depth == 0 {
+                    break;
                 }
-                _ => {}
             }
             i += 1;
         }
@@ -530,6 +533,18 @@ pub fn get_citation(key: String, state: tauri::State<BibState>) -> Option<BibEnt
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ignores_unbalanced_parens_in_values() {
+        // An unbalanced '(' in a value must not swallow the following entry.
+        let src = r#"
+        @unpublished{A2011, title = {{Foo (March 2011}}, author = {X, Y}}
+        @article{B2012, title = {Bar}, author = {Z, W}}
+        "#;
+        let e = parse_bib(src);
+        assert_eq!(e.len(), 2);
+        assert_eq!(e[1].key, "B2012");
+    }
 
     #[test]
     fn parses_and_matches() {

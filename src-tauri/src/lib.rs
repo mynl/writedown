@@ -34,6 +34,7 @@ pub fn run() {
             config::load_config,
             config::config_path,
             config::load_editor_settings,
+            config::log_error,
             session::load_session,
             session::save_session,
             session::load_last_workspace,

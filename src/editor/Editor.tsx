@@ -70,6 +70,7 @@ export function Editor({ path, content }: { path: string; content: string }) {
         highlightActiveLine: true,
         highlightActiveLineGutter: true,
         autocompletion: false,
+        closeBrackets: false, // no auto-inserted '' / () — annoying in prose, and broke @'
       }}
     />
   );

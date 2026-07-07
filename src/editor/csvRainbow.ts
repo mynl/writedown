@@ -8,11 +8,21 @@ import {
   type ViewUpdate,
 } from "@codemirror/view";
 import { RangeSetBuilder } from "@codemirror/state";
+import { logError } from "../api";
 
 const COLS = 8;
 const marks = Array.from({ length: COLS }, (_, i) => Decoration.mark({ class: `wd-col-${i}` }));
 
 function build(view: EditorView): DecorationSet {
+  try {
+    return buildInner(view);
+  } catch (e) {
+    void logError("csv rainbow failed: " + String(e));
+    return Decoration.none;
+  }
+}
+
+function buildInner(view: EditorView): DecorationSet {
   const b = new RangeSetBuilder<Decoration>();
   const doc = view.state.doc;
   const max = Math.min(doc.lines, 5000); // cap for very large files

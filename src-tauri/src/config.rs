@@ -91,6 +91,27 @@ pub fn config_path(app: tauri::AppHandle) -> Result<String, String> {
     Ok(writedown_dir(&app)?.join("config.toml").to_string_lossy().to_string())
 }
 
+/// Append a line to `~/.writedown/logs/writedown.log` (spec §25). Used by the frontend's
+/// global error handlers so crashes are recorded instead of vanishing.
+#[tauri::command]
+pub fn log_error(app: tauri::AppHandle, message: String) {
+    let Ok(dir) = writedown_dir(&app) else { return };
+    let logs = dir.join("logs");
+    let _ = std::fs::create_dir_all(&logs);
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    use std::io::Write;
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(logs.join("writedown.log"))
+    {
+        let _ = writeln!(f, "[{ts}] {message}");
+    }
+}
+
 #[derive(Serialize, Default)]
 pub struct EditorSettings {
     font_size: Option<u32>,

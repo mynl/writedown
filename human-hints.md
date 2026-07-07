@@ -3,6 +3,24 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-07 — 1.23.1: BIG bib parser fix + crash resilience + telemetry
+
+- **Bib parser bug (systemic)**: entry-body brace reader counted `(`/`)` as depth → an
+  unbalanced `(` in a value (Bauer2011 `booktitle = {{… (March …}}`) swallowed **2536 of
+  7160** entries (incl. Delbaen2006a). FIX: count only the entry's opening delimiter
+  (braces). Diagnosed with a throwaway test on the real bib (`C:/S/TELOS/Biblio/
+  uber-library.bib`) → now 7160/7160. Added a regression unit test.
+- **Crash resilience / telemetry** (Steve: "do you have telemetry?"): `ErrorBoundary`
+  (src/ErrorBoundary.tsx) + window error/unhandledrejection handlers (main.tsx) →
+  `log_error` command → `~/.writedown/logs/writedown.log`. Wrapped math/csv decoration
+  build() in try/catch (a decoration throw was the likely cause of "everything died on
+  delete"). Next crash gets logged + shown, not blank.
+- **closeBrackets: false** — stops `@'`→`''` + prose auto-close.
+- Steve's crash (copy tab → switch → select → delete → blank) NOT root-caused; boundary/log
+  will capture it. Tell him to check the log if it recurs.
+- Still open: below-list citation detail panel (CM can't do it natively). Then **1.24 ST
+  multi-folder (design Q&A first)**, **1.25 visual polish via tauri-dev HMR loop**.
+
 ## 2026-07-07 — 1.23.0: Quarto render + @ polish
 
 - View toggle Ctrl+Shift+V → **Ctrl+Shift+L** (Joplin). Reclaimed from Sublime split-into-

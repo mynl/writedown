@@ -10,6 +10,9 @@ export type Entry = {
   ext: string | null;
 };
 
+export const logError = (message: string) =>
+  invoke<void>("log_error", { message }).catch(() => {});
+
 export const listDirectory = (path: string) =>
   invoke<Entry[]>("list_directory", { path });
 
