@@ -54,10 +54,9 @@ show_hidden = false
 
 [quarto]
 # How "Render with Quarto" (Ctrl+Shift+Q) runs. {file} is the document path. The command
-# runs via cmd, so it can NOT see PowerShell aliases — use the full path to conda.exe (a
-# bare "conda" is usually a PowerShell function and will fail). To run inside a conda env
-# that has Python (so code cells execute), set e.g.:
-#   command = 'C:/Users/steve/miniconda3/Scripts/conda.exe run -n working313 quarto render "{file}"'
+# runs in PowerShell (pwsh) with your profile loaded, so your conda/env setup is available.
+# To render inside a conda env that has Python (so code cells execute), set:
+#   command = 'conda run -n working313 quarto render "{file}"'
 command = 'quarto render "{file}"'
 "#;
 

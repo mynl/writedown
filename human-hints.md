@@ -3,6 +3,19 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-07 — 1.23.4: Quarto via pwsh + profile (not cmd)
+
+- Steve: "why cmd? use pwsh." + bare `conda` is a PS alias (Invoke-Conda), invisible to cmd.
+- Render now runs via **pwsh -NoLogo -ExecutionPolicy Bypass -File <tempscript>** (write
+  cmdline to temp .ps1 → no quoting hell). Verified `pwsh -File` LOADS profile → bare
+  `conda run -n working313 quarto --version` → 1.6.36. find_quarto uses pwsh too.
+- Config can now be bare `conda run -n working313 quarto render "{file}"`.
+- Confirmed: render = one-time `quarto render` (NOT preview).
+- **OUTSTANDING**: WinError 5 (Access denied) on jupyter's nested python subprocess spawn —
+  process-context/job issue under GUI launch (npm tauri dev). pwsh+profile MIGHT fix (fuller
+  env). If not: production build (no npm job) OR CREATE_BREAKAWAY_FROM_JOB. Steve to test.
+- Then: 1.24 ST multi-folder (design Q&A first).
+
 ## 2026-07-07 — 1.23.3: configurable Quarto command (env/Python)
 
 - **Delete stale-view bug: CONFIRMED FIXED by Steve** (bounded math regex + StrictMode

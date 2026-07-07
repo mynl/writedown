@@ -5,6 +5,16 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.23.4] - 2026-07-07
+
+### Changed
+
+- **Quarto render now runs in PowerShell (pwsh) with your profile loaded** (was `cmd`), so
+  your conda/env setup — including the `conda` function — is available; a bare
+  `conda run -n <env> quarto render "{file}"` in `[quarto] command` now works. The command
+  is written to a temp script and run with `pwsh -File`, sidestepping shell-quoting. Render
+  is one-time (`quarto render`), never a preview server.
+
 ## [1.23.3] - 2026-07-07
 
 ### Added

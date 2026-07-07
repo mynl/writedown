@@ -2,7 +2,6 @@
 //! user command — never automatically. Discovers `quarto` from PATH via the shell.
 
 use serde::Serialize;
-use std::os::windows::process::CommandExt;
 use std::process::Command;
 
 #[derive(Serialize)]
@@ -12,11 +11,11 @@ pub struct QuartoResult {
     output_file: Option<String>,
 }
 
-/// True if `quarto` is on PATH.
+/// True if `quarto` is resolvable in PowerShell (which loads the user's profile).
 #[tauri::command]
 pub fn find_quarto() -> bool {
-    Command::new("cmd")
-        .args(["/C", "where", "quarto"])
+    Command::new("pwsh")
+        .args(["-NoLogo", "-Command", "if (Get-Command quarto -EA SilentlyContinue) { exit 0 } else { exit 1 }"])
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false)
@@ -47,13 +46,17 @@ pub fn render_with_quarto(app: tauri::AppHandle, path: String) -> Result<QuartoR
         .parent()
         .ok_or_else(|| format!("no parent directory for {path}"))?;
 
-    let cmdline = quarto_command(&app).replace("{file}", &path.replace('"', ""));
-    // raw_arg avoids Rust's quoting fighting cmd's own parsing (paths with spaces).
-    let output = Command::new("cmd")
-        .raw_arg(format!("/C {cmdline}"))
+    let cmdline = quarto_command(&app).replace("{file}", &path);
+    // Run through pwsh (the user's shell, so their profile/env is set up) via a temp
+    // script — sidesteps all shell-quoting issues.
+    let script = std::env::temp_dir().join("writedown-quarto-render.ps1");
+    std::fs::write(&script, &cmdline).map_err(|e| format!("write render script: {e}"))?;
+    let output = Command::new("pwsh")
+        .args(["-NoLogo", "-ExecutionPolicy", "Bypass", "-File"])
+        .arg(&script)
         .current_dir(dir)
         .output()
-        .map_err(|e| format!("failed to run quarto: {e}"))?;
+        .map_err(|e| format!("failed to run pwsh: {e}"))?;
 
     let mut log = String::new();
     log.push_str(&String::from_utf8_lossy(&output.stdout));
