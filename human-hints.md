@@ -3,6 +3,18 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-07 — Quarto WORKS + tauri-build junction fix (1.23.5)
+
+- **WinError 5 FIXED by pwsh+profile** (1.23.4): Steve's render got "Starting python3
+  kernel...Done", "Cell 1/1...Done". Remaining Quarto error was a `WalkError` on
+  `features/test_files/client` — a stray file in HIS test project (Quarto walks it as a
+  dir), NOT Writedown. Told him to render a clean qmd / remove test_files.
+- **1.23.5 tauri-build fix**: `npm run tauri build` failed ONLY when run from the `C:\S`
+  junction path (works from real path). vite resolved index.html to real path but kept
+  `root` as the junction → cross-path asset name rollup rejected. Fix: `vite.config.ts`
+  `root = realpathSync(process.cwd())`. Verified build from C:\S now succeeds.
+- Quarto integration is DONE/working. Ready for **1.24 ST multi-folder — design Q&A**.
+
 ## 2026-07-07 — 1.23.4: Quarto via pwsh + profile (not cmd)
 
 - Steve: "why cmd? use pwsh." + bare `conda` is a PS alias (Invoke-Conda), invisible to cmd.
