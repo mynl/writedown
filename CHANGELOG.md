@@ -5,6 +5,15 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.23.5] - 2026-07-07
+
+### Fixed
+
+- **`npm run tauri build` failed** when the project was accessed via the `C:\S` junction —
+  vite resolved `index.html` to its real path but kept `root` as the junction, emitting a
+  cross-path asset name rollup rejected. Vite's `root` is now the resolved real path, so
+  production builds work from the junction too.
+
 ## [1.23.4] - 2026-07-07
 
 ### Changed
