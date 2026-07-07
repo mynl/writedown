@@ -9,7 +9,10 @@ export function Outline() {
   const cursorLine = useStore((s) => s.cursorLine);
   const doc = tabs.find((t) => t.path === activePath) ?? null;
 
-  const headings = useMemo(() => (doc ? parseOutline(doc.content) : []), [doc?.content]);
+  const headings = useMemo(
+    () => (doc ? parseOutline(doc.content, doc.path) : []),
+    [doc?.content, doc?.path],
+  );
 
   // Active heading = the last one at or before the cursor line (spec §18).
   let active = -1;
@@ -19,7 +22,7 @@ export function Outline() {
   }
 
   if (!doc) return <div className="placeholder">&mdash;</div>;
-  if (headings.length === 0) return <div className="placeholder">No headings</div>;
+  if (headings.length === 0) return <div className="placeholder">No outline</div>;
 
   return (
     <div className="outline">

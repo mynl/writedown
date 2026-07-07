@@ -132,6 +132,28 @@ pub fn list_all_files(root: String) -> Result<Vec<FileItem>, String> {
     Ok(out)
 }
 
+/// Create a new empty file. Refuses to touch an existing file (never overwrite,
+/// spec §2); creates missing parent directories.
+#[tauri::command]
+pub fn create_file(path: String) -> Result<(), String> {
+    let target = std::path::Path::new(&path);
+    if target.exists() {
+        return Err(format!("already exists: {path}"));
+    }
+    if let Some(dir) = target.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| format!("create parent for {path}: {e}"))?;
+    }
+    std::fs::File::create_new(target)
+        .map(|_| ())
+        .map_err(|e| format!("create {path}: {e}"))
+}
+
+/// Create a directory (and any missing parents). Existing directories are fine.
+#[tauri::command]
+pub fn create_directory(path: String) -> Result<(), String> {
+    std::fs::create_dir_all(&path).map_err(|e| format!("create dir {path}: {e}"))
+}
+
 /// Read a UTF-8 text file. Returns the content verbatim (no normalisation).
 #[tauri::command]
 pub fn read_file(path: String) -> Result<String, String> {

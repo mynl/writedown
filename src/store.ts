@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import {
   configPath,
+  createDirectory,
+  createFile,
   listDirectory,
   loadBibliography,
   loadEditorSettings,
@@ -59,6 +61,12 @@ type AppState = {
 
   treeVersion: number;
   palette: "files" | "commands" | null;
+  /** Small one-line input dialog (new file/folder names, etc.). */
+  prompt: {
+    title: string;
+    placeholder: string;
+    submit: (value: string) => void | Promise<void>;
+  } | null;
   viewMode: "editor" | "split" | "preview";
   cursorLine: number;
   cursorCol: number;
@@ -85,6 +93,14 @@ type AppState = {
   saveAll: () => Promise<void>;
   openPalette: (mode: "files" | "commands") => void;
   closePalette: () => void;
+  openPrompt: (
+    title: string,
+    placeholder: string,
+    submit: (value: string) => void | Promise<void>,
+  ) => void;
+  closePrompt: () => void;
+  newFile: (rel: string) => Promise<void>;
+  newFolder: (rel: string) => Promise<void>;
   cycleView: () => void;
   setCursorPos: (line: number, col: number) => void;
   setTreeWidth: (w: number) => void;
@@ -99,6 +115,7 @@ export const useStore = create<AppState>((set, get) => ({
   closedStack: [],
   treeVersion: 0,
   palette: null,
+  prompt: null,
   viewMode: "split",
   cursorLine: 1,
   cursorCol: 1,
@@ -417,6 +434,27 @@ export const useStore = create<AppState>((set, get) => ({
 
   setTreeWidth: (w) => set({ treeWidth: clamp(w) }),
   setOutlineWidth: (w) => set({ outlineWidth: clamp(w) }),
+
+  openPrompt: (title, placeholder, submit) => set({ prompt: { title, placeholder, submit } }),
+  closePrompt: () => set({ prompt: null }),
+
+  // New file/folder, relative to the workspace root (or absolute if given).
+  newFile: async (rel) => {
+    const { root, refreshTree, openFile } = get();
+    if (!root || !rel.trim()) return;
+    const path = /^([a-zA-Z]:|\\\\|\/)/.test(rel) ? rel : `${root}\\${rel.replace(/\//g, "\\")}`;
+    await createFile(path);
+    await refreshTree();
+    await openFile(path, false);
+  },
+
+  newFolder: async (rel) => {
+    const { root, refreshTree } = get();
+    if (!root || !rel.trim()) return;
+    const path = /^([a-zA-Z]:|\\\\|\/)/.test(rel) ? rel : `${root}\\${rel.replace(/\//g, "\\")}`;
+    await createDirectory(path);
+    await refreshTree();
+  },
 }));
 
 /** The persistable slice of state (spec §24). */

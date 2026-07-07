@@ -5,6 +5,26 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.26.0] - 2026-07-07
+
+### Added
+
+- **Outlines for Python, TOML, and YAML** — the right-hand pane now shows `class`/`def`
+  structure for `.py` (top level + one nesting: methods), `[section]`/`[a.b]` tables for
+  `.toml`, and mapping keys (two levels) for `.yaml`/`.yml`. Any node with more than 30
+  direct children has its descendants dropped — an outline is a summary, not a mirror.
+- **New File… / New Folder…** in the command palette — type a path relative to the
+  workspace (missing parent folders are created), the tree refreshes, and a new file opens
+  ready to edit. Never overwrites an existing file.
+- **Window geometry is remembered** — position, size, and maximized state restore on
+  launch (`tauri-plugin-window-state`). Pane widths were already saved per workspace.
+
+### Changed
+
+- **Outline click scrolls the section near the top** when the target is below the viewport
+  midpoint (or off-screen above) — clicking a heading means "show me this section", not
+  "reveal one line at the bottom".
+
 ## [1.25.0] - 2026-07-07
 
 ### Added

@@ -11,6 +11,9 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        // Remembers window position/size/maximized between launches (~/.writedown-adjacent
+        // app data; pane widths live in the per-workspace session instead).
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .manage(watch::WatchState::default())
         .manage(bib::BibState::default())
         .setup(|app| {
@@ -31,6 +34,8 @@ pub fn run() {
             files::list_all_files,
             files::read_file,
             files::write_file,
+            files::create_file,
+            files::create_directory,
             config::load_config,
             config::config_path,
             config::load_editor_settings,

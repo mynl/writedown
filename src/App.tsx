@@ -11,6 +11,7 @@ import { Outline } from "./outline/Outline";
 import { isMarkdownDoc } from "./editor/languages";
 import { Resizer } from "./Resizer";
 import { Palette } from "./Palette";
+import { Prompt } from "./Prompt";
 import "./App.css";
 
 function App() {
@@ -241,6 +242,7 @@ function App() {
       </footer>
 
       <Palette />
+      <Prompt />
     </div>
   );
 }

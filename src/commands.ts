@@ -9,6 +9,22 @@ export function appCommands(): Command[] {
   const s = useStore.getState;
   return [
     { id: "open-folder", title: "Open Folder…", run: () => void s().openFolder() },
+    {
+      id: "new-file",
+      title: "New File…",
+      run: () =>
+        s().openPrompt("New file (relative to workspace)", "notes/idea.md", (v) =>
+          s().newFile(v),
+        ),
+    },
+    {
+      id: "new-folder",
+      title: "New Folder…",
+      run: () =>
+        s().openPrompt("New folder (relative to workspace)", "notes/drafts", (v) =>
+          s().newFolder(v),
+        ),
+    },
     { id: "save", title: "Save", run: () => void s().saveActive() },
     { id: "refresh-tree", title: "Refresh File Tree", run: () => void s().refreshTree() },
     { id: "toggle-preview", title: "Toggle Preview (editor / split / preview)", run: () => s().cycleView() },

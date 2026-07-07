@@ -1,9 +1,45 @@
-// Parse ATX headings for the document outline (spec §18). Skips YAML front matter and
-// fenced code blocks; strips Quarto heading identifiers (`{#sec-x}`) and trailing `#`.
+// Document outlines (spec §18). Markdown ATX headings (skipping YAML front matter,
+// fences, comments); plus structural outlines for Python (class/def), TOML ([section]),
+// and YAML (mapping keys). A parent with an absurd number of children has them dropped —
+// the outline is a summary, not a mirror.
 
 export type Heading = { level: number; text: string; line: number };
 
-export function parseOutline(src: string): Heading[] {
+/** Max direct children per outline node before we drop its descendants entirely. */
+const MAX_CHILDREN = 30;
+
+export function parseOutline(src: string, path?: string): Heading[] {
+  const ext = path?.split(".").pop()?.toLowerCase() ?? "";
+  switch (ext) {
+    case "py":
+      return capChildren(parsePython(src));
+    case "toml":
+      return capChildren(parseToml(src));
+    case "yaml":
+    case "yml":
+      return capChildren(parseYaml(src));
+    default:
+      return capChildren(parseMarkdown(src));
+  }
+}
+
+/** Drop all descendants of any node with more than MAX_CHILDREN direct children. */
+function capChildren(items: Heading[]): Heading[] {
+  const drop = new Set<number>();
+  for (let i = 0; i < items.length; i++) {
+    const lvl = items[i].level;
+    let direct = 0;
+    const desc: number[] = [];
+    for (let j = i + 1; j < items.length && items[j].level > lvl; j++) {
+      desc.push(j);
+      if (items[j].level === lvl + 1) direct++;
+    }
+    if (direct > MAX_CHILDREN) desc.forEach((j) => drop.add(j));
+  }
+  return items.filter((_, i) => !drop.has(i));
+}
+
+function parseMarkdown(src: string): Heading[] {
   const lines = src.split("\n");
   const out: Heading[] = [];
   let i = 0;
@@ -57,6 +93,64 @@ export function parseOutline(src: string): Heading[] {
         .trim();
       out.push({ level: h[1].length, text, line: i + 1 });
     }
+  }
+  return out;
+}
+
+// Python: classes and defs. Top-level class/def = level 1; one level of nesting
+// (methods, inner defs) = level 2; anything deeper is noise, not summary — skipped.
+function parsePython(src: string): Heading[] {
+  const lines = src.split("\n");
+  const out: Heading[] = [];
+  let classIndent = -1; // indent of the innermost class we're inside, -1 if none
+
+  for (let i = 0; i < lines.length; i++) {
+    const m = /^(\s*)(?:async\s+)?(def|class)\s+([A-Za-z_]\w*)/.exec(lines[i]);
+    if (!m) continue;
+    const indent = m[1].replace(/\t/g, "    ").length;
+    const kind = m[2];
+    const name = m[3];
+
+    if (indent === 0) {
+      classIndent = kind === "class" ? 0 : -1;
+      out.push({ level: 1, text: kind === "class" ? name : `${name}()`, line: i + 1 });
+    } else if (classIndent >= 0 && indent > classIndent && indent <= classIndent + 8) {
+      // Direct members of the current class (methods / nested classes).
+      out.push({ level: 2, text: kind === "class" ? name : `${name}()`, line: i + 1 });
+    }
+    // Deeper nesting (defs inside defs inside methods…) intentionally omitted.
+  }
+  return out;
+}
+
+// TOML: [section], [a.b.c], [[array.of.tables]]. Level = dotted depth (capped at 3);
+// text shows the last segment, indented under its parents.
+function parseToml(src: string): Heading[] {
+  const lines = src.split("\n");
+  const out: Heading[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const m = /^\s*\[\[?\s*([^\]\s]+)\s*\]\]?/.exec(lines[i]);
+    if (!m) continue;
+    const parts = m[1].split(".");
+    const level = Math.min(parts.length, 3);
+    out.push({ level, text: parts[parts.length - 1], line: i + 1 });
+  }
+  return out;
+}
+
+// YAML: mapping keys by indentation. Top-level keys = level 1, one nesting = level 2;
+// deeper structure is detail, not summary. List items are skipped.
+function parseYaml(src: string): Heading[] {
+  const lines = src.split("\n");
+  const out: Heading[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^\s*(#|-)/.test(line)) continue; // comments, list items
+    const m = /^( *)([^\s:#][^:]*):(\s|$)/.exec(line);
+    if (!m) continue;
+    const level = m[1].length === 0 ? 1 : m[1].length <= 4 ? 2 : 0;
+    if (level === 0) continue;
+    out.push({ level, text: m[2].trim(), line: i + 1 });
   }
   return out;
 }

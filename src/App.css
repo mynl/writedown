@@ -553,6 +553,22 @@ body {
   cursor: pointer;
 }
 
+/* One-line input prompt (new file / folder) */
+.prompt-box {
+  padding-bottom: 6px;
+}
+.prompt-title {
+  padding: 8px 12px 4px;
+  font-size: 12px;
+  opacity: 0.8;
+}
+.prompt-error {
+  padding: 6px 12px;
+  color: #d64545;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
 /* Citation autocomplete info panel + hover tooltip */
 .cite-info,
 .cite-tooltip {
