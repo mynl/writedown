@@ -53,11 +53,11 @@ extensions = ["md", "qmd", "markdown"]
 show_hidden = false
 
 [quarto]
-# How "Render with Quarto" (Ctrl+Shift+Q) runs. {file} is the document path.
-# Plain quarto uses whatever Python is on PATH — which may be none. To run inside a
-# conda / mamba / venv that has Quarto + Python (so code cells execute), set e.g.:
-#   command = "conda run -n working313 quarto render \"{file}\""
-#   command = "cmd /c \"call activate working313 && quarto render \\\"{file}\\\"\""
+# How "Render with Quarto" (Ctrl+Shift+Q) runs. {file} is the document path. The command
+# runs via cmd, so it can NOT see PowerShell aliases — use the full path to conda.exe (a
+# bare "conda" is usually a PowerShell function and will fail). To run inside a conda env
+# that has Python (so code cells execute), set e.g.:
+#   command = 'C:/Users/steve/miniconda3/Scripts/conda.exe run -n working313 quarto render "{file}"'
 command = 'quarto render "{file}"'
 "#;
 
