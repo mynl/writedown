@@ -553,6 +553,32 @@ body {
   cursor: pointer;
 }
 
+/* Left panel Folder / Project tabs */
+.panel-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+}
+.panel-tab {
+  font: inherit;
+  font-size: 11px;
+  padding: 5px 12px;
+  border: none;
+  background: transparent;
+  color: var(--fg);
+  opacity: 0.55;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+.panel-tab.active {
+  opacity: 1;
+  border-bottom-color: var(--accent, #7aa2f7);
+}
+.panel-tabs-spacer {
+  flex: 1;
+}
+
 /* One-line input prompt (new file / folder) */
 .prompt-box {
   padding-bottom: 6px;

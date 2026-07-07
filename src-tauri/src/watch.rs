@@ -15,10 +15,12 @@ impl Default for WatchState {
     }
 }
 
+/// Watch one or more roots (a folder workspace, or every folder of a project). One
+/// watcher instance covers all of them; calling again replaces the previous set.
 #[tauri::command]
 pub fn watch_workspace(
     app: AppHandle,
-    path: String,
+    paths: Vec<String>,
     state: tauri::State<WatchState>,
 ) -> Result<(), String> {
     let app2 = app.clone();
@@ -36,9 +38,11 @@ pub fn watch_workspace(
     })
     .map_err(|e| e.to_string())?;
 
-    watcher
-        .watch(std::path::Path::new(&path), RecursiveMode::Recursive)
-        .map_err(|e| e.to_string())?;
+    for path in &paths {
+        watcher
+            .watch(std::path::Path::new(path), RecursiveMode::Recursive)
+            .map_err(|e| format!("watch {path}: {e}"))?;
+    }
 
     // Replacing the previous watcher drops it, stopping the old watch.
     *state.0.lock().map_err(|e| e.to_string())? = Some(watcher);

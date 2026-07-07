@@ -2,6 +2,7 @@ mod bib;
 mod check;
 mod config;
 mod files;
+mod project;
 mod session;
 mod sublime;
 mod watch;
@@ -50,6 +51,10 @@ pub fn run() {
             bib::search_bibliography,
             bib::get_citation,
             check::check_document,
+            project::load_project,
+            project::save_project,
+            project::recent_projects,
+            project::add_recent_project,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

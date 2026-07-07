@@ -5,6 +5,21 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.27.0] - 2026-07-07
+
+### Added
+
+- **Sublime-style projects.** A project is a named set of folder roots in a small,
+  human-readable `.wdproj` JSON file you save wherever you like. Palette commands:
+  **Add Folder to Project…** (starts a project from the current folder if none),
+  **Save Project As…**, **Open Project…**, **Close Project**, and **Switch to "name"** —
+  one entry per recent project (MRU of 10, kept in `~/.writedown/recent-projects.json`).
+  Quick-open (Ctrl+P) spans every project folder (paths prefixed by folder name); all
+  folders are watched for external changes; tabs/session are remembered per project; the
+  window title shows the project name, ST-style.
+- **Folder / Project tabs** at the top of the left panel — Folder is the classic
+  single-root view, Project lists every project folder as a collapsible root.
+
 ## [1.26.0] - 2026-07-07
 
 ### Added

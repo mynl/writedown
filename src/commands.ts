@@ -51,5 +51,23 @@ export function appCommands(): Command[] {
     { id: "next-tab", title: "Next Tab", run: () => s().nextTab(1) },
     { id: "prev-tab", title: "Previous Tab", run: () => s().nextTab(-1) },
     { id: "reopen-tab", title: "Reopen Closed Tab", run: () => void s().reopenClosed() },
+    // ---- Projects (ST-style) ----
+    {
+      id: "proj-add-folder",
+      title: "Project: Add Folder to Project…",
+      run: () => void s().addFolderToProject(),
+    },
+    { id: "proj-save-as", title: "Project: Save Project As…", run: () => void s().saveProjectAs() },
+    { id: "proj-open", title: "Project: Open Project…", run: () => void s().openProject() },
+    { id: "proj-close", title: "Project: Close Project", run: () => s().closeProject() },
+    // Quick switch: one entry per recent project (MRU order).
+    ...s().recentProjects.map((p, i) => {
+      const name = p.replace(/\\/g, "/").split("/").pop()!.replace(/\.wdproj$/i, "");
+      return {
+        id: `proj-switch-${i}`,
+        title: `Project: Switch to “${name}”`,
+        run: () => void s().openProject(p),
+      };
+    }),
   ];
 }

@@ -24,6 +24,7 @@ function Highlight({ text, positions }: { text: string; positions: number[] }) {
 export function Palette() {
   const mode = useStore((s) => s.palette);
   const root = useStore((s) => s.root);
+  const projFolders = useStore((s) => s.projFolders);
   const closePalette = useStore((s) => s.closePalette);
   const openFile = useStore((s) => s.openFile);
 
@@ -37,10 +38,25 @@ export function Palette() {
     setQuery("");
     setSel(0);
     inputRef.current?.focus();
-    if (mode === "files" && root) {
-      listAllFiles(root).then(setFiles).catch(() => setFiles([]));
+    // Quick-open spans every project folder (one pool), or the single root.
+    const roots = projFolders.length > 0 ? projFolders : root ? [root] : [];
+    if (mode === "files" && roots.length > 0) {
+      Promise.all(
+        roots.map((r) =>
+          listAllFiles(r)
+            .then((fs) =>
+              roots.length > 1
+                ? fs.map((f) => ({
+                    ...f,
+                    rel: `${r.replace(/[\\/]+$/, "").split(/[\\/]/).pop()}/${f.rel}`,
+                  }))
+                : fs,
+            )
+            .catch(() => [] as FileItem[]),
+        ),
+      ).then((all) => setFiles(all.flat()));
     }
-  }, [mode, root]);
+  }, [mode, root, projFolders]);
 
   const commands = useMemo(() => (mode === "commands" ? appCommands() : []), [mode]);
 

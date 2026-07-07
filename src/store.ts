@@ -1,5 +1,7 @@
 import { create } from "zustand";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
+  addRecentProject,
   configPath,
   createDirectory,
   createFile,
@@ -7,11 +9,16 @@ import {
   loadBibliography,
   loadEditorSettings,
   loadLastWorkspace,
+  loadProject,
   loadSession,
   loadSublimeTheme,
   pickFolder,
+  pickProjectOpenPath,
+  pickProjectSavePath,
   readFile,
+  recentProjects as fetchRecentProjects,
   saveLastWorkspace,
+  saveProject,
   watchWorkspace,
   writeFile,
   type EditorSettings,
@@ -19,6 +26,13 @@ import {
   type Session,
   type SublimeTheme,
 } from "./api";
+
+// Window title mirrors ST: "name — Writedown" when a project is open.
+function setTitle(project: string | null) {
+  void getCurrentWindow()
+    .setTitle(project ? `${project} — Writedown` : "Writedown")
+    .catch(() => {});
+}
 
 // Paths Writedown just saved — used to ignore the watcher event our own write triggers.
 const justSaved = new Set<string>();
@@ -51,6 +65,13 @@ type AppState = {
   root: string | null;
   rootEntries: Entry[];
 
+  /** Project mode (ST-style): named set of folder roots. Empty = plain folder mode. */
+  projFolders: string[];
+  projectFile: string | null;
+  projectName: string;
+  recentProjects: string[];
+  panelTab: "folder" | "project";
+
   tabs: Doc[];
   activePath: string | null;
   /** Paths of recently closed tabs, for reopen (Ctrl+Shift+T). */
@@ -75,6 +96,7 @@ type AppState = {
   configFile: string | null;
 
   hydrate: () => Promise<void>;
+  restoreSession: (key: string) => Promise<void>;
   loadTheme: () => Promise<void>;
   openFolder: () => Promise<void>;
   setRoot: (path: string) => Promise<void>;
@@ -101,6 +123,13 @@ type AppState = {
   closePrompt: () => void;
   newFile: (rel: string) => Promise<void>;
   newFolder: (rel: string) => Promise<void>;
+  setPanelTab: (tab: "folder" | "project") => void;
+  addFolderToProject: () => Promise<void>;
+  saveProjectAs: () => Promise<void>;
+  openProject: (path?: string) => Promise<void>;
+  closeProject: () => void;
+  removeProjectFolder: (path: string) => void;
+  loadRecentProjects: () => Promise<void>;
   cycleView: () => void;
   setCursorPos: (line: number, col: number) => void;
   setTreeWidth: (w: number) => void;
@@ -110,6 +139,11 @@ type AppState = {
 export const useStore = create<AppState>((set, get) => ({
   root: null,
   rootEntries: [],
+  projFolders: [],
+  projectFile: null,
+  projectName: "",
+  recentProjects: [],
+  panelTab: "folder",
   tabs: [],
   activePath: null,
   closedStack: [],
@@ -128,6 +162,7 @@ export const useStore = create<AppState>((set, get) => ({
   // Restore the last session on startup (spec §24), keyed by workspace. Missing
   // folders/files are skipped silently — a stale session must never block launch.
   hydrate: async () => {
+    void get().loadRecentProjects();
     let ws: string | null = null;
     try {
       ws = await loadLastWorkspace();
@@ -135,14 +170,28 @@ export const useStore = create<AppState>((set, get) => ({
       return;
     }
     if (!ws) return;
+    if (ws.toLowerCase().endsWith(".wdproj")) {
+      // Last workspace was a project — reopen it (openProject restores its session).
+      try {
+        await get().openProject(ws);
+      } catch {
+        /* project file gone */
+      }
+      return;
+    }
     try {
       await get().setRoot(ws);
     } catch {
       return; // workspace no longer exists
     }
+    await get().restoreSession(ws);
+  },
+
+  // Restore tabs/pane-widths for a session key (a folder path or a project file path).
+  restoreSession: async (key: string) => {
     let s: Session;
     try {
-      s = await loadSession(ws);
+      s = await loadSession(key);
     } catch {
       return;
     }
@@ -162,14 +211,21 @@ export const useStore = create<AppState>((set, get) => ({
 
   openFolder: async () => {
     const picked = await pickFolder();
-    if (picked) await get().setRoot(picked);
+    if (!picked) return;
+    // Opening a folder leaves project mode (like ST's Open Folder in this window).
+    set({ projFolders: [], projectFile: null, projectName: "", panelTab: "folder" });
+    setTitle(null);
+    await get().setRoot(picked);
   },
 
   setRoot: async (path: string) => {
     const rootEntries = await listDirectory(path);
     set((s) => ({ root: path, rootEntries, treeVersion: s.treeVersion + 1 }));
-    void saveLastWorkspace(path); // remember for the next cold start
-    void watchWorkspace(path).catch(() => {}); // watch for external changes (spec §14)
+    const { projFolders, projectFile } = get();
+    if (!projectFile && projFolders.length === 0) {
+      void saveLastWorkspace(path); // remember for the next cold start
+      void watchWorkspace([path]).catch(() => {}); // watch for external changes (spec §14)
+    }
   },
 
   // Re-list the workspace and remount the tree (F5 / Ctrl+Shift+R). External-change
@@ -455,7 +511,90 @@ export const useStore = create<AppState>((set, get) => ({
     await createDirectory(path);
     await refreshTree();
   },
+
+  setPanelTab: (tab) => set({ panelTab: tab }),
+
+  // ---- Projects (ST-style): a named set of folder roots -------------------------
+
+  addFolderToProject: async () => {
+    const picked = await pickFolder();
+    if (!picked) return;
+    const { projFolders, root } = get();
+    // Starting a project from folder mode seeds it with the current root.
+    const base = projFolders.length > 0 ? projFolders : root ? [root] : [];
+    if (base.includes(picked)) return;
+    const folders = [...base, picked];
+    set({ projFolders: folders, panelTab: "project" });
+    if (!get().root) await get().setRoot(picked);
+    void watchWorkspace(folders).catch(() => {});
+    setTitle(get().projectName || "unsaved project");
+  },
+
+  saveProjectAs: async () => {
+    const { projFolders, root, projectName } = get();
+    const folders = projFolders.length > 0 ? projFolders : root ? [root] : [];
+    if (folders.length === 0) return;
+    const suggested = `${root ?? folders[0]}\\${projectName || "project"}.wdproj`;
+    const path = await pickProjectSavePath(suggested);
+    if (!path) return;
+    const name = path.replace(/\\/g, "/").split("/").pop()!.replace(/\.wdproj$/i, "");
+    await saveProject(path, { name, folders });
+    set({ projFolders: folders, projectFile: path, projectName: name, panelTab: "project" });
+    void addRecentProject(path).then(() => get().loadRecentProjects());
+    void saveLastWorkspace(path);
+    setTitle(name);
+  },
+
+  openProject: async (path?: string) => {
+    const file = path ?? (await pickProjectOpenPath());
+    if (!file) return;
+    const proj = await loadProject(file);
+    if (proj.folders.length === 0) throw new Error(`project has no folders: ${file}`);
+    set({
+      projFolders: proj.folders,
+      projectFile: file,
+      projectName: proj.name,
+      panelTab: "project",
+      tabs: [],
+      activePath: null,
+      closedStack: [],
+    });
+    await get().setRoot(proj.folders[0]);
+    void watchWorkspace(proj.folders).catch(() => {});
+    void addRecentProject(file).then(() => get().loadRecentProjects());
+    void saveLastWorkspace(file);
+    setTitle(proj.name);
+    await get().restoreSession(file);
+  },
+
+  closeProject: () => {
+    const { root } = get();
+    set({ projFolders: [], projectFile: null, projectName: "", panelTab: "folder" });
+    setTitle(null);
+    if (root) {
+      void saveLastWorkspace(root);
+      void watchWorkspace([root]).catch(() => {});
+    }
+  },
+
+  removeProjectFolder: (path) => {
+    const folders = get().projFolders.filter((f) => f !== path);
+    set({ projFolders: folders });
+    if (folders.length > 0) void watchWorkspace(folders).catch(() => {});
+  },
+
+  loadRecentProjects: async () => {
+    try {
+      set({ recentProjects: await fetchRecentProjects() });
+    } catch {
+      /* fine — no recents yet */
+    }
+  },
 }));
+
+/** The key a session is stored under: the project file when one is open, else the root. */
+export const sessionKey = (s: AppState): string | null =>
+  s.projectFile ?? (s.projFolders.length > 0 ? s.projFolders.join("|") : s.root);
 
 /** The persistable slice of state (spec §24). */
 export const sessionSnapshot = (s: AppState): Session => ({

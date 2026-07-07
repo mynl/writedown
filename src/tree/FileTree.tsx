@@ -114,3 +114,26 @@ export function FileTree() {
     </div>
   );
 }
+
+/** Project view: every project folder as a collapsible root (ST's FOLDERS list). */
+export function ProjectTree() {
+  const projFolders = useStore((s) => s.projFolders);
+  const treeVersion = useStore((s) => s.treeVersion);
+
+  return (
+    <div className="tree" key={treeVersion}>
+      {projFolders.map((f) => (
+        <TreeNode
+          key={f}
+          depth={0}
+          entry={{
+            name: f.replace(/[\\/]+$/, "").split(/[\\/]/).pop() ?? f,
+            path: f,
+            is_dir: true,
+            ext: null,
+          }}
+        />
+      ))}
+    </div>
+  );
+}

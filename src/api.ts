@@ -1,7 +1,7 @@
 // Thin, typed wrappers over the Rust backend commands. The frontend never touches
 // the filesystem directly — everything goes through these (spec §4, §26).
 import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
 
 export type Entry = {
   name: string;
@@ -27,9 +27,40 @@ export const checkDocument = (text: string) =>
 export const listDirectory = (path: string) =>
   invoke<Entry[]>("list_directory", { path });
 
-/** Start watching a workspace for external changes; emits `fs-change` events. */
-export const watchWorkspace = (path: string) =>
-  invoke<void>("watch_workspace", { path });
+/** Start watching one or more roots for external changes; emits `fs-change` events. */
+export const watchWorkspace = (paths: string[]) =>
+  invoke<void>("watch_workspace", { paths });
+
+// Sublime-style projects: a named set of folder roots in a .wdproj JSON file.
+export type Project = { name: string; folders: string[] };
+
+export const loadProject = (path: string) => invoke<Project>("load_project", { path });
+
+export const saveProject = (path: string, project: Project) =>
+  invoke<void>("save_project", { path, project });
+
+export const recentProjects = () => invoke<string[]>("recent_projects");
+
+export const addRecentProject = (path: string) =>
+  invoke<void>("add_recent_project", { path });
+
+/** Native save dialog for a project file. Returns the chosen path, or null. */
+export async function pickProjectSavePath(defaultPath?: string): Promise<string | null> {
+  const result = await save({
+    defaultPath,
+    filters: [{ name: "Writedown Project", extensions: ["wdproj"] }],
+  });
+  return typeof result === "string" ? result : null;
+}
+
+/** Native open dialog for a project file. Returns the chosen path, or null. */
+export async function pickProjectOpenPath(): Promise<string | null> {
+  const result = await open({
+    multiple: false,
+    filters: [{ name: "Writedown Project", extensions: ["wdproj"] }],
+  });
+  return typeof result === "string" ? result : null;
+}
 
 export type FileItem = { name: string; path: string; rel: string };
 
