@@ -13,6 +13,17 @@ export type Entry = {
 export const logError = (message: string) =>
   invoke<void>("log_error", { message }).catch(() => {});
 
+// Document checks: python cell syntax + duplicate Quarto labels (all in-process Rust).
+export type CheckDiagnostic = {
+  line: number; // 1-based document line
+  col: number; // 0-based column
+  message: string;
+  severity: "error" | "warning";
+};
+
+export const checkDocument = (text: string) =>
+  invoke<CheckDiagnostic[]>("check_document", { text });
+
 export const listDirectory = (path: string) =>
   invoke<Entry[]>("list_directory", { path });
 

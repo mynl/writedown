@@ -1,4 +1,5 @@
 mod bib;
+mod check;
 mod config;
 mod files;
 mod session;
@@ -43,6 +44,7 @@ pub fn run() {
             bib::load_bibliography,
             bib::search_bibliography,
             bib::get_citation,
+            check::check_document,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

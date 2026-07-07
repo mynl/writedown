@@ -5,6 +5,21 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.25.0] - 2026-07-07
+
+### Added
+
+- **Fast document checks** for `.md`/`.qmd`, running automatically ~½s after you stop
+  typing, shown as squiggles + gutter markers (hover for the message):
+  - **Python syntax check** of every ` ```{python} ` cell — unbalanced brackets, bad
+    indentation, missing colons, unterminated strings — with errors mapped to document
+    lines. Parsing is `rustpython-parser` compiled into the app: no external Python, no
+    environment, works offline. Syntax only (no undefined-name/import checking); IPython
+    magics (`%`, `!`, `?`) are skipped; first error per cell (as Python itself reports).
+  - **Duplicate Quarto label detection** — `#| label:` cell options and `{#sec-x}`-style
+    attributes; a label used twice is flagged at *every* occurrence with the other line
+    numbers (duplicates silently corrupt cross-references).
+
 ## [1.24.0] - 2026-07-07
 
 ### Removed

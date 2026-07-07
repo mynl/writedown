@@ -12,6 +12,7 @@ import { mathHighlight } from "./math";
 import { isCsv, isMarkdownDoc, languageForPath } from "./languages";
 import { sublimeEditing } from "./keymap";
 import { citationExtensions } from "./citations";
+import { documentLint } from "./lint";
 import { setActiveView } from "./editorView";
 import { logError } from "../api";
 
@@ -49,6 +50,7 @@ export function Editor({ path, content }: { path: string; content: string }) {
     if (isMarkdownDoc(path)) {
       ext.push(Prec.highest(mathHighlight));
       ext.push(...citationExtensions); // @-citation autocomplete + hover
+      ext.push(...documentLint); // python cell syntax + duplicate labels
     }
     if (isCsv(path)) ext.push(csvRainbow);
     if (!built && fontSize) ext.push(EditorView.theme({ "&": { fontSize: `${fontSize}px` } }));

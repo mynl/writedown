@@ -205,12 +205,14 @@ it juice-not-worth-the-squeeze. Lesson adopted as a standing rule: **before buil
 feature, state crisply what it will and won't deliver** (scope, failure modes, external
 dependencies) so the author can make an eyes-open build/skip decision.
 
-Roadmap: **next** = Python **syntax check** of `{python}` blocks in qmd + **duplicate
-Quarto label detection** (design proposed, awaiting go). Then Sublime-project-style
-**multi-folder explorer** (design Q&A first), then final visual polish (menus, tab
-font/height, explorer font, exact menu options) — run as an **interactive look-and-feel
-loop**: keep `npm run tauri dev` open (Vite HMR hot-reloads frontend/CSS edits live), make
-small changes, get feedback, repeat.
+**v1.25.0: document checks** — Python syntax of `{python}` cells (rustpython-parser
+in-process, no external Python) + duplicate Quarto label detection, surfaced as CM lint
+squiggles/gutter, auto after ~½s idle.
+
+Roadmap: **next** = Sublime-project-style **multi-folder explorer** (design Q&A first),
+then final visual polish (menus, tab font/height, explorer font, exact menu options) — run
+as an **interactive look-and-feel loop**: keep `npm run tauri dev` open (Vite HMR
+hot-reloads frontend/CSS edits live), make small changes, get feedback, repeat.
 
 Backlog / refinements: matched-char highlighting in the citation popup (needs custom
 render — `filter:false` drops CM's highlight); bracketed `[@key]` insertion forms;

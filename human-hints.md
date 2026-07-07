@@ -3,6 +3,19 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-07 — 1.25.0: document checks SHIPPED (python syntax + dup labels)
+
+- Steve approved the eyes-open pitch ("a fast syntax check is a big help"). Built as
+  designed: `check.rs` (rustpython-parser 0.4 in-process; fence scanner handles ```{python}
+  cells incl. 4+ ticks; magics %!? blanked line-preserving; first error per cell mapped to
+  doc line/col) + `#| label:` in any executable cell + `{#id}` attrs in prose; duplicates
+  warned at EVERY occurrence w/ cross-ref lines. 6 unit tests green.
+- Frontend: `@codemirror/lint` (npm install → dev-setup re-junction done), src/editor/
+  lint.ts `documentLint` = lintGutter + linter(delay 500), wired in Editor.tsx for
+  markdown docs only. Squiggles red=syntax, orange=dup label.
+- rustpython-parser adds ~1min one-time compile; runtime sub-ms.
+- Next: **multi-folder explorer (design Q&A first)**, then visual polish HMR loop.
+
 ## 2026-07-07 — 1.24.0: Quarto render REMOVED; next = python syntax check
 
 - Steve pulled the plug on Quarto render ("juice not worth the squeeze") right after it
