@@ -3,6 +3,21 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-07 — 1.24.0: Quarto render REMOVED; next = python syntax check
+
+- Steve pulled the plug on Quarto render ("juice not worth the squeeze") right after it
+  finally worked — env coupling made it painful. **His stated lesson: we should have
+  specified what the feature would deliver up front for an eyes-open decision.** Adopted
+  into CLAUDE.md as a standing rule.
+- Removed: quarto.rs, QuartoPanel, store/api/commands/App wiring, [quarto] config template,
+  opener:allow-open-path. KEPT: all bibtex, qmd editing/highlighting/preview, telemetry.
+- Roadmap renumbered: syntax check next, then multi-folder explorer, then polish.
+- **Proposed (awaiting go): python syntax check + duplicate label check.** Design:
+  rustpython-parser crate in backend (NO external python/env — the quarto lesson), parse
+  each ```{python} cell, map errors to doc lines; labels: collect `#| label:` + `{#sec-…}`
+  attrs, flag duplicates; surface via @codemirror/lint squiggles + gutter. Syntax only
+  (no undefined-name/import checking); skip IPython magics (%, !, ?).
+
 ## 2026-07-07 — 1.23.9: Open output fixed (opener scope was silently denying)
 
 - "Open output did nothing": `~/.writedown/logs/writedown.log` showed `Not allowed to open

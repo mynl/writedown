@@ -12,7 +12,6 @@ export function appCommands(): Command[] {
     { id: "save", title: "Save", run: () => void s().saveActive() },
     { id: "refresh-tree", title: "Refresh File Tree", run: () => void s().refreshTree() },
     { id: "toggle-preview", title: "Toggle Preview (editor / split / preview)", run: () => s().cycleView() },
-    { id: "render-quarto", title: "Render with Quarto", run: () => void s().renderQuarto() },
     {
       id: "edit-config",
       title: "Edit Config (config.toml)",

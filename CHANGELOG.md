@@ -5,6 +5,16 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.24.0] - 2026-07-07
+
+### Removed
+
+- **The Quarto render feature** (Ctrl+Shift+Q, result panel, `[quarto]` config, opener
+  capability) — removed at the author's decision: environment/config coupling made it more
+  trouble than it was worth. `.qmd` editing, `{python}` cell highlighting, math, preview,
+  and all BibTeX features are unaffected. A stray `[quarto]` section left in an existing
+  `config.toml` is harmless (nothing reads it).
+
 ## [1.23.9] - 2026-07-07
 
 ### Fixed

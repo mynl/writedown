@@ -51,13 +51,6 @@ read_only = true
 [files]
 extensions = ["md", "qmd", "markdown"]
 show_hidden = false
-
-[quarto]
-# How "Render with Quarto" (Ctrl+Shift+Q) runs. {file} is the document path. The command
-# runs in PowerShell (pwsh) with your profile loaded, so your conda/env setup is available.
-# To render inside a conda env that has Python (so code cells execute), set:
-#   command = 'conda run -n working313 quarto render "{file}"'
-command = 'quarto render "{file}"'
 "#;
 
 /// `~/.writedown/`.

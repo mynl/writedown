@@ -199,14 +199,18 @@ autosave; per-workspace session; file watching + conflict; **preview pane** (KaT
 DOMPurify, sync scroll); **outline**; and **BibTeX** — parsed/indexed/**watched**, `@`
 autocomplete ranked by Rust **SkimMatcherV2**, hover-for-title, Ctrl+Shift+C.
 
-**Phase 7 done** (v1.23.0): Quarto render via `Ctrl+Shift+Q` (explicit; discovers quarto on
-PATH; result panel + Open output). All spec §30 phases now covered.
+**Phase 7 (Quarto render) was built (1.23.x) then REMOVED in v1.24.0** at the author's
+decision — environment/config coupling (conda, `_quarto.yml` discovery, opener scopes) made
+it juice-not-worth-the-squeeze. Lesson adopted as a standing rule: **before building a
+feature, state crisply what it will and won't deliver** (scope, failure modes, external
+dependencies) so the author can make an eyes-open build/skip decision.
 
-Roadmap agreed with the user: **1.24** = Sublime-project-style **multi-folder explorer**
-(add arbitrary folder roots) — do a **design Q&A first**. **1.25** = final visual polish
-(menus, tab font/height, explorer font, exact menu options) — run as an **interactive
-look-and-feel loop**: keep `npm run tauri dev` open (Vite HMR hot-reloads frontend/CSS
-edits live), make small changes, get feedback, repeat.
+Roadmap: **next** = Python **syntax check** of `{python}` blocks in qmd + **duplicate
+Quarto label detection** (design proposed, awaiting go). Then Sublime-project-style
+**multi-folder explorer** (design Q&A first), then final visual polish (menus, tab
+font/height, explorer font, exact menu options) — run as an **interactive look-and-feel
+loop**: keep `npm run tauri dev` open (Vite HMR hot-reloads frontend/CSS edits live), make
+small changes, get feedback, repeat.
 
 Backlog / refinements: matched-char highlighting in the citation popup (needs custom
 render — `filter:false` drops CM's highlight); bracketed `[@key]` insertion forms;

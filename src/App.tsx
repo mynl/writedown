@@ -11,7 +11,6 @@ import { Outline } from "./outline/Outline";
 import { isMarkdownDoc } from "./editor/languages";
 import { Resizer } from "./Resizer";
 import { Palette } from "./Palette";
-import { QuartoPanel } from "./QuartoPanel";
 import "./App.css";
 
 function App() {
@@ -31,14 +30,6 @@ function App() {
     const p = listen<string[]>("fs-change", (e) => onFsChange(e.payload));
     return () => void p.then((un) => un());
   }, [onFsChange]);
-
-  // Live Quarto render output (spec §16.2): append each streamed line to the panel.
-  useEffect(() => {
-    const p = listen<string>("quarto-log", (e) =>
-      useStore.getState().appendQuartoLog(e.payload),
-    );
-    return () => void p.then((un) => un());
-  }, []);
 
   // Autosave (spec §12): on window blur (focus lost), and after a short idle pause once
   // anything is dirty. Tab-switch autosave lives in the store's setActive.
@@ -96,7 +87,6 @@ function App() {
   const reloadDoc = useStore((s) => s.reloadDoc);
   const viewMode = useStore((s) => s.viewMode);
   const cycleView = useStore((s) => s.cycleView);
-  const renderQuarto = useStore((s) => s.renderQuarto);
   const cursorLine = useStore((s) => s.cursorLine);
   const cursorCol = useStore((s) => s.cursorCol);
   const setTreeWidth = useStore((s) => s.setTreeWidth);
@@ -140,14 +130,11 @@ function App() {
       } else if (mod && e.shiftKey && k === "l") {
         e.preventDefault();
         cycleView();
-      } else if (mod && e.shiftKey && k === "q") {
-        e.preventDefault();
-        void renderQuarto();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [saveActive, nextTab, reopenClosed, refreshTree, openPalette, cycleView, renderQuarto]);
+  }, [saveActive, nextTab, reopenClosed, refreshTree, openPalette, cycleView]);
 
   // Footer shows only exceptional states (tabs already show dirty). Line/col live at right.
   const midStatus = activeDoc?.conflict
@@ -254,7 +241,6 @@ function App() {
       </footer>
 
       <Palette />
-      <QuartoPanel />
     </div>
   );
 }

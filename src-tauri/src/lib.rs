@@ -1,7 +1,6 @@
 mod bib;
 mod config;
 mod files;
-mod quarto;
 mod session;
 mod sublime;
 mod watch;
@@ -44,9 +43,6 @@ pub fn run() {
             bib::load_bibliography,
             bib::search_bibliography,
             bib::get_citation,
-            quarto::find_quarto,
-            quarto::render_with_quarto,
-            quarto::open_output,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

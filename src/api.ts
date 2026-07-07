@@ -121,12 +121,4 @@ export const searchBibliography = (query: string) =>
 export const getCitation = (key: string) =>
   invoke<BibEntry | null>("get_citation", { key });
 
-export type QuartoResult = { success: boolean; log: string; output_file: string | null };
-
-export const findQuarto = () => invoke<boolean>("find_quarto");
-
-export const renderWithQuarto = (path: string) =>
-  invoke<QuartoResult>("render_with_quarto", { path });
-
-export const openOutput = (path: string) => invoke<void>("open_output", { path });
 
