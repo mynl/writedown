@@ -46,6 +46,7 @@ pub fn run() {
             bib::get_citation,
             quarto::find_quarto,
             quarto::render_with_quarto,
+            quarto::open_output,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

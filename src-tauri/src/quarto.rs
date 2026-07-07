@@ -40,6 +40,21 @@ pub fn find_quarto() -> bool {
         .unwrap_or(false)
 }
 
+/// Open a rendered output file with the system default handler (browser for .html).
+/// Done in Rust deliberately: the opener plugin's path scope silently denied this.
+#[tauri::command]
+pub fn open_output(path: String) -> Result<(), String> {
+    use std::os::windows::process::CommandExt;
+    if !Path::new(&path).exists() {
+        return Err(format!("output not found: {path}"));
+    }
+    Command::new("cmd")
+        .raw_arg(format!("/C start \"\" \"{}\"", path.replace('"', "")))
+        .spawn()
+        .map_err(|e| format!("failed to open {path}: {e}"))?;
+    Ok(())
+}
+
 /// The render command line from config `[quarto] command` ({file} = document path).
 /// Default runs plain `quarto`; set it to activate a conda/venv that has Python so code
 /// cells execute (e.g. `conda run -n myenv quarto render "{file}"`).

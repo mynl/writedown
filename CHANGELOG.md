@@ -5,6 +5,15 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.23.9] - 2026-07-07
+
+### Fixed
+
+- **"Open output" after a Quarto render did nothing.** The opener plugin's path scope
+  silently denied every path (`Not allowed to open path …` — caught by the new error log).
+  Opening now goes through a small Rust command (`cmd start`), which cannot be scope-blocked;
+  the button is relabeled **Open in browser** to say what it does.
+
 ## [1.23.8] - 2026-07-07
 
 ### Added

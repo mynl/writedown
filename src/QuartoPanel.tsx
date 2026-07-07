@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { openPath } from "@tauri-apps/plugin-opener";
+import { openOutput } from "./api";
 import { useStore } from "./store";
 
 // Lines worth pulling to the top when a render fails.
@@ -44,8 +44,8 @@ export function QuartoPanel() {
           <span>{heading}</span>
           <span className="quarto-actions">
             {result?.success && result.output_file && (
-              <button className="hdr-btn" onClick={() => void openPath(result.output_file!)}>
-                Open output
+              <button className="hdr-btn" onClick={() => void openOutput(result.output_file!)}>
+                Open in browser
               </button>
             )}
             <button className="hdr-btn" onClick={close}>

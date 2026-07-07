@@ -3,6 +3,20 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-07 — 1.23.9: Open output fixed (opener scope was silently denying)
+
+- "Open output did nothing": `~/.writedown/logs/writedown.log` showed `Not allowed to open
+  path …test.html` — tauri-plugin-opener's `allow-open-path` grants the command but with an
+  EMPTY path scope → every openPath() rejects; we `void`ed the promise → silent. (Telemetry
+  from 1.23.1 caught it — the investment paid off.)
+- Fix: Rust `quarto::open_output` (`cmd /C start "" "<path>"`), bypasses capability scoping
+  entirely. Button relabeled **Open in browser**. Verified live on Steve's machine ("it did").
+- Steve wants (maybe): rendered output **in the preview pane** instead of browser. That is
+  INVOLVED (asset protocol + subresource resolution, or --embed-resources; iframe theming)
+  — YELL first per CLAUDE.md; offered as an option, not built.
+- Render slowness = quarto+jupyter startup floor (~4-6s) with no cache; with a _quarto.yml
+  freezer or jupyter-cache it's faster on re-render. Not a Writedown issue.
+
 ## 2026-07-07 — Quarto mystery SOLVED: features\_quarto.yml (1.23.8)
 
 - The "standalone" test.qmd failure was NOT CConsid reach-back (that theory was wrong):

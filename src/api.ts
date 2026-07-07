@@ -128,3 +128,5 @@ export const findQuarto = () => invoke<boolean>("find_quarto");
 export const renderWithQuarto = (path: string) =>
   invoke<QuartoResult>("render_with_quarto", { path });
 
+export const openOutput = (path: string) => invoke<void>("open_output", { path });
+
