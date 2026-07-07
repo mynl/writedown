@@ -11,6 +11,7 @@ import { Outline } from "./outline/Outline";
 import { isMarkdownDoc } from "./editor/languages";
 import { Resizer } from "./Resizer";
 import { Palette } from "./Palette";
+import { QuartoPanel } from "./QuartoPanel";
 import "./App.css";
 
 function App() {
@@ -87,6 +88,7 @@ function App() {
   const reloadDoc = useStore((s) => s.reloadDoc);
   const viewMode = useStore((s) => s.viewMode);
   const cycleView = useStore((s) => s.cycleView);
+  const renderQuarto = useStore((s) => s.renderQuarto);
   const cursorLine = useStore((s) => s.cursorLine);
   const cursorCol = useStore((s) => s.cursorCol);
   const setTreeWidth = useStore((s) => s.setTreeWidth);
@@ -127,14 +129,17 @@ function App() {
       } else if (mod && !e.shiftKey && k === "p") {
         e.preventDefault(); // also suppresses the browser print dialog
         openPalette("files");
-      } else if (mod && e.shiftKey && k === "v") {
+      } else if (mod && e.shiftKey && k === "l") {
         e.preventDefault();
         cycleView();
+      } else if (mod && e.shiftKey && k === "q") {
+        e.preventDefault();
+        void renderQuarto();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [saveActive, nextTab, reopenClosed, refreshTree, openPalette, cycleView]);
+  }, [saveActive, nextTab, reopenClosed, refreshTree, openPalette, cycleView, renderQuarto]);
 
   // Footer shows only exceptional states (tabs already show dirty). Line/col live at right.
   const midStatus = activeDoc?.conflict
@@ -174,7 +179,7 @@ function App() {
             <button
               className="view-toggle"
               onClick={() => cycleView()}
-              title="Cycle editor / split / preview (Ctrl+Shift+V)"
+              title="Cycle editor / split / preview (Ctrl+Shift+L)"
             >
               {viewMode === "editor" ? "◧ Editor" : viewMode === "split" ? "◧◨ Split" : "◨ Preview"}
             </button>
@@ -241,6 +246,7 @@ function App() {
       </footer>
 
       <Palette />
+      <QuartoPanel />
     </div>
   );
 }

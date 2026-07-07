@@ -40,26 +40,6 @@ function addCursorVertically(dir: -1 | 1): StateCommand {
   };
 }
 
-/** Split each non-empty selection into one cursor per line it spans (Ctrl+Shift+L). */
-const splitSelectionIntoLines: StateCommand = ({ state, dispatch }) => {
-  const doc = state.doc;
-  const ranges = [];
-  for (const r of state.selection.ranges) {
-    if (r.empty) {
-      ranges.push(r);
-      continue;
-    }
-    const from = doc.lineAt(r.from).number;
-    const to = doc.lineAt(r.to).number;
-    for (let n = from; n <= to; n++) {
-      const line = doc.line(n);
-      ranges.push(EditorSelection.cursor(Math.min(r.to, line.to)));
-    }
-  }
-  dispatch(state.update({ selection: EditorSelection.create(ranges) }));
-  return true;
-};
-
 /** Column selection (Alt+drag) + the Sublime key bindings, at highest precedence. */
 export const sublimeEditing = [
   rectangularSelection(),
@@ -74,7 +54,8 @@ export const sublimeEditing = [
       { key: "Mod-/", run: toggleComment, preventDefault: true },
       { key: "Mod-Alt-ArrowUp", run: addCursorVertically(-1), preventDefault: true },
       { key: "Mod-Alt-ArrowDown", run: addCursorVertically(1), preventDefault: true },
-      { key: "Mod-Shift-l", run: splitSelectionIntoLines, preventDefault: true },
+      // Ctrl+Shift+L toggles the preview view (Joplin-style), even when the editor is focused.
+      { key: "Mod-Shift-l", run: () => (useStore.getState().cycleView(), true), preventDefault: true },
       // Find / replace / go-to-line (Sublime: Ctrl+F, Ctrl+H, Ctrl+G).
       { key: "Mod-f", run: openSearchPanel, preventDefault: true },
       { key: "Mod-h", run: openSearchPanel, preventDefault: true },

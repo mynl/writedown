@@ -523,6 +523,44 @@ body {
 .wd-col-6 { color: #d19a66; }
 .wd-col-7 { color: #abb2bf; }
 
+/* Quarto render result panel */
+.quarto-panel {
+  margin-top: 8vh;
+  width: min(760px, 92vw);
+  max-height: 76vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+.quarto-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+  background: var(--pane-header-bg);
+}
+.quarto-actions {
+  display: flex;
+  gap: 8px;
+}
+.quarto-log {
+  margin: 0;
+  padding: 12px 14px;
+  overflow: auto;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  color: var(--fg);
+}
+
 /* Citation autocomplete info panel + hover tooltip */
 .cite-info,
 .cite-tooltip {

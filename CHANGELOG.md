@@ -5,6 +5,24 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.23.0] - 2026-07-07
+
+Phase 7 (spec §16.2) + citation polish.
+
+### Added
+
+- **Render with Quarto** (`Ctrl+Shift+Q`, or the palette) — saves, runs `quarto render` on
+  the active `.qmd`/`.md`, and shows the log in a panel with an **Open output** button when
+  an HTML result is produced. Explicit command only; discovers `quarto` from PATH.
+
+### Changed
+
+- **View toggle is now `Ctrl+Shift+L`** (Joplin-style), was Ctrl+Shift+V. (Reclaims the key
+  from Sublime's split-into-lines, which is unbound for now.)
+- **Citations**: `'exact` terms now work in the `@` query (e.g. `@'mild'pric`); the
+  overlapping side info-panel is removed (details are in the row + on hover); **Tab
+  re-opens** the picker when the cursor is just after a partial `@…`.
+
 ## [1.22.0] - 2026-07-06
 
 ### Changed

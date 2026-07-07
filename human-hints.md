@@ -3,6 +3,23 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-07 — 1.23.0: Quarto render + @ polish
+
+- View toggle Ctrl+Shift+V → **Ctrl+Shift+L** (Joplin). Reclaimed from Sublime split-into-
+  lines (now UNBOUND — rebind if Steve wants it). Bound in editor keymap (cycleView) + window.
+- **Citation fixes**: added `'` to the @-trigger regex (was bombing out on `'`); REMOVED the
+  CM side info-panel (it overlapped the list — Steve wanted it *below*; CM can't do below-list
+  natively → deferred a custom below-list panel); **Tab** re-triggers completion when cursor
+  is after a partial `@…` and popup closed (`completionStatus` guard keeps Tab accept/indent).
+- **Quarto render** (Phase 7): `quarto.rs` — `find_quarto` (cmd/where), `render_with_quarto`
+  (`cmd /C quarto render` via `raw_arg` for Windows quoting); returns {success, log,
+  output_file=<stem>.html if exists}. Ctrl+Shift+Q + palette; **saves first**; `QuartoPanel`
+  modal shows log + Open output (`openPath`; added `opener:allow-open-path`).
+- Steve usually renders from CLI but wanted to see it in-app.
+- **Next**: 1.24 = ST multi-folder project (**design Q&A first**); 1.25 = final visual polish
+  (menus, tab font/height, explorer font, menu options) — Steve wants an **interactive quick
+  look-and-feel loop** (use `tauri dev` HMR — frontend/CSS edits hot-reload live).
+
 ## 2026-07-06 — Citation matcher = csv-grid fzf + highlighting (v1.22.0)
 
 - Replaced SkimMatcherV2 with a **port of csv-grid's fzf** (removed fuzzy-matcher dep):

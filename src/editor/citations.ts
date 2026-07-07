@@ -4,12 +4,14 @@
 // Ctrl+Shift+C opens the picker directly.
 import {
   autocompletion,
+  completionStatus,
   startCompletion,
   type Completion,
   type CompletionContext,
   type CompletionResult,
 } from "@codemirror/autocomplete";
 import { EditorView, hoverTooltip, keymap } from "@codemirror/view";
+import { Prec } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
 import type { SyntaxNode } from "@lezer/common";
 import { getCitation, searchBibliography, type BibEntry, type CiteMatch } from "../api";
@@ -42,7 +44,8 @@ function inProse(context: CompletionContext): boolean {
 }
 
 async function citationSource(context: CompletionContext): Promise<CompletionResult | null> {
-  const match = context.matchBefore(/@[\p{L}\d_:.\-]*/u);
+  // Allow `'` in the query so `@'mild'pric` (exact terms) reaches the matcher.
+  const match = context.matchBefore(/@[\p{L}\d_:.\-']*/u);
   if (!match || (match.from === match.to && !context.explicit)) return null;
   if (!inProse(context)) return null;
 
@@ -56,20 +59,14 @@ async function citationSource(context: CompletionContext): Promise<CompletionRes
   return {
     from: match.from,
     filter: false, // ranking already done in Rust
+    // No side `info` panel — it overlapped the list. Full details are in the label
+    // (key + title) + detail (co-authors · year), and on hover of an inserted @key.
     options: results.map((r): CiteCompletion => ({
       label: r.label,
       cite: r.label,
       positions: r.positions,
       detail: [r.coauthors, r.year].filter(Boolean).join(" · "),
       apply: "@" + r.key,
-      info: () => {
-        const el = document.createElement("div");
-        el.className = "cite-info";
-        el.textContent = [r.title, [r.author, r.year, r.container].filter(Boolean).join(" · ")]
-          .filter(Boolean)
-          .join("\n");
-        return el;
-      },
     })),
   };
 }
@@ -144,6 +141,19 @@ function openCitationPicker(view: EditorView): boolean {
   return true;
 }
 
+/** Tab re-opens the picker when the cursor sits just after a partial `@…` and no popup
+ *  is open; otherwise it falls through to normal Tab (accept completion / indent). */
+function retriggerTab(view: EditorView): boolean {
+  if (completionStatus(view.state) === "active") return false;
+  const head = view.state.selection.main.head;
+  const line = view.state.doc.lineAt(head);
+  if (/@[\p{L}\d_:.\-']*$/u.test(line.text.slice(0, head - line.from))) {
+    startCompletion(view);
+    return true;
+  }
+  return false;
+}
+
 export const citationExtensions = [
   autocompletion({
     override: [citationSource],
@@ -151,5 +161,10 @@ export const citationExtensions = [
     addToOptions: [{ render: renderLabel, position: 20 }],
   }),
   citeHover,
-  keymap.of([{ key: "Mod-Shift-c", run: openCitationPicker }]),
+  Prec.high(
+    keymap.of([
+      { key: "Mod-Shift-c", run: openCitationPicker },
+      { key: "Tab", run: retriggerTab },
+    ]),
+  ),
 ];

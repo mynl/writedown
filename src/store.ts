@@ -9,11 +9,13 @@ import {
   loadSublimeTheme,
   pickFolder,
   readFile,
+  renderWithQuarto,
   saveLastWorkspace,
   watchWorkspace,
   writeFile,
   type EditorSettings,
   type Entry,
+  type QuartoResult,
   type Session,
   type SublimeTheme,
 } from "./api";
@@ -62,6 +64,8 @@ type AppState = {
   viewMode: "editor" | "split" | "preview";
   cursorLine: number;
   cursorCol: number;
+  quartoStatus: "idle" | "running";
+  quartoResult: QuartoResult | null;
   sublimeTheme: SublimeTheme | null;
   editorSettings: EditorSettings | null;
   configFile: string | null;
@@ -87,6 +91,8 @@ type AppState = {
   closePalette: () => void;
   cycleView: () => void;
   setCursorPos: (line: number, col: number) => void;
+  renderQuarto: () => Promise<void>;
+  closeQuarto: () => void;
   setTreeWidth: (w: number) => void;
   setOutlineWidth: (w: number) => void;
 };
@@ -102,6 +108,8 @@ export const useStore = create<AppState>((set, get) => ({
   viewMode: "split",
   cursorLine: 1,
   cursorCol: 1,
+  quartoStatus: "idle",
+  quartoResult: null,
   sublimeTheme: null,
   editorSettings: null,
   configFile: null,
@@ -414,6 +422,25 @@ export const useStore = create<AppState>((set, get) => ({
     const s = get();
     if (s.cursorLine !== line || s.cursorCol !== col) set({ cursorLine: line, cursorCol: col });
   },
+
+  // Exact Quarto render (spec §16.2) — explicit command only. Saves first, then renders.
+  renderQuarto: async () => {
+    const { activePath, tabs } = get();
+    const doc = tabs.find((t) => t.path === activePath);
+    if (!doc || !/\.(qmd|md|markdown)$/i.test(doc.path)) return;
+    await get().saveDoc(doc.path);
+    set({ quartoStatus: "running", quartoResult: null });
+    try {
+      set({ quartoStatus: "idle", quartoResult: await renderWithQuarto(doc.path) });
+    } catch (e) {
+      set({
+        quartoStatus: "idle",
+        quartoResult: { success: false, log: String(e), output_file: null },
+      });
+    }
+  },
+
+  closeQuarto: () => set({ quartoStatus: "idle", quartoResult: null }),
 
   setTreeWidth: (w) => set({ treeWidth: clamp(w) }),
   setOutlineWidth: (w) => set({ outlineWidth: clamp(w) }),
