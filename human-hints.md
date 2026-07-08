@@ -3,6 +3,28 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-08 — Fast QMD render designed + planned (dev/plan-1.33-fast-render.md)
+
+- Steve wants a "fast and furious" on-demand `.qmd` render — speed over accuracy — after
+  Quarto-based preview (Phase 7) proved too slow/coupled. Design converged in one pass:
+  **no pandoc, no jupyter, no temp files**. Rust splits the buffer into segments (reusing
+  check.rs fence parser), a persistent python sidecar (~150-line JSON-lines runner,
+  `MPLBACKEND=Agg`, figures as base64 data URIs — never on disk) executes cells, Rust
+  splices outputs + resolves citations/crossrefs from the in-memory bib index, and the
+  **existing** markdown-it preview displays it under a new Preview | Rendered tab pair.
+- Key idea Steve liked: **process-persistent, namespace-fresh** kernel — `sys.modules`
+  survives a namespace reset, so every render is a deterministic clean run yet imports
+  are paid once (~1–2 s cold, then compute-only).
+- Citations locked: `@key` → `[Mildenhall (2022)](#ref-key)` linking into a generated
+  APA-like References section sorted by author (needs new `authors_full` on BibEntry).
+  No CSL/citeproc. Config `[render]`: explicit `python` path (no discovery — dodges the
+  conda coupling that killed Phase 7), `timeout_seconds`, `figure_format` png|svg,
+  `figure_dpi` 150. `Ctrl+Shift+K` (Quarto's render key; ours was free).
+- Two stages: **1.33.0** markdown pipeline (cites/crossrefs/References/Rendered tab, no
+  execution — useful standalone), **1.34.0** python sidecar. Plan is written detailed
+  enough for Opus to implement stage-by-stage. Noted for later: Steve says proportional
+  scroll sync "doesn't work that great" — punch-up backlogged, not part of this feature.
+
 ## 2026-07-08 — 1.32.0: startup polish + editing verbs (2nd batch)
 
 - List-crash fix (1.31.1) confirmed by Steve ("no issues hacking around with lists"). Then
