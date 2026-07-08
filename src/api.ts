@@ -211,4 +211,20 @@ export const getCitation = (key: string) =>
 export const checkCitationKeys = (keys: string[]) =>
   invoke<string[]>("check_citation_keys", { keys });
 
+// Fast in-process render: expanded markdown with citations/crossrefs resolved (and,
+// from 1.34, executed {python} cell output spliced in).
+export type RenderResult = {
+  markdown: string;
+  cells: number;
+  errors: number;
+  elapsed_ms: number;
+  /** "ok" | "off" | "not_configured" | error message. */
+  python: string;
+};
+
+/** Render the live buffer (never reads or writes the file). `path` resolves a relative
+ *  front-matter `bibliography:`; pass null for unsaved scratch buffers. */
+export const renderDocument = (text: string, path: string | null) =>
+  invoke<RenderResult>("render_document", { text, path });
+
 

@@ -1,0 +1,911 @@
+//! Fast in-process Quarto/Markdown render (plan 1.33): split the live buffer into prose
+//! and code cells, resolve `@key` citations against the bibliography index, number Quarto
+//! crossrefs, append a generated References section, and return expanded markdown for the
+//! existing preview component. Speed over accuracy — no pandoc, no quarto, no citeproc.
+//! Nothing is ever written to the user's files.
+
+use crate::bib::{self, BibEntry};
+use crate::check::{attr_labels, fence_close, fence_open};
+use regex::Regex;
+use serde::Serialize;
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::{Mutex, OnceLock};
+use std::time::{Instant, SystemTime};
+use tauri::Manager;
+
+// ---- state -------------------------------------------------------------------------
+
+/// Render-scoped state: the per-document bibliography cache (a doc's front-matter
+/// `bibliography:` override), keyed by (path, mtime). The python kernel joins in 1.34.
+#[derive(Default)]
+pub struct RenderState {
+    doc_bib: Mutex<Option<DocBib>>,
+}
+
+struct DocBib {
+    path: PathBuf,
+    mtime: SystemTime,
+    entries: Vec<BibEntry>,
+}
+
+#[derive(Serialize)]
+pub struct RenderResult {
+    markdown: String,
+    cells: usize,
+    errors: usize,
+    elapsed_ms: u64,
+    /// "ok" | "off" | "not_configured" | error message. "off" = execution not built (1.33).
+    python: String,
+}
+
+// ---- document splitter ----------------------------------------------------------------
+
+#[derive(Default)]
+pub(crate) struct FrontMatter {
+    pub(crate) title: Option<String>,
+    pub(crate) bibliography: Option<String>,
+}
+
+/// Quarto `#|` cell options. All flags default true; unknown keys are ignored.
+/// eval/include/output drive execution splicing (1.34).
+#[allow(dead_code)]
+pub(crate) struct CellOpts {
+    pub(crate) eval: bool,
+    pub(crate) echo: bool,
+    pub(crate) include: bool,
+    pub(crate) output: bool,
+    pub(crate) label: Option<String>,
+    pub(crate) fig_cap: Option<String>,
+}
+
+impl Default for CellOpts {
+    fn default() -> Self {
+        CellOpts { eval: true, echo: true, include: true, output: true, label: None, fig_cap: None }
+    }
+}
+
+pub(crate) enum Segment {
+    /// Prose — the cite/crossref pass applies.
+    Markdown { text: String },
+    /// Plain fenced blocks including the fence lines — passed through verbatim.
+    PlainFence { text: String },
+    /// ```{python} cell. `first_line` = 1-based document line of the first body line
+    /// (error mapping in 1.34).
+    #[allow(dead_code)]
+    PythonCell { code: String, opts: CellOpts, first_line: usize },
+    /// ```{r}, ```{julia}, … — shown as source, never run.
+    OtherCell { code: String, lang: String, opts: CellOpts },
+}
+
+/// `#|` option lines at the top of a cell (Quarto). Quotes stripped; unknown keys ignored.
+fn parse_cell_opts(body: &[&str]) -> CellOpts {
+    let mut o = CellOpts::default();
+    for l in body {
+        let Some(rest) = l.trim_start().strip_prefix("#|") else { break };
+        let Some((k, v)) = rest.trim().split_once(':') else { continue };
+        let v = v.trim().trim_matches(|c| c == '"' || c == '\'').trim();
+        match k.trim() {
+            "eval" => o.eval = v != "false",
+            "echo" => o.echo = v != "false",
+            "include" => o.include = v != "false",
+            "output" => o.output = v != "false",
+            "label" if !v.is_empty() => o.label = Some(v.to_string()),
+            "fig-cap" if !v.is_empty() => o.fig_cap = Some(v.to_string()),
+            _ => {}
+        }
+    }
+    o
+}
+
+/// Hand-extract top-level `title:` and `bibliography:` (scalar, flow list, or first item
+/// of a block list) — no YAML crate; the front matter is read-only and never reflowed.
+fn parse_front_matter(lines: &[&str], fm: &mut FrontMatter) {
+    let unquote = |v: &str| v.trim().trim_matches(|c| c == '"' || c == '\'').trim().to_string();
+    for (k, line) in lines.iter().enumerate() {
+        if line.starts_with(|c: char| c.is_whitespace()) {
+            continue; // not top-level
+        }
+        if let Some(v) = line.strip_prefix("title:") {
+            let v = unquote(v);
+            if !v.is_empty() {
+                fm.title = Some(v);
+            }
+        } else if let Some(v) = line.strip_prefix("bibliography:") {
+            let v = v.trim();
+            if let Some(inner) = v.strip_prefix('[') {
+                let first = unquote(inner.split([',', ']']).next().unwrap_or(""));
+                if !first.is_empty() {
+                    fm.bibliography = Some(first);
+                }
+            } else if !v.is_empty() {
+                fm.bibliography = Some(unquote(v));
+            } else {
+                // block list — first `- item` on the following indented lines
+                for m in lines.iter().skip(k + 1) {
+                    if !m.starts_with(|c: char| c.is_whitespace()) {
+                        break;
+                    }
+                    if let Some(item) = m.trim_start().strip_prefix('-') {
+                        let item = unquote(item);
+                        if !item.is_empty() {
+                            fm.bibliography = Some(item);
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+    }
+}
+
+pub(crate) fn split_document(text: &str) -> (FrontMatter, Vec<Segment>) {
+    let text = text.strip_prefix('\u{feff}').unwrap_or(text);
+    let lines: Vec<&str> = text.lines().collect();
+    let mut fm = FrontMatter::default();
+    let mut i = 0;
+
+    // Front matter: `---` on line 1, closed by a later `---` (Preview.tsx semantics).
+    if lines.first().map(|l| l.trim_end()) == Some("---") {
+        let mut j = 1;
+        while j < lines.len() && lines[j].trim_end() != "---" {
+            j += 1;
+        }
+        if j < lines.len() {
+            parse_front_matter(&lines[1..j], &mut fm);
+            i = j + 1;
+        }
+    }
+
+    let mut segs: Vec<Segment> = Vec::new();
+    let mut prose: Vec<&str> = Vec::new();
+    let flush = |prose: &mut Vec<&str>, segs: &mut Vec<Segment>| {
+        // Blank-only runs between fences carry nothing — assembly re-spaces blocks.
+        if prose.iter().any(|l| !l.trim().is_empty()) {
+            segs.push(Segment::Markdown { text: prose.join("\n") });
+        }
+        prose.clear();
+    };
+    while i < lines.len() {
+        let trimmed = lines[i].trim_start();
+        if let Some(f) = fence_open(trimmed) {
+            flush(&mut prose, &mut segs);
+            let mut j = i + 1;
+            while j < lines.len() && !fence_close(lines[j].trim_start(), f.ticks) {
+                j += 1;
+            }
+            let body = &lines[i + 1..j.min(lines.len())];
+            match f.lang.as_deref() {
+                Some("python") => segs.push(Segment::PythonCell {
+                    code: body.join("\n"),
+                    opts: parse_cell_opts(body),
+                    first_line: i + 2, // 1-based; fence line is i+1
+                }),
+                Some(lang) => segs.push(Segment::OtherCell {
+                    code: body.join("\n"),
+                    lang: lang.to_string(),
+                    opts: parse_cell_opts(body),
+                }),
+                None => {
+                    let last = if j < lines.len() { j } else { lines.len() - 1 };
+                    segs.push(Segment::PlainFence { text: lines[i..=last].join("\n") });
+                }
+            }
+            i = j + 1;
+        } else {
+            prose.push(lines[i]);
+            i += 1;
+        }
+    }
+    flush(&mut prose, &mut segs);
+    (fm, segs)
+}
+
+// ---- citation / crossref passes --------------------------------------------------------
+
+/// Mirror of the editor's CITE_RE (citations.ts). The regex crate has no lookbehind, so
+/// the boundary guard is a leading group that must be re-emitted on replacement.
+fn cite_re() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| {
+        Regex::new(r"(^|[^\p{L}\p{N}_@/])@([\p{L}\p{N}](?:[\p{L}\p{N}_:.-]*[\p{L}\p{N}])?)")
+            .unwrap()
+    })
+}
+
+/// `{#label ...}` pandoc attribute (label = first token after `#`).
+fn attr_re() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"\{#([^\s}]+)[^}]*\}").unwrap())
+}
+
+fn heading_re() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"^(#{1,6})\s+(.*)$").unwrap())
+}
+
+fn html_escape(s: &str) -> String {
+    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
+}
+
+/// Collect crossref labels in document order and number them per family.
+/// label -> link display text ("Figure 1", "Table 2", "§ Heading Text").
+fn collect_labels(segments: &[Segment]) -> HashMap<String, String> {
+    let mut map: HashMap<String, String> = HashMap::new();
+    let (mut fig, mut tbl, mut eq) = (0usize, 0usize, 0usize);
+    let mut add = |label: &str, heading: Option<&str>, map: &mut HashMap<String, String>| {
+        if map.contains_key(label) {
+            return; // duplicates: first wins (the document checker flags them)
+        }
+        let disp = if label.starts_with("fig-") {
+            fig += 1;
+            format!("Figure {fig}")
+        } else if label.starts_with("tbl-") {
+            tbl += 1;
+            format!("Table {tbl}")
+        } else if label.starts_with("eq-") {
+            eq += 1;
+            format!("Equation {eq}")
+        } else if label.starts_with("sec-") {
+            format!("§ {}", heading.unwrap_or(label))
+        } else {
+            return; // not a crossref family — falls through to the citation pass
+        };
+        map.insert(label.to_string(), disp);
+    };
+    for seg in segments {
+        match seg {
+            Segment::PythonCell { opts, .. } | Segment::OtherCell { opts, .. } => {
+                if let Some(l) = &opts.label {
+                    add(l, None, &mut map);
+                }
+            }
+            Segment::Markdown { text } => {
+                for line in text.lines() {
+                    let heading = heading_re().captures(line).map(|c| {
+                        attr_re().replace_all(&c[2], "").trim().to_string()
+                    });
+                    for (l, _) in attr_labels(line) {
+                        add(&l, heading.as_deref(), &mut map);
+                    }
+                }
+            }
+            Segment::PlainFence { .. } => {}
+        }
+    }
+    map
+}
+
+/// `## Title {#sec-x}` → `## <a id="sec-x"></a>Title`; in other prose, `{#label ...}` →
+/// `<a id="label"></a>` (markdown-it doesn't understand pandoc attrs — today they render
+/// as literal text).
+fn transform_anchors(line: &str) -> String {
+    if !line.contains("{#") {
+        return line.to_string();
+    }
+    if let Some(h) = heading_re().captures(line) {
+        let text = &h[2];
+        if let Some(a) = attr_re().captures(text) {
+            let id = a[1].to_string();
+            let cleaned = attr_re().replace_all(text, "");
+            return format!("{} <a id=\"{}\"></a>{}", &h[1], id, cleaned.trim());
+        }
+        line.to_string()
+    } else {
+        attr_re().replace_all(line, "<a id=\"$1\"></a>").into_owned()
+    }
+}
+
+/// Apply `f` to the parts of a line outside inline `code` spans (a span = matching
+/// backtick runs of equal length; an unmatched run is literal prose, per CommonMark).
+fn map_outside_code_spans(line: &str, mut f: impl FnMut(&str) -> String) -> String {
+    if !line.contains('`') {
+        return f(line);
+    }
+    let b = line.as_bytes();
+    let mut out = String::new();
+    let mut start = 0;
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] != b'`' {
+            i += 1;
+            continue;
+        }
+        let rs = i;
+        while i < b.len() && b[i] == b'`' {
+            i += 1;
+        }
+        let n = i - rs;
+        // find the closing run of exactly n backticks
+        let mut k = i;
+        let mut close = None;
+        while k < b.len() {
+            if b[k] == b'`' {
+                let cs = k;
+                while k < b.len() && b[k] == b'`' {
+                    k += 1;
+                }
+                if k - cs == n {
+                    close = Some(k);
+                    break;
+                }
+            } else {
+                k += 1;
+            }
+        }
+        if let Some(ce) = close {
+            out.push_str(&f(&line[start..rs]));
+            out.push_str(&line[rs..ce]);
+            start = ce;
+            i = ce;
+        }
+    }
+    out.push_str(&f(&line[start..]));
+    out
+}
+
+/// `@fig-x` → `[Figure N](#fig-x)` etc. Unknown keys are left for the citation pass.
+fn replace_crossrefs(part: &str, labels: &HashMap<String, String>) -> String {
+    cite_re()
+        .replace_all(part, |c: &regex::Captures| {
+            let key = &c[2];
+            match labels.get(key) {
+                Some(disp) => format!("{}[{}](#{})", &c[1], disp, key),
+                None => c[0].to_string(),
+            }
+        })
+        .into_owned()
+}
+
+fn cite_link(e: &BibEntry, key: &str, suppress: bool, parens_year: bool) -> String {
+    let author = if e.author.is_empty() { key } else { &e.author };
+    let disp = if suppress {
+        if e.year.is_empty() { key.to_string() } else { e.year.clone() }
+    } else if e.year.is_empty() {
+        author.to_string()
+    } else if parens_year {
+        format!("{} ({})", author, e.year)
+    } else {
+        format!("{} {}", author, e.year)
+    };
+    format!("[{disp}](#ref-{key})")
+}
+
+fn cite_missing(key: &str) -> String {
+    format!("<span class=\"cite-missing\">@{key}</span>")
+}
+
+/// One `[…@…]` group: `;`-split items, each with exactly one `-?@key`; prefix/suffix text
+/// kept verbatim; the group re-emitted in parens. Returns None when the content is not a
+/// citation group (some item has no citation) — the brackets then stay verbatim.
+fn citation_group(
+    content: &str,
+    refs: &HashMap<&str, &BibEntry>,
+    cited: &mut Vec<String>,
+    n_cites: &mut usize,
+) -> Option<String> {
+    let mut parts: Vec<String> = Vec::new();
+    for item in content.split(';') {
+        let caps = cite_re().captures(item)?;
+        let m = caps.get(0).unwrap();
+        let lead = caps.get(1).map_or("", |g| g.as_str());
+        let key = caps.get(2).unwrap().as_str();
+        let suppress = lead == "-";
+        *n_cites += 1;
+        let mut piece = String::new();
+        piece.push_str(&item[..m.start()]);
+        if !suppress {
+            piece.push_str(lead);
+        }
+        match refs.get(key) {
+            Some(e) => {
+                cited.push(key.to_string());
+                piece.push_str(&cite_link(e, key, suppress, false));
+            }
+            None => piece.push_str(&cite_missing(key)),
+        }
+        piece.push_str(&item[m.end()..]);
+        parts.push(piece.trim().to_string());
+    }
+    Some(format!("({})", parts.join("; ")))
+}
+
+/// Bracketed citation groups, found with a hand scanner (the regex crate has no lookahead
+/// for the "`]` not followed by `(`/`[`, not preceded by `!`" guards).
+fn replace_bracket_groups(
+    s: &str,
+    refs: &HashMap<&str, &BibEntry>,
+    cited: &mut Vec<String>,
+    n_cites: &mut usize,
+) -> String {
+    if !s.contains('[') {
+        return s.to_string();
+    }
+    let b = s.as_bytes();
+    let mut out = String::new();
+    let mut start = 0;
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] != b'[' {
+            i += 1;
+            continue;
+        }
+        if i > 0 && b[i - 1] == b'!' {
+            i += 1;
+            continue; // image ![…]
+        }
+        let mut j = i + 1;
+        while j < b.len() && b[j] != b']' && b[j] != b'[' {
+            j += 1;
+        }
+        if j >= b.len() || b[j] != b']' {
+            i += 1; // nested/unclosed — rescan from the next char
+            continue;
+        }
+        if matches!(b.get(j + 1), Some(b'(') | Some(b'[')) {
+            i = j + 1;
+            continue; // markdown link / reference link
+        }
+        let content = &s[i + 1..j];
+        if !content.contains('@') {
+            i = j + 1;
+            continue;
+        }
+        match citation_group(content, refs, cited, n_cites) {
+            Some(rep) => {
+                out.push_str(&s[start..i]);
+                out.push_str(&rep);
+                start = j + 1;
+                i = j + 1;
+            }
+            None => i = j + 1,
+        }
+    }
+    out.push_str(&s[start..]);
+    out
+}
+
+/// In-text `@key` → `[Author (Year)](#ref-key)`; `-@key` → year only; unknown key →
+/// red-dotted `cite-missing` span.
+fn replace_bare_citations(
+    part: &str,
+    refs: &HashMap<&str, &BibEntry>,
+    cited: &mut Vec<String>,
+    n_cites: &mut usize,
+) -> String {
+    cite_re()
+        .replace_all(part, |c: &regex::Captures| {
+            let lead = c.get(1).map_or("", |g| g.as_str());
+            let key = &c[2];
+            let suppress = lead == "-";
+            *n_cites += 1;
+            match refs.get(key) {
+                Some(e) => {
+                    cited.push(key.to_string());
+                    let link = cite_link(e, key, suppress, true);
+                    let link = if suppress && !e.year.is_empty() {
+                        format!("[({})](#ref-{})", e.year, key)
+                    } else {
+                        link
+                    };
+                    format!("{}{}", if suppress { "" } else { lead }, link)
+                }
+                None => format!("{}{}", lead, cite_missing(key)),
+            }
+        })
+        .into_owned()
+}
+
+fn process_prose(
+    text: &str,
+    labels: &HashMap<String, String>,
+    refs: &HashMap<&str, &BibEntry>,
+    cited: &mut Vec<String>,
+    n_cites: &mut usize,
+) -> String {
+    let mut out: Vec<String> = Vec::new();
+    for line in text.lines() {
+        let line = transform_anchors(line);
+        let line = map_outside_code_spans(&line, |part| {
+            let a = replace_crossrefs(part, labels);
+            let b = replace_bracket_groups(&a, refs, cited, n_cites);
+            replace_bare_citations(&b, refs, cited, n_cites)
+        });
+        out.push(line);
+    }
+    out.join("\n")
+}
+
+// ---- references -------------------------------------------------------------------
+
+/// APA-like References block from the cited keys — an approximation from the parsed bib
+/// index, not citeproc. Raw HTML so entries can carry ids and `<em>`.
+fn references_section(cited: &[String], refs: &HashMap<&str, &BibEntry>) -> Option<String> {
+    let mut seen = std::collections::HashSet::new();
+    let mut list: Vec<&BibEntry> = cited
+        .iter()
+        .filter(|k| seen.insert(k.as_str()))
+        .filter_map(|k| refs.get(k.as_str()).copied())
+        .collect();
+    if list.is_empty() {
+        return None;
+    }
+    list.sort_by(|a, b| {
+        (a.authors_full.to_lowercase(), a.year.as_str(), a.key.as_str())
+            .cmp(&(b.authors_full.to_lowercase(), b.year.as_str(), b.key.as_str()))
+    });
+    let mut out = String::from("## References\n\n<div class=\"references\">\n");
+    for e in list {
+        let mut s = String::new();
+        if !e.authors_full.is_empty() {
+            s.push_str(&html_escape(&e.authors_full));
+        }
+        if !e.year.is_empty() {
+            if !s.is_empty() {
+                s.push(' ');
+            }
+            s.push_str(&format!("({})", e.year));
+        }
+        if !s.is_empty() && !s.ends_with('.') {
+            s.push('.');
+        }
+        if !e.title.is_empty() {
+            if !s.is_empty() {
+                s.push(' ');
+            }
+            s.push_str(&format!("<em>{}</em>.", html_escape(&e.title)));
+        }
+        if !e.container.is_empty() {
+            if !s.is_empty() {
+                s.push(' ');
+            }
+            s.push_str(&format!("<em>{}</em>.", html_escape(&e.container)));
+        }
+        out.push_str(&format!("<p class=\"ref-entry\" id=\"ref-{}\">{}</p>\n", e.key, s));
+    }
+    out.push_str("</div>");
+    Some(out)
+}
+
+// ---- assembly ---------------------------------------------------------------------
+
+pub(crate) struct Expanded {
+    pub(crate) markdown: String,
+    pub(crate) cells: usize,
+    pub(crate) warnings: Vec<String>,
+}
+
+/// Leading `#|` option lines are stripped from the echoed source (Quarto behavior).
+fn echo_source(code: &str) -> String {
+    code.lines()
+        .skip_while(|l| l.trim_start().starts_with("#|"))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn source_fence(code: &str, lang: &str) -> String {
+    let (mut run, mut cur) = (0usize, 0usize);
+    for ch in code.chars() {
+        if ch == '`' {
+            cur += 1;
+            run = run.max(cur);
+        } else {
+            cur = 0;
+        }
+    }
+    let ticks = "`".repeat((run + 1).max(3));
+    format!("{ticks}{lang}\n{code}\n{ticks}")
+}
+
+/// Expand a split document against a bibliography. Pure — no filesystem, no app state —
+/// so the whole pipeline is unit-testable.
+pub(crate) fn expand(fm: &FrontMatter, segments: &[Segment], entries: &[BibEntry]) -> Expanded {
+    let refs: HashMap<&str, &BibEntry> = entries.iter().map(|e| (e.key.as_str(), e)).collect();
+    let labels = collect_labels(segments);
+    let mut cited: Vec<String> = Vec::new();
+    let mut n_cites = 0usize;
+    let mut cells = 0usize;
+    let mut blocks: Vec<String> = Vec::new();
+
+    if let Some(t) = &fm.title {
+        blocks.push(format!("# {t}"));
+    }
+    for seg in segments {
+        match seg {
+            Segment::Markdown { text } => {
+                let p = process_prose(text, &labels, &refs, &mut cited, &mut n_cites);
+                let p = p.trim_matches('\n');
+                if !p.trim().is_empty() {
+                    blocks.push(p.to_string());
+                }
+            }
+            Segment::PlainFence { text } => blocks.push(text.clone()),
+            Segment::PythonCell { code, .. } => {
+                cells += 1;
+                let src = echo_source(code);
+                if !src.trim().is_empty() {
+                    blocks.push(source_fence(&src, "python"));
+                }
+            }
+            Segment::OtherCell { code, lang, .. } => {
+                let src = echo_source(code);
+                if !src.trim().is_empty() {
+                    blocks.push(source_fence(&src, lang));
+                }
+            }
+        }
+    }
+    if let Some(r) = references_section(&cited, &refs) {
+        blocks.push(r);
+    }
+    let mut warnings = Vec::new();
+    if n_cites > 0 && entries.is_empty() {
+        warnings.push("bibliography not loaded — citations are unresolved".to_string());
+    }
+    Expanded { markdown: blocks.join("\n\n"), cells, warnings }
+}
+
+// ---- command ----------------------------------------------------------------------
+
+/// The doc's front-matter `bibliography:` (resolved relative to the doc's folder),
+/// parsed on demand and cached in RenderState by (path, mtime).
+fn doc_bib(app: &tauri::AppHandle, doc_path: Option<&str>, rel: &str) -> Result<Vec<BibEntry>, String> {
+    let mut p = PathBuf::from(rel);
+    if p.is_relative() {
+        let base = doc_path
+            .and_then(|d| std::path::Path::new(d).parent().map(|b| b.to_path_buf()))
+            .ok_or_else(|| format!("relative path '{rel}' needs a saved document"))?;
+        p = base.join(rel);
+    }
+    let mtime = std::fs::metadata(&p)
+        .and_then(|m| m.modified())
+        .map_err(|e| format!("{}: {e}", p.display()))?;
+    let state = app.state::<RenderState>();
+    let mut guard = state.doc_bib.lock().map_err(|e| e.to_string())?;
+    if let Some(db) = guard.as_ref() {
+        if db.path == p && db.mtime == mtime {
+            return Ok(db.entries.clone());
+        }
+    }
+    let src = std::fs::read_to_string(&p).map_err(|e| format!("{}: {e}", p.display()))?;
+    let entries = bib::parse_bib(&src);
+    *guard = Some(DocBib { path: p, mtime, entries: entries.clone() });
+    Ok(entries)
+}
+
+fn render_impl(app: &tauri::AppHandle, text: &str, path: Option<&str>) -> RenderResult {
+    let t0 = Instant::now();
+    let (fm, segments) = split_document(text);
+
+    let mut pre_warnings: Vec<String> = Vec::new();
+    let mut exp = if let Some(rel) = fm.bibliography.clone() {
+        match doc_bib(app, path, &rel) {
+            Ok(entries) => expand(&fm, &segments, &entries),
+            Err(e) => {
+                // The doc explicitly overrode the bibliography — a failed load must not
+                // silently fall back to the default file.
+                pre_warnings.push(format!("bibliography not loaded: {e}"));
+                expand(&fm, &segments, &[])
+            }
+        }
+    } else {
+        let st = app.state::<bib::BibState>();
+        bib::with_entries(&st, |entries| expand(&fm, &segments, entries))
+    };
+    if !pre_warnings.is_empty() {
+        // The specific load error replaces the generic "not loaded" warning.
+        exp.warnings.retain(|w| !w.starts_with("bibliography not loaded"));
+    }
+    let mut warnings = [pre_warnings, exp.warnings].concat();
+    if exp.cells > 0 {
+        warnings.push("code cells shown as source (python execution off)".to_string());
+    }
+
+    let elapsed_ms = t0.elapsed().as_millis() as u64;
+    let cells = exp.cells;
+    let plural = if cells == 1 { "" } else { "s" };
+    let mut md = format!(
+        "<p class=\"render-summary ok\">✓ {cells} cell{plural} · {:.1} s</p>",
+        elapsed_ms as f64 / 1000.0
+    );
+    for w in &warnings {
+        md.push_str(&format!("\n<p class=\"render-summary warn\">{}</p>", html_escape(w)));
+    }
+    md.push_str("\n\n");
+    md.push_str(&exp.markdown);
+    RenderResult { markdown: md, cells, errors: 0, elapsed_ms, python: "off".into() }
+}
+
+/// Render the live buffer (no save side effect, no temp files). Async + spawn_blocking so
+/// the webview never blocks.
+#[tauri::command]
+pub async fn render_document(
+    app: tauri::AppHandle,
+    text: String,
+    path: Option<String>,
+) -> Result<RenderResult, String> {
+    tauri::async_runtime::spawn_blocking(move || render_impl(&app, &text, path.as_deref()))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+// ---- tests -----------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn entries() -> Vec<BibEntry> {
+        bib::parse_bib(
+            r#"
+            @book{Mild2022, author = {Mildenhall, Stephen J. and Major, John A.},
+                  title = {Pricing Insurance Risk}, year = {2022}, publisher = {Wiley}}
+            @article{Smith2020, author = {Smith, Jane}, title = {On Things},
+                     year = {2020}, journal = {Journal of Things}}
+            @misc{Adams2019, author = {Adams, Ann}, title = {Alpha Notes}, year = {2019}}
+            "#,
+        )
+    }
+
+    fn run(text: &str) -> String {
+        let e = entries();
+        let (fm, segs) = split_document(text);
+        expand(&fm, &segs, &e).markdown
+    }
+
+    // -- splitter --
+
+    #[test]
+    fn splits_front_matter_prose_and_cells() {
+        let doc = "---\ntitle: \"My Doc\"\nbibliography: refs.bib\n---\nHello.\n\n```{python}\n#| label: fig-x\n#| echo: false\nprint(1)\n```\n\n```\nplain\n```\ntail\n";
+        let (fm, segs) = split_document(doc);
+        assert_eq!(fm.title.as_deref(), Some("My Doc"));
+        assert_eq!(fm.bibliography.as_deref(), Some("refs.bib"));
+        assert_eq!(segs.len(), 4);
+        match &segs[1] {
+            Segment::PythonCell { code, opts, first_line } => {
+                assert!(code.contains("print(1)"));
+                assert_eq!(opts.label.as_deref(), Some("fig-x"));
+                assert!(!opts.echo);
+                assert!(opts.eval && opts.include && opts.output);
+                assert_eq!(*first_line, 8); // `#| label: fig-x` is document line 8
+            }
+            _ => panic!("expected python cell"),
+        }
+        match &segs[2] {
+            Segment::PlainFence { text } => assert_eq!(text, "```\nplain\n```"),
+            _ => panic!("expected plain fence"),
+        }
+    }
+
+    #[test]
+    fn front_matter_tolerates_bom_crlf_and_block_list() {
+        let doc = "\u{feff}---\r\ntitle: Doc\r\nbibliography:\r\n  - a.bib\r\n  - b.bib\r\n---\r\nbody\r\n";
+        let (fm, segs) = split_document(doc);
+        assert_eq!(fm.title.as_deref(), Some("Doc"));
+        assert_eq!(fm.bibliography.as_deref(), Some("a.bib"));
+        assert_eq!(segs.len(), 1);
+    }
+
+    #[test]
+    fn hash_pipe_lines_stripped_from_echo() {
+        let out = run("```{python}\n#| label: fig-a\n#| fig-cap: \"Cap\"\nx = 1\n```\n");
+        assert!(out.contains("```python\nx = 1\n```"));
+        assert!(!out.contains("#|"));
+    }
+
+    // -- citations (shared corpus with the editor's CITE_RE) --
+
+    #[test]
+    fn bare_citation_linked() {
+        let out = run("As shown by @Mild2022 earlier.");
+        assert!(out.contains("[Mildenhall and Major (2022)](#ref-Mild2022)"), "{out}");
+    }
+
+    #[test]
+    fn trailing_punctuation_excluded() {
+        let out = run("See @Smith2020.");
+        assert!(out.contains("[Smith (2020)](#ref-Smith2020)."), "{out}");
+    }
+
+    #[test]
+    fn email_and_path_not_citations() {
+        let out = run("mail foo@Smith2020 and a/@Smith2020 stay");
+        assert!(!out.contains("#ref-"), "{out}");
+    }
+
+    #[test]
+    fn code_spans_and_fences_skipped() {
+        let out = run("keep `@Smith2020` and\n```\n@Smith2020\n```\nliteral");
+        assert!(!out.contains("#ref-"), "{out}");
+        assert!(out.contains("`@Smith2020`"));
+    }
+
+    #[test]
+    fn bracketed_group() {
+        let out = run("[@Mild2022; @Smith2020]");
+        assert!(
+            out.contains("([Mildenhall and Major 2022](#ref-Mild2022); [Smith 2020](#ref-Smith2020))"),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn bracketed_group_with_prefix_suffix() {
+        let out = run("[see @Mild2022, p. 7]");
+        assert!(out.contains("(see [Mildenhall and Major 2022](#ref-Mild2022), p. 7)"), "{out}");
+    }
+
+    #[test]
+    fn suppressed_author() {
+        let out = run("Mildenhall said it [-@Mild2022].");
+        assert!(out.contains("([2022](#ref-Mild2022))"), "{out}");
+    }
+
+    #[test]
+    fn unknown_key_flagged() {
+        let out = run("See @NoSuchKey99 here.");
+        assert!(out.contains("<span class=\"cite-missing\">@NoSuchKey99</span>"), "{out}");
+        assert!(!out.contains("## References"));
+    }
+
+    #[test]
+    fn markdown_links_untouched() {
+        let out = run("[a link](https://x.y) and [ref link][@weird] stay");
+        assert!(out.contains("[a link](https://x.y)"), "{out}");
+    }
+
+    #[test]
+    fn no_bib_warns_and_flags() {
+        let (fm, segs) = split_document("See @Smith2020.");
+        let exp = expand(&fm, &segs, &[]);
+        assert!(exp.warnings.iter().any(|w| w.contains("bibliography not loaded")));
+        assert!(exp.markdown.contains("cite-missing"));
+    }
+
+    // -- references --
+
+    #[test]
+    fn references_sorted_and_anchored() {
+        let out = run("cite @Smith2020 and @Mild2022 and @Adams2019");
+        let refs = out.split("## References").nth(1).expect("references section");
+        assert!(refs.contains("<div class=\"references\">"));
+        let a = refs.find("id=\"ref-Adams2019\"").unwrap();
+        let m = refs.find("id=\"ref-Mild2022\"").unwrap();
+        let s = refs.find("id=\"ref-Smith2020\"").unwrap();
+        assert!(a < m && m < s, "sorted by author: {refs}");
+        assert!(refs.contains(
+            "Mildenhall, Stephen J. and Major, John A. (2022). <em>Pricing Insurance Risk</em>. <em>Wiley</em>."
+        ));
+        // No container on Adams2019 — entry ends cleanly after the title.
+        assert!(refs.contains("Adams, Ann (2019). <em>Alpha Notes</em>.</p>"));
+    }
+
+    #[test]
+    fn cited_once_listed_once() {
+        let out = run("@Smith2020 and again @Smith2020");
+        assert_eq!(out.matches("id=\"ref-Smith2020\"").count(), 1);
+    }
+
+    // -- crossrefs --
+
+    #[test]
+    fn crossrefs_numbered_in_doc_order() {
+        let doc = "```{python}\n#| label: fig-first\nx\n```\n\n![cap](i.png){#fig-second}\n\nA table {#tbl-t}\n\nSee @fig-second, @fig-first, @tbl-t, @eq-nope.";
+        let out = run(doc);
+        assert!(out.contains("[Figure 2](#fig-second)"), "{out}");
+        assert!(out.contains("[Figure 1](#fig-first)"), "{out}");
+        assert!(out.contains("[Table 1](#tbl-t)"), "{out}");
+        // eq-nope has no label anywhere — falls through to the citation pass
+        assert!(out.contains("<span class=\"cite-missing\">@eq-nope</span>"), "{out}");
+        // prose attrs became anchors
+        assert!(out.contains("![cap](i.png)<a id=\"fig-second\"></a>"), "{out}");
+    }
+
+    #[test]
+    fn heading_attr_becomes_anchor() {
+        let out = run("## Intro Section {#sec-intro}\n\nSee @sec-intro.");
+        assert!(out.contains("## <a id=\"sec-intro\"></a>Intro Section"), "{out}");
+        assert!(out.contains("[§ Intro Section](#sec-intro)"), "{out}");
+    }
+}

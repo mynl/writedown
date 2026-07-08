@@ -21,6 +21,7 @@ import {
   readFile,
   recentProjects as fetchRecentProjects,
   renamePath,
+  renderDocument,
   saveLastWorkspace,
   saveProject,
   watchWorkspace,
@@ -31,6 +32,7 @@ import {
   type SublimeTheme,
 } from "./api";
 import { getActiveView } from "./editor/editorView";
+import { isMarkdownDoc } from "./editor/languages";
 import { cssFontWeight } from "./fontWeight";
 
 /** Untitled scratch buffers live only in memory until "Save As" gives them a real path.
@@ -77,6 +79,18 @@ export type Doc = {
 
 export const isDirty = (d: Doc) => d.content !== d.savedContent;
 
+/** One completed render, kept per document path (in-memory only, never in the session).
+ *  `source` is the exact text that was rendered — the Stale badge compares against it. */
+export type Rendered = {
+  markdown: string;
+  source: string;
+  at: number;
+  cells: number;
+  errors: number;
+  elapsedMs: number;
+  python: string;
+};
+
 type AppState = {
   root: string | null;
   rootEntries: Entry[];
@@ -109,6 +123,11 @@ type AppState = {
   /** Right-click file-tree context menu (null = closed). */
   treeMenu: { x: number; y: number; entry: Entry } | null;
   viewMode: "editor" | "split" | "preview";
+  /** Which pane the preview column shows: the live preview or the last render snapshot. */
+  previewTab: "live" | "rendered";
+  /** Completed renders by document path (in-memory only). */
+  rendered: Record<string, Rendered>;
+  renderBusy: boolean;
   cursorLine: number;
   cursorCol: number;
   sublimeTheme: SublimeTheme | null;
@@ -184,6 +203,9 @@ type AppState = {
   removeProjectFolder: (path: string) => void;
   loadRecentProjects: () => Promise<void>;
   cycleView: () => void;
+  setPreviewTab: (tab: "live" | "rendered") => void;
+  /** Render the active markdown/quarto document (palette: "Render Document"). */
+  renderActive: () => Promise<void>;
   setCursorPos: (line: number, col: number) => void;
   setTreeWidth: (w: number) => void;
   setOutlineWidth: (w: number) => void;
@@ -206,6 +228,9 @@ export const useStore = create<AppState>((set, get) => ({
   prompt: null,
   treeMenu: null,
   viewMode: "split",
+  previewTab: "live",
+  rendered: {},
+  renderBusy: false,
   cursorLine: 1,
   cursorCol: 1,
   sublimeTheme: null,
@@ -613,6 +638,58 @@ export const useStore = create<AppState>((set, get) => ({
       viewMode:
         s.viewMode === "editor" ? "split" : s.viewMode === "split" ? "preview" : "editor",
     })),
+
+  setPreviewTab: (tab) => set({ previewTab: tab }),
+
+  // Render the live buffer through the Rust pipeline (spec: never reads/writes the file;
+  // figures travel as data URIs). Result is a static snapshot shown in the Rendered tab.
+  renderActive: async () => {
+    const { activePath, tabs, renderBusy } = get();
+    const doc = tabs.find((t) => t.path === activePath);
+    if (!doc || !isMarkdownDoc(doc.path) || renderBusy) return;
+    const source = doc.content;
+    set({ renderBusy: true });
+    try {
+      const r = await renderDocument(source, isScratch(doc.path) ? null : doc.path);
+      set((s) => ({
+        rendered: {
+          ...s.rendered,
+          [doc.path]: {
+            markdown: r.markdown,
+            source,
+            at: Date.now(),
+            cells: r.cells,
+            errors: r.errors,
+            elapsedMs: r.elapsed_ms,
+            python: r.python,
+          },
+        },
+        previewTab: "rendered",
+        // Make the result visible: editor-only view switches to split.
+        viewMode: s.viewMode === "editor" ? "split" : s.viewMode,
+      }));
+    } catch (e) {
+      // Surfaced in the Rendered pane rather than swallowed (spec §25).
+      set((s) => ({
+        rendered: {
+          ...s.rendered,
+          [doc.path]: {
+            markdown: `<p class="render-summary err">✗ render failed: ${String(e)}</p>`,
+            source,
+            at: Date.now(),
+            cells: 0,
+            errors: 1,
+            elapsedMs: 0,
+            python: "off",
+          },
+        },
+        previewTab: "rendered",
+        viewMode: s.viewMode === "editor" ? "split" : s.viewMode,
+      }));
+    } finally {
+      set({ renderBusy: false });
+    }
+  },
 
   setCursorPos: (line, col) => {
     const s = get();

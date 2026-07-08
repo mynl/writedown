@@ -25,9 +25,11 @@ references); **1.34.0** = the python sidecar. Each stage: one commit + CHANGELOG
 - Config `[render]`: `python` (explicit path, no discovery), `timeout_seconds = 30`,
   `figure_format = "png"|"svg"`, `figure_dpi = 150`.
 - UI: preview pane gets explicit tabs **Preview | Rendered** (same pattern/CSS as
-  Folder | Project). Command **Render Document** = palette + `Ctrl+Shift+K` (Quarto's
-  render key; free in our maps — `Ctrl+Shift+R` is tree refresh). Rendered view is a
-  static snapshot with a stale badge. No mode-toggling buttons.
+  Folder | Project). Command **Render Document** is **palette-only** (Ctrl+Shift+P →
+  "Render Document") — no dedicated key binding (Ctrl+Shift+K, Quarto's render key, is
+  taken by CodeMirror's `deleteLine`, and render isn't frequent enough to warrant
+  claiming a chord). Rendered view is a static snapshot with a stale badge. No
+  mode-toggling buttons.
 - Graceful degradation: with no python configured, everything except execution still
   works (cells show source + a one-line notice). Render never blocks the UI thread.
 
@@ -120,6 +122,9 @@ Unresolved crossref keys fall through to the citation pass (and thus `cite-missi
 -> RenderResult { markdown: String, cells: usize, errors: usize, elapsed_ms: u64,
 python: String /* "ok" | "off" | "not_configured" | error msg */ }`.
 Async so the webview never blocks; heavy work in `tauri::async_runtime::spawn_blocking`.
+Wire it into `lib.rs`: add `mod render;`, `.manage(render::RenderState::default())`
+(holds the doc-bib cache now, the kernel from 1.34), and `render::render_document` in
+`generate_handler!` (`restart_kernel` joins it in 1.34).
 
 Output document, tight (one blank line between blocks, never more):
 summary line first — `<p class="render-summary ok">✓ 3 cells · 0.4 s</p>` /
@@ -137,13 +142,14 @@ python cell renders source-only (```` ```python ```` fence) — execution arrive
   markdown docs only; on success store result (`source` = exact text rendered,
   `at` = `Date.now()`), set `previewTab = "rendered"`, and if `viewMode === "editor"`
   set it to `"split"` so the result is visible.
-- `App.tsx`: `Ctrl+Shift+K` → `renderActive()`. Preview split-pane gets a
-  `panel-tabs` header row (reuse Folder|Project CSS): **Preview | Rendered**.
+- `App.tsx`: Preview split-pane gets a `panel-tabs` header row (reuse Folder|Project
+  CSS): **Preview | Rendered**. (Render is invoked from the command palette — see
+  `commands.ts` below — so no window/editor keydown wiring is needed here.)
   Rendered tab = status strip (✓/✗ · n cells · elapsed · rendered HH:MM ·
   **Stale** badge when `activeDoc.content !== rendered.source` · spinner while
   `renderBusy`) above `<Preview content={rendered.markdown} />` (component reused
   verbatim — proportional scroll sync comes along free). Empty state: "No render yet —
-  Ctrl+Shift+K".
+  run Render Document (Ctrl+Shift+P)".
 - `Preview.tsx` onClick: handle `href` starting `#` — resolve inside the preview via
   `querySelector('#' + CSS.escape(id))` + `scrollIntoView()` (today ALL internal
   navigation is suppressed; citation links need this).
@@ -208,7 +214,11 @@ report the cell as "timed out after Ns — kernel restarted", and render remaini
 as `<div class="cell-skipped">not run (kernel restarted after cell N timed out)</div>`.
 `#[tauri::command] fn restart_kernel(state)` kills; next render respawns (this is the
 Windows "interrupt"). Kill the child on `RunEvent::Exit` too (EOF backstop
-notwithstanding). Config read like `bib_path` does — direct from `config.toml`:
+notwithstanding) — note `lib.rs` currently ends `.run(generate_context!()).expect(…)`
+with **no** run-event callback, so this means restructuring to `let app = builder
+.build(generate_context!())?;` then `app.run(|_h, e| if matches!(e, RunEvent::Exit) { … })`.
+(`RenderState` itself already exists from 1.33 for the doc-bib cache — §3.) Config read
+like `bib_path` does — direct from `config.toml`:
 `python` missing/empty → `python: "not_configured"`, cells render source + notice, no
 spawn attempt. Document the new keys in `DEFAULT_CONFIG` (new installs) and CHANGELOG
 (existing configs are NEVER rewritten — Steve adds one line by hand).
@@ -249,8 +259,8 @@ matplotlib) → first render ~1–2 s (imports), second < 0.5 s; figure displays
 as last expression renders as a table. Cell raising `1/0` → red traceback at the right
 doc line, later cells still run. `while True: pass` → timeout error, kernel restarts,
 next render works. Bad python path → clear notice, markdown features all still work.
-Edit after render → Stale badge; Preview tab still live. `Ctrl+Shift+K` from editor-only
-view switches to split. No files created anywhere; no console window flash.
+Edit after render → Stale badge; Preview tab still live. Render Document (Ctrl+Shift+P)
+from editor-only view switches to split. No files created anywhere; no console window flash.
 
 ## Out of scope (recorded, not forgotten)
 

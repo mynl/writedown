@@ -12,13 +12,17 @@ use tauri::{AppHandle, Emitter, Manager};
 
 #[derive(Clone, Serialize)]
 pub struct BibEntry {
-    key: String,
+    pub(crate) key: String,
     entry_type: String,
-    author: String,    // full short "A and B" (hover / detail)
-    coauthors: String, // co-authors beyond the first (display; first is in the key)
-    year: String,
-    title: String,
-    container: String,
+    pub(crate) author: String, // full short "A and B" (hover / detail / in-text cites)
+    coauthors: String,         // co-authors beyond the first (display; first is in the key)
+    pub(crate) year: String,
+    pub(crate) title: String,
+    pub(crate) container: String,
+    /// Cleaned verbatim author/editor field ("Mildenhall, Stephen J. and Major, John A.")
+    /// — used by render for References entries; `author` stays the short form.
+    #[serde(skip)]
+    pub(crate) authors_full: String,
     #[serde(skip)]
     label: String, // "key  title" (cased) — display + match target
     #[serde(skip)]
@@ -44,6 +48,12 @@ pub struct CiteMatch {
 pub struct BibState {
     entries: Mutex<Vec<BibEntry>>,
     watcher: Mutex<Option<RecommendedWatcher>>,
+}
+
+/// Run `f` over the loaded entries (render's citation lookup) without cloning the index.
+pub(crate) fn with_entries<R>(state: &BibState, f: impl FnOnce(&[BibEntry]) -> R) -> R {
+    let guard = state.entries.lock().unwrap();
+    f(&guard)
 }
 
 fn clean(s: &str) -> String {
@@ -288,6 +298,7 @@ pub fn parse_bib(src: &str) -> Vec<BibEntry> {
         out.push(BibEntry {
             author: short_authors(&author_field),
             coauthors: coauthors(&author_field),
+            authors_full: clean(&author_field),
             label_lower: label.to_lowercase().chars().collect(),
             label_cased: label.chars().collect(),
             key,

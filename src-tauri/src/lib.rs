@@ -4,6 +4,7 @@ mod check;
 mod config;
 mod files;
 mod project;
+mod render;
 mod session;
 mod sublime;
 mod watch;
@@ -18,6 +19,7 @@ pub fn run() {
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .manage(watch::WatchState::default())
         .manage(bib::BibState::default())
+        .manage(render::RenderState::default())
         .setup(|app| {
             if let Err(e) = config::ensure_setup(&app.handle()) {
                 eprintln!("writedown: setup failed: {e}");
@@ -57,6 +59,7 @@ pub fn run() {
             bib::get_citation,
             bib::check_citation_keys,
             check::check_document,
+            render::render_document,
             project::load_project,
             project::save_project,
             project::recent_projects,

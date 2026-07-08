@@ -85,13 +85,20 @@ export function Preview({ content }: { content: string }) {
     };
   }, []);
 
-  // External links open in the default browser; internal navigation is suppressed.
+  // External links open in the default browser; `#anchor` links (citations, crossrefs,
+  // footnotes) scroll within the preview; all other navigation is suppressed.
   function onClick(e: React.MouseEvent) {
     const a = (e.target as HTMLElement).closest("a");
     if (!a) return;
     e.preventDefault();
     const href = a.getAttribute("href") ?? "";
-    if (/^https?:\/\//i.test(href)) void openUrl(href).catch(() => {});
+    if (/^https?:\/\//i.test(href)) {
+      void openUrl(href).catch(() => {});
+    } else if (href.startsWith("#") && href.length > 1) {
+      scrollRef.current
+        ?.querySelector("#" + CSS.escape(href.slice(1)))
+        ?.scrollIntoView({ block: "start" });
+    }
   }
 
   return (

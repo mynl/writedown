@@ -20,13 +20,14 @@ pub fn check_document(text: String) -> Vec<Diagnostic> {
     check(&text)
 }
 
-struct Fence {
-    ticks: usize,
-    lang: Option<String>, // Some("python") for ```{python}; None for non-executable fences
+pub(crate) struct Fence {
+    pub(crate) ticks: usize,
+    // Some("python") for ```{python}; None for non-executable fences
+    pub(crate) lang: Option<String>,
 }
 
 /// Parse a fence opener: ```` ```{python} ````, ```` ```{r, opts} ````, or plain ```` ``` ````.
-fn fence_open(trimmed: &str) -> Option<Fence> {
+pub(crate) fn fence_open(trimmed: &str) -> Option<Fence> {
     let ticks = trimmed.chars().take_while(|c| *c == '`').count();
     if ticks < 3 {
         return None;
@@ -41,13 +42,13 @@ fn fence_open(trimmed: &str) -> Option<Fence> {
     Some(Fence { ticks, lang })
 }
 
-fn fence_close(trimmed: &str, open_ticks: usize) -> bool {
+pub(crate) fn fence_close(trimmed: &str, open_ticks: usize) -> bool {
     let ticks = trimmed.chars().take_while(|c| *c == '`').count();
     ticks >= open_ticks && trimmed[ticks..].trim().is_empty()
 }
 
 /// `#| label: fig-x` inside a cell (quotes stripped).
-fn cell_label(line: &str) -> Option<String> {
+pub(crate) fn cell_label(line: &str) -> Option<String> {
     let t = line.trim_start();
     let rest = t.strip_prefix("#|")?.trim_start();
     let val = rest.strip_prefix("label:")?.trim();
@@ -56,7 +57,7 @@ fn cell_label(line: &str) -> Option<String> {
 }
 
 /// `{#sec-x}`-style attribute labels in prose (headings, divs, figures).
-fn attr_labels(line: &str) -> Vec<(String, usize)> {
+pub(crate) fn attr_labels(line: &str) -> Vec<(String, usize)> {
     let mut out = Vec::new();
     let bytes = line.as_bytes();
     let mut i = 0;

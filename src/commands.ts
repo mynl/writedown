@@ -54,6 +54,7 @@ export function appCommands(): Command[] {
     { id: "reformat-tables", title: "Reformat Markdown Table(s)", run: onMarkdownView(reformatTables) },
     { id: "refresh-tree", title: "Refresh File Tree", run: () => void s().refreshTree() },
     { id: "toggle-preview", title: "Toggle Preview (editor / split / preview)", run: () => s().cycleView() },
+    { id: "render-doc", title: "Render Document (run code cells)", run: () => void s().renderActive() },
     {
       id: "edit-config",
       title: "Edit Config (config.toml)",

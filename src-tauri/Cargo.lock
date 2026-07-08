@@ -5464,6 +5464,7 @@ version = "1.32.0"
 dependencies = [
  "json5",
  "notify",
+ "regex",
  "rustpython-parser",
  "serde",
  "serde_json",

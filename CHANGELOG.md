@@ -5,6 +5,47 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.33.0] - 2026-07-08
+
+### Added
+
+- **Rendered tab + fast markdown render pipeline** (stage 1 of the fast qmd render plan;
+  python execution follows in 1.34.0). The preview column now has explicit
+  **Preview | Rendered** tabs (same quiet chrome as Folder | Project). The palette command
+  **Render Document** runs the live buffer through a new in-process Rust pipeline — no
+  pandoc, no quarto, no temp files, nothing written to disk — and shows the expanded
+  markdown through the existing preview (KaTeX, DOMPurify, scroll sync come along free):
+  - **Citations resolved against the bibliography index.** In-text `@key` →
+    `Mildenhall and Major (2022)` linked to its References entry; bracketed groups
+    `[see @a, p. 7; @b]` → `(see Mildenhall 2022, p. 7; Smith 2020)` with prefix/suffix
+    text kept; `-@key` suppresses the author. Unknown keys get a red dotted
+    `cite-missing` underline. Matching mirrors the editor's citation regex (same corpus
+    tested on both sides); `@` inside inline code or fenced blocks is ignored.
+  - **Generated References section** — APA-like approximation from the parsed `.bib`
+    (not citeproc), sorted by author, each entry anchored so citation links jump to it.
+    Clicking a `#anchor` link now scrolls within the preview (external links still open
+    in the browser; all other navigation stays suppressed). A document front-matter
+    `bibliography:` overrides the default file for that render (parsed on demand, cached
+    by path+mtime); front matter itself is only read, never touched.
+  - **Quarto crossrefs numbered** in document order per family: `@fig-x` → `Figure 1`,
+    `@tbl-x` → `Table 1`, `@eq-x` → `Equation 1`, `@sec-x` → `§ Heading Text`, each a
+    link. Heading attrs `## Title {#sec-x}` become real anchors instead of rendering as
+    literal `{#sec-x}` text; prose attrs (e.g. on images) become anchors too.
+  - **Code cells shown as source** in this stage: `{python}` cells render as plain
+    fences with `#|` option lines stripped (Quarto behavior); `{r}`/`{julia}`/… likewise
+    and are never run. Cell options (`eval`/`echo`/`include`/`output`/`label`/`fig-cap`)
+    are parsed now, honored by execution splicing in 1.34.
+  - **Rendered view is a static snapshot** with a status strip: ✓/✗, cell count, elapsed
+    time, render time, and a **Stale** badge once the buffer diverges from the rendered
+    source. A summary line (plus warnings, e.g. "bibliography not loaded") heads the
+    output. Render runs async off the UI thread; invoking it from editor-only view
+    switches to split so the result is visible. No dedicated key binding — palette only.
+
+### Changed
+
+- `BibEntry` now keeps the cleaned verbatim author/editor field (`authors_full`) for
+  References formatting; the short form still drives autocomplete and hover.
+
 ## [1.32.0] - 2026-07-08
 
 ### Added
