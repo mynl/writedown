@@ -130,7 +130,7 @@ struct CellError {
 /// One executed cell's result, keyed by segment index for splicing. `skipped` is set for
 /// cells not run because an earlier cell timed out.
 #[derive(Default)]
-struct CellOutput {
+pub(crate) struct CellOutput {
     stdout: String,
     stderr: String,
     result_text: Option<String>,
