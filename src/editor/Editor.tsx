@@ -14,6 +14,7 @@ import { sublimeEditing } from "./keymap";
 import { citationExtensions } from "./citations";
 import { documentLint } from "./lint";
 import { setActiveView } from "./editorView";
+import { cssFontWeight } from "../fontWeight";
 import { logError } from "../api";
 
 // Log any exception thrown during a CodeMirror update (these can leave the view stale).
@@ -27,13 +28,18 @@ export function Editor({ path, content }: { path: string; content: string }) {
   const setCursorPos = useStore((s) => s.setCursorPos);
   const st = useStore((s) => s.sublimeTheme);
   const settings = useStore((s) => s.editorSettings);
+  const zoom = useStore((s) => s.editorZoom);
 
-  const fontSize = settings?.font_size ?? undefined;
+  // Effective size = configured size (or 14 default) + zoom. Stay undefined only when
+  // neither is set, so the imported Sublime font size still wins in that case.
+  const fontSize =
+    settings?.font_size != null || zoom !== 0 ? (settings?.font_size ?? 14) + zoom : undefined;
   const fontFamily = settings?.font_family ?? undefined;
+  const fontWeight = cssFontWeight(settings?.font_weight);
 
   const built = useMemo(
-    () => (st ? buildSublimeTheme(st, { fontSize, fontFamily }) : null),
-    [st, fontSize, fontFamily],
+    () => (st ? buildSublimeTheme(st, { fontSize, fontFamily, fontWeight }) : null),
+    [st, fontSize, fontFamily, fontWeight],
   );
 
   const extensions = useMemo(() => {
@@ -53,9 +59,16 @@ export function Editor({ path, content }: { path: string; content: string }) {
       ext.push(...documentLint); // python cell syntax + duplicate labels
     }
     if (isCsv(path)) ext.push(csvRainbow);
-    if (!built && fontSize) ext.push(EditorView.theme({ "&": { fontSize: `${fontSize}px` } }));
+    if (!built && (fontSize || fontWeight)) {
+      ext.push(
+        EditorView.theme({
+          "&": fontSize ? { fontSize: `${fontSize}px` } : {},
+          ".cm-content": fontWeight ? { fontWeight } : {},
+        }),
+      );
+    }
     return ext;
-  }, [path, built, fontSize]);
+  }, [path, built, fontSize, fontWeight]);
 
   return (
     <CodeMirror

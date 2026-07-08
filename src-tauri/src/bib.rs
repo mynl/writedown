@@ -530,6 +530,19 @@ pub fn get_citation(key: String, state: tauri::State<BibState>) -> Option<BibEnt
     entries.iter().find(|e| e.key == key).cloned()
 }
 
+/// Given the `@keys` a document references, return those with no match in the
+/// bibliography (so the editor can flag them). Returns empty when nothing is loaded —
+/// a missing/empty `.bib` must never make every citation look broken.
+#[tauri::command]
+pub fn check_citation_keys(keys: Vec<String>, state: tauri::State<BibState>) -> Vec<String> {
+    let entries = state.entries.lock().unwrap();
+    if entries.is_empty() {
+        return Vec::new();
+    }
+    let known: std::collections::HashSet<&str> = entries.iter().map(|e| e.key.as_str()).collect();
+    keys.into_iter().filter(|k| !known.contains(k.as_str())).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

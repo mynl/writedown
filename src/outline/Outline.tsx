@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type CSSProperties } from "react";
 import { useStore } from "../store";
 import { parseOutline } from "./parse";
 import { jumpToLine } from "../editor/editorView";
@@ -30,7 +30,13 @@ export function Outline() {
         <div
           key={`${h.line}-${i}`}
           className={"outline-item" + (i === active ? " active" : "")}
-          style={{ paddingLeft: 8 + (h.level - 1) * 12 }}
+          style={
+            {
+              paddingLeft: 8 + (h.level - 1) * 12,
+              // Width of the indent region — drives the tree guide lines (see App.css).
+              "--indent": `${(h.level - 1) * 12}px`,
+            } as CSSProperties
+          }
           onClick={() => jumpToLine(h.line)}
           title={h.text}
         >

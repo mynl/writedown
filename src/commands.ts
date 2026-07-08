@@ -25,7 +25,15 @@ export function appCommands(): Command[] {
           s().newFolder(v),
         ),
     },
+    { id: "new-scratch", title: "New Scratch File (unsaved)", run: () => s().newScratch() },
     { id: "save", title: "Save", run: () => void s().saveActive() },
+    { id: "save-as", title: "Save As…", run: () => void s().saveAs() },
+    {
+      id: "size-as-default",
+      title: "Set Current Editor Size as Default (write to config)",
+      run: () => void s().setSizeAsDefault(),
+    },
+    { id: "previous-versions", title: "Previous Versions…", run: () => s().openVersions() },
     { id: "refresh-tree", title: "Refresh File Tree", run: () => void s().refreshTree() },
     { id: "toggle-preview", title: "Toggle Preview (editor / split / preview)", run: () => s().cycleView() },
     {

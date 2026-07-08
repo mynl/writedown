@@ -3,6 +3,34 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-08 — 1.29–1.31: data-safety + punch-up batch (live HMR session)
+
+- **Job 1 = never lose content.** Steve lost notes in new-one.md (autosave persisted a
+  destructive test edit). Built the safety net: **backup-before-overwrite** (`backup.rs` —
+  Rust `write_file` snapshots on-disk bytes to `~/.writedown/backups/<fnv-hash>/<millis>`,
+  keeps 20) + **Previous Versions…** picker (`Versions.tsx`, restores as unsaved). Removed
+  the idle-timer autosave — now ST-model only: **Ctrl+S + window blur + tab switch** (leaving
+  a tab counts as lost focus). Crash resilience: **EditorBoundary** remounts on CM's tile-view
+  throw ("No tile at position N", @codemirror/view 6.43.5) instead of a fatal dialog.
+- **1.30.0**: config-parse errors → amber bar (loadTheme no longer swallows); editor zoom
+  Ctrl+=/-/0 (localStorage, does NOT write config) + "Set Size as Default" (surgical
+  comment-preserving `[editor] font_size` edit — the one sanctioned config write); per-panel
+  `font_weight` (editor/outline/tree) via `fontWeight.ts` cssFontWeight() — **CSS font-weight
+  rejects "light", so map friendly names→numbers**; TOC `guide_color`/`guide_opacity`; New
+  Scratch File (untitled://, never autosaved/session-persisted) + Save As; focus-into-editor
+  after New File; removed "Open…" button (use palette → Open Folder).
+- **1.31.0** (this batch): **unmatched-citation lint** — `@key` not in the .bib gets red
+  underline+gutter (same channel as python-cell errors), prose-only (skips code/yaml/emails),
+  silent when no bib loaded (`check_citation_keys` guards on empty). **File-tree context
+  menu** (right-click): New File/Folder, Rename…, Delete→**Recycle Bin** (new `trash` crate,
+  never hard-rm), Save/Save As; rename rebinds open tabs. **Thin ST tabs** — new `[tabs]`
+  height/width config (`tab_size` left alone = editor indent, a separate thing). Drag-and-drop
+  deferred (reuses rename backend — moderate).
+- **CM tile-view list bug still open**: decos-off repro confirmed it's @codemirror/view's
+  6.43.x tile renderer, not our decorations. Fix = downgrade below the tile rewrite
+  (disruptive: npm install → re-run dev-setup.ps1 → recompile). Steve to greenlight; he goes
+  for a walk + shuts down his instance → free rein to investigate.
+
 ## 2026-07-07 — 1.26–1.28: punch-up batch (9 requests)
 
 - Steve fired 9 general punch-ups; tracked as tasks, shipped in three versions:

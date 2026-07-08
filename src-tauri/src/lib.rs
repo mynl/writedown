@@ -1,3 +1,4 @@
+mod backup;
 mod bib;
 mod check;
 mod config;
@@ -37,6 +38,10 @@ pub fn run() {
             files::write_file,
             files::create_file,
             files::create_directory,
+            files::rename_path,
+            files::delete_path,
+            backup::list_backups,
+            backup::read_backup,
             config::load_config,
             config::config_path,
             config::load_editor_settings,
@@ -50,6 +55,7 @@ pub fn run() {
             bib::load_bibliography,
             bib::search_bibliography,
             bib::get_citation,
+            bib::check_citation_keys,
             check::check_document,
             project::load_project,
             project::save_project,

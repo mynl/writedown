@@ -154,6 +154,27 @@ pub fn create_directory(path: String) -> Result<(), String> {
     std::fs::create_dir_all(&path).map_err(|e| format!("create dir {path}: {e}"))
 }
 
+/// Rename/move a file or folder — only on an explicit user command (spec §2, §8).
+/// Refuses to clobber an existing target so a rename can never destroy another file.
+#[tauri::command]
+pub fn rename_path(from: String, to: String) -> Result<(), String> {
+    let dst = std::path::Path::new(&to);
+    if dst.exists() {
+        return Err(format!("already exists: {to}"));
+    }
+    if let Some(dir) = dst.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| format!("create parent for {to}: {e}"))?;
+    }
+    std::fs::rename(&from, &to).map_err(|e| format!("rename {from} -> {to}: {e}"))
+}
+
+/// Move a file or folder to the OS Recycle Bin — recoverable, never a hard delete
+/// (content is job 1). Only on an explicit user command.
+#[tauri::command]
+pub fn delete_path(path: String) -> Result<(), String> {
+    trash::delete(&path).map_err(|e| format!("delete {path}: {e}"))
+}
+
 /// Read a UTF-8 text file. Returns the content verbatim (no normalisation).
 #[tauri::command]
 pub fn read_file(path: String) -> Result<String, String> {
@@ -166,8 +187,12 @@ pub fn read_file(path: String) -> Result<String, String> {
 /// written byte-for-byte as UTF-8 — the frontend is responsible for the newline
 /// convention and any whitespace policy, so this never rewrites the user's bytes.
 #[tauri::command]
-pub fn write_file(path: String, content: String) -> Result<(), String> {
+pub fn write_file(app: tauri::AppHandle, path: String, content: String) -> Result<(), String> {
     use std::io::Write;
+
+    // Safety net: stash the version we're about to replace before we touch it (spec §12,
+    // "never lose content"). Best-effort — never blocks the save.
+    crate::backup::snapshot(&app, &path, &content);
 
     let target = std::path::Path::new(&path);
     let dir = target

@@ -5,6 +5,93 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.31.0] - 2026-07-08
+
+### Added
+
+- **Unmatched citation check.** A `@key` written in prose that has no entry in the loaded
+  BibTeX file now gets a red underline + gutter marker (same lint channel as the Python-cell
+  errors), auto after ~½s idle. Prose-only — `@` inside code, fenced blocks, or YAML front
+  matter is ignored, as are email-like `foo@bar`. Stays silent when no bibliography is loaded
+  so a missing `.bib` never makes every citation look broken.
+- **File-tree context menu** (right-click, Folder and Project columns): **New File…**,
+  **New Folder…** (created inside the clicked folder, or beside the clicked file),
+  **Rename…**, **Delete**, plus **Save** / **Save As…** for the active document. Delete moves
+  the file/folder to the **Recycle Bin** (recoverable — never a hard delete), after a confirm.
+  Rename rebinds any open tab (and tabs under a renamed folder). Both are explicit user
+  commands — Writedown still never touches your files on its own (spec §2, §8).
+- **Thin, ST-style tabs** — new `[tabs]` config section with `height` and `width` (px) to
+  size the document tab strip. (`[editor] tab_size` is unchanged — that's the editor indent,
+  a separate thing.)
+
+### Changed
+
+- Editor `EditorSettings` now also carries the `[tabs]` sizing; the tab strip reads it via
+  CSS variables (`--tab-height` / `--tab-width`).
+
+## [1.30.0] - 2026-07-08
+
+### Added
+
+- **Config parse errors are surfaced.** A malformed `config.toml` used to silently revert
+  every font (and the bibliography) to defaults with only a stderr line. Now a full-width
+  amber bar appears above the panes with the parse error and click-to-edit.
+- **Editor font zoom** — Ctrl+= / Ctrl+- / Ctrl+0 (reset). A live overlay on the configured
+  size, persisted in `localStorage` (global, survives restarts). It deliberately does **not**
+  rewrite your config. **"Set Current Editor Size as Default"** (command palette) bakes the
+  current zoomed size into `[editor] font_size` with a surgical, comment-preserving edit —
+  the one time we write your config, and only on that explicit command.
+- **Per-panel `font_weight`** for `[editor]`, `[outline]`, `[tree]` — a CSS weight
+  (`"light"`/`"normal"`/`"bold"` or 100–900).
+- **Configurable TOC guide lines** — `[outline] guide_color` (any CSS color) or
+  `guide_opacity` (0–1 on a neutral gray); default strengthened.
+- **New Scratch File (unsaved)** — an in-memory `Untitled-N.md`, never autosaved or session-
+  persisted; Ctrl+S / "Save As…" promotes it to a real file via a native dialog.
+- **Save As…** for any document.
+
+### Changed
+
+- **Outline** now draws faint per-level tree guide lines.
+- **Focus lands in the editor** after New File / New Scratch / Save As (was staying on the tree).
+
+## [1.29.0] - 2026-07-08
+
+### Added
+
+- **Backup-before-overwrite safety net (job 1: never lose content).** Every save now
+  copies the version it's about to replace into `~/.writedown/backups/<path-key>/`
+  (last 20 per file, auto-pruned) before writing. It's derived/disposable, lives off the
+  synced tree, and never moves or renames a user file — only copies one out as a net.
+- **Previous Versions… command** (Ctrl+Shift+P). Lists a file's retained versions
+  (timestamp, size, one-line preview), newest first. Restoring loads the chosen version
+  into the editor as an *unsaved* change — you review it and save (or discard)
+  deliberately, and the state you restored over is itself backed up on the next save.
+  Never a silent disk clobber.
+
+### Changed
+
+- **Autosave is now ST-style: Ctrl+S, window blur, and tab switch** (leaving a tab counts
+  as losing focus on it). Removed the idle timer — no more silent mid-edit writes. The new
+  backup net covers the safety the timer used to provide.
+- **Removed the `Open…` button** from the file-panel header. Open a folder via
+  Ctrl+Shift+P → "Open Folder…".
+
+## [1.28.1] - 2026-07-08
+
+### Fixed
+
+- **Editor no longer crashes to the fatal dialog on a transient view-layer error.**
+  CodeMirror's new tile-based renderer (`@codemirror/view` 6.43.x) can throw a
+  self-healing `No tile at position N` during a measure/scroll after certain edits —
+  e.g. editing a list shorter, then clicking, leaves a stale measure targeting a
+  position past the shrunk document. That throw reached React's commit phase and tripped
+  the app-level "Writedown hit an error" screen. A new `EditorBoundary` now catches it
+  and **remounts the editor** — a fresh view rebuilds from the in-memory content and
+  re-measures cleanly, losing nothing but a transient scroll position. Repeated crashes
+  in quick succession still surface the real dialog rather than looping invisibly. Pinned
+  `@codemirror/view` to `~6.43.5` so we don't float further onto the still-stabilizing
+  tile layer without a deliberate upgrade.
+
 ## [1.28.0] - 2026-07-07
 
 ### Added

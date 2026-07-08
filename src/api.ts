@@ -53,6 +53,18 @@ export async function pickProjectSavePath(defaultPath?: string): Promise<string 
   return typeof result === "string" ? result : null;
 }
 
+/** Native "Save As" dialog for a document. Returns the chosen path, or null if cancelled. */
+export async function pickSavePath(defaultPath?: string): Promise<string | null> {
+  const result = await save({
+    defaultPath,
+    filters: [
+      { name: "Markdown / Quarto", extensions: ["md", "qmd", "markdown"] },
+      { name: "All Files", extensions: ["*"] },
+    ],
+  });
+  return typeof result === "string" ? result : null;
+}
+
 /** Native open dialog for a project file. Returns the chosen path, or null. */
 export async function pickProjectOpenPath(): Promise<string | null> {
   const result = await open({
@@ -73,9 +85,25 @@ export const readFile = (path: string) =>
 export const writeFile = (path: string, content: string) =>
   invoke<void>("write_file", { path, content });
 
+/** One restorable prior version of a file (backup-before-overwrite safety net). */
+export type BackupEntry = { millis: number; size: number; preview: string };
+
+export const listBackups = (path: string) =>
+  invoke<BackupEntry[]>("list_backups", { path });
+
+export const readBackup = (path: string, millis: number) =>
+  invoke<string>("read_backup", { path, millis });
+
 export const createFile = (path: string) => invoke<void>("create_file", { path });
 
 export const createDirectory = (path: string) => invoke<void>("create_directory", { path });
+
+/** Rename/move a file or folder (explicit user command; refuses to clobber). */
+export const renamePath = (from: string, to: string) =>
+  invoke<void>("rename_path", { from, to });
+
+/** Move a file or folder to the OS Recycle Bin (recoverable). */
+export const deletePath = (path: string) => invoke<void>("delete_path", { path });
 
 /** Native folder picker. Returns the chosen absolute path, or null if cancelled. */
 export async function pickFolder(defaultPath?: string): Promise<string | null> {
@@ -129,15 +157,25 @@ export const loadSublimeTheme = () => invoke<SublimeTheme>("load_sublime_theme")
 export type EditorSettings = {
   font_size: number | null;
   font_family: string | null;
+  font_weight: string | null;
   outline_font_family: string | null;
   outline_font_size: number | null;
+  outline_font_weight: string | null;
   tree_font_family: string | null;
   tree_font_size: number | null;
+  tree_font_weight: string | null;
+  outline_guide_color: string | null;
+  outline_guide_opacity: number | null;
+  tab_height: number | null;
+  tab_width: number | null;
 };
 
 export const loadEditorSettings = () => invoke<EditorSettings>("load_editor_settings");
 
 export const configPath = () => invoke<string>("config_path");
+
+/** Raw text of config.toml (verbatim — used for surgical, comment-preserving edits). */
+export const loadConfig = () => invoke<string>("load_config");
 
 export type BibEntry = {
   key: string;
@@ -168,5 +206,9 @@ export const searchBibliography = (query: string) =>
 
 export const getCitation = (key: string) =>
   invoke<BibEntry | null>("get_citation", { key });
+
+/** Of the given `@keys`, which have no match in the loaded bibliography. */
+export const checkCitationKeys = (keys: string[]) =>
+  invoke<string[]>("check_citation_keys", { keys });
 
 

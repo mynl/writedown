@@ -52,6 +52,11 @@ export const sublimeEditing = [
       { key: "Mod-Shift-ArrowUp", run: moveLineUp, preventDefault: true },
       { key: "Mod-Shift-ArrowDown", run: moveLineDown, preventDefault: true },
       { key: "Mod-/", run: toggleComment, preventDefault: true },
+      // Editor font zoom (Ctrl +/-/0). Ctrl-= and Ctrl-Shift-= both hit "make bigger".
+      { key: "Mod-=", run: () => (useStore.getState().setEditorZoom(1), true), preventDefault: true },
+      { key: "Mod-+", run: () => (useStore.getState().setEditorZoom(1), true), preventDefault: true },
+      { key: "Mod--", run: () => (useStore.getState().setEditorZoom(-1), true), preventDefault: true },
+      { key: "Mod-0", run: () => (useStore.getState().setEditorZoom("reset"), true), preventDefault: true },
       { key: "Mod-Alt-ArrowUp", run: addCursorVertically(-1), preventDefault: true },
       { key: "Mod-Alt-ArrowDown", run: addCursorVertically(1), preventDefault: true },
       // Ctrl+Shift+L toggles the preview view (Joplin-style), even when the editor is focused.

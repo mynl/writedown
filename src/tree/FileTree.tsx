@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { listDirectory, type Entry } from "../api";
 import { useStore } from "../store";
 
@@ -37,6 +37,7 @@ function TreeNode({ entry, depth }: { entry: Entry; depth: number }) {
   const [error, setError] = useState<string | null>(null);
 
   const openFile = useStore((s) => s.openFile);
+  const openTreeMenu = useStore((s) => s.openTreeMenu);
   const activePath = useStore((s) => s.activePath);
   const isActive = !entry.is_dir && entry.path === activePath;
 
@@ -76,6 +77,10 @@ function TreeNode({ entry, depth }: { entry: Entry; depth: number }) {
         style={{ paddingLeft: 6 + depth * 14 }}
         onClick={onClick}
         onDoubleClick={onDoubleClick}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          openTreeMenu(e.clientX, e.clientY, entry);
+        }}
         title={entry.path}
       >
         <span className="tree-icon">{icon(entry, expanded)}</span>
@@ -112,6 +117,70 @@ export function FileTree() {
         <TreeNode key={e.path} entry={e} depth={0} />
       ))}
     </div>
+  );
+}
+
+/** Right-click menu for a file/folder in the tree: New, Rename, Delete (Recycle Bin),
+ *  plus Save / Save As on the active document. Mounted once at app root. */
+export function TreeContextMenu() {
+  const menu = useStore((s) => s.treeMenu);
+  const close = useStore((s) => s.closeTreeMenu);
+  const newFileIn = useStore((s) => s.newFileIn);
+  const newFolderIn = useStore((s) => s.newFolderIn);
+  const renameEntry = useStore((s) => s.renameEntry);
+  const deleteEntry = useStore((s) => s.deleteEntry);
+  const saveActive = useStore((s) => s.saveActive);
+  const saveAs = useStore((s) => s.saveAs);
+  const hasActive = useStore((s) => s.activePath != null);
+
+  // Any click or Escape dismisses the menu.
+  useEffect(() => {
+    if (!menu) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [menu, close]);
+
+  if (!menu) return null;
+  const { entry } = menu;
+  // New file/folder land inside a folder, or beside a file (its parent directory).
+  const dir = entry.is_dir
+    ? entry.path
+    : entry.path.slice(0, entry.path.length - entry.name.length).replace(/[\\/]+$/, "");
+
+  const item = (label: string, run: () => void, disabled = false) => (
+    <div
+      className={"ctx-item" + (disabled ? " disabled" : "")}
+      onClick={() => {
+        if (disabled) return;
+        close();
+        run();
+      }}
+    >
+      {label}
+    </div>
+  );
+
+  return (
+    <>
+      <div className="ctx-backdrop" onClick={close} onContextMenu={(e) => { e.preventDefault(); close(); }} />
+      <div
+        className="context-menu"
+        style={{
+          left: Math.min(menu.x, window.innerWidth - 176),
+          top: Math.min(menu.y, window.innerHeight - 210),
+        }}
+      >
+        {item("New File…", () => newFileIn(dir))}
+        {item("New Folder…", () => newFolderIn(dir))}
+        <div className="ctx-sep" />
+        {item("Rename…", () => renameEntry(entry))}
+        {item("Delete", () => void deleteEntry(entry))}
+        <div className="ctx-sep" />
+        {item("Save", () => void saveActive(), !hasActive)}
+        {item("Save As…", () => void saveAs(), !hasActive)}
+      </div>
+    </>
   );
 }
 

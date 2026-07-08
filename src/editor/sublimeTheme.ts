@@ -24,7 +24,7 @@ export function colorFor(rules: ScopeRule[], ...scopes: string[]): string | unde
 
 export function buildSublimeTheme(
   st: SublimeTheme,
-  overrides?: { fontSize?: number; fontFamily?: string },
+  overrides?: { fontSize?: number; fontFamily?: string; fontWeight?: string },
 ): {
   theme: Extension;
   highlight: Extension;
@@ -32,6 +32,7 @@ export function buildSublimeTheme(
 } {
   const fontSize = overrides?.fontSize ?? st.font_size;
   const fontFamily = overrides?.fontFamily ?? st.font_face;
+  const fontWeight = overrides?.fontWeight;
   const theme = EditorView.theme(
     {
       "&": {
@@ -43,6 +44,7 @@ export function buildSublimeTheme(
       ".cm-content": {
         fontFamily: `"${fontFamily}", "Cascadia Mono", "Consolas", monospace`,
         caretColor: st.caret,
+        ...(fontWeight ? { fontWeight } : {}),
       },
       ".cm-cursor, .cm-dropCursor": { borderLeftColor: st.caret },
       ".cm-gutters": {

@@ -16,8 +16,10 @@ restore_session = true
 
 [editor]
 # font_family/font_size override the imported Sublime font (leave unset to use Sublime's).
+# font_weight is a CSS weight: "light" | "normal" | "bold", or a number 100..900.
 font_family = "Source Code Pro"
 font_size = 14
+# font_weight = "normal"
 tab_size = 4
 word_wrap = true
 strip_trailing_whitespace = true
@@ -35,6 +37,16 @@ enabled = true
 position = "right"
 font_family = "Arial Narrow"
 font_size = 10
+# font_weight = "normal"
+# TOC hierarchy guide lines: set a color, or just an opacity (0..1) on a neutral gray.
+# guide_color = "rgba(127,127,127,0.5)"
+# guide_opacity = 0.5
+
+[tabs]
+# Document tab strip. Thin, ST-style: height is the strip height in px; width caps
+# how wide a single tab grows before its name ellipsizes.
+# height = 24
+# width = 180
 
 [theme]
 name = "default-dark"
@@ -49,9 +61,10 @@ watch_for_changes = true
 read_only = true
 
 [tree]
-# Left file/project panel font (like ST's sidebar).
+# Left file/project panel font (like ST's sidebar). font_weight as in [editor].
 font_family = "Segoe UI"
 font_size = 9
+# font_weight = "normal"
 
 [files]
 extensions = ["md", "qmd", "markdown"]
@@ -121,10 +134,19 @@ pub fn log_error(app: tauri::AppHandle, message: String) {
 pub struct EditorSettings {
     font_size: Option<u32>,
     font_family: Option<String>,
+    font_weight: Option<String>,
     outline_font_family: Option<String>,
     outline_font_size: Option<f64>,
+    outline_font_weight: Option<String>,
     tree_font_family: Option<String>,
     tree_font_size: Option<f64>,
+    tree_font_weight: Option<String>,
+    /// TOC guide-line appearance ([outline] guide_color / guide_opacity).
+    outline_guide_color: Option<String>,
+    outline_guide_opacity: Option<f64>,
+    /// Document tab strip sizing ([tabs] height / width), in px.
+    tab_height: Option<f64>,
+    tab_width: Option<f64>,
 }
 
 /// Parse `[editor]`/`[outline]`/`[tree]` font settings from `config.toml` (spec §5).
@@ -137,25 +159,27 @@ pub fn load_editor_settings(app: tauri::AppHandle) -> Result<EditorSettings, Str
     let ed = val.get("editor");
     let ol = val.get("outline");
     let tr = val.get("tree");
+    let tb = val.get("tabs");
     let num = |v: &toml::Value| v.as_float().or_else(|| v.as_integer().map(|i| i as f64));
+    let string = |v: &toml::Value| v.as_str().map(str::to_string);
+    // font_weight accepts a CSS keyword ("light"/"bold") or a number (300, 700).
+    let weight = |v: &toml::Value| v.as_str().map(str::to_string).or_else(|| v.as_integer().map(|i| i.to_string()));
     Ok(EditorSettings {
         font_size: ed
             .and_then(|e| e.get("font_size"))
             .and_then(|v| v.as_integer())
             .map(|i| i as u32),
-        font_family: ed
-            .and_then(|e| e.get("font_family"))
-            .and_then(|v| v.as_str())
-            .map(str::to_string),
-        outline_font_family: ol
-            .and_then(|o| o.get("font_family"))
-            .and_then(|v| v.as_str())
-            .map(str::to_string),
+        font_family: ed.and_then(|e| e.get("font_family")).and_then(string),
+        font_weight: ed.and_then(|e| e.get("font_weight")).and_then(weight),
+        outline_font_family: ol.and_then(|o| o.get("font_family")).and_then(string),
         outline_font_size: ol.and_then(|o| o.get("font_size")).and_then(num),
-        tree_font_family: tr
-            .and_then(|t| t.get("font_family"))
-            .and_then(|v| v.as_str())
-            .map(str::to_string),
+        outline_font_weight: ol.and_then(|o| o.get("font_weight")).and_then(weight),
+        tree_font_family: tr.and_then(|t| t.get("font_family")).and_then(string),
         tree_font_size: tr.and_then(|t| t.get("font_size")).and_then(num),
+        tree_font_weight: tr.and_then(|t| t.get("font_weight")).and_then(weight),
+        outline_guide_color: ol.and_then(|o| o.get("guide_color")).and_then(string),
+        outline_guide_opacity: ol.and_then(|o| o.get("guide_opacity")).and_then(num),
+        tab_height: tb.and_then(|t| t.get("height")).and_then(num),
+        tab_width: tb.and_then(|t| t.get("width")).and_then(num),
     })
 }

@@ -198,9 +198,10 @@ body {
 }
 
 .tree {
-  /* ST-like sidebar: small, config-overridable ([tree] font_family/font_size). */
+  /* ST-like sidebar: small, config-overridable ([tree] font_family/font_size/font_weight). */
   font-family: var(--tree-font, inherit);
   font-size: var(--tree-size, 11.5px);
+  font-weight: var(--tree-weight, normal);
 }
 
 .tree-row {
@@ -268,7 +269,7 @@ body {
 .tabs {
   flex: 0 0 auto;
   display: flex;
-  min-height: 26px;
+  min-height: var(--tab-height, 26px);
   background: var(--pane-header-bg);
   border-bottom: 1px solid var(--border);
   overflow-x: auto;
@@ -282,7 +283,7 @@ body {
   padding: 0 8px 0 12px;
   flex: 0 1 auto;
   min-width: 60px; /* shrink to fit as more tabs open, then the strip scrolls */
-  max-width: 200px;
+  max-width: var(--tab-width, 200px);
   font-size: 11.5px; /* thin ST-style tabs — chrome stays in the background */
   color: var(--muted);
   border-right: 1px solid var(--border);
@@ -333,7 +334,7 @@ body {
   flex: 0 0 auto;
   display: flex;
   align-items: stretch;
-  min-height: 30px;
+  min-height: var(--tab-height, 30px);
   background: var(--pane-header-bg);
   border-bottom: 1px solid var(--border);
 }
@@ -385,6 +386,7 @@ body {
 .outline {
   font-family: var(--outline-font, "Arial Narrow"), "Arial", sans-serif;
   font-size: var(--outline-size, 10pt);
+  font-weight: var(--outline-weight, normal);
   padding: 4px 0;
 }
 .outline-item {
@@ -395,14 +397,86 @@ body {
   text-overflow: ellipsis;
   color: var(--fg);
   border-left: 2px solid transparent;
+  /* Tree guide lines: faint vertical rules every 12px across the item's indent region
+     (--indent, set per-item in Outline.tsx). Level-1 headings have zero indent → none. */
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--tree-line, rgba(127, 127, 127, 0.5)) 0 1px,
+    transparent 1px 12px
+  );
+  background-repeat: no-repeat;
+  background-size: var(--indent, 0) 100%;
+  background-position: 6px 0;
 }
 .outline-item:hover {
-  background: var(--pane-header-bg);
+  background-color: var(--pane-header-bg);
 }
 .outline-item.active {
   border-left-color: var(--accent, #4a90d9);
   color: var(--accent, #4a90d9);
-  background: var(--pane-header-bg);
+  background-color: var(--pane-header-bg);
+}
+
+/* Config parse-error strip — full width, above the panes, impossible to miss. */
+.config-error-bar {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid #a8600088;
+  background: #7a4a00;
+  color: #ffe6c2;
+  font-size: 12px;
+  padding: 5px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.config-error-bar:hover {
+  background: #8f5800;
+}
+
+/* File-tree right-click context menu */
+.ctx-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+.context-menu {
+  position: fixed;
+  z-index: 41;
+  min-width: 160px;
+  padding: 4px 0;
+  background: var(--pane-header-bg, #2a2a2a);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  font-size: 12px;
+  color: var(--fg);
+  user-select: none;
+}
+.ctx-item {
+  padding: 4px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ctx-item:hover {
+  background: var(--accent, #4a90d9);
+  color: #fff;
+}
+.ctx-item.disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.ctx-item.disabled:hover {
+  background: transparent;
+  color: var(--fg);
+}
+.ctx-sep {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--border);
 }
 
 /* Rendered Markdown preview */
@@ -746,4 +820,48 @@ body {
   padding: 10px 14px;
   color: var(--muted);
   font-size: 13px;
+}
+
+/* Previous Versions picker (reuses .palette shell). */
+.palette:focus {
+  outline: none;
+}
+.versions-head {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--muted);
+}
+.versions-head b {
+  color: var(--fg);
+}
+.versions-item {
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  color: var(--fg);
+}
+.versions-item.active {
+  background: var(--accent, #4a90d9);
+  color: #fff;
+}
+.versions-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-family: var(--mono);
+}
+.versions-size {
+  opacity: 0.7;
+}
+.versions-preview {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.versions-item.active .versions-preview {
+  color: rgba(255, 255, 255, 0.85);
 }

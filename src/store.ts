@@ -3,8 +3,10 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   addRecentProject,
   configPath,
+  loadConfig,
   createDirectory,
   createFile,
+  deletePath,
   listDirectory,
   loadBibliography,
   loadEditorSettings,
@@ -15,8 +17,10 @@ import {
   pickFolder,
   pickProjectOpenPath,
   pickProjectSavePath,
+  pickSavePath,
   readFile,
   recentProjects as fetchRecentProjects,
+  renamePath,
   saveLastWorkspace,
   saveProject,
   watchWorkspace,
@@ -26,6 +30,18 @@ import {
   type Session,
   type SublimeTheme,
 } from "./api";
+import { getActiveView } from "./editor/editorView";
+import { cssFontWeight } from "./fontWeight";
+
+/** Untitled scratch buffers live only in memory until "Save As" gives them a real path.
+ *  Their synthetic path carries this sentinel so save/autosave/session logic can skip them. */
+export const SCRATCH_PREFIX = "untitled://";
+export const isScratch = (path: string) => path.startsWith(SCRATCH_PREFIX);
+
+/** Focus the live editor once it has mounted for a just-opened/created document. */
+function focusEditorSoon() {
+  requestAnimationFrame(() => requestAnimationFrame(() => getActiveView()?.focus()));
+}
 
 // Window title mirrors ST: "name — Writedown" when a project is open.
 function setTitle(project: string | null) {
@@ -82,18 +98,30 @@ type AppState = {
 
   treeVersion: number;
   palette: "files" | "commands" | null;
+  /** Path whose Previous Versions picker is open (null = closed). */
+  versionsFor: string | null;
   /** Small one-line input dialog (new file/folder names, etc.). */
   prompt: {
     title: string;
     placeholder: string;
     submit: (value: string) => void | Promise<void>;
   } | null;
+  /** Right-click file-tree context menu (null = closed). */
+  treeMenu: { x: number; y: number; entry: Entry } | null;
   viewMode: "editor" | "split" | "preview";
   cursorLine: number;
   cursorCol: number;
   sublimeTheme: SublimeTheme | null;
   editorSettings: EditorSettings | null;
   configFile: string | null;
+  /** Non-null when config.toml failed to parse — surfaced in the UI (fonts + bibliography
+   *  silently fall back to defaults otherwise). Cleared on a successful load. */
+  configError: string | null;
+  /** Points added to the editor's configured font size (Ctrl+=/Ctrl+-/Ctrl+0). Global
+   *  UI preference, persisted in localStorage. */
+  editorZoom: number;
+  /** Monotonic counter for naming new scratch buffers (Untitled-1, -2, …). */
+  scratchCounter: number;
 
   hydrate: () => Promise<void>;
   restoreSession: (key: string) => Promise<void>;
@@ -110,6 +138,16 @@ type AppState = {
   reopenClosed: () => Promise<void>;
   nextTab: (dir: 1 | -1) => void;
   editActive: (content: string) => void;
+  /** Adjust the editor font zoom: +1 / -1 points, or "reset" to the configured size. */
+  setEditorZoom: (delta: number | "reset") => void;
+  /** Bake the current zoomed size into config.toml's [editor] font_size (a deliberate,
+   *  surgical edit — the only time we write your config), then reset the zoom to 0. */
+  setSizeAsDefault: () => Promise<void>;
+  /** Replace an open tab's editor content (e.g. restore a backup) without saving —
+   *  leaves it dirty so the user reviews and saves deliberately. */
+  loadContent: (path: string, content: string) => void;
+  openVersions: () => void;
+  closeVersions: () => void;
   saveDoc: (path: string) => Promise<void>;
   saveActive: () => Promise<void>;
   saveAll: () => Promise<void>;
@@ -123,6 +161,21 @@ type AppState = {
   closePrompt: () => void;
   newFile: (rel: string) => Promise<void>;
   newFolder: (rel: string) => Promise<void>;
+  /** File-tree context menu + operations (all explicit user commands). */
+  openTreeMenu: (x: number, y: number, entry: Entry) => void;
+  closeTreeMenu: () => void;
+  /** Prompt for a name and create a new file/folder inside `dir`. */
+  newFileIn: (dir: string) => void;
+  newFolderIn: (dir: string) => void;
+  /** Prompt for a new name and rename a tree entry (rebinds any open tab). */
+  renameEntry: (entry: Entry) => void;
+  /** Confirm, then move a tree entry to the Recycle Bin (closes any open tab). */
+  deleteEntry: (entry: Entry) => Promise<void>;
+  /** Open a new in-memory scratch buffer (untitled, unsaved). */
+  newScratch: () => void;
+  /** Save the given tab (or the active one) to a new path chosen via a dialog. Promotes a
+   *  scratch buffer to a real file. */
+  saveAs: (path?: string) => Promise<void>;
   setPanelTab: (tab: "folder" | "project") => void;
   addFolderToProject: () => Promise<void>;
   saveProjectAs: () => Promise<void>;
@@ -149,13 +202,21 @@ export const useStore = create<AppState>((set, get) => ({
   closedStack: [],
   treeVersion: 0,
   palette: null,
+  versionsFor: null,
   prompt: null,
+  treeMenu: null,
   viewMode: "split",
   cursorLine: 1,
   cursorCol: 1,
   sublimeTheme: null,
   editorSettings: null,
   configFile: null,
+  configError: null,
+  editorZoom: (() => {
+    const v = Number(localStorage.getItem("wd.editorZoom"));
+    return Number.isFinite(v) ? v : 0;
+  })(),
+  scratchCounter: 0,
   treeWidth: 240,
   outlineWidth: 220,
 
@@ -288,8 +349,10 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   setActive: (path) => {
+    // Switching tabs counts as losing focus on the tab you leave — save it (ST-style).
+    // The idle timer is gone; the remaining triggers are Ctrl+S, window blur, tab switch.
     const prev = get().activePath;
-    if (prev && prev !== path) void get().saveDoc(prev); // autosave the tab we leave
+    if (prev && prev !== path) void get().saveDoc(prev);
     set({ activePath: path });
   },
 
@@ -383,7 +446,55 @@ export const useStore = create<AppState>((set, get) => ({
       ),
     })),
 
+  setEditorZoom: (delta) =>
+    set((s) => {
+      const next = delta === "reset" ? 0 : Math.max(-10, Math.min(32, s.editorZoom + delta));
+      localStorage.setItem("wd.editorZoom", String(next));
+      return { editorZoom: next };
+    }),
+
+  setSizeAsDefault: async () => {
+    const { editorSettings, editorZoom, configFile } = get();
+    if (!configFile || editorZoom === 0) return; // nothing to bake in
+    const target = (editorSettings?.font_size ?? 14) + editorZoom;
+    let text: string;
+    try {
+      text = await loadConfig();
+    } catch {
+      return;
+    }
+    // Surgically replace [editor] font_size (or insert it) — preserve every other line,
+    // comment, and scalar style. This is the one deliberate config write we allow.
+    const re = /(\[editor\][^[]*?\bfont_size\s*=\s*)\d+/;
+    const next = re.test(text)
+      ? text.replace(re, `$1${target}`)
+      : /\[editor\]\s*\n/.test(text)
+        ? text.replace(/\[editor\]\s*\n/, `[editor]\nfont_size = ${target}\n`)
+        : `${text}\n[editor]\nfont_size = ${target}\n`;
+    try {
+      await writeFile(configFile, next); // atomic + auto-backed-up
+    } catch {
+      return;
+    }
+    get().setEditorZoom("reset"); // the configured base now includes it
+    await get().loadTheme(); // re-read config + re-apply
+  },
+
+  loadContent: (path, content) =>
+    set((s) => ({
+      // Push new content into the tab but leave savedContent alone → the tab goes dirty,
+      // so a restored version is reviewed and saved (or discarded) deliberately.
+      tabs: s.tabs.map((t) => (t.path === path ? { ...t, content, conflict: false } : t)),
+    })),
+
+  openVersions: () => {
+    const a = get().activePath;
+    if (a) set({ versionsFor: a });
+  },
+  closeVersions: () => set({ versionsFor: null }),
+
   saveDoc: async (path) => {
+    if (isScratch(path)) return; // untitled buffers have no disk path — use Save As
     const doc = get().tabs.find((t) => t.path === path);
     if (!doc || !isDirty(doc) || doc.saving) return;
 
@@ -418,7 +529,9 @@ export const useStore = create<AppState>((set, get) => ({
 
   saveActive: async () => {
     const a = get().activePath;
-    if (a) await get().saveDoc(a);
+    if (!a) return;
+    if (isScratch(a)) await get().saveAs(a); // Ctrl+S on an untitled buffer → Save As
+    else await get().saveDoc(a);
   },
 
   // Autosave every dirty document (window blur, idle, app close — spec §12).
@@ -458,7 +571,7 @@ export const useStore = create<AppState>((set, get) => ({
     }
     try {
       const es = await loadEditorSettings();
-      set({ editorSettings: es });
+      set({ editorSettings: es, configError: null });
       const root = document.documentElement.style;
       if (es.outline_font_family) root.setProperty("--outline-font", es.outline_font_family);
       if (es.outline_font_size != null) {
@@ -468,8 +581,22 @@ export const useStore = create<AppState>((set, get) => ({
       if (es.tree_font_size != null) {
         root.setProperty("--tree-size", `${es.tree_font_size}pt`);
       }
-    } catch {
-      /* config unreadable — editor defaults stay */
+      const ow = cssFontWeight(es.outline_font_weight);
+      const tw = cssFontWeight(es.tree_font_weight);
+      if (ow) root.setProperty("--outline-weight", ow);
+      if (tw) root.setProperty("--tree-weight", tw);
+      // TOC guide lines: an explicit color wins; else modulate a neutral gray by opacity.
+      if (es.outline_guide_color) root.setProperty("--tree-line", es.outline_guide_color);
+      else if (es.outline_guide_opacity != null) {
+        root.setProperty("--tree-line", `rgba(127,127,127,${es.outline_guide_opacity})`);
+      }
+      // Document tab strip: thinner/narrower ST-style tabs when configured.
+      if (es.tab_height != null) root.setProperty("--tab-height", `${es.tab_height}px`);
+      if (es.tab_width != null) root.setProperty("--tab-width", `${es.tab_width}px`);
+    } catch (e) {
+      // Don't swallow it — a bad line reverts ALL fonts (and the bibliography) to
+      // defaults, so surface the parse error in the UI instead of only to stderr.
+      set({ configError: String(e) });
     }
     try {
       set({ configFile: await configPath() });
@@ -506,6 +633,54 @@ export const useStore = create<AppState>((set, get) => ({
     await createFile(path);
     await refreshTree();
     await openFile(path, false);
+    focusEditorSoon(); // land the cursor in the editor, not the tree
+  },
+
+  newScratch: () => {
+    const n = get().scratchCounter + 1;
+    const path = `${SCRATCH_PREFIX}Untitled-${n}.md`;
+    const doc: Doc = {
+      path, content: "", savedContent: "", eol: "\n", preview: false,
+      saving: false, error: null, conflict: false,
+    };
+    set((s) => ({ tabs: [...s.tabs, doc], activePath: path, scratchCounter: n }));
+    focusEditorSoon();
+  },
+
+  saveAs: async (path) => {
+    const p = path ?? get().activePath;
+    const doc = get().tabs.find((t) => t.path === p);
+    if (!doc) return;
+    const root = get().root;
+    const suggested = isScratch(doc.path)
+      ? `Untitled.md`
+      : doc.path.split(/[\\/]/).pop() ?? "Untitled.md";
+    const defaultPath = root ? `${root}\\${suggested}` : suggested;
+    const picked = await pickSavePath(defaultPath);
+    if (!picked) return;
+    const snapshot = doc.content;
+    const out = doc.eol === "\r\n" ? snapshot.split("\n").join("\r\n") : snapshot;
+    try {
+      await writeFile(picked, out); // backs up any file it overwrites (Rust write_file)
+    } catch (e) {
+      set((s) => ({
+        tabs: s.tabs.map((t) => (t.path === doc.path ? { ...t, error: String(e) } : t)),
+      }));
+      return;
+    }
+    justSaved.add(picked);
+    setTimeout(() => justSaved.delete(picked), 1500);
+    // Rebind the tab from its old (scratch or real) path to the chosen path, now saved-clean.
+    set((s) => ({
+      tabs: s.tabs.map((t) =>
+        t.path === doc.path
+          ? { ...t, path: picked, savedContent: snapshot, conflict: false, error: null }
+          : t,
+      ),
+      activePath: s.activePath === doc.path ? picked : s.activePath,
+    }));
+    await get().refreshTree();
+    focusEditorSoon();
   },
 
   newFolder: async (rel) => {
@@ -514,6 +689,86 @@ export const useStore = create<AppState>((set, get) => ({
     const path = /^([a-zA-Z]:|\\\\|\/)/.test(rel) ? rel : `${root}\\${rel.replace(/\//g, "\\")}`;
     await createDirectory(path);
     await refreshTree();
+  },
+
+  // ---- File-tree context menu + operations --------------------------------------
+  openTreeMenu: (x, y, entry) => set({ treeMenu: { x, y, entry } }),
+  closeTreeMenu: () => set({ treeMenu: null }),
+
+  newFileIn: (dir) => {
+    get().openPrompt("New file", "name.md", async (name) => {
+      if (!name.trim()) return;
+      const path = `${dir.replace(/[\\/]+$/, "")}\\${name.replace(/\//g, "\\")}`;
+      try {
+        await createFile(path);
+        await get().refreshTree();
+        await get().openFile(path, false);
+        focusEditorSoon();
+      } catch (e) {
+        set({ configError: String(e) });
+      }
+    });
+  },
+
+  newFolderIn: (dir) => {
+    get().openPrompt("New folder", "name", async (name) => {
+      if (!name.trim()) return;
+      const path = `${dir.replace(/[\\/]+$/, "")}\\${name.replace(/\//g, "\\")}`;
+      try {
+        await createDirectory(path);
+        await get().refreshTree();
+      } catch (e) {
+        set({ configError: String(e) });
+      }
+    });
+  },
+
+  renameEntry: (entry) => {
+    const oldName = entry.name;
+    get().openPrompt(`Rename "${oldName}"`, oldName, async (name) => {
+      if (!name.trim() || name === oldName) return;
+      const parent = entry.path.slice(0, entry.path.length - oldName.length).replace(/[\\/]+$/, "");
+      const to = `${parent}\\${name.replace(/\//g, "\\")}`;
+      try {
+        await renamePath(entry.path, to);
+      } catch (e) {
+        set({ configError: String(e) });
+        return;
+      }
+      // Rebind any open tab that pointed at the old path (or lived under a renamed folder).
+      const rebind = (p: string) =>
+        p === entry.path
+          ? to
+          : p.startsWith(entry.path + "\\")
+            ? to + p.slice(entry.path.length)
+            : p;
+      set((s) => ({
+        tabs: s.tabs.map((t) => ({ ...t, path: rebind(t.path) })),
+        activePath: s.activePath ? rebind(s.activePath) : s.activePath,
+      }));
+      await get().refreshTree();
+    });
+  },
+
+  deleteEntry: async (entry) => {
+    const kind = entry.is_dir ? "folder" : "file";
+    if (!window.confirm(`Move ${kind} "${entry.name}" to the Recycle Bin?`)) return;
+    try {
+      await deletePath(entry.path);
+    } catch (e) {
+      set({ configError: String(e) });
+      return;
+    }
+    // Close any tab that pointed at the deleted path (or lived under a deleted folder).
+    const gone = (p: string) => p === entry.path || p.startsWith(entry.path + "\\");
+    set((s) => {
+      const tabs = s.tabs.filter((t) => !gone(t.path));
+      const activePath = s.activePath && gone(s.activePath)
+        ? (tabs.length ? tabs[tabs.length - 1].path : null)
+        : s.activePath;
+      return { tabs, activePath };
+    });
+    await get().refreshTree();
   },
 
   setPanelTab: (tab) => set({ panelTab: tab }),
@@ -602,8 +857,8 @@ export const sessionKey = (s: AppState): string | null =>
 
 /** The persistable slice of state (spec §24). */
 export const sessionSnapshot = (s: AppState): Session => ({
-  // Preview tabs are transient — persist only permanent tabs.
-  open_tabs: s.tabs.filter((t) => !t.preview).map((t) => t.path),
+  // Preview tabs and unsaved scratch buffers are transient — persist only real, permanent tabs.
+  open_tabs: s.tabs.filter((t) => !t.preview && !isScratch(t.path)).map((t) => t.path),
   active_tab: s.activePath,
   tree_width: s.treeWidth,
   outline_width: s.outlineWidth,

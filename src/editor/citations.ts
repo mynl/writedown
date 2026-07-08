@@ -11,10 +11,17 @@ import {
   type CompletionResult,
 } from "@codemirror/autocomplete";
 import { EditorView, hoverTooltip, keymap } from "@codemirror/view";
-import { Prec } from "@codemirror/state";
+import { Prec, type EditorState } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
+import { linter, type Diagnostic } from "@codemirror/lint";
 import type { SyntaxNode } from "@lezer/common";
-import { getCitation, searchBibliography, type BibEntry, type CiteMatch } from "../api";
+import {
+  checkCitationKeys,
+  getCitation,
+  searchBibliography,
+  type BibEntry,
+  type CiteMatch,
+} from "../api";
 
 // Extra fields we hang off the Completion for our custom renderer.
 type CiteCompletion = Completion & { cite?: string; positions?: number[] };
@@ -24,9 +31,10 @@ function describe(e: BibEntry): string {
   return [e.title, meta].filter(Boolean).join("\n");
 }
 
-// Don't complete inside code / fenced blocks / front matter (spec §20).
-function inProse(context: CompletionContext): boolean {
-  let node: SyntaxNode | null = syntaxTree(context.state).resolveInner(context.pos, -1);
+// True only outside code / fenced blocks / front matter — where a `@` is a citation
+// and not a decorator, email, or code token (spec §20).
+function isProsePos(state: EditorState, pos: number): boolean {
+  let node: SyntaxNode | null = syntaxTree(state).resolveInner(pos, -1);
   while (node) {
     const name = node.type.name.toLowerCase();
     if (
@@ -41,6 +49,11 @@ function inProse(context: CompletionContext): boolean {
     node = node.parent;
   }
   return true;
+}
+
+// Don't complete inside code / fenced blocks / front matter (spec §20).
+function inProse(context: CompletionContext): boolean {
+  return isProsePos(context.state, context.pos);
 }
 
 async function citationSource(context: CompletionContext): Promise<CompletionResult | null> {
@@ -154,6 +167,45 @@ function retriggerTab(view: EditorView): boolean {
   return false;
 }
 
+// A `@key` in prose: `@` at a word boundary (not an email or `a/@b`), key starting and
+// ending on an alphanumeric so a trailing `.`/`-`/`:` (sentence punctuation) is excluded.
+const CITE_RE = /(?<![\p{L}\p{N}_@/])@([\p{L}\d](?:[\p{L}\d_:.\-]*[\p{L}\d])?)/gu;
+
+/** Flag every `@key` that has no match in the loaded bibliography — a red underline +
+ *  gutter marker, like the Python-cell errors. Silent when no bib is loaded. */
+const citationLint = linter(
+  async (view): Promise<Diagnostic[]> => {
+    const text = view.state.doc.toString();
+    const hits: { from: number; to: number; key: string }[] = [];
+    for (const m of text.matchAll(CITE_RE)) {
+      if (m.index === undefined) continue;
+      const from = m.index;
+      const key = m[1];
+      if (!isProsePos(view.state, from + 1)) continue;
+      hits.push({ from, to: from + 1 + key.length, key });
+    }
+    if (hits.length === 0) return [];
+
+    let missing: Set<string>;
+    try {
+      missing = new Set(await checkCitationKeys([...new Set(hits.map((h) => h.key))]));
+    } catch {
+      return []; // backend/bib unavailable — never block editing
+    }
+    if (missing.size === 0) return [];
+
+    return hits
+      .filter((h) => missing.has(h.key))
+      .map((h) => ({
+        from: h.from,
+        to: h.to,
+        severity: "error" as const,
+        message: `@${h.key} — not found in the bibliography`,
+      }));
+  },
+  { delay: 500 },
+);
+
 export const citationExtensions = [
   autocompletion({
     override: [citationSource],
@@ -161,6 +213,7 @@ export const citationExtensions = [
     addToOptions: [{ render: renderLabel, position: 20 }],
   }),
   citeHover,
+  citationLint,
   Prec.high(
     keymap.of([
       { key: "Mod-Shift-c", run: openCitationPicker },
