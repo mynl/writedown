@@ -5,6 +5,19 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.31.1] - 2026-07-08
+
+### Fixed
+
+- **Numbered-list editing crash.** Editing a Markdown numbered list could throw
+  `No tile at position N` from CodeMirror's view layer, leaving the editor in a stale/broken
+  state. Root cause was a tile-tree corruption bug in `@codemirror/view` 6.43.5 triggered by
+  zero-length content updates (exactly the tiny transactions list editing produces —
+  Enter-continuation, marker renumbering, idle linter re-dispatch). Fixed upstream in
+  **6.43.6** (2026-07-06); bumped our pin to `~6.43.6`. In-range patch bump, not a downgrade —
+  the tile architecture is being actively crash-patched (6.43.3 / 6.43.4 / 6.43.6 are all
+  tile-tree fixes), so staying current on the 6.43.x line is the right posture.
+
 ## [1.31.0] - 2026-07-08
 
 ### Added

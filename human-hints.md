@@ -26,10 +26,15 @@ Newest first. (Kept current at the close of each working session — see CLAUDE.
   never hard-rm), Save/Save As; rename rebinds open tabs. **Thin ST tabs** — new `[tabs]`
   height/width config (`tab_size` left alone = editor indent, a separate thing). Drag-and-drop
   deferred (reuses rename backend — moderate).
-- **CM tile-view list bug still open**: decos-off repro confirmed it's @codemirror/view's
-  6.43.x tile renderer, not our decorations. Fix = downgrade below the tile rewrite
-  (disruptive: npm install → re-run dev-setup.ps1 → recompile). Steve to greenlight; he goes
-  for a walk + shuts down his instance → free rein to investigate.
+- **CM tile-view list bug — FIXED (1.31.1)**: decos-off repro had already isolated it to
+  @codemirror/view's 6.43.x tile renderer (not our decorations). Walk-time dig found the real
+  cause + a clean fix: upstream **6.43.6** (2026-07-06) "fix another tile-tree corruption bug
+  on **zero-length content updates**" — exactly the tiny transactions list editing emits.
+  So it's an **in-range patch upgrade** (`^6.43.5`→`~6.43.6`), *not* the feared downgrade
+  across the whole tile rewrite. 6.43.3/6.43.4/6.43.6 are all tile-tree fixes → stay current
+  on 6.43.x. Applied: bump pin → npm install → dev-setup.ps1 re-junction → tsc/vite/cargo all
+  green. **Steve to confirm** the interactive repro is gone (edit a numbered list in dmd.md;
+  footer should read 1.31.1). EditorBoundary crash-remount stays as belt-and-suspenders.
 
 ## 2026-07-07 — 1.26–1.28: punch-up batch (9 requests)
 
