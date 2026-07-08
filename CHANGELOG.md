@@ -5,6 +5,17 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.35.0] - 2026-07-08
+
+### Added
+
+- **Ctrl+B renders the document** — Sublime's Build key, and Render Document is this
+  app's build. Bound in the editor keymap and at the app level, so it works with editor,
+  tree, or preview focus; the Rendered pane's empty state points at it. The palette
+  entry stays. (Deliberately not `Ctrl+K Ctrl+B` — that chord is ST's toggle-side-bar,
+  which would fight muscle memory and is worth keeping for its ST meaning if a sidebar
+  toggle ever lands. `Ctrl+B` was free everywhere: CodeMirror only binds it on macOS.)
+
 ## [1.34.0] - 2026-07-08
 
 ### Added

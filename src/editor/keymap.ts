@@ -66,6 +66,8 @@ export const sublimeEditing = [
       { key: "Mod-Alt-ArrowDown", run: addCursorVertically(1), preventDefault: true },
       // Ctrl+Shift+L toggles the preview view (Joplin-style), even when the editor is focused.
       { key: "Mod-Shift-l", run: () => (useStore.getState().cycleView(), true), preventDefault: true },
+      // Ctrl+B renders the document — Sublime's Build key; render IS this app's build.
+      { key: "Mod-b", run: () => (void useStore.getState().renderActive(), true), preventDefault: true },
       // Find / replace / go-to-line (Sublime: Ctrl+F, Ctrl+H, Ctrl+G).
       { key: "Mod-f", run: openSearchPanel, preventDefault: true },
       { key: "Mod-h", run: openSearchPanel, preventDefault: true },
