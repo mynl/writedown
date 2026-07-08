@@ -5,6 +5,32 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.32.0] - 2026-07-08
+
+### Added
+
+- **No-flash startup.** The window is now created hidden and revealed only once it has
+  been restored to its last position/size and painted, so launch no longer shows a
+  default-size frame that visibly jumps and fills in. (Chosen over a splash screen — a
+  splash is a second window that hides the jump rather than removing it.)
+- **Join Lines** — `Ctrl+Shift+J` (Sublime-style). Joins the current line with the next,
+  or collapses a multi-line selection into one; the seam becomes a single space and the
+  lower line's indentation is dropped.
+- **Renumber Ordered List** — command palette (`Ctrl+Shift+P` → “Renumber Ordered List”).
+  Renumbers the ordered list around the cursor (or the ordered items in a selection).
+  Each indent level is numbered independently and restarts under a deeper level; the first
+  item keeps its written start number (a list beginning at 3 stays 3, 4, 5…); `.` vs `)`
+  is preserved. Bullets and continuation lines are untouched. Markdown/Quarto only.
+- **Reformat Markdown Table(s)** — `Ctrl+Alt+Shift+T` (or palette). Aligns GFM pipe tables:
+  pads columns to an even width and rebuilds the delimiter row, **preserving alignment
+  markers** (`:--`, `:-:`, `--:`). With no selection it formats every table in the
+  document; with a selection, just the tables it touches. Honors `\|` escapes and inline
+  `` `code` `` spans, and skips tables inside fenced code blocks. (v1: no CJK
+  double-width accounting.)
+- **Front-matter block styling.** The YAML `---` … `---` header now sits in a subtle
+  tinted band with a hairline rule top and bottom, so it reads as a distinct properties
+  block. Purely visual — the front matter text is never touched (spec §2, §8).
+
 ## [1.31.1] - 2026-07-08
 
 ### Fixed

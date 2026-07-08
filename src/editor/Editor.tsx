@@ -9,6 +9,7 @@ import { editorHighlight, editorTheme } from "./theme";
 import { buildSublimeTheme } from "./sublimeTheme";
 import { csvRainbow } from "./csvRainbow";
 import { mathHighlight } from "./math";
+import { frontmatterBlock } from "./frontmatter";
 import { isCsv, isMarkdownDoc, languageForPath } from "./languages";
 import { sublimeEditing } from "./keymap";
 import { citationExtensions } from "./citations";
@@ -54,6 +55,7 @@ export function Editor({ path, content }: { path: string; content: string }) {
     ];
     // Prec.highest so math colouring wins over list/other syntax marks (e.g. in bullets).
     if (isMarkdownDoc(path)) {
+      ext.push(frontmatterBlock); // visual block behind the `---` header
       ext.push(Prec.highest(mathHighlight));
       ext.push(...citationExtensions); // @-citation autocomplete + hover
       ext.push(...documentLint); // python cell syntax + duplicate labels

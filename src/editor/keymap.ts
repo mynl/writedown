@@ -14,6 +14,8 @@ import {
   toggleComment,
 } from "@codemirror/commands";
 import { gotoLine, openSearchPanel, selectNextOccurrence } from "@codemirror/search";
+import { joinLines } from "./lists";
+import { reformatTables } from "./tables";
 import { useStore } from "../store";
 
 /** Add a cursor on the line above (-1) or below (+1) each existing cursor, same column. */
@@ -52,6 +54,9 @@ export const sublimeEditing = [
       { key: "Mod-Shift-ArrowUp", run: moveLineUp, preventDefault: true },
       { key: "Mod-Shift-ArrowDown", run: moveLineDown, preventDefault: true },
       { key: "Mod-/", run: toggleComment, preventDefault: true },
+      // Join lines (ST): Ctrl+Shift+J. Reformat Markdown tables: Ctrl+Alt+Shift+T.
+      { key: "Mod-Shift-j", run: joinLines, preventDefault: true },
+      { key: "Mod-Alt-Shift-t", run: reformatTables, preventDefault: true },
       // Editor font zoom (Ctrl +/-/0). Ctrl-= and Ctrl-Shift-= both hit "make bigger".
       { key: "Mod-=", run: () => (useStore.getState().setEditorZoom(1), true), preventDefault: true },
       { key: "Mod-+", run: () => (useStore.getState().setEditorZoom(1), true), preventDefault: true },

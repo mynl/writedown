@@ -1,9 +1,25 @@
 // The command registry behind the command palette (Ctrl+Shift+P). Kept small and
 // declarative so the palette is one source of truth for user-invocable actions.
+import { type StateCommand } from "@codemirror/state";
 import { configPath } from "./api";
 import { useStore } from "./store";
+import { getActiveView } from "./editor/editorView";
+import { isMarkdownDoc } from "./editor/languages";
+import { renumberOrderedList } from "./editor/lists";
+import { reformatTables } from "./editor/tables";
 
 export type Command = { id: string; title: string; run: () => void };
+
+// Run an editor command against the active Markdown view (no-op elsewhere), so
+// document-editing palette entries only act where they make sense.
+function onMarkdownView(cmd: StateCommand): () => void {
+  return () => {
+    const { activePath } = useStore.getState();
+    const view = getActiveView();
+    if (!view || !activePath || !isMarkdownDoc(activePath)) return;
+    cmd({ state: view.state, dispatch: (tr) => view.dispatch(tr) });
+  };
+}
 
 export function appCommands(): Command[] {
   const s = useStore.getState;
@@ -34,6 +50,8 @@ export function appCommands(): Command[] {
       run: () => void s().setSizeAsDefault(),
     },
     { id: "previous-versions", title: "Previous Versions…", run: () => s().openVersions() },
+    { id: "renumber-list", title: "Renumber Ordered List", run: onMarkdownView(renumberOrderedList) },
+    { id: "reformat-tables", title: "Reformat Markdown Table(s)", run: onMarkdownView(reformatTables) },
     { id: "refresh-tree", title: "Refresh File Tree", run: () => void s().refreshTree() },
     { id: "toggle-preview", title: "Toggle Preview (editor / split / preview)", run: () => s().cycleView() },
     {

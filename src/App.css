@@ -730,6 +730,19 @@ body {
   color: var(--wd-yaml-delim, #99cc99) !important;
 }
 
+/* Front-matter block: subtle tinted band behind the whole `---` … `---` header with a
+   hairline rule top and bottom. Translucent gray reads correctly on light and dark
+   themes; box-shadow rules avoid the layout jitter a 1px border would add while typing. */
+.wd-fm-line {
+  background: rgba(130, 130, 130, 0.08);
+}
+.wd-fm-first {
+  box-shadow: inset 0 1px 0 rgba(130, 130, 130, 0.22);
+}
+.wd-fm-last {
+  box-shadow: inset 0 -1px 0 rgba(130, 130, 130, 0.22);
+}
+
 /* Selection MUST be visible. Plain global CSS with !important reliably overrides
    CodeMirror's injected styles; the colour comes from --cm-sel (set to the imported
    Sublime selection colour, or the fallback below). */

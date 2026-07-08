@@ -3,6 +3,33 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-08 — 1.32.0: startup polish + editing verbs (2nd batch)
+
+- List-crash fix (1.31.1) confirmed by Steve ("no issues hacking around with lists"). Then
+  committed the whole 1.29–1.31.1 backlog as a clean 2-commit sequence: c85526d = feature
+  batch @1.31.0, 3702789 = the isolated CM 6.43.6 fix (only dep+version+docs, zero source).
+  Couldn't split 1.29/1.30/1.31.0 finer — hunk-interleaved across store/App/App.css; CHANGELOG
+  keeps per-version detail. (Method: temporarily set version files back to 1.31.0 for commit 1,
+  regen locks via cargo check, then forward to 1.31.1 for commit 2 — clean, both build.)
+- **Five asks, all shipped in 1.32.0** (design-first per house rule; pushed back where due):
+  1. **No-flash startup** — window `visible:false` in tauri.conf + reveal from the frontend
+     after first paints (geometry already restored while hidden). **Rejected the splash-screen
+     idea** — a splash hides the jump; hidden-until-ready removes it, less code. NB: needs a
+     `tauri dev` restart to take effect (conf.json isn't HMR'd).
+  2. **Ctrl+Shift+J join lines** (ST semantics) — `editor/lists.ts`.
+  3. **Renumber Ordered List** — palette only (Steve clarified: it's a *command in* the
+     Ctrl+Shift+P palette, not a new shortcut). Per-indent counters, keeps first start number,
+     restarts sublevels, preserves `.`/`)`. `editor/lists.ts`.
+  4. **Ctrl+Alt+Shift+T reformat GFM table(s)** — `editor/tables.ts`. Selected tables, or ALL
+     if no selection. Preserves `:--`/`:-:`/`--:`, honors `\|` + `` `code` ``, skips fenced
+     code. v1: no CJK width. Validated the pure logic in a node scratch test before shipping.
+  5. **Front-matter block styling** — Steve confirmed *visual only* (the never-reflow-YAML rule
+     stands). New `frontmatterBlock` line-deco plugin (tinted band + hairline rules via inset
+     box-shadow, no layout jitter). NB the old `frontmatter.ts` inline-mark plugin is **dead
+     code** — real `---` coloring comes from `yamlFrontmatter()` in languages.ts.
+- Hygiene: excluded Alt from the App-level Ctrl+Shift+T (reopen-tab) so Ctrl+Alt+Shift+T can't
+  reopen a tab when the editor is unfocused.
+
 ## 2026-07-08 — 1.29–1.31: data-safety + punch-up batch (live HMR session)
 
 - **Job 1 = never lose content.** Steve lost notes in new-one.md (autosave persisted a
