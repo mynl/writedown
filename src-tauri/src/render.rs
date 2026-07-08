@@ -7,20 +7,21 @@
 use crate::bib::{self, BibEntry};
 use crate::check::{attr_labels, fence_close, fence_open};
 use regex::Regex;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
-use std::time::{Instant, SystemTime};
+use std::time::{Duration, Instant, SystemTime};
 use tauri::Manager;
 
 // ---- state -------------------------------------------------------------------------
 
 /// Render-scoped state: the per-document bibliography cache (a doc's front-matter
-/// `bibliography:` override), keyed by (path, mtime). The python kernel joins in 1.34.
+/// `bibliography:` override, keyed by path+mtime) and the persistent python kernel.
 #[derive(Default)]
 pub struct RenderState {
     doc_bib: Mutex<Option<DocBib>>,
+    kernel: Mutex<Option<Kernel>>,
 }
 
 struct DocBib {
@@ -35,8 +36,330 @@ pub struct RenderResult {
     cells: usize,
     errors: usize,
     elapsed_ms: u64,
-    /// "ok" | "off" | "not_configured" | error message. "off" = execution not built (1.33).
+    /// "ok" | "not_configured" | error message.
     python: String,
+}
+
+// ---- python kernel ---------------------------------------------------------------------
+
+/// `[render]` in config.toml, read directly like `bib_path` does. `python` is an explicit
+/// interpreter path — no discovery. Missing/invalid keys fall back to defaults.
+struct RenderCfg {
+    python: String,
+    timeout_seconds: u64,
+    figure_format: String, // "png" | "svg"
+    figure_dpi: u32,
+}
+
+fn render_cfg(app: &tauri::AppHandle) -> RenderCfg {
+    let mut cfg = RenderCfg {
+        python: String::new(),
+        timeout_seconds: 30,
+        figure_format: "png".into(),
+        figure_dpi: 150,
+    };
+    let Ok(dir) = crate::config::writedown_dir(app) else { return cfg };
+    let txt = std::fs::read_to_string(dir.join("config.toml")).unwrap_or_default();
+    let Ok(val) = txt.parse::<toml::Value>() else { return cfg };
+    let Some(r) = val.get("render") else { return cfg };
+    if let Some(p) = r.get("python").and_then(|v| v.as_str()) {
+        cfg.python = p.trim().to_string();
+    }
+    if let Some(t) = r.get("timeout_seconds").and_then(|v| v.as_integer()) {
+        if t > 0 {
+            cfg.timeout_seconds = t as u64;
+        }
+    }
+    if let Some(f) = r.get("figure_format").and_then(|v| v.as_str()) {
+        if f == "png" || f == "svg" {
+            cfg.figure_format = f.into();
+        }
+    }
+    if let Some(d) = r.get("figure_dpi").and_then(|v| v.as_integer()) {
+        if d > 0 {
+            cfg.figure_dpi = d as u32;
+        }
+    }
+    cfg
+}
+
+#[derive(Serialize)]
+struct CellReq<'a> {
+    id: u64,
+    code: &'a str,
+    reset: bool,
+    cwd: Option<&'a str>,
+    fig_format: &'a str,
+    fig_dpi: u32,
+}
+
+#[derive(Deserialize, Default)]
+struct CellReply {
+    #[serde(default)]
+    id: u64,
+    #[serde(default)]
+    stdout: String,
+    #[serde(default)]
+    stderr: String,
+    #[serde(default)]
+    result_text: Option<String>,
+    #[serde(default)]
+    result_html: Option<String>,
+    #[serde(default)]
+    figures: Vec<Figure>,
+    #[serde(default)]
+    error: Option<CellError>,
+}
+
+#[derive(Deserialize, Default, Clone)]
+struct Figure {
+    format: String,
+    b64: String,
+}
+
+#[derive(Deserialize, Default, Clone)]
+struct CellError {
+    message: String,
+    #[serde(default)]
+    traceback: String,
+    /// Cell-relative 1-based line (from the last `<cell>` traceback frame).
+    #[serde(default)]
+    line: Option<i64>,
+}
+
+/// One executed cell's result, keyed by segment index for splicing. `skipped` is set for
+/// cells not run because an earlier cell timed out.
+#[derive(Default)]
+struct CellOutput {
+    stdout: String,
+    stderr: String,
+    result_text: Option<String>,
+    result_html: Option<String>,
+    figures: Vec<Figure>,
+    error: Option<CellError>,
+    skipped: Option<String>,
+}
+
+impl From<CellReply> for CellOutput {
+    fn from(r: CellReply) -> Self {
+        CellOutput {
+            stdout: r.stdout,
+            stderr: r.stderr,
+            result_text: r.result_text,
+            result_html: r.result_html,
+            figures: r.figures,
+            error: r.error,
+            skipped: None,
+        }
+    }
+}
+
+enum ExecFail {
+    Timeout,
+    Dead,
+}
+
+/// A persistent python process running the embedded JSON-lines runner. The namespace is
+/// reset per render (runner-side); the process — and thus `sys.modules` — survives so
+/// imports are paid once. Dropping the kernel kills the process.
+struct Kernel {
+    child: std::process::Child,
+    stdin: std::process::ChildStdin,
+    /// Lines from the reader thread; disconnect = the runner exited.
+    rx: std::sync::mpsc::Receiver<String>,
+    python_path: String,
+    next_id: u64,
+}
+
+impl Kernel {
+    fn spawn(python: &str, runner_dir: &Path, ready_timeout: Duration) -> Result<Kernel, String> {
+        std::fs::create_dir_all(runner_dir)
+            .map_err(|e| format!("create {}: {e}", runner_dir.display()))?;
+        let runner = runner_dir.join("runner.py");
+        std::fs::write(&runner, include_str!("../runner.py"))
+            .map_err(|e| format!("write {}: {e}", runner.display()))?;
+
+        let mut cmd = std::process::Command::new(python);
+        cmd.arg("-u")
+            .arg(&runner)
+            // Backend fixed before any user import; user stderr is captured runner-side.
+            .env("MPLBACKEND", "Agg")
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::null());
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW — no console flash
+        }
+        let mut child = cmd.spawn().map_err(|e| format!("start {python}: {e}"))?;
+        let stdin = child.stdin.take().expect("piped stdin");
+        let stdout = child.stdout.take().expect("piped stdout");
+
+        let (tx, rx) = std::sync::mpsc::channel::<String>();
+        std::thread::spawn(move || {
+            use std::io::BufRead;
+            for line in std::io::BufReader::new(stdout).lines() {
+                match line {
+                    Ok(l) => {
+                        if tx.send(l).is_err() {
+                            break;
+                        }
+                    }
+                    Err(_) => break,
+                }
+            }
+        });
+
+        let mut k = Kernel { child, stdin, rx, python_path: python.to_string(), next_id: 0 };
+        match k.rx.recv_timeout(ready_timeout) {
+            Ok(l) if l.contains("\"ready\"") => Ok(k),
+            Ok(l) => {
+                let _ = k.child.kill();
+                Err(format!("unexpected runner handshake: {l}"))
+            }
+            Err(_) => {
+                let _ = k.child.kill();
+                Err(format!("{python}: runner did not start"))
+            }
+        }
+    }
+
+    fn alive(&mut self) -> bool {
+        matches!(self.child.try_wait(), Ok(None))
+    }
+
+    fn exec(
+        &mut self,
+        code: &str,
+        reset: bool,
+        cwd: Option<&str>,
+        fig_format: &str,
+        fig_dpi: u32,
+        timeout: Duration,
+    ) -> Result<CellReply, ExecFail> {
+        use std::io::Write;
+        self.next_id += 1;
+        let id = self.next_id;
+        let req = CellReq { id, code, reset, cwd, fig_format, fig_dpi };
+        let line = serde_json::to_string(&req).map_err(|_| ExecFail::Dead)?;
+        writeln!(self.stdin, "{line}").map_err(|_| ExecFail::Dead)?;
+        self.stdin.flush().map_err(|_| ExecFail::Dead)?;
+        let deadline = Instant::now() + timeout;
+        loop {
+            let left = deadline.saturating_duration_since(Instant::now());
+            if left.is_zero() {
+                return Err(ExecFail::Timeout);
+            }
+            match self.rx.recv_timeout(left) {
+                Ok(l) => {
+                    if let Ok(rep) = serde_json::from_str::<CellReply>(&l) {
+                        if rep.id == id {
+                            return Ok(rep);
+                        }
+                    }
+                    // stale/foreign line (e.g. reply to a killed request) — keep waiting
+                }
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => return Err(ExecFail::Timeout),
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => return Err(ExecFail::Dead),
+            }
+        }
+    }
+}
+
+impl Drop for Kernel {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait(); // reap — no zombie
+    }
+}
+
+/// Kill the kernel on app exit (RunEvent::Exit). The runner's stdin-EOF exit is the
+/// backstop; this is the belt to that suspender.
+pub fn shutdown_kernel(app: &tauri::AppHandle) {
+    if let Some(state) = app.try_state::<RenderState>() {
+        if let Ok(mut k) = state.kernel.lock() {
+            *k = None; // Drop kills
+        }
+    }
+}
+
+/// Explicit user command ("Restart Python Kernel"): kill now, respawn on the next render.
+/// This is the Windows "interrupt" for a stuck or memory-heavy kernel.
+#[tauri::command]
+pub fn restart_kernel(state: tauri::State<RenderState>) {
+    if let Ok(mut k) = state.kernel.lock() {
+        *k = None;
+    }
+}
+
+/// Run every `eval`-able python cell top-to-bottom (fresh namespace via `reset` on the
+/// first). On a timeout the kernel is killed and the remaining cells are marked skipped.
+/// Returns (segment index -> output, error count). Err = the kernel could not start.
+fn run_cells(
+    app: &tauri::AppHandle,
+    cfg: &RenderCfg,
+    segments: &[Segment],
+    doc_dir: Option<&str>,
+) -> Result<(HashMap<usize, CellOutput>, usize), String> {
+    let state = app.state::<RenderState>();
+    let mut guard = state.kernel.lock().map_err(|e| e.to_string())?;
+    let respawn = match guard.as_mut() {
+        Some(k) => !k.alive() || k.python_path != cfg.python,
+        None => true,
+    };
+    if respawn {
+        let cache = crate::config::writedown_dir(app)?.join("cache");
+        *guard = Some(Kernel::spawn(&cfg.python, &cache, Duration::from_secs(cfg.timeout_seconds))?);
+    }
+
+    let mut outputs: HashMap<usize, CellOutput> = HashMap::new();
+    let mut errors = 0usize;
+    let mut first = true;
+    let mut dead: Option<String> = None; // skip reason once the kernel is gone
+    let mut cell_no = 0usize;
+    for (idx, seg) in segments.iter().enumerate() {
+        let Segment::PythonCell { code, opts, .. } = seg else { continue };
+        cell_no += 1;
+        if !opts.eval {
+            continue; // shown per echo, never sent to the kernel
+        }
+        if let Some(reason) = &dead {
+            outputs.insert(idx, CellOutput { skipped: Some(reason.clone()), ..Default::default() });
+            continue;
+        }
+        let kernel = guard.as_mut().expect("kernel present until taken");
+        match kernel.exec(code, first, doc_dir, &cfg.figure_format, cfg.figure_dpi,
+                          Duration::from_secs(cfg.timeout_seconds)) {
+            Ok(rep) => {
+                if rep.error.is_some() {
+                    errors += 1;
+                }
+                outputs.insert(idx, rep.into());
+            }
+            Err(fail) => {
+                errors += 1;
+                *guard = None; // Drop kills; next render respawns
+                let msg = match fail {
+                    ExecFail::Timeout => format!(
+                        "timed out after {}s — kernel restarted",
+                        cfg.timeout_seconds
+                    ),
+                    ExecFail::Dead => "python kernel exited unexpectedly".to_string(),
+                };
+                outputs.insert(idx, CellOutput {
+                    error: Some(CellError { message: msg, traceback: String::new(), line: None }),
+                    ..Default::default()
+                });
+                dead = Some(format!(
+                    "not run (kernel restarted after cell {cell_no} {})",
+                    match fail { ExecFail::Timeout => "timed out", ExecFail::Dead => "died" }
+                ));
+            }
+        }
+        first = false;
+    }
+    Ok((outputs, errors))
 }
 
 // ---- document splitter ----------------------------------------------------------------
@@ -48,8 +371,6 @@ pub(crate) struct FrontMatter {
 }
 
 /// Quarto `#|` cell options. All flags default true; unknown keys are ignored.
-/// eval/include/output drive execution splicing (1.34).
-#[allow(dead_code)]
 pub(crate) struct CellOpts {
     pub(crate) eval: bool,
     pub(crate) echo: bool,
@@ -71,8 +392,7 @@ pub(crate) enum Segment {
     /// Plain fenced blocks including the fence lines — passed through verbatim.
     PlainFence { text: String },
     /// ```{python} cell. `first_line` = 1-based document line of the first body line
-    /// (error mapping in 1.34).
-    #[allow(dead_code)]
+    /// (maps cell-relative traceback lines back to the document).
     PythonCell { code: String, opts: CellOpts, first_line: usize },
     /// ```{r}, ```{julia}, … — shown as source, never run.
     OtherCell { code: String, lang: String, opts: CellOpts },
@@ -225,7 +545,7 @@ fn heading_re() -> &'static Regex {
 }
 
 fn html_escape(s: &str) -> String {
-    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
+    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
 }
 
 /// Collect crossref labels in document order and number them per family.
@@ -597,9 +917,95 @@ fn source_fence(code: &str, lang: &str) -> String {
     format!("{ticks}{lang}\n{code}\n{ticks}")
 }
 
-/// Expand a split document against a bibliography. Pure — no filesystem, no app state —
+/// Splice one executed cell's output after its (echo-gated) source, honoring CellOpts.
+fn splice_output(
+    o: &CellOutput,
+    opts: &CellOpts,
+    first_line: usize,
+    cell_no: usize,
+    labels: &HashMap<String, String>,
+    parts: &mut Vec<String>,
+) {
+    if let Some(reason) = &o.skipped {
+        parts.push(format!("<div class=\"cell-skipped\">{}</div>", html_escape(reason)));
+        return;
+    }
+    if opts.output {
+        if !o.stdout.is_empty() {
+            parts.push(source_fence(o.stdout.trim_end_matches('\n'), "text"));
+        }
+        if !o.stderr.is_empty() {
+            parts.push(format!(
+                "<pre class=\"cell-stderr\">{}</pre>",
+                html_escape(o.stderr.trim_end_matches('\n'))
+            ));
+        }
+        if let Some(t) = &o.result_text {
+            parts.push(source_fence(t, "text"));
+        }
+        if let Some(h) = &o.result_html {
+            // The existing DOMPurify pass sanitizes whatever _repr_html_ produced.
+            parts.push(format!("<div class=\"cell-result\">\n{}\n</div>", h.trim()));
+        }
+        for (i, f) in o.figures.iter().enumerate() {
+            let mime = if f.format == "svg" { "svg+xml" } else { f.format.as_str() };
+            let cap = opts.fig_cap.as_deref().unwrap_or("");
+            let mut block = String::new();
+            if i == 0 {
+                if let Some(l) = &opts.label {
+                    block.push_str(&format!("<a id=\"{l}\"></a>"));
+                }
+            }
+            block.push_str(&format!(
+                "<img class=\"cell-figure\" src=\"data:image/{mime};base64,{}\" alt=\"{}\">",
+                f.b64,
+                html_escape(cap)
+            ));
+            if i == 0 {
+                let num = opts.label.as_ref().and_then(|l| labels.get(l));
+                let caption = match (num, cap.is_empty()) {
+                    (Some(n), false) => format!("{n}: {cap}"),
+                    (Some(n), true) => n.clone(),
+                    (None, false) => cap.to_string(),
+                    (None, true) => String::new(),
+                };
+                if !caption.is_empty() {
+                    block.push_str(&format!(
+                        "\n<p class=\"fig-caption\">{}</p>",
+                        html_escape(&caption)
+                    ));
+                }
+            }
+            parts.push(block);
+        }
+    }
+    if let Some(err) = &o.error {
+        let loc = match err.line {
+            Some(l) if l > 0 => format!("Cell {cell_no} (line {})", first_line as i64 + l - 1),
+            _ => format!("Cell {cell_no}"),
+        };
+        let mut block = format!(
+            "<div class=\"cell-error\"><p>{}: {}</p>",
+            loc,
+            html_escape(&err.message)
+        );
+        if !err.traceback.trim().is_empty() {
+            block.push_str(&format!("<pre>{}</pre>", html_escape(err.traceback.trim_end())));
+        }
+        block.push_str("</div>");
+        parts.push(block);
+    }
+}
+
+/// Expand a split document against a bibliography, splicing executed cell output (keyed
+/// by segment index; empty when execution is off). Pure — no filesystem, no app state —
 /// so the whole pipeline is unit-testable.
-pub(crate) fn expand(fm: &FrontMatter, segments: &[Segment], entries: &[BibEntry]) -> Expanded {
+pub(crate) fn expand(
+    fm: &FrontMatter,
+    segments: &[Segment],
+    entries: &[BibEntry],
+    exec: &HashMap<usize, CellOutput>,
+) -> Expanded {
     let refs: HashMap<&str, &BibEntry> = entries.iter().map(|e| (e.key.as_str(), e)).collect();
     let labels = collect_labels(segments);
     let mut cited: Vec<String> = Vec::new();
@@ -610,7 +1016,7 @@ pub(crate) fn expand(fm: &FrontMatter, segments: &[Segment], entries: &[BibEntry
     if let Some(t) = &fm.title {
         blocks.push(format!("# {t}"));
     }
-    for seg in segments {
+    for (idx, seg) in segments.iter().enumerate() {
         match seg {
             Segment::Markdown { text } => {
                 let p = process_prose(text, &labels, &refs, &mut cited, &mut n_cites);
@@ -620,17 +1026,32 @@ pub(crate) fn expand(fm: &FrontMatter, segments: &[Segment], entries: &[BibEntry
                 }
             }
             Segment::PlainFence { text } => blocks.push(text.clone()),
-            Segment::PythonCell { code, .. } => {
+            Segment::PythonCell { code, opts, first_line } => {
                 cells += 1;
-                let src = echo_source(code);
-                if !src.trim().is_empty() {
-                    blocks.push(source_fence(&src, "python"));
+                if !opts.include {
+                    continue; // run, emit nothing (summary still counts it)
                 }
+                let mut parts: Vec<String> = Vec::new();
+                if opts.echo {
+                    let src = echo_source(code);
+                    if !src.trim().is_empty() {
+                        parts.push(source_fence(&src, "python"));
+                    }
+                }
+                if let Some(o) = exec.get(&idx) {
+                    splice_output(o, opts, *first_line, cells, &labels, &mut parts);
+                }
+                blocks.extend(parts);
             }
-            Segment::OtherCell { code, lang, .. } => {
-                let src = echo_source(code);
-                if !src.trim().is_empty() {
-                    blocks.push(source_fence(&src, lang));
+            Segment::OtherCell { code, lang, opts } => {
+                if !opts.include {
+                    continue;
+                }
+                if opts.echo {
+                    let src = echo_source(code);
+                    if !src.trim().is_empty() {
+                        blocks.push(source_fence(&src, lang));
+                    }
                 }
             }
         }
@@ -676,36 +1097,71 @@ fn doc_bib(app: &tauri::AppHandle, doc_path: Option<&str>, rel: &str) -> Result<
 fn render_impl(app: &tauri::AppHandle, text: &str, path: Option<&str>) -> RenderResult {
     let t0 = Instant::now();
     let (fm, segments) = split_document(text);
-
     let mut pre_warnings: Vec<String> = Vec::new();
+
+    // Execute python cells first (namespace-fresh, top-to-bottom); everything else
+    // degrades gracefully when no interpreter is configured or the spawn fails.
+    let n_python = segments.iter().filter(|s| matches!(s, Segment::PythonCell { .. })).count();
+    let cfg = render_cfg(app);
+    let mut exec: HashMap<usize, CellOutput> = HashMap::new();
+    let mut errors = 0usize;
+    let python = if n_python == 0 {
+        "ok".to_string()
+    } else if cfg.python.is_empty() {
+        pre_warnings.push(
+            "python not configured — cells shown as source (set [render] python in config.toml)"
+                .to_string(),
+        );
+        "not_configured".to_string()
+    } else {
+        let doc_dir = path
+            .and_then(|p| Path::new(p).parent())
+            .map(|d| d.to_string_lossy().to_string());
+        match run_cells(app, &cfg, &segments, doc_dir.as_deref()) {
+            Ok((map, errs)) => {
+                exec = map;
+                errors = errs;
+                "ok".to_string()
+            }
+            Err(e) => {
+                pre_warnings.push(format!("python failed to start: {e} — cells shown as source"));
+                e
+            }
+        }
+    };
+
     let mut exp = if let Some(rel) = fm.bibliography.clone() {
         match doc_bib(app, path, &rel) {
-            Ok(entries) => expand(&fm, &segments, &entries),
+            Ok(entries) => expand(&fm, &segments, &entries, &exec),
             Err(e) => {
                 // The doc explicitly overrode the bibliography — a failed load must not
                 // silently fall back to the default file.
                 pre_warnings.push(format!("bibliography not loaded: {e}"));
-                expand(&fm, &segments, &[])
+                expand(&fm, &segments, &[], &exec)
             }
         }
     } else {
         let st = app.state::<bib::BibState>();
-        bib::with_entries(&st, |entries| expand(&fm, &segments, entries))
+        bib::with_entries(&st, |entries| expand(&fm, &segments, entries, &exec))
     };
-    if !pre_warnings.is_empty() {
+    if pre_warnings.iter().any(|w| w.starts_with("bibliography not loaded")) {
         // The specific load error replaces the generic "not loaded" warning.
         exp.warnings.retain(|w| !w.starts_with("bibliography not loaded"));
     }
-    let mut warnings = [pre_warnings, exp.warnings].concat();
-    if exp.cells > 0 {
-        warnings.push("code cells shown as source (python execution off)".to_string());
-    }
+    let warnings = [pre_warnings, exp.warnings].concat();
 
     let elapsed_ms = t0.elapsed().as_millis() as u64;
     let cells = exp.cells;
-    let plural = if cells == 1 { "" } else { "s" };
+    let cell_word = if cells == 1 { "cell" } else { "cells" };
+    let err_part = match errors {
+        0 => String::new(),
+        1 => " · 1 error".to_string(),
+        n => format!(" · {n} errors"),
+    };
     let mut md = format!(
-        "<p class=\"render-summary ok\">✓ {cells} cell{plural} · {:.1} s</p>",
+        "<p class=\"render-summary {}\">{} {cells} {cell_word}{err_part} · {:.1} s</p>",
+        if errors > 0 { "err" } else { "ok" },
+        if errors > 0 { "✗" } else { "✓" },
         elapsed_ms as f64 / 1000.0
     );
     for w in &warnings {
@@ -713,7 +1169,7 @@ fn render_impl(app: &tauri::AppHandle, text: &str, path: Option<&str>) -> Render
     }
     md.push_str("\n\n");
     md.push_str(&exp.markdown);
-    RenderResult { markdown: md, cells, errors: 0, elapsed_ms, python: "off".into() }
+    RenderResult { markdown: md, cells, errors, elapsed_ms, python }
 }
 
 /// Render the live buffer (no save side effect, no temp files). Async + spawn_blocking so
@@ -750,7 +1206,7 @@ mod tests {
     fn run(text: &str) -> String {
         let e = entries();
         let (fm, segs) = split_document(text);
-        expand(&fm, &segs, &e).markdown
+        expand(&fm, &segs, &e, &HashMap::new()).markdown
     }
 
     // -- splitter --
@@ -858,7 +1314,7 @@ mod tests {
     #[test]
     fn no_bib_warns_and_flags() {
         let (fm, segs) = split_document("See @Smith2020.");
-        let exp = expand(&fm, &segs, &[]);
+        let exp = expand(&fm, &segs, &[], &HashMap::new());
         assert!(exp.warnings.iter().any(|w| w.contains("bibliography not loaded")));
         assert!(exp.markdown.contains("cite-missing"));
     }
@@ -907,5 +1363,151 @@ mod tests {
         let out = run("## Intro Section {#sec-intro}\n\nSee @sec-intro.");
         assert!(out.contains("## <a id=\"sec-intro\"></a>Intro Section"), "{out}");
         assert!(out.contains("[§ Intro Section](#sec-intro)"), "{out}");
+    }
+
+    // -- execution splicing (synthetic outputs — no python needed) --
+
+    fn expand_with(doc: &str, exec: HashMap<usize, CellOutput>) -> String {
+        let (fm, segs) = split_document(doc);
+        expand(&fm, &segs, &[], &exec).markdown
+    }
+
+    #[test]
+    fn splices_stdout_result_and_error_line() {
+        let doc = "```{python}\nprint('hi')\n```\n\n```{python}\n1/0\n```\n";
+        let mut exec = HashMap::new();
+        exec.insert(0, CellOutput { stdout: "hi\n".into(), ..Default::default() });
+        exec.insert(1, CellOutput {
+            error: Some(CellError {
+                message: "ZeroDivisionError: division by zero".into(),
+                traceback: "Traceback (most recent call last): ...".into(),
+                line: Some(1),
+            }),
+            ..Default::default()
+        });
+        let out = expand_with(doc, exec);
+        assert!(out.contains("```text\nhi\n```"), "{out}");
+        // cell 2's body starts at document line 6, error at cell-relative line 1
+        assert!(out.contains("<div class=\"cell-error\"><p>Cell 2 (line 6): ZeroDivisionError: division by zero</p>"), "{out}");
+        assert!(out.contains("<pre>Traceback"), "{out}");
+    }
+
+    #[test]
+    fn honors_echo_include_output_flags() {
+        let doc = "```{python}\n#| echo: false\nprint('a')\n```\n\n```{python}\n#| include: false\nprint('b')\n```\n\n```{python}\n#| output: false\nprint('c')\n```\n";
+        let mut exec = HashMap::new();
+        exec.insert(0, CellOutput { stdout: "a\n".into(), ..Default::default() });
+        exec.insert(1, CellOutput { stdout: "b\n".into(), ..Default::default() });
+        exec.insert(2, CellOutput { stdout: "c\n".into(), ..Default::default() });
+        let out = expand_with(doc, exec);
+        // echo:false — output but no source
+        assert!(out.contains("```text\na\n```"), "{out}");
+        assert!(!out.contains("print('a')"), "{out}");
+        // include:false — nothing at all
+        assert!(!out.contains('b'), "{out}");
+        // output:false — source but no output
+        assert!(out.contains("print('c')"), "{out}");
+        assert!(!out.contains("```text\nc"), "{out}");
+    }
+
+    #[test]
+    fn figure_gets_anchor_number_and_caption() {
+        let doc = "```{python}\n#| label: fig-plot\n#| fig-cap: \"My Cap\"\nplot()\n```\n";
+        let mut exec = HashMap::new();
+        exec.insert(0, CellOutput {
+            figures: vec![Figure { format: "png".into(), b64: "AAAA".into() }],
+            ..Default::default()
+        });
+        let out = expand_with(doc, exec);
+        assert!(out.contains("<a id=\"fig-plot\"></a><img class=\"cell-figure\" src=\"data:image/png;base64,AAAA\" alt=\"My Cap\">"), "{out}");
+        assert!(out.contains("<p class=\"fig-caption\">Figure 1: My Cap</p>"), "{out}");
+    }
+
+    #[test]
+    fn skipped_and_html_result_blocks() {
+        let doc = "```{python}\ndf\n```\n\n```{python}\nx\n```\n";
+        let mut exec = HashMap::new();
+        exec.insert(0, CellOutput {
+            result_html: Some("<table><tr><td>1</td></tr></table>".into()),
+            ..Default::default()
+        });
+        exec.insert(1, CellOutput {
+            skipped: Some("not run (kernel restarted after cell 1 timed out)".into()),
+            ..Default::default()
+        });
+        let out = expand_with(doc, exec);
+        assert!(out.contains("<div class=\"cell-result\">\n<table>"), "{out}");
+        assert!(out.contains("<div class=\"cell-skipped\">not run (kernel restarted after cell 1 timed out)</div>"), "{out}");
+    }
+
+    // -- kernel integration: cargo test -- --ignored, with a real interpreter on PATH
+    // or named in WRITEDOWN_TEST_PYTHON (the Store's python.exe stub does not count) --
+
+    fn test_kernel() -> Kernel {
+        let python =
+            std::env::var("WRITEDOWN_TEST_PYTHON").unwrap_or_else(|_| "python".to_string());
+        let dir = std::env::temp_dir().join("writedown-kernel-test");
+        Kernel::spawn(&python, &dir, Duration::from_secs(20)).expect("real python available")
+    }
+
+    #[test]
+    #[ignore]
+    fn kernel_stdout_and_last_expr() {
+        let mut k = test_kernel();
+        let r = k
+            .exec("print('hey')\n1 + 1", true, None, "png", 150, Duration::from_secs(10))
+            .ok()
+            .unwrap();
+        assert_eq!(r.stdout, "hey\n");
+        assert_eq!(r.result_text.as_deref(), Some("2"));
+        assert!(r.error.is_none());
+    }
+
+    #[test]
+    #[ignore]
+    fn kernel_namespace_resets_but_modules_survive() {
+        let mut k = test_kernel();
+        let r = k.exec("import math\nx = 41", true, None, "png", 150, Duration::from_secs(10));
+        assert!(r.ok().unwrap().error.is_none());
+        // Same render (no reset): x is visible.
+        let r = k.exec("x + 1", false, None, "png", 150, Duration::from_secs(10)).ok().unwrap();
+        assert_eq!(r.result_text.as_deref(), Some("42"));
+        // New render (reset): x is gone.
+        let r = k.exec("x", true, None, "png", 150, Duration::from_secs(10)).ok().unwrap();
+        assert!(r.error.is_some());
+    }
+
+    #[test]
+    #[ignore]
+    fn kernel_error_line_maps() {
+        let mut k = test_kernel();
+        let r = k
+            .exec("a = 1\nb = 2\n1/0", true, None, "png", 150, Duration::from_secs(10))
+            .ok()
+            .unwrap();
+        let e = r.error.expect("error");
+        assert!(e.message.contains("ZeroDivisionError"));
+        assert_eq!(e.line, Some(3));
+    }
+
+    #[test]
+    #[ignore]
+    fn kernel_timeout_kills() {
+        let mut k = test_kernel();
+        let r = k.exec("while True: pass", true, None, "png", 150, Duration::from_secs(2));
+        assert!(matches!(r, Err(ExecFail::Timeout)));
+        drop(k); // Drop kills the busy process — must not hang
+    }
+
+    #[test]
+    #[ignore]
+    fn kernel_matplotlib_figure() {
+        let mut k = test_kernel();
+        let code = "import matplotlib.pyplot as plt\nplt.plot([1, 2], [3, 4])\nplt.gcf()";
+        let r = k.exec(code, true, None, "png", 96, Duration::from_secs(30)).ok().unwrap();
+        assert!(r.error.is_none(), "{:?}", r.error.map(|e| e.message));
+        assert_eq!(r.figures.len(), 1);
+        assert_eq!(r.figures[0].format, "png");
+        assert!(!r.figures[0].b64.is_empty());
     }
 }

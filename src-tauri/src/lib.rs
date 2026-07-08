@@ -60,11 +60,18 @@ pub fn run() {
             bib::check_citation_keys,
             check::check_document,
             render::render_document,
+            render::restart_kernel,
             project::load_project,
             project::save_project,
             project::recent_projects,
             project::add_recent_project,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|handle, event| {
+            // Kill the python kernel on exit (its stdin-EOF self-exit is the backstop).
+            if matches!(event, tauri::RunEvent::Exit) {
+                render::shutdown_kernel(handle);
+            }
+        });
 }

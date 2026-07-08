@@ -5,6 +5,49 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.34.0] - 2026-07-08
+
+### Added
+
+- **Python cell execution** (stage 2 of the fast qmd render plan). Render Document now
+  runs `{python}` cells through a **persistent python sidecar** and splices the output —
+  stdout, last-expression value (`_repr_html_` for pandas tables, else `repr`), stderr,
+  matplotlib figures, tracebacks — into the rendered document. No jupyter, no temp
+  `.qmd`; the only external dependency is the interpreter named in config:
+
+  ```toml
+  [render]
+  python = "C:/Users/you/miniconda3/envs/work/python.exe"
+  ```
+
+  (`timeout_seconds = 30`, `figure_format = "png"|"svg"`, `figure_dpi = 150` also
+  available; new installs get the section with `python = ""`. Existing configs are never
+  rewritten — add the lines by hand.)
+  - **Persistent process, fresh namespace.** The kernel survives across renders so
+    imports are paid once (first render ~1–2 s with heavy imports, then fast); each
+    render resets the namespace and runs cells top-to-bottom, so results are always a
+    deterministic clean run. The runner is a ~150-line JSON-lines script (embedded,
+    written to the disposable `~/.writedown/cache/`), not the Jupyter protocol. It runs
+    with `MPLBACKEND=Agg`, no console window, and chdir to the document's folder so
+    relative `pd.read_csv("data.csv")` works like Quarto.
+  - **Figures never touch disk** — collected per cell as base64 data URIs, with anchor,
+    "Figure N" numbering, and caption from `#| label` / `#| fig-cap`.
+  - **Cell options honored**: `eval: false` (show, don't run), `echo: false` (run, hide
+    source), `output: false`, `include: false`; `%magic`/`!shell`/`?help` lines are
+    blanked, not errors.
+  - **Errors surfaced, never swallowed**: an exception renders a red traceback block
+    with the **document** line number (cell-relative frames mapped back through the
+    splitter); later cells still run. A cell exceeding the timeout kills the kernel —
+    the cell reports "timed out — kernel restarted", remaining cells show "not run",
+    and the next render starts clean. **Restart Python Kernel** (palette) is the manual
+    version, doubling as the Windows interrupt. The kernel dies with the app (run-event
+    hook + stdin-EOF backstop in the runner — no orphan pythons).
+  - With no python configured everything else still works: cells render as source with
+    a one-line notice, citations/crossrefs/references unaffected.
+  - Kernel protocol covered by integration tests (run `cargo test -- --ignored` with a
+    real interpreter): stdout, last-expr repr, namespace reset vs. surviving imports,
+    error-line mapping, figure round-trip, timeout→kill.
+
 ## [1.33.0] - 2026-07-08
 
 ### Added

@@ -60,6 +60,14 @@ citation_style = "pandoc"
 watch_for_changes = true
 read_only = true
 
+[render]
+# Render Document: run {python} cells through this interpreter (explicit path — no
+# discovery). Leave empty to render without execution (cells shown as source).
+python = ""
+timeout_seconds = 30
+figure_format = "png" # png | svg
+figure_dpi = 150
+
 [tree]
 # Left file/project panel font (like ST's sidebar). font_weight as in [editor].
 font_family = "Segoe UI"

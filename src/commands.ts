@@ -1,7 +1,7 @@
 // The command registry behind the command palette (Ctrl+Shift+P). Kept small and
 // declarative so the palette is one source of truth for user-invocable actions.
 import { type StateCommand } from "@codemirror/state";
-import { configPath } from "./api";
+import { configPath, restartKernel } from "./api";
 import { useStore } from "./store";
 import { getActiveView } from "./editor/editorView";
 import { isMarkdownDoc } from "./editor/languages";
@@ -55,6 +55,11 @@ export function appCommands(): Command[] {
     { id: "refresh-tree", title: "Refresh File Tree", run: () => void s().refreshTree() },
     { id: "toggle-preview", title: "Toggle Preview (editor / split / preview)", run: () => s().cycleView() },
     { id: "render-doc", title: "Render Document (run code cells)", run: () => void s().renderActive() },
+    {
+      id: "render-restart-kernel",
+      title: "Restart Python Kernel",
+      run: () => void restartKernel().catch(() => {}),
+    },
     {
       id: "edit-config",
       title: "Edit Config (config.toml)",

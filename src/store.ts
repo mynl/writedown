@@ -680,7 +680,7 @@ export const useStore = create<AppState>((set, get) => ({
             cells: 0,
             errors: 1,
             elapsedMs: 0,
-            python: "off",
+            python: String(e),
           },
         },
         previewTab: "rendered",

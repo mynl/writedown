@@ -218,7 +218,7 @@ export type RenderResult = {
   cells: number;
   errors: number;
   elapsed_ms: number;
-  /** "ok" | "off" | "not_configured" | error message. */
+  /** "ok" | "not_configured" | error message. */
   python: string;
 };
 
@@ -226,5 +226,8 @@ export type RenderResult = {
  *  front-matter `bibliography:`; pass null for unsaved scratch buffers. */
 export const renderDocument = (text: string, path: string | null) =>
   invoke<RenderResult>("render_document", { text, path });
+
+/** Kill the python kernel now; the next render respawns it (the Windows "interrupt"). */
+export const restartKernel = () => invoke<void>("restart_kernel");
 
 
