@@ -3,6 +3,29 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-08 — Fast QMD render SHIPPED: 1.33.0 + 1.34.0 (both stages of the plan)
+
+- Executed dev/plan-1.33-fast-render.md end-to-end after verifying every code reference
+  against the tree. Two commits: 0e65803 (1.33.0 markdown pipeline) and 43a4479 (1.34.0
+  python sidecar). 32 Rust unit tests green + 5 kernel integration tests (`cargo test --
+  --ignored`) verified against Steve's real miniconda `working313` env — stdout,
+  last-expr repr, namespace-reset-vs-surviving-imports, error-line mapping, matplotlib
+  figure as base64 PNG, timeout→kill all pass. `npx tsc` clean.
+- Plan's verify-early risks resolved: DOMPurify passes **any** `data:` URI on `img src`
+  (DATA_URI_TAGS special case in the installed 3.x — png AND svg fine, no sanitizer
+  changes needed); anchor ids survive sanitize; the Rust citation regex mirrors the
+  editor's CITE_RE via a leading-group guard (regex crate has no lookbehind — and no
+  lookAHEAD either, so bracket-group `[…@…]` detection is a small hand scanner, not the
+  plan's lookahead regex; same behavior, shared test corpus).
+- Notables: kernel kill is via `Drop` (restart/replace/app-exit all one path); lib.rs
+  restructured to `.build().run(|handle, event| …)` for the RunEvent::Exit hook; PATH
+  `python` on Steve's machine is the Microsoft Store stub — integration tests take
+  `WRITEDOWN_TEST_PYTHON`; `[render]` added to DEFAULT_CONFIG (new installs) — **Steve
+  must hand-add `[render] python = "…"` to his config.toml to enable execution**.
+- Awaiting Steve's manual pass (plan §12: cite-click scroll, Stale badge, figure render,
+  timeout UX). Rust changes need a `tauri dev` restart — HMR only covers the frontend.
+  Plan doc stays in dev/ until Steve declares it done.
+
 ## 2026-07-08 — Fast QMD render designed + planned (dev/plan-1.33-fast-render.md)
 
 - Steve wants a "fast and furious" on-demand `.qmd` render — speed over accuracy — after
