@@ -171,6 +171,13 @@ function retriggerTab(view: EditorView): boolean {
 // ending on an alphanumeric so a trailing `.`/`-`/`:` (sentence punctuation) is excluded.
 const CITE_RE = /(?<![\p{L}\p{N}_@/])@([\p{L}\d](?:[\p{L}\d_:.\-]*[\p{L}\d])?)/gu;
 
+// Quarto cross-reference families (`@sec-…`, `@fig-…`, `@tbl-…`, `@eq-…`, theorem-likes,
+// …) are document crossrefs, not bibliography citations — they must never be looked up in
+// the bib or flagged as missing. Steve's citation keys are `Author2024a` / `Authors`
+// (no hyphen); his Quarto tags carry the `prefix-` shape, so this is an exact split.
+const CROSSREF_PREFIX =
+  /^(fig|tbl|eq|sec|lst|thm|lem|cor|prp|cnj|def|exm|exr|sol|rem)-/;
+
 /** Flag every `@key` that has no match in the loaded bibliography — a red underline +
  *  gutter marker, like the Python-cell errors. Silent when no bib is loaded. */
 const citationLint = linter(
@@ -181,6 +188,7 @@ const citationLint = linter(
       if (m.index === undefined) continue;
       const from = m.index;
       const key = m[1];
+      if (CROSSREF_PREFIX.test(key)) continue; // Quarto crossref, not a citation
       if (!isProsePos(view.state, from + 1)) continue;
       hits.push({ from, to: from + 1 + key.length, key });
     }

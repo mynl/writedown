@@ -63,8 +63,12 @@ Save failures, conflicts, and parse failures must be **surfaced**, never swallow
 
 These rules apply in every project — follow them without being re-asked.
 
-- **Diagnose / design / propose before editing source.** Don't change code until told
-  to proceed ("go ahead"). "Can you see the issue?" means explain, not fix.
+- **No coding until explicitly told.** Never write or edit code or project files until the
+  author says to proceed ("go ahead", "do it", "build it"). Default mode is diagnose /
+  design / propose. This holds even for trivial, obviously-helpful fixes, and even when only
+  part of a punch list has been discussed — finishing the list and deciding is the author's
+  call, not mine. "Can you see the issue?" / "what's the fix?" mean explain, not fix.
+  Reading, searching, and planning are always fine.
 - Environment is **PowerShell on Windows**. No `awk`/`sed`/`head`/`tail` (even via the
   Bash tool). Use `rg` + the Read/Edit/Write tools.
 - Prefer explicit, documented recipes over magic / auto-install behavior.

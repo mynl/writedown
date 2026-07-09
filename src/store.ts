@@ -855,11 +855,12 @@ export const useStore = create<AppState>((set, get) => ({
   addFolderToProject: async () => {
     const picked = await pickFolder();
     if (!picked) return;
-    const { projFolders, root } = get();
-    // Starting a project from folder mode seeds it with the current root.
-    const base = projFolders.length > 0 ? projFolders : root ? [root] : [];
-    if (base.includes(picked)) return;
-    const folders = [...base, picked];
+    // Add exactly the folder you pick — never auto-absorb the currently-open folder.
+    // (Snapshotting the open folder into a project is done deliberately via Save Project
+    // As.) So the first add yields a one-folder project, the second yields two, etc.
+    const { projFolders } = get();
+    if (projFolders.includes(picked)) return;
+    const folders = [...projFolders, picked];
     set({ projFolders: folders, panelTab: "project" });
     if (!get().root) await get().setRoot(picked);
     void watchWorkspace(folders).catch(() => {});

@@ -5,6 +5,57 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.36.1] - 2026-07-09
+
+### Fixed
+
+- **Tab strip no longer jumps when a file opens.** Single-clicking a file (a preview tab)
+  could render that one tab taller than its siblings and drag the whole strip up until the
+  next edit reflowed it. The strip is now pinned to a fixed height (the configured
+  `[tabs] height`) rather than a min-height, individual tabs clip overflow, and the tab
+  name has a fixed line-height — so no tab, however it transiently renders at mount, can
+  grow or jog the row. (The earlier 1.36.0 "very tall editor" fix addressed a different
+  element — the editor pane — and is retained.)
+- **Absolute Windows image paths now display in the preview.** `![](C:/tmp/pic.png)` and
+  other drive-letter / UNC paths were skipped because a bare drive letter (`C:`) looks
+  exactly like a URL scheme and was treated as an external link. Absolute paths are now
+  detected before the scheme check and routed through the asset protocol like relative
+  ones. (Relative `img/…` paths were already working.)
+
+## [1.36.0] - 2026-07-09
+
+### Added
+
+- **Relative images render in the preview.** `![](img/diagram.png)` and other
+  document-relative image paths now resolve and display in both the live *Preview* and the
+  *Rendered* tab. The path is resolved against the open document's folder and loaded
+  straight off disk through Tauri's asset protocol — no temp files, no copies; the image
+  file is only ever read, never touched. The asset protocol is enabled with a broad
+  (`**`) scope: this is a local, single-user editor and images can live anywhere relative
+  to a document, so guessing a tighter scope would just break legitimate references.
+  Absolute URLs, `data:`/`blob:` URIs, and absolute paths are left untouched; `.`/`..`
+  segments in a relative path are resolved before loading.
+
+### Fixed
+
+- **"Add Folder to Project" no longer drags in the currently-open folder.** It now adds
+  exactly the folder you pick — first add gives a one-folder project, a second gives two,
+  and so on. (Turning your open folder into a project is still available deliberately via
+  *Save Project As*.)
+- **Single-click (preview) opens no longer render the editor at full height.** A freshly
+  opened preview tab could mount CodeMirror before its container height had resolved, so
+  it rendered at full content height and only snapped to the right size on the first
+  edit. The editor now fills its pane via absolute positioning, giving it a definite box
+  on the first layout pass.
+- **Quarto cross-references are no longer flagged as missing citations.** `@sec-…`,
+  `@fig-…`, `@tbl-…`, `@eq-…`, and the theorem-family prefixes (`lst/thm/lem/cor/prp/cnj/
+  def/exm/exr/sol/rem-`) are document crossrefs, not bibliography keys, so they're
+  excluded from the "not found in the bibliography" underline.
+- **The Rendered tab falls back to Preview when there's nothing rendered.** Switching to a
+  document you haven't rendered no longer shows the empty "No render yet" panel — it shows
+  the live Preview, and the Rendered tab is disabled until a render exists (a render in
+  flight still shows "Rendering…").
+
 ## [1.35.0] - 2026-07-08
 
 ### Added

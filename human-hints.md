@@ -3,6 +3,53 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-09 — 1.36.1 follow-ups (tab strip + absolute-path images)
+
+- **Config "didn't parse" was a red herring** — Steve was viewing `localhost:1420` in a
+  plain browser, which has no Tauri backend, so the settings `invoke` rejected and the UI
+  showed its generic fallback bar. His config.toml is valid and loads fine in the real app
+  window. (Also: asset-protocol images can't load in a browser at all.)
+- **Tab-strip jump (original "item 2") was misdiagnosed** — 1.36.0's fix hardened the
+  editor pane, but the real symptom (screenshots `features/all-good.png` vs
+  `one-file-in-edit-mode.png`) is a freshly-opened *preview* tab rendering taller than its
+  siblings and dragging the strip up until the next reflow. Root: strip governed by
+  `min-height` + flex `align-items: stretch`, so the tallest tab's (transient) content set
+  the row height. Fixed: `.editor-topbar` fixed `height` (not min-height) + `overflow:hidden`,
+  `.tab { overflow:hidden }`, `.tab-name { line-height:1.4 }`, `.tabs { min-height:0 }`.
+- **Absolute Windows image paths didn't load** — my `resolveAssetSrc` treated `C:` as a
+  URL scheme (it matches `^[a-z][a-z0-9+.-]*:`), so `![](C:/tmp/x.png)` was left untouched
+  and the webview couldn't load a raw path. Now drive-letter/UNC paths are detected first
+  and sent through `convertFileSrc`. Relative `img/…` already worked.
+- Standing rule now in force: implement only on explicit go-ahead (proposed the tab fix,
+  got agreement, then did tab + image together). `tsc --noEmit` clean.
+
+## 2026-07-09 — 1.36.0 punch-list: preview images + four fixes
+
+- Five-item punch list, all shipped in 1.36.0:
+  1. **Add Folder to Project** no longer auto-absorbs the open folder — adds exactly what
+     you pick (Save Project As still snapshots the open folder deliberately).
+  2. **Preview-mode (single-click) editor rendered very tall, shrank on first edit** — a
+     CodeMirror first-mount height-measurement race. Fixed with a definite box:
+     `.cm-host` relative + `.cm-editor` absolute inset:0 (no JS measure kick needed).
+  3. **`@sec-`/`@fig-`/`@tbl-`/… flagged as missing citations** — the citation lint now
+     skips the Quarto crossref prefix families. Steve's cite keys are `Author2024a` /
+     `Authors` (no hyphen); crossrefs carry `prefix-`, so it's an exact split.
+  4. **Relative images in preview** (the "biggie"). No temp file exists — render is
+     in-webview from a string — so the temp-dir/junction idea didn't apply. Solution:
+     rewrite relative `![](img/…)` srcs (in `Preview.tsx`, so it fixes BOTH live Preview
+     and Rendered) to `convertFileSrc` asset URLs resolved against the doc folder. Needed
+     `assetProtocol { enable, scope:["**"] }` in tauri.conf AND `protocol-asset` feature
+     on the `tauri` crate (config alone is a silent no-op without the Cargo feature).
+     Broad scope chosen deliberately — Steve's machine, images live anywhere.
+  5. **Rendered tab** auto-reverts to live Preview when the active doc has no render
+     (derived `effectiveTab`); Rendered button disabled until a render exists.
+- **New standing rule (hardened in CLAUDE.md):** no coding until Steve explicitly says so
+  — discuss/propose by default, even for trivial fixes, even mid-list. Also saved as a
+  persistent feedback memory.
+- Frontend `tsc --noEmit` clean. Backend (Cargo feature + tauri.conf) compiles via Steve's
+  running `tauri dev` on next rebuild — not separately cargo-checked to avoid contending
+  with his dev server's target lock.
+
 ## 2026-07-08 — Fast QMD render SHIPPED: 1.33.0 + 1.34.0 (both stages of the plan)
 
 - Executed dev/plan-1.33-fast-render.md end-to-end after verifying every code reference

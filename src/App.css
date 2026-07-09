@@ -269,7 +269,7 @@ body {
 .tabs {
   flex: 0 0 auto;
   display: flex;
-  min-height: var(--tab-height, 26px);
+  min-height: 0; /* strip height is pinned by .editor-topbar; never grow to a tab */
   background: var(--pane-header-bg);
   border-bottom: 1px solid var(--border);
   overflow-x: auto;
@@ -290,6 +290,8 @@ body {
   cursor: pointer;
   white-space: nowrap;
   user-select: none;
+  overflow: hidden; /* clip transiently-tall content (e.g. a just-mounted preview tab's
+                       italic name) so a single tab can't drag the whole strip up */
 }
 
 .tab.active {
@@ -306,6 +308,7 @@ body {
 .tab-name {
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.4; /* fixed so italic / fallback-font metrics can't inflate the line box */
 }
 
 .tab-dirty {
@@ -334,7 +337,10 @@ body {
   flex: 0 0 auto;
   display: flex;
   align-items: stretch;
-  min-height: var(--tab-height, 30px);
+  /* Fixed height (not min-height): the strip is locked to the configured tab height, so
+     no tab — however it transiently renders at mount — can grow or jog the row. */
+  height: var(--tab-height, 30px);
+  overflow: hidden;
   background: var(--pane-header-bg);
   border-bottom: 1px solid var(--border);
 }
@@ -682,10 +688,17 @@ body {
   overflow-x: auto;
 }
 
-/* CodeMirror host fills the editor pane; the CM scroller owns scrolling. */
-.cm-host,
-.cm-host > .cm-editor {
+/* CodeMirror host fills the editor pane; the CM scroller owns scrolling. The editor is
+ * absolutely positioned to fill the host so it has a definite box on the very first
+ * layout pass — otherwise CM can measure a not-yet-resolved height at mount and render at
+ * full content height ("very tall"), snapping right only on the first edit. */
+.cm-host {
+  position: relative;
   height: 100%;
+}
+.cm-host > .cm-editor {
+  position: absolute;
+  inset: 0;
 }
 .cm-host .cm-scroller {
   overflow: auto;
@@ -755,6 +768,10 @@ body {
 .panel-tab.active {
   opacity: 1;
   border-bottom-color: var(--accent, #7aa2f7);
+}
+.panel-tab:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 .panel-tabs-spacer {
   flex: 1;
