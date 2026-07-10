@@ -5,6 +5,20 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.39.1] - 2026-07-10
+
+### Fixed
+
+- **Production build (`tauri build`) no longer fails on the inline `<style>` in `index.html`.**
+  The custom build `root` in `vite.config.ts` used `realpathSync`, which preserves the cwd's
+  drive/segment casing (e.g. `c:\users\…` when launched from the `C:\S` junction / a
+  lowercase-drive shell). Vite resolves `index.html` to its OS-canonical casing (`C:\Users\…`),
+  so the two disagreed and Vite's `html-inline-proxy` plugin couldn't find the inline-CSS module
+  for the launch `<style>` block — `No matching HTML proxy module found`. Switched to
+  `realpathSync.native`, which returns the true on-disk casing (still fully junction-resolved),
+  so `root` and the module ids match. Latent since the inline `<style>` was added in 1.38.1;
+  surfaced on the first production build since. Dev is unaffected (`root` is build-only).
+
 ## [1.39.0] - 2026-07-10
 
 ### Added

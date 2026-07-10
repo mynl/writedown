@@ -9,10 +9,15 @@ const host = process.env.TAURI_DEV_HOST;
 // `C:\S` junction, vite resolves index.html to its real path but leaves root as the
 // junction, producing a cross-path asset name rollup rejects. For `serve`, overriding root
 // upsets vite's dep optimizer, so we leave the default (cwd) there.
+//
+// Use realpathSync.NATIVE: plain realpathSync preserves the cwd's casing (e.g. lowercase
+// `c:\users` when launched from a lowercase-drive shell), but vite resolves index.html to its
+// OS-canonical casing (`C:\Users`). The two must match, or the html-inline-proxy plugin can't
+// find the inline-CSS module for the `<style>` in index.html — "No matching HTML proxy module".
 const realRoot = (() => {
   try {
     // @ts-expect-error process is a nodejs global
-    return realpathSync(process.cwd());
+    return realpathSync.native(process.cwd());
   } catch {
     // @ts-expect-error process is a nodejs global
     return process.cwd();
