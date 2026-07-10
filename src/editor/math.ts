@@ -69,16 +69,14 @@ function build(view: EditorView): DecorationSet {
   }
 }
 
-function buildInner(view: EditorView): DecorationSet {
-  const doc = view.state.doc;
-  if (doc.length > MAX) return Decoration.none;
-  const text = doc.toString();
-
+/** Math spans `[from, to)` in `text`: `$$…$$` (display) and `$…$` (inline), sorted by start.
+ *  Bounded, alternation-free patterns — avoids the catastrophic backtracking (a ReDoS hang)
+ *  that once froze the editor's update, leaving a stale view. Shared with the spellchecker so
+ *  the delimiters are defined in exactly one place. */
+export function mathRegions(text: string): Array<[number, number]> {
   const regions: Array<[number, number]> = [];
   let m: RegExpExecArray | null;
 
-  // Bounded, alternation-free patterns — avoids catastrophic backtracking (a ReDoS hang
-  // that froze the editor's update, leaving a stale view).
   const display = /\$\$[\s\S]{0,4000}?\$\$/g;
   while ((m = display.exec(text))) regions.push([m.index, m.index + m[0].length]);
 
@@ -91,6 +89,15 @@ function buildInner(view: EditorView): DecorationSet {
   }
 
   regions.sort((a, b) => a[0] - b[0]);
+  return regions;
+}
+
+function buildInner(view: EditorView): DecorationSet {
+  const doc = view.state.doc;
+  if (doc.length > MAX) return Decoration.none;
+  const text = doc.toString();
+
+  const regions = mathRegions(text);
   const spans: Span[] = [];
   for (const [from, to] of regions) tokenize(text, from, to, spans);
 

@@ -77,6 +77,16 @@ font_size = 9
 [files]
 extensions = ["md", "qmd", "markdown"]
 show_hidden = false
+
+[spelling]
+# Prose spellchecker (English US). Only prose is checked — code, math, citation keys, and
+# YAML front matter are skipped. Set enabled = false to turn it off.
+enabled = true
+language = "en_US"
+# personal_dictionary: file for words you add via "Add to dictionary". Defaults to
+# %APPDATA%\com.mynl.writedown\personal-dictionary.txt. Point it at a synced folder to
+# carry your added words across machines.
+# personal_dictionary = "C:/Users/steve/Documents/CloudStation/writedown-personal.dic"
 "#;
 
 /// `~/.writedown/`.
@@ -155,6 +165,10 @@ pub struct EditorSettings {
     /// Document tab strip sizing ([tabs] height / width), in px.
     tab_height: Option<f64>,
     tab_width: Option<f64>,
+    /// Prose spellchecker ([spelling] enabled / language). The personal-dictionary path is
+    /// read entirely in Rust (spelling.rs) — the frontend only needs the on/off gate.
+    spelling_enabled: Option<bool>,
+    spelling_language: Option<String>,
 }
 
 /// Parse `[editor]`/`[outline]`/`[tree]` font settings from `config.toml` (spec §5).
@@ -168,6 +182,7 @@ pub fn load_editor_settings(app: tauri::AppHandle) -> Result<EditorSettings, Str
     let ol = val.get("outline");
     let tr = val.get("tree");
     let tb = val.get("tabs");
+    let sp = val.get("spelling");
     let num = |v: &toml::Value| v.as_float().or_else(|| v.as_integer().map(|i| i as f64));
     let string = |v: &toml::Value| v.as_str().map(str::to_string);
     // font_weight accepts a CSS keyword ("light"/"bold") or a number (300, 700).
@@ -189,5 +204,7 @@ pub fn load_editor_settings(app: tauri::AppHandle) -> Result<EditorSettings, Str
         outline_guide_opacity: ol.and_then(|o| o.get("guide_opacity")).and_then(num),
         tab_height: tb.and_then(|t| t.get("height")).and_then(num),
         tab_width: tb.and_then(|t| t.get("width")).and_then(num),
+        spelling_enabled: sp.and_then(|s| s.get("enabled")).and_then(|v| v.as_bool()),
+        spelling_language: sp.and_then(|s| s.get("language")).and_then(string),
     })
 }

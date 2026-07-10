@@ -11,10 +11,9 @@ import {
   type CompletionResult,
 } from "@codemirror/autocomplete";
 import { EditorView, hoverTooltip, keymap } from "@codemirror/view";
-import { Prec, type EditorState } from "@codemirror/state";
-import { syntaxTree } from "@codemirror/language";
+import { Prec } from "@codemirror/state";
 import { linter, type Diagnostic } from "@codemirror/lint";
-import type { SyntaxNode } from "@lezer/common";
+import { isProsePos } from "./prose";
 import {
   checkCitationKeys,
   getCitation,
@@ -31,27 +30,8 @@ function describe(e: BibEntry): string {
   return [e.title, meta].filter(Boolean).join("\n");
 }
 
-// True only outside code / fenced blocks / front matter — where a `@` is a citation
-// and not a decorator, email, or code token (spec §20).
-function isProsePos(state: EditorState, pos: number): boolean {
-  let node: SyntaxNode | null = syntaxTree(state).resolveInner(pos, -1);
-  while (node) {
-    const name = node.type.name.toLowerCase();
-    if (
-      name.includes("code") ||
-      name.includes("fenced") ||
-      name.includes("comment") ||
-      name.includes("frontmatter") ||
-      name.includes("yaml")
-    ) {
-      return false;
-    }
-    node = node.parent;
-  }
-  return true;
-}
-
-// Don't complete inside code / fenced blocks / front matter (spec §20).
+// Don't complete inside code / fenced blocks / front matter (spec §20). The region test
+// (`isProsePos`) is shared with the spellchecker — see ./prose.
 function inProse(context: CompletionContext): boolean {
   return isProsePos(context.state, context.pos);
 }
@@ -169,13 +149,13 @@ function retriggerTab(view: EditorView): boolean {
 
 // A `@key` in prose: `@` at a word boundary (not an email or `a/@b`), key starting and
 // ending on an alphanumeric so a trailing `.`/`-`/`:` (sentence punctuation) is excluded.
-const CITE_RE = /(?<![\p{L}\p{N}_@/])@([\p{L}\d](?:[\p{L}\d_:.\-]*[\p{L}\d])?)/gu;
+export const CITE_RE = /(?<![\p{L}\p{N}_@/])@([\p{L}\d](?:[\p{L}\d_:.\-]*[\p{L}\d])?)/gu;
 
 // Quarto cross-reference families (`@sec-…`, `@fig-…`, `@tbl-…`, `@eq-…`, theorem-likes,
 // …) are document crossrefs, not bibliography citations — they must never be looked up in
 // the bib or flagged as missing. Steve's citation keys are `Author2024a` / `Authors`
 // (no hyphen); his Quarto tags carry the `prefix-` shape, so this is an exact split.
-const CROSSREF_PREFIX =
+export const CROSSREF_PREFIX =
   /^(fig|tbl|eq|sec|lst|thm|lem|cor|prp|cnj|def|exm|exr|sol|rem)-/;
 
 /** Flag every `@key` that has no match in the loaded bibliography — a red underline +

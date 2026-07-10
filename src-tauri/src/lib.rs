@@ -6,6 +6,7 @@ mod files;
 mod project;
 mod render;
 mod session;
+mod spelling;
 mod sublime;
 mod watch;
 
@@ -20,6 +21,7 @@ pub fn run() {
         .manage(watch::WatchState::default())
         .manage(bib::BibState::default())
         .manage(render::RenderState::default())
+        .manage(spelling::SpellState::default())
         .setup(|app| {
             if let Err(e) = config::ensure_setup(&app.handle()) {
                 eprintln!("writedown: setup failed: {e}");
@@ -31,6 +33,10 @@ pub fn run() {
                     eprintln!("writedown: bibliography load failed: {e}");
                 }
             });
+            // Parse the spell dictionary + load personal words off-thread too (independent
+            // of the bib load, so neither waits on the other).
+            let sp_handle = app.handle().clone();
+            std::thread::spawn(move || spelling::warm(&sp_handle));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -59,6 +65,9 @@ pub fn run() {
             bib::get_citation,
             bib::check_citation_keys,
             check::check_document,
+            spelling::spell_check,
+            spelling::add_to_dictionary,
+            spelling::spell_reload,
             render::render_document,
             render::restart_kernel,
             project::load_project,

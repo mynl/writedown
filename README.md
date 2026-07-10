@@ -195,3 +195,9 @@ not in this folder — see `CLAUDE.md`.
 ## License
 
 TBD.
+
+**Bundled data.** The spellchecker embeds the English (US) Hunspell dictionary derived from
+[SCOWL](http://wordlist.sourceforge.net) (Kevin Atkinson) with affix rules by Geoff Kuenning,
+via [wooorm/dictionaries](https://github.com/wooorm/dictionaries) (UTF-8 normalized). It is
+distributed under the permissive SCOWL and BSD licenses; the full text ships alongside the data
+at `src-tauri/assets/dict/LICENSE-en_US.txt`.

@@ -20,6 +20,7 @@ import {
   pickSavePath,
   readFile,
   recentProjects as fetchRecentProjects,
+  reloadSpelling,
   renamePath,
   renderDocument,
   saveLastWorkspace,
@@ -540,10 +541,12 @@ export const useStore = create<AppState>((set, get) => ({
             : t,
         ),
       }));
-      // Saving config.toml re-applies appearance + reindexes the bibliography live.
+      // Saving config.toml re-applies appearance + reindexes the bibliography live, and
+      // re-reads the personal dictionary (in case [spelling] personal_dictionary changed).
       if (path === get().configFile) {
         void get().loadTheme();
         void loadBibliography().catch(() => {});
+        void reloadSpelling().catch(() => {});
       }
     } catch (e) {
       set((s) => ({

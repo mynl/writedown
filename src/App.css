@@ -867,6 +867,15 @@ body {
 .wd-math-op    { color: var(--wd-math-op, #cda869) !important; }    /* operators */
 .wd-math-brace { color: var(--wd-math-brace, #8a9a95) !important; } /* { } ( ) [ ] */
 
+/* Spellcheck: a quiet dotted underline, deliberately less shouty than the red wavy line the
+   citation "error" check uses. Overrides the lint default so it reads as a hint, not an error. */
+.cm-lintRange.cm-lintRange-warning.wd-spell-error {
+  background: none;
+  text-decoration: underline dotted var(--wd-spell, #c9a227);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
 /* YAML front-matter (coloured from the imported scheme: orange keys, green values). */
 .wd-yaml-key {
   color: var(--wd-yaml-key, #cda869) !important;

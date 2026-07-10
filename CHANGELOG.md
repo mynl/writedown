@@ -5,6 +5,27 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.39.0] - 2026-07-10
+
+### Added
+
+- **Prose spellchecker** (English US, fully offline). Misspelled *prose* words get a quiet
+  dotted underline (deliberately less shouty than the red citation-error line) with one-click
+  suggestions and an **Add to dictionary** action; a palette command **Add Word to Dictionary**
+  does the same from the keyboard. It is **structure-aware** — code, fenced/inline code,
+  `{python}` cells, LaTeX math (`$…$`, `$$…$$`), YAML front matter, citation keys (`@key`,
+  `[@key]`, `@fig-…`), URLs, emails, and raw HTML are all skipped, so the only things flagged
+  are real words in real prose. Acronyms (`PDF`), camelCase/identifiers (`CodeMirror`), and
+  words with digits (`utf8`) are ignored too. It reuses the existing lint pipeline (same gutter
+  and ½s-idle debounce as the Python/label and citation checks), so there is no new machinery
+  on screen. The dictionary is the pure-Rust `spellbook` engine over the SCOWL-derived en_US
+  Hunspell word list, **embedded in the binary** — no external Python, no network, nothing to
+  install or resolve. Words you add live in an ordinary plain-text file you own
+  (`%APPDATA%\com.mynl.writedown\personal-dictionary.txt` by default; point
+  `[spelling] personal_dictionary` at a synced folder to carry them across machines) — never in
+  the disposable `~/.writedown/` tree, so they can't be lost. Toggle the whole feature with
+  `[spelling] enabled` in `config.toml` (default on) — it re-applies live on save, no restart.
+
 ## [1.38.1] - 2026-07-10
 
 ### Fixed

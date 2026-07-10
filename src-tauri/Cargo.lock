@@ -3589,6 +3589,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "spellbook"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0d204abcbdf8e88729306a8d0ca01a79d8a49969fe1f84696909d6dbc4321c1a"
+dependencies = [
+ "foldhash",
+ "hashbrown 0.17.1",
+]
+
+[[package]]
 name = "stable_deref_trait"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5467,7 +5477,7 @@ checksum = "1ffae5123b2d3fc086436f8834ae3ab053a283cfac8fe0a0b8eaae044768a4c4"
 
 [[package]]
 name = "writedown"
-version = "1.38.1"
+version = "1.39.0"
 dependencies = [
  "json5",
  "notify",
@@ -5475,6 +5485,7 @@ dependencies = [
  "rustpython-parser",
  "serde",
  "serde_json",
+ "spellbook",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",

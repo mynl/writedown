@@ -3,6 +3,32 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-10 — 1.39.0 prose spellchecker (dictionary-backed)
+
+- Steve wanted a spellchecker; expected a "plugin." Reality: no drop-in CM6 plugin. Presented
+  the fork (native webview `spellcheck=true` = 1 line but squiggles LaTeX/code/citations and
+  can corrupt CM's doc model, vs. a **dictionary-backed lint** = involved but prose-only,
+  offline, on-brand). Steve chose dictionary-backed. Plan in `dev/`-style plan file (approved).
+- **Engine:** pure-Rust `spellbook` 0.4.2 (Nuspell rewrite; `check` + native `suggest`; deps
+  hashbrown+foldhash, **no C libs**). **Dictionary:** wooorm/dictionaries `en` (= SCOWL en_US,
+  UTF-8, ~570 KB) vendored to `src-tauri/assets/dict/` and embedded via `include_str!` (needs
+  UTF-8 — hence wooorm, not raw LibreOffice ISO-8859-1). License = SCOWL+BSD permissive, shipped.
+- **Split:** frontend tokenizes prose (owns the Lezer tree), Rust is a stateless word oracle
+  (`spell_check(words)->[{word,suggestions}]`, memo caches, suggestion caps). Mirrors the
+  `check_citation_keys` pattern. Reused: lifted `isProsePos` into new `src/editor/prose.ts`
+  (extended html/url), exported `mathRegions` from `math.ts`, exported `CITE_RE`/`CROSSREF_PREFIX`
+  from `citations.ts`. New `spelling.ts` lint uses `Diagnostic.actions` (first quick-fix use) for
+  replace + "Add to dictionary"; dotted underline (`.wd-spell-error`), not the red error wavy.
+- **Personal dict** = ordinary plain-text file, **durable** (app_config_dir, NOT the disposable
+  `~/.writedown/`), overridable via `[spelling] personal_dictionary`. `[spelling] enabled`
+  (default on) gates the extension; live re-apply on config save (Editor.tsx memo dep +
+  `reloadSpelling` in `saveDoc`). v1 = en_US only; deferred multi-lang / ignore-once / learn-doc.
+- Verified: `tsc --noEmit` clean; `cargo test spelling::tests` — 3/3 pass (dict parses, "teh"→"the").
+- **Gotcha (cost me 2.4 GB):** ran `cargo test --manifest-path src-tauri/Cargo.toml` from repo
+  root → cargo reads `.cargo/config.toml` from **cwd**, not the manifest dir, so it MISSED the
+  V: `target-dir` override and dumped `src-tauri/target/` (2.4 GB) into the synced tree. Deleted
+  it. **Always run cargo with cwd inside `src-tauri/`** (never `--manifest-path` from root).
+
 ## 2026-07-10 — 1.38.1 startup white-flash fix
 
 - Launch showed a white frame before the dark theme. Two theme-correct fixes: `index.html`

@@ -24,6 +24,20 @@ export type CheckDiagnostic = {
 export const checkDocument = (text: string) =>
   invoke<CheckDiagnostic[]>("check_document", { text });
 
+// Prose spellcheck (English US, offline; dictionary lives in Rust). Send a deduped word
+// list; get back only the misspelled ones, each with up to five suggestions.
+export type SpellResult = { word: string; suggestions: string[] };
+
+export const spellCheck = (words: string[]) =>
+  invoke<SpellResult[]>("spell_check", { words });
+
+/** Append a word to the personal dictionary (durable plain-text file) — makes it correct. */
+export const addToDictionary = (word: string) =>
+  invoke<void>("add_to_dictionary", { word });
+
+/** Re-read the personal dictionary from disk (after its path changes or a hand edit). */
+export const reloadSpelling = () => invoke<void>("spell_reload");
+
 export const listDirectory = (path: string) =>
   invoke<Entry[]>("list_directory", { path });
 
@@ -168,6 +182,8 @@ export type EditorSettings = {
   outline_guide_opacity: number | null;
   tab_height: number | null;
   tab_width: number | null;
+  spelling_enabled: boolean | null;
+  spelling_language: string | null;
 };
 
 export const loadEditorSettings = () => invoke<EditorSettings>("load_editor_settings");

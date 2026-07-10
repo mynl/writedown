@@ -14,6 +14,7 @@ import { isCsv, isMarkdownDoc, languageForPath } from "./languages";
 import { sublimeEditing } from "./keymap";
 import { citationExtensions } from "./citations";
 import { documentLint } from "./lint";
+import { spellingExtensions } from "./spelling";
 import { setActiveView } from "./editorView";
 import { cssFontWeight } from "../fontWeight";
 import { logError } from "../api";
@@ -37,6 +38,9 @@ export function Editor({ path, content }: { path: string; content: string }) {
     settings?.font_size != null || zoom !== 0 ? (settings?.font_size ?? 14) + zoom : undefined;
   const fontFamily = settings?.font_family ?? undefined;
   const fontWeight = cssFontWeight(settings?.font_weight);
+  const spellEnabled = settings?.spelling_enabled ?? true; // default on
+
+
 
   const built = useMemo(
     () => (st ? buildSublimeTheme(st, { fontSize, fontFamily, fontWeight }) : null),
@@ -59,6 +63,7 @@ export function Editor({ path, content }: { path: string; content: string }) {
       ext.push(Prec.highest(mathHighlight));
       ext.push(...citationExtensions); // @-citation autocomplete + hover
       ext.push(...documentLint); // python cell syntax + duplicate labels
+      if (spellEnabled) ext.push(...spellingExtensions); // prose spellcheck
     }
     if (isCsv(path)) ext.push(csvRainbow);
     if (!built && (fontSize || fontWeight)) {
@@ -70,7 +75,7 @@ export function Editor({ path, content }: { path: string; content: string }) {
       );
     }
     return ext;
-  }, [path, built, fontSize, fontWeight]);
+  }, [path, built, fontSize, fontWeight, spellEnabled]);
 
   return (
     <CodeMirror

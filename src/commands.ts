@@ -1,7 +1,9 @@
 // The command registry behind the command palette (Ctrl+Shift+P). Kept small and
 // declarative so the palette is one source of truth for user-invocable actions.
 import { type StateCommand } from "@codemirror/state";
-import { configPath, restartKernel } from "./api";
+import { EditorView } from "@codemirror/view";
+import { forceLinting } from "@codemirror/lint";
+import { addToDictionary, configPath, restartKernel } from "./api";
 import { useStore } from "./store";
 import { getActiveView } from "./editor/editorView";
 import { isMarkdownDoc } from "./editor/languages";
@@ -19,6 +21,23 @@ function onMarkdownView(cmd: StateCommand): () => void {
     if (!view || !activePath || !isMarkdownDoc(activePath)) return;
     cmd({ state: view.state, dispatch: (tr) => view.dispatch(tr) });
   };
+}
+
+// The word under the caret (or the current selection) — for "Add Word to Dictionary".
+function wordAtCursor(view: EditorView): string | null {
+  const { state } = view;
+  const sel = state.selection.main;
+  if (!sel.empty) return state.sliceDoc(sel.from, sel.to).trim() || null;
+  const line = state.doc.lineAt(sel.head);
+  const rel = sel.head - line.from;
+  const re = /[\p{L}][\p{L}\p{M}']*/gu;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(line.text))) {
+    const s = m.index;
+    const e = s + m[0].length;
+    if (rel >= s && rel <= e) return m[0].replace(/'+$/, "");
+  }
+  return null;
 }
 
 export function appCommands(): Command[] {
@@ -52,6 +71,17 @@ export function appCommands(): Command[] {
     { id: "previous-versions", title: "Previous Versions…", run: () => s().openVersions() },
     { id: "renumber-list", title: "Renumber Ordered List", run: onMarkdownView(renumberOrderedList) },
     { id: "reformat-tables", title: "Reformat Markdown Table(s)", run: onMarkdownView(reformatTables) },
+    {
+      id: "spell-add-word",
+      title: "Add Word to Dictionary",
+      run: () => {
+        const { activePath } = s();
+        const view = getActiveView();
+        if (!view || !activePath || !isMarkdownDoc(activePath)) return;
+        const word = wordAtCursor(view);
+        if (word) void addToDictionary(word).then(() => forceLinting(view)).catch(() => {});
+      },
+    },
     { id: "refresh-tree", title: "Refresh File Tree", run: () => void s().refreshTree() },
     { id: "toggle-preview", title: "Toggle Preview (editor / split / preview)", run: () => s().cycleView() },
     { id: "render-doc", title: "Render Document (run code cells)", run: () => void s().renderActive() },
