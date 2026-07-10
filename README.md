@@ -47,6 +47,27 @@ except the browser and the server are welded into one program, the "server" is R
 instead of Python, and the page calls server functions directly instead of fetching
 URLs. No server process, no port, no network, no browser permission prompts.
 
+```mermaid
+flowchart TB
+  subgraph FE["Frontend — a web page in WebView2 (the Edge engine)"]
+    direction LR
+    ED["CodeMirror 6<br/>editor (plain text)"]
+    ST["React + zustand<br/>state store"]
+    PV["Preview<br/>markdown-it · KaTeX · DOMPurify"]
+  end
+  subgraph BE["Backend — Rust, compiled into the same .exe"]
+    direction LR
+    FS["Files · atomic save · watch"]
+    BIB["BibTeX index<br/>fuzzy rank"]
+    RND["Fast renderer"]
+    CFG["Config"]
+  end
+  FE <-->|"invoke() calls + events<br/>(JSON, in-process — no HTTP)"| BE
+  FS <--> DISK[("Your .md / .qmd<br/>+ .bib — source of truth")]
+  CFG <--> HOME[("~/.writedown<br/>derived cache / config")]
+  RND -->|"stdin / stdout<br/>JSON lines"| PY["Python sidecar<br/>(your interpreter)"]
+```
+
 **The framework (Tauri).** The app is a **Tauri** program. If you've heard of Electron
 (how VS Code and Slack are built), Tauri is the leaner cousin: Electron ships an entire
 copy of Chrome inside every app, whereas Tauri uses the web engine **already built into
@@ -137,13 +158,16 @@ to be that last mile.
 LaTeX math via KaTeX; BibTeX citations and an auto-generated References list;
 cross-references (`@fig-`, `@tbl-`, `@sec-`, `@eq-`) with numbering; `{python}` cell
 execution with text, tables, and matplotlib figures spliced in; local images (relative and
-absolute); and basic image attributes `{width=… #id .class}`.
+absolute); basic image attributes `{width=… #id .class}`; and Mermaid diagrams
+(` ```mermaid ` / ` ```{mermaid} `, rendered to static SVG, light/dark aware).
 
 **What it does not** (by design — reach for `quarto render` if you need these):
 
-- **Interactive / JS-driven output.** Plotly, Bokeh, ipywidgets, or any embedded HTML that
-  needs its own JavaScript to run. The preview is static and sanitized (scripts are
-  stripped), so an interactive plot won't render — that's a hard boundary, not a bug.
+- **Interactive / runtime-JS output.** Plotly, Bokeh, ipywidgets, or any embedded HTML that
+  needs its own JavaScript running to work. The preview is static and sanitized (scripts
+  are stripped), so an interactive plot won't render — a hard boundary, not a bug.
+  (Mermaid is supported because it renders *to* static SVG once, rather than needing a live
+  runtime.)
 - **Full Quarto/Pandoc semantics.** `fig-align`, column/margin layouts, panels/tabsets,
   callouts, fenced-div and span attributes, includes/shortcodes, and YAML-driven formatting
   are ignored rather than honored. The References list is an APA-ish approximation, not a

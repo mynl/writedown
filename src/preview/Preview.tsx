@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import MarkdownIt from "markdown-it";
 // @ts-ignore - no bundled types
 import footnote from "markdown-it-footnote";
@@ -116,6 +116,31 @@ function processImages(html: string, baseDir?: string): string {
   return changed ? doc.body.innerHTML : html;
 }
 
+// ---- mermaid (lazy) --------------------------------------------------------------------
+// Mermaid is ~2.8 MB, so it is dynamic-import()ed — it loads only when a document actually
+// contains a diagram, as its own Vite chunk, and never touches app startup. Rendered SVG is
+// cached by theme+source so editing prose around an unchanged diagram doesn't re-run it.
+type MermaidApi = {
+  initialize: (config: Record<string, unknown>) => void;
+  render: (id: string, src: string) => Promise<{ svg: string }>;
+};
+let mermaidMod: MermaidApi | null = null;
+let mermaidTheme: string | null = null;
+const mermaidCache = new Map<string, string>();
+let mermaidSeq = 0;
+
+async function loadMermaid(theme: string): Promise<MermaidApi> {
+  if (!mermaidMod) {
+    mermaidMod = (await import("mermaid")).default as unknown as MermaidApi;
+  }
+  if (mermaidTheme !== theme) {
+    // securityLevel "strict" runs mermaid's own sanitizer over the diagram output.
+    mermaidMod.initialize({ startOnLoad: false, securityLevel: "strict", theme });
+    mermaidTheme = theme;
+  }
+  return mermaidMod;
+}
+
 export function Preview({ content, baseDir }: { content: string; baseDir?: string }) {
   const html = useMemo(() => {
     // Process images (apply `{width=… #id}` attributes, rewrite local `src`s to asset
@@ -125,6 +150,80 @@ export function Preview({ content, baseDir }: { content: string; baseDir?: strin
     return DOMPurify.sanitize(processImages(rendered, baseDir));
   }, [content, baseDir]);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Detected OS color scheme; mermaid diagrams re-render to match when it changes.
+  const [dark, setDark] = useState(
+    () => window.matchMedia("(prefers-color-scheme: dark)").matches,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const on = () => setDark(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+
+  // Upgrade ```mermaid / ```{mermaid} blocks (both arrive as `code.language-mermaid`) to
+  // rendered SVG. Runs after the sanitized HTML is in the DOM; CSS hides the raw <pre> and
+  // the strict-mode SVG is inserted into a sibling slot (kept across re-runs so an OS theme
+  // change can re-theme it). The SVG is trusted mermaid output over the user's own local
+  // diagram source, so it is inserted past the DOMPurify pass deliberately.
+  useEffect(() => {
+    const root = scrollRef.current;
+    if (!root) return;
+    const blocks = Array.from(
+      root.querySelectorAll<HTMLElement>("pre > code.language-mermaid"),
+    );
+    if (blocks.length === 0) return;
+    const theme = dark ? "dark" : "default";
+    let cancelled = false;
+    void (async () => {
+      let mermaid: MermaidApi;
+      try {
+        mermaid = await loadMermaid(theme);
+      } catch {
+        return; // mermaid unavailable — leave blocks hidden rather than crash the preview
+      }
+      for (const code of blocks) {
+        if (cancelled) return;
+        const pre = code.parentElement;
+        if (!pre) continue;
+        const src = code.textContent ?? "";
+        let holder = pre.nextElementSibling as HTMLElement | null;
+        if (!holder || !holder.classList.contains("mermaid-slot")) {
+          holder = document.createElement("div");
+          holder.className = "mermaid-slot";
+          pre.after(holder);
+        }
+        if (holder.dataset.theme === theme && holder.dataset.src === src) continue;
+        const key = `${theme}\n${src}`;
+        let svg = mermaidCache.get(key);
+        if (svg === undefined) {
+          try {
+            svg = (await mermaid.render(`wd-mermaid-${++mermaidSeq}`, src)).svg;
+            mermaidCache.set(key, svg);
+          } catch (e) {
+            if (cancelled) return;
+            holder.className = "mermaid-slot mermaid-error";
+            holder.textContent = `Mermaid: ${e instanceof Error ? e.message : String(e)}`;
+            const srcEl = document.createElement("pre");
+            srcEl.textContent = src;
+            holder.appendChild(srcEl);
+            holder.dataset.theme = theme;
+            holder.dataset.src = src;
+            continue;
+          }
+        }
+        if (cancelled) return;
+        holder.className = "mermaid-slot mermaid-diagram";
+        holder.innerHTML = svg;
+        holder.dataset.theme = theme;
+        holder.dataset.src = src;
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [html, dark]);
 
   // Bidirectional proportional scroll sync between editor and preview (spec §15). A short
   // lock ignores the echo scroll the programmatic scrollTop triggers on the other pane.

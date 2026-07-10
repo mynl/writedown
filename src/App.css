@@ -707,6 +707,32 @@ body {
   padding: 8px 0;
 }
 
+/* Mermaid: the preview upgrades ```mermaid blocks to SVG in a sibling slot — hide the raw
+   source, show the rendered diagram (or an error carrying the source). */
+.preview pre:has(> code.language-mermaid) {
+  display: none;
+}
+.mermaid-diagram {
+  margin: 12px 0;
+  text-align: center;
+}
+.mermaid-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+.mermaid-error {
+  margin: 12px 0;
+  padding: 6px 10px;
+  border-left: 3px solid #e06c75;
+  color: var(--muted);
+  font-size: 12px;
+}
+.mermaid-error pre {
+  display: block;
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+}
+
 /* CSV/TSV rainbow columns (à la Sublime RainbowCSV). */
 .wd-col-0 { color: #e06c75; }
 .wd-col-1 { color: #e5c07b; }

@@ -5,6 +5,16 @@
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Writedown</title>
+    <!-- Governs the very first paint, before the App.css bundle loads, so the window never
+         flashes white on launch: color-scheme makes WebView2's own canvas follow the OS
+         theme, and the background matches App.css --bg (#fff light / #1e1e1e dark). -->
+    <style>
+      :root { color-scheme: light dark; }
+      html, body { margin: 0; background: #ffffff; }
+      @media (prefers-color-scheme: dark) {
+        html, body { background: #1e1e1e; }
+      }
+    </style>
   </head>
 
   <body>

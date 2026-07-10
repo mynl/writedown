@@ -3,6 +3,36 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-10 — 1.38.1 startup white-flash fix
+
+- Launch showed a white frame before the dark theme. Two theme-correct fixes: `index.html`
+  inline `<style>` (`:root{color-scheme:light dark}` + `@media`-themed `html,body`
+  background matching App.css `--bg`) so WebView2's first paint is themed before the CSS
+  bundle; and `tauri.conf.json` window `backgroundColor:"#1e1e1e"` (confirmed in
+  `@tauri-apps/cli/config.schema.json` — sets window+webview bg) for the native compositing
+  gap on `show()`. Kept App.tsx's existing hidden→reveal-after-2rAF logic. Static native bg
+  = dark (Steve's demo case); light-mode correctness later via matchMedia+setBackgroundColor
+  if wanted. Needs a full restart (config change), not HMR.
+
+## 2026-07-10 — 1.38.0 mermaid diagrams (lazy-loaded)
+
+- Mermaid is ~2.8 MB (≈ doubles the JS payload) → Steve chose **lazy-load** (dynamic
+  `import()` → own Vite chunk; loads only when a doc has a diagram; startup untouched).
+- Frontend-only (`Preview.tsx` + `App.css`); `render.rs` needs NO change — plain
+  ` ```mermaid ` passes through as PlainFence, Quarto ` ```{mermaid} ` echoes as an
+  OtherCell, both reaching markdown-it as `code.language-mermaid`.
+- Design: a post-render `useEffect` finds `pre > code.language-mermaid`, lazy-loads mermaid
+  (`securityLevel:"strict"`), renders to SVG, inserts into a sibling `.mermaid-slot`; CSS
+  `pre:has(> code.language-mermaid){display:none}` hides the raw source (no flash). SVG
+  cached by theme+source (React resets innerHTML each keystroke, so the effect re-runs
+  every change — cache keeps steady state cheap). OS light/dark re-themes (the hidden
+  `<pre>` stays in the DOM so the effect can re-find + re-render). Bad syntax → error slot
+  with the source, preview stays alive. Distinct from Plotly (needs *runtime* JS = still a
+  hard boundary); README Limitations updated to reflect the distinction.
+- **Install is a coordinated handoff:** `npm install mermaid` deletes the node_modules
+  junction → Steve stops `tauri dev`, then install + `pwsh scripts/dev-setup.ps1`
+  (re-junction to V:), then restart dev. tsc verified after install.
+
 ## 2026-07-10 — 1.37.0 basic image attributes `{width=… #id .class}`
 
 - Steve uses `{width=50% #fig-myfig}` (WIDTH-FIRST) — the current Rust label detection

@@ -5,6 +5,29 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.38.1] - 2026-07-10
+
+### Fixed
+
+- **No white flash on launch.** The window used to appear white for a beat before the dark
+  theme painted. `index.html` now sets `color-scheme` and a themed background inline (so
+  WebView2's first paint follows the OS theme before the CSS bundle loads), and the Tauri
+  window sets `backgroundColor` (so the native surface is dark during the compositing gap
+  when the window is revealed). Cold start now comes up already themed.
+
+## [1.38.0] - 2026-07-10
+
+### Added
+
+- **Mermaid diagrams** in the preview. ` ```mermaid ` and Quarto ` ```{mermaid} ` blocks
+  render to SVG in both the live Preview and the Rendered tab, following the OS light/dark
+  theme, offline. A diagram with a syntax error shows the error and its source rather than
+  blanking or crashing the preview. Mermaid is **lazy-loaded** (dynamic `import()`): the
+  ~2.8 MB library loads only when a document actually contains a diagram — as its own
+  chunk — so app startup and the base bundle are unaffected; you pay it once per session
+  on the first diagram. Rendered SVG is cached by theme+source so editing around an
+  unchanged diagram doesn't re-run it.
+
 ## [1.37.0] - 2026-07-10
 
 ### Added
