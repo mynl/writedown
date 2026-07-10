@@ -533,10 +533,41 @@ fn cite_re() -> &'static Regex {
     })
 }
 
-/// `{#label ...}` pandoc attribute (label = first token after `#`).
-fn attr_re() -> &'static Regex {
+/// A trailing pandoc attribute block `{ … }` at the end of a heading's text (group 1 = the
+/// brace content).
+fn trailing_attr_re() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| Regex::new(r"\{#([^\s}]+)[^}]*\}").unwrap())
+    RE.get_or_init(|| Regex::new(r"\s*\{([^}]*)\}\s*$").unwrap())
+}
+
+/// Any pandoc attribute block `{ … }`, optionally right after a `)` (an image/link). Group
+/// 1 is the `)` when present; group 2 is the brace content.
+fn attr_block_re() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"(\))?\{([^}]*)\}").unwrap())
+}
+
+/// Split a `{ … }` block's content into its first `#id` (in any position) and the other
+/// attributes rejoined: `width=50% #fig-x .cls` → (`Some("fig-x")`, `"width=50% .cls"`).
+fn split_attr_block(inner: &str) -> (Option<String>, String) {
+    let mut id = None;
+    let mut rest: Vec<&str> = Vec::new();
+    for tok in inner.split_whitespace() {
+        if id.is_none() {
+            if let Some(t) = tok.strip_prefix('#') {
+                if !t.is_empty() {
+                    id = Some(t.to_string());
+                    continue;
+                }
+            }
+        }
+        rest.push(tok);
+    }
+    (id, rest.join(" "))
+}
+
+fn first_hash_id(inner: &str) -> Option<String> {
+    split_attr_block(inner).0
 }
 
 fn heading_re() -> &'static Regex {
@@ -583,7 +614,7 @@ fn collect_labels(segments: &[Segment]) -> HashMap<String, String> {
             Segment::Markdown { text } => {
                 for line in text.lines() {
                     let heading = heading_re().captures(line).map(|c| {
-                        attr_re().replace_all(&c[2], "").trim().to_string()
+                        trailing_attr_re().replace(&c[2], "").trim().to_string()
                     });
                     for (l, _) in attr_labels(line) {
                         add(&l, heading.as_deref(), &mut map);
@@ -596,24 +627,44 @@ fn collect_labels(segments: &[Segment]) -> HashMap<String, String> {
     map
 }
 
-/// `## Title {#sec-x}` → `## <a id="sec-x"></a>Title`; in other prose, `{#label ...}` →
-/// `<a id="label"></a>` (markdown-it doesn't understand pandoc attrs — today they render
-/// as literal text).
+/// Pandoc attribute blocks (markdown-it doesn't understand them itself):
+/// - `## Title {#sec-x}` → `## <a id="sec-x"></a>Title`.
+/// - An image's block keeps its non-id attributes so the preview can apply width/class,
+///   with the `#id` split off as the crossref anchor: `![](p){width=50% #fig-x}` →
+///   `![](p){width=50%}<a id="fig-x"></a>` (the `#id` may sit anywhere in the block).
+/// - Other `{#label}` blocks (table captions, divs) collapse to a bare anchor.
+/// - A block with no `#id` (e.g. `{width=50%}`) is left intact for the preview to apply.
 fn transform_anchors(line: &str) -> String {
-    if !line.contains("{#") {
+    if !line.contains('{') {
         return line.to_string();
     }
     if let Some(h) = heading_re().captures(line) {
         let text = &h[2];
-        if let Some(a) = attr_re().captures(text) {
-            let id = a[1].to_string();
-            let cleaned = attr_re().replace_all(text, "");
-            return format!("{} <a id=\"{}\"></a>{}", &h[1], id, cleaned.trim());
+        if let Some(m) = trailing_attr_re().captures(text) {
+            if let Some(id) = first_hash_id(&m[1]) {
+                let cleaned = trailing_attr_re().replace(text, "");
+                return format!("{} <a id=\"{}\"></a>{}", &h[1], id, cleaned.trim());
+            }
         }
-        line.to_string()
-    } else {
-        attr_re().replace_all(line, "<a id=\"$1\"></a>").into_owned()
+        return line.to_string();
     }
+    attr_block_re()
+        .replace_all(line, |c: &regex::Captures| {
+            let after_paren = c.get(1).is_some();
+            let (id, rest) = split_attr_block(&c[2]);
+            match id {
+                None => c[0].to_string(), // no #id — leave intact (bare {width=…}, math, code)
+                Some(id) => {
+                    let anchor = format!("<a id=\"{id}\"></a>");
+                    match (after_paren, rest.is_empty()) {
+                        (true, false) => format!("){{{rest}}}{anchor}"),
+                        (true, true) => format!("){anchor}"),
+                        (false, _) => anchor,
+                    }
+                }
+            }
+        })
+        .into_owned()
 }
 
 /// Apply `f` to the parts of a line outside inline `code` spans (a span = matching
@@ -1363,6 +1414,26 @@ mod tests {
         let out = run("## Intro Section {#sec-intro}\n\nSee @sec-intro.");
         assert!(out.contains("## <a id=\"sec-intro\"></a>Intro Section"), "{out}");
         assert!(out.contains("[§ Intro Section](#sec-intro)"), "{out}");
+    }
+
+    #[test]
+    fn image_attrs_preserved_any_order() {
+        // The `#id` splits off as the crossref anchor; width survives (either token order);
+        // numbering is by document position. The preview then applies the kept `{width=…}`.
+        let out = run(
+            "![a](i.png){#fig-a width=50%}\n\n![b](j.png){width=60% #fig-b}\n\nSee @fig-a, @fig-b.",
+        );
+        assert!(out.contains("![a](i.png){width=50%}<a id=\"fig-a\"></a>"), "{out}");
+        assert!(out.contains("![b](j.png){width=60%}<a id=\"fig-b\"></a>"), "{out}");
+        assert!(out.contains("[Figure 1](#fig-a)"), "{out}");
+        assert!(out.contains("[Figure 2](#fig-b)"), "{out}");
+    }
+
+    #[test]
+    fn width_only_image_passes_through() {
+        // No `#id` — the whole block is left intact for the preview to apply.
+        let out = run("![a](i.png){width=50%}");
+        assert!(out.contains("![a](i.png){width=50%}"), "{out}");
     }
 
     // -- execution splicing (synthetic outputs — no python needed) --

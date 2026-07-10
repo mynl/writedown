@@ -3,6 +3,28 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-10 — 1.37.0 basic image attributes `{width=… #id .class}`
+
+- Steve uses `{width=50% #fig-myfig}` (WIDTH-FIRST) — the current Rust label detection
+  assumed id-first (`{#…}`), so plain support would miss his exact syntax. Built it
+  order-independent.
+- No new dependency (avoided `markdown-it-attrs` + the npm-install/junction dance on the
+  synced tree with his dev server live). Instead:
+  - `Preview.tsx`: `applyTrailingAttrs` reads the `{…}` after an `<img>`, any token order,
+    sets id/class/width/height, strips the block. Runs before DOMPurify, which filters to
+    safe HTML attrs (so `fig-align` etc. are set-then-dropped = silently ignored). Fixes
+    BOTH tabs (both go through Preview). `width=50%` renders (WebView2 honors % on the attr;
+    DOMPurify keeps width/height/id/class/style — verified in dompurify/src/attrs.ts).
+  - `check.rs` `attr_labels` + `render.rs` (`attr_re`→`trailing_attr_re`/`attr_block_re`/
+    `split_attr_block`): order-independent label + anchor; image anchors now KEEP non-id
+    attrs (`![](p){width=50%}<a id=fig>`) so the width reaches the preview. Existing tests
+    pass unchanged (id-only block still collapses to the same anchor); added 3 tests.
+- **Op note / my mistake:** ran `cargo test --manifest-path src-tauri/Cargo.toml` from the
+  REPO ROOT → cargo reads `.cargo/config.toml` from the CWD hierarchy, not the manifest
+  dir, so the `target-dir=V:` override was missed and 5.3 GB landed in `src-tauri/target/`
+  (synced tree!). Deleted it. Rule reinforced: run cargo from WITHIN `src-tauri/`.
+- README gained a **Limitations** section (what works / what doesn't, no apologies).
+
 ## 2026-07-09 — 1.36.2 absolute-path images (real root cause)
 
 - `![](c:\tmp\me85.png)` still failed after 1.36.1 — I'd misdiagnosed the failure point

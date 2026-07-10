@@ -34,7 +34,7 @@ frontend · CodeMirror 6 · markdown-it preview.
 ## Technical Details
 
 Written for a reader who knows C/C++, Python, SQL, and basic web (HTML/CSS/Flask) but
-not Rust or JavaScript. The design is Steve's; this is what's happening under the hood.
+not Rust or JavaScript. My design; here's what Claude does under the hood.
 
 **TL;DR.** Writedown is built the "web way" but runs entirely on your machine as one
 native program. It has two halves fused into a single `.exe`: a **frontend** — a web page
@@ -124,6 +124,36 @@ and the window relaunched when backend code changes. A release build (`tauri bui
 compiles everything optimized and packages it into a single `writedown.exe` plus an
 installer — the web engine is already present on every Windows machine, so nothing like
 Chromium is bundled.
+
+## Limitations
+
+The internal preview is a deliberately **fast 80–90% approximation** — a good-enough live
+look while you draft, not a Quarto/Pandoc replacement. That trade is the whole point: it
+renders instantly on every keystroke because it does the common things and skips the long
+tail. For publication-exact output, run `quarto render` yourself; Writedown never pretends
+to be that last mile.
+
+**What the preview does:** CommonMark + tables, footnotes, task lists, strikethrough;
+LaTeX math via KaTeX; BibTeX citations and an auto-generated References list;
+cross-references (`@fig-`, `@tbl-`, `@sec-`, `@eq-`) with numbering; `{python}` cell
+execution with text, tables, and matplotlib figures spliced in; local images (relative and
+absolute); and basic image attributes `{width=… #id .class}`.
+
+**What it does not** (by design — reach for `quarto render` if you need these):
+
+- **Interactive / JS-driven output.** Plotly, Bokeh, ipywidgets, or any embedded HTML that
+  needs its own JavaScript to run. The preview is static and sanitized (scripts are
+  stripped), so an interactive plot won't render — that's a hard boundary, not a bug.
+- **Full Quarto/Pandoc semantics.** `fig-align`, column/margin layouts, panels/tabsets,
+  callouts, fenced-div and span attributes, includes/shortcodes, and YAML-driven formatting
+  are ignored rather than honored. The References list is an APA-ish approximation, not a
+  CSL/citeproc rendering.
+- **Non-Python engines.** `{r}`, `{julia}`, etc. cells are shown as source, never executed.
+
+The honest line: if your document leans on heavy Quarto features, lots of Plotly or custom
+JavaScript, or needs publication-exact typesetting, Writedown's preview is not the right
+tool for that — use the real Quarto toolchain. Writedown is for fast, predictable writing
+with a faithful-enough live view of the everyday 90%.
 
 ## Configuration
 

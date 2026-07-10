@@ -56,25 +56,30 @@ pub(crate) fn cell_label(line: &str) -> Option<String> {
     (!val.is_empty()).then(|| val.to_string())
 }
 
-/// `{#sec-x}`-style attribute labels in prose (headings, divs, figures).
+/// `{#sec-x}`-style attribute labels in prose (headings, divs, figures). The `#id` may sit
+/// anywhere inside the block — `{width=50% #fig-x}` is as valid as `{#fig-x width=50%}` —
+/// so each `{ … }` is scanned for its first `#`-prefixed token. Returns (label, brace col).
 pub(crate) fn attr_labels(line: &str) -> Vec<(String, usize)> {
     let mut out = Vec::new();
     let bytes = line.as_bytes();
     let mut i = 0;
-    while i + 2 < bytes.len() {
-        if bytes[i] == b'{' && bytes[i + 1] == b'#' {
-            let start = i + 2;
-            let end = line[start..]
-                .find(|c: char| c.is_whitespace() || c == '}')
-                .map(|p| start + p)
-                .unwrap_or(line.len());
-            if end > start {
-                out.push((line[start..end].to_string(), i));
+    while i < bytes.len() {
+        if bytes[i] == b'{' {
+            if let Some(rel) = line[i + 1..].find('}') {
+                let close = i + 1 + rel;
+                for tok in line[i + 1..close].split_whitespace() {
+                    if let Some(id) = tok.strip_prefix('#') {
+                        if !id.is_empty() {
+                            out.push((id.to_string(), i));
+                            break;
+                        }
+                    }
+                }
+                i = close + 1;
+                continue;
             }
-            i = end;
-        } else {
-            i += 1;
         }
+        i += 1;
     }
     out
 }
@@ -205,5 +210,17 @@ mod tests {
     fn non_python_cells_ignored_for_syntax() {
         let doc = "```{r}\nlibrary(ggplot2) %>% oops(\n```\n";
         assert!(check(doc).is_empty());
+    }
+
+    #[test]
+    fn attr_label_found_regardless_of_token_order() {
+        // `#id` need not be the first token in the block — width-first must still register.
+        let doc = "![x](a.png){width=50% #fig-p}\n\n![y](b.png){#fig-p .c}\n";
+        let d = check(doc);
+        let msgs: Vec<&str> = d.iter().map(|x| x.message.as_str()).collect();
+        assert!(
+            msgs.iter().any(|m| m.contains("duplicate label 'fig-p'")),
+            "{msgs:?}"
+        );
     }
 }

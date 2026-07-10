@@ -64,18 +64,53 @@ function resolveAssetSrc(src: string, baseDir: string): string | null {
   return convertFileSrc(out.join("\\"));
 }
 
-// Rewrite every local `<img src>` to a Tauri asset URL. Runs BEFORE DOMPurify so the
-// sanitizer sees an allowed `http://asset.localhost/…` URL rather than a bare `C:\…` /
-// `c:/…` path, which its IS_ALLOWED_URI rejects (a drive letter looks like an unknown
-// scheme) and would otherwise strip. Parsing with an inert DOMParser fires no requests.
-function rewriteImages(html: string, baseDir: string): string {
+// Apply a Pandoc/Quarto attribute block written after an image — `![](p){width=50% #fig-x
+// .cls}` — onto the <img>, in ANY token order, then strip it from the text. Only standard
+// HTML attributes (width/height/id/class) survive the DOMPurify pass that runs next;
+// anything else (e.g. `fig-align`) is set but dropped by the sanitizer — i.e. silently
+// ignored, on purpose. See README "Limitations". `width=50%` renders because WebView2
+// honors a percentage on the img width attribute.
+function applyTrailingAttrs(img: Element): boolean {
+  const next = img.nextSibling;
+  if (!next || next.nodeType !== Node.TEXT_NODE) return false;
+  const text = next.textContent ?? "";
+  const m = /^\s*\{([^}]*)\}/.exec(text);
+  if (!m) return false;
+  let applied = false;
+  for (const tok of m[1].trim().split(/\s+/)) {
+    if (!tok) continue;
+    if (tok.startsWith("#")) {
+      img.setAttribute("id", tok.slice(1));
+    } else if (tok.startsWith(".")) {
+      img.classList.add(tok.slice(1));
+    } else {
+      const eq = tok.indexOf("=");
+      if (eq <= 0) continue;
+      img.setAttribute(tok.slice(0, eq), tok.slice(eq + 1).replace(/^["']|["']$/g, ""));
+    }
+    applied = true;
+  }
+  if (applied) next.textContent = text.replace(/^\s*\{[^}]*\}/, "");
+  return applied;
+}
+
+// Post-process the rendered images: apply any trailing `{…}` attribute block (both tabs),
+// and rewrite local `src`s to Tauri asset URLs (only when we know the doc's folder). Runs
+// BEFORE DOMPurify so the sanitizer sees an allowed `http://asset.localhost/…` URL rather
+// than a bare `C:\…` path (a drive letter reads as an unknown scheme and would be stripped)
+// and so the attributes we set are filtered by it. An inert DOMParser fires no requests.
+function processImages(html: string, baseDir?: string): string {
+  if (!html.includes("<img")) return html;
   const doc = new DOMParser().parseFromString(html, "text/html");
   let changed = false;
-  doc.querySelectorAll("img[src]").forEach((img) => {
-    const rewritten = resolveAssetSrc(img.getAttribute("src") ?? "", baseDir);
-    if (rewritten) {
-      img.setAttribute("src", rewritten);
-      changed = true;
+  doc.querySelectorAll("img").forEach((img) => {
+    if (applyTrailingAttrs(img)) changed = true;
+    if (baseDir) {
+      const rewritten = resolveAssetSrc(img.getAttribute("src") ?? "", baseDir);
+      if (rewritten) {
+        img.setAttribute("src", rewritten);
+        changed = true;
+      }
     }
   });
   return changed ? doc.body.innerHTML : html;
@@ -83,12 +118,11 @@ function rewriteImages(html: string, baseDir: string): string {
 
 export function Preview({ content, baseDir }: { content: string; baseDir?: string }) {
   const html = useMemo(() => {
-    // Rewrite local image paths to asset URLs BEFORE sanitizing — DOMPurify strips a bare
-    // `C:\…` src (drive letter reads as an unknown scheme), so it must already be an
-    // `http://asset.localhost/…` URL by the time the sanitizer runs.
+    // Process images (apply `{width=… #id}` attributes, rewrite local `src`s to asset
+    // URLs) BEFORE sanitizing — DOMPurify would otherwise strip a bare `C:\…` src, and it
+    // filters the attributes we set to the safe HTML ones.
     const rendered = md.render(stripFrontmatter(content));
-    const rewritten = baseDir ? rewriteImages(rendered, baseDir) : rendered;
-    return DOMPurify.sanitize(rewritten);
+    return DOMPurify.sanitize(processImages(rendered, baseDir));
   }, [content, baseDir]);
   const scrollRef = useRef<HTMLDivElement>(null);
 

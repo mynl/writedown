@@ -5,6 +5,20 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.37.0] - 2026-07-10
+
+### Added
+
+- **Basic image attributes** `{width=… #id .class}`. `![cap](img.png){width=50% #fig-1}`
+  now sizes and labels the image in both the live Preview and the Rendered tab, in **any**
+  token order (`{#fig-1 width=50%}` works too). `width`/`height` accept pixels (`300`) or a
+  percentage (`50%`); `#id` becomes the crossref anchor (so `@fig-1` links resolve and
+  number); `.class` is applied. Deliberately narrow: only standard HTML attributes survive
+  (Quarto's semantic ones like `fig-align`, columns, and layouts are ignored, not honored —
+  see README "Limitations"). Implemented without a new dependency — a small post-render
+  pass in the preview applies the attributes, and the Rust renderer's label detection is
+  now order-independent.
+
 ## [1.36.2] - 2026-07-09
 
 ### Fixed
