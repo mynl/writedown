@@ -34,21 +34,29 @@ function stripFrontmatter(src: string): string {
 // Returns null for anything already loadable — absolute URLs, `data:`/`blob:`, an
 // absolute path, or a `scheme:` — which is left untouched. Never touches the file itself.
 function resolveAssetSrc(src: string, baseDir: string): string | null {
+  // markdown-it percent-encodes the parts of a path it doesn't keep literal — notably `\`
+  // → `%5C` (and spaces → `%20`). Decode so the tests below see the real path.
+  let s = src;
+  try {
+    s = decodeURIComponent(src);
+  } catch {
+    /* malformed %-sequence — fall back to the raw src */
+  }
   // A Windows absolute path (`C:\…`, `C:/…`) or UNC (`\\host\…`) is already absolute —
   // send it straight through the asset protocol. This MUST come before the scheme check:
   // a bare drive letter (`C:`) looks exactly like a URL scheme, which is why absolute
   // paths silently failed to load before.
-  if (/^[a-zA-Z]:[\\/]/.test(src) || src.startsWith("\\\\")) {
-    return convertFileSrc(src.replace(/\//g, "\\"));
+  if (/^[a-zA-Z]:[\\/]/.test(s) || s.startsWith("\\\\")) {
+    return convertFileSrc(s.replace(/\//g, "\\"));
   }
   // Anything else already loadable is left untouched: a real URL scheme (http(s)/data/
   // blob/asset/…), a protocol-relative `//host`, or a posix-absolute `/path`.
-  if (/^[a-z][a-z0-9+.-]*:/i.test(src) || src.startsWith("//") || src.startsWith("/")) {
+  if (/^[a-z][a-z0-9+.-]*:/i.test(s) || s.startsWith("//") || s.startsWith("/")) {
     return null;
   }
   // Document-relative: join against the doc folder and collapse `.`/`..` (asset won't).
   const out: string[] = [];
-  for (const seg of `${baseDir}/${src}`.replace(/\\/g, "/").split("/")) {
+  for (const seg of `${baseDir}/${s}`.replace(/\\/g, "/").split("/")) {
     if (seg === "" || seg === ".") continue;
     if (seg === "..") out.pop();
     else out.push(seg);
@@ -56,9 +64,10 @@ function resolveAssetSrc(src: string, baseDir: string): string | null {
   return convertFileSrc(out.join("\\"));
 }
 
-// Rewrite every relative `<img src>` in the already-sanitized HTML. Parsing the sanitized
-// fragment (not the live DOM) means the browser never fires a doomed request for the raw
-// relative path first.
+// Rewrite every local `<img src>` to a Tauri asset URL. Runs BEFORE DOMPurify so the
+// sanitizer sees an allowed `http://asset.localhost/…` URL rather than a bare `C:\…` /
+// `c:/…` path, which its IS_ALLOWED_URI rejects (a drive letter looks like an unknown
+// scheme) and would otherwise strip. Parsing with an inert DOMParser fires no requests.
 function rewriteImages(html: string, baseDir: string): string {
   const doc = new DOMParser().parseFromString(html, "text/html");
   let changed = false;
@@ -74,8 +83,12 @@ function rewriteImages(html: string, baseDir: string): string {
 
 export function Preview({ content, baseDir }: { content: string; baseDir?: string }) {
   const html = useMemo(() => {
-    const sanitized = DOMPurify.sanitize(md.render(stripFrontmatter(content)));
-    return baseDir ? rewriteImages(sanitized, baseDir) : sanitized;
+    // Rewrite local image paths to asset URLs BEFORE sanitizing — DOMPurify strips a bare
+    // `C:\…` src (drive letter reads as an unknown scheme), so it must already be an
+    // `http://asset.localhost/…` URL by the time the sanitizer runs.
+    const rendered = md.render(stripFrontmatter(content));
+    const rewritten = baseDir ? rewriteImages(rendered, baseDir) : rendered;
+    return DOMPurify.sanitize(rewritten);
   }, [content, baseDir]);
   const scrollRef = useRef<HTMLDivElement>(null);
 

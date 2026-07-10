@@ -3,6 +3,23 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-09 — 1.36.2 absolute-path images (real root cause)
+
+- `![](c:\tmp\me85.png)` still failed after 1.36.1 — I'd misdiagnosed the failure point
+  **twice**. Verified against installed lib source this time:
+  1. **DOMPurify strips the src.** `IS_ALLOWED_URI` (dompurify `src/regexp.ts:8`) rejects a
+     bare drive letter (`c:` looks like an unknown scheme), and `DOMPurify.sanitize` ran
+     **before** `rewriteImages` in Preview.tsx — so the src was already gone. Relative
+     `img/…` survived because it's a valid relative URL DOMPurify allows.
+  2. **markdown-it `%`-encodes `\`** (`mdurl` encode.defaultChars keeps `:` `/` but not
+     `\`), so `c:\…` arrives as `c:%5C…` — the Windows regex couldn't match it anyway.
+- Fix (Preview.tsx only): run `rewriteImages` **before** `DOMPurify.sanitize` (so the
+  sanitizer sees an allowed `http://asset.localhost/…` URL), and `decodeURIComponent` the
+  src in `resolveAssetSrc` (fixes `%5C`, and relative paths with spaces). `data:`/`http:`
+  still hit the scheme guard and pass through untouched.
+- Lesson: when a fix "doesn't work," trace the actual pipeline against library source
+  before guessing again — the regex was never the (only) problem; sanitize order was.
+
 ## 2026-07-09 — 1.36.1 follow-ups (tab strip + absolute-path images)
 
 - **Config "didn't parse" was a red herring** — Steve was viewing `localhost:1420` in a

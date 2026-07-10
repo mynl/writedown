@@ -5,6 +5,20 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.36.2] - 2026-07-09
+
+### Fixed
+
+- **Absolute Windows image paths now display** (`![](C:/tmp/pic.png)`, `![](c:\tmp\pic.png)`,
+  UNC). The 1.36.1 attempt was insufficient: the failure happened *before* the path
+  rewrite ran. DOMPurify's `IS_ALLOWED_URI` rejects a bare drive letter (`c:` reads as an
+  unknown URL scheme) and stripped the `src` during sanitize — which ran ahead of the
+  rewrite — so neither slash direction ever reached it. The rewrite now runs **before**
+  sanitize (DOMPurify then sees an allowed `http://asset.localhost/…` URL), and the src is
+  percent-decoded first so markdown-it's `\`→`%5C` encoding is recognized (this also fixes
+  relative paths containing spaces). Relative `img/…` paths and `data:` figure URIs are
+  unaffected.
+
 ## [1.36.1] - 2026-07-09
 
 ### Fixed
