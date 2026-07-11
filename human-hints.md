@@ -3,6 +3,26 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-11 — 1.41.0 Folder panel = single-root explorer, decoupled from Projects
+
+- Steve: "the Folder view is silly now we have projects — make it a full explorer from root down,
+  add-folder is Project-only, remove folder commands." Exploration surprise: it was ALREADY
+  single-root with add-root already Project-only, so the real gaps were smaller. Confirmed scope
+  via multi-select: (A) show root as top node, (B) decouple from projects. Steve did NOT check
+  "remove New Folder from palette" → **no palette commands removed**.
+- A: `FileTree` renders ONE root `TreeNode` (synth Entry like `ProjectTree`), `defaultExpanded`,
+  seeded via new `initialChildren` prop (no re-list). Added a sync `useEffect` so soft fs-refresh
+  updates the root's children in place without collapsing expanded subfolders.
+- B (the careful one): `root` was overloaded — `openProject`/`addFolderToProject` did
+  `setRoot(folders[0])` which listed the project folder into the Folder tab (the overlap). Fix:
+  **`setRoot` is now operational-only** (anchor for new-file/quick-open/save-as/watch/session);
+  new **`folderRoot`** drives ONLY the Folder-tab display, set solely by `openFolder`/`hydrate`
+  folder-path/`closeProject`. `refreshTree`/`onFsChange`/App Folder-body/`FileTree` → `folderRoot`.
+  Enumerated every `root` read to classify (Plan agent); no operation broke. `folderRoot` needs no
+  persisted field — derivable on restore (project restore → null → Folder tab placeholder = the
+  decoupled behavior). Frontend-only; `tsc` clean.
+- Splitter (item 2) shipping next as 1.42.0.
+
 ## 2026-07-11 — 1.40.0 preview code highlighting (Sublime-matched)
 
 - "Why is there no code colorization in preview/rendered?" → markdown-it in `Preview.tsx` had no

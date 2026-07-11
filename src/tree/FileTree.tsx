@@ -30,11 +30,28 @@ function icon(entry: Entry, expanded: boolean): string {
   }
 }
 
-function TreeNode({ entry, depth }: { entry: Entry; depth: number }) {
-  const [expanded, setExpanded] = useState(false);
-  const [children, setChildren] = useState<Entry[] | null>(null);
+function TreeNode({
+  entry,
+  depth,
+  defaultExpanded = false,
+  initialChildren,
+}: {
+  entry: Entry;
+  depth: number;
+  defaultExpanded?: boolean;
+  initialChildren?: Entry[];
+}) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  const [children, setChildren] = useState<Entry[] | null>(initialChildren ?? null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // The seeded root node re-syncs when its children change via a SOFT refresh (fs-change,
+  // which doesn't bump treeVersion). Touches only `children`, never `expanded`, so a
+  // collapsed root stays collapsed. Inert for deeper nodes (they get no initialChildren).
+  useEffect(() => {
+    if (initialChildren) setChildren(initialChildren);
+  }, [initialChildren]);
 
   const openFile = useStore((s) => s.openFile);
   const openTreeMenu = useStore((s) => s.openTreeMenu);
@@ -105,17 +122,27 @@ function TreeNode({ entry, depth }: { entry: Entry; depth: number }) {
 }
 
 export function FileTree() {
+  const folderRoot = useStore((s) => s.folderRoot);
   const rootEntries = useStore((s) => s.rootEntries);
-  const root = useStore((s) => s.root);
   const treeVersion = useStore((s) => s.treeVersion);
 
-  if (!root) return null;
-  // Keyed by treeVersion so a refresh remounts the tree (re-fetches all levels).
+  if (!folderRoot) return null;
+  // The folder itself is the top node — a real explorer "from the root on down". It starts
+  // expanded and seeded from rootEntries (no redundant re-list). Keyed by treeVersion so a
+  // hard refresh remounts and re-fetches all levels.
   return (
     <div className="tree" key={treeVersion}>
-      {rootEntries.map((e) => (
-        <TreeNode key={e.path} entry={e} depth={0} />
-      ))}
+      <TreeNode
+        depth={0}
+        defaultExpanded
+        initialChildren={rootEntries}
+        entry={{
+          name: folderRoot.replace(/[\\/]+$/, "").split(/[\\/]/).pop() ?? folderRoot,
+          path: folderRoot,
+          is_dir: true,
+          ext: null,
+        }}
+      />
     </div>
   );
 }

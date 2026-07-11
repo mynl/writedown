@@ -93,7 +93,12 @@ export type Rendered = {
 };
 
 type AppState = {
+  /** Operational anchor: where new files / quick-open / save-as / watching are rooted
+   *  (= the plain folder, or the project's first folder in project mode). */
   root: string | null;
+  /** The Folder tab's OWN root, independent of any open project — so the Folder tab never
+   *  mirrors the project's first folder. Set only when a plain folder is opened/restored. */
+  folderRoot: string | null;
   rootEntries: Entry[];
 
   /** Project mode (ST-style): named set of folder roots. Empty = plain folder mode. */
@@ -148,6 +153,7 @@ type AppState = {
   loadTheme: () => Promise<void>;
   openFolder: () => Promise<void>;
   setRoot: (path: string) => Promise<void>;
+  setFolderRoot: (path: string) => Promise<void>;
   refreshTree: () => Promise<void>;
   openFile: (path: string, preview?: boolean) => Promise<void>;
   reloadDoc: (path: string) => Promise<void>;
@@ -214,6 +220,7 @@ type AppState = {
 
 export const useStore = create<AppState>((set, get) => ({
   root: null,
+  folderRoot: null,
   rootEntries: [],
   projFolders: [],
   projectFile: null,
@@ -268,6 +275,7 @@ export const useStore = create<AppState>((set, get) => ({
     }
     try {
       await get().setRoot(ws);
+      await get().setFolderRoot(ws);
     } catch {
       return; // workspace no longer exists
     }
@@ -303,11 +311,14 @@ export const useStore = create<AppState>((set, get) => ({
     set({ projFolders: [], projectFile: null, projectName: "", panelTab: "folder" });
     setTitle(null);
     await get().setRoot(picked);
+    await get().setFolderRoot(picked);
   },
 
+  // Operational anchor only. Set by both folder mode and project mode (= projFolders[0]).
+  // Does NOT touch the Folder-tab display (that's setFolderRoot) — so opening a project never
+  // overwrites what the Folder tab shows.
   setRoot: async (path: string) => {
-    const rootEntries = await listDirectory(path);
-    set((s) => ({ root: path, rootEntries, treeVersion: s.treeVersion + 1 }));
+    set({ root: path });
     const { projFolders, projectFile } = get();
     if (!projectFile && projFolders.length === 0) {
       void saveLastWorkspace(path); // remember for the next cold start
@@ -315,16 +326,28 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
+  // The Folder tab's display root: list its children and (re)mount the tree. Called only when
+  // a plain folder is opened/restored — never by project flows.
+  setFolderRoot: async (path: string) => {
+    const rootEntries = await listDirectory(path);
+    set((s) => ({ folderRoot: path, rootEntries, treeVersion: s.treeVersion + 1 }));
+  },
+
   // Re-list the workspace and remount the tree (F5 / Ctrl+Shift+R). External-change
   // auto-refresh via file watching is Phase 4.
   refreshTree: async () => {
-    const { root } = get();
-    if (!root) return;
+    const { folderRoot } = get();
+    // Bump treeVersion even with no Folder root, so the Project tree also remounts (F5 /
+    // after a new file). Re-list the Folder root's children when there is one.
+    if (!folderRoot) {
+      set((s) => ({ treeVersion: s.treeVersion + 1 }));
+      return;
+    }
     try {
-      const rootEntries = await listDirectory(root);
+      const rootEntries = await listDirectory(folderRoot);
       set((s) => ({ rootEntries, treeVersion: s.treeVersion + 1 }));
     } catch {
-      /* folder gone */
+      set((s) => ({ treeVersion: s.treeVersion + 1 })); // folder gone — still remount
     }
   },
 
@@ -409,11 +432,11 @@ export const useStore = create<AppState>((set, get) => ({
   // folders stay open), reload unmodified open files, flag conflicts on modified ones.
   // Ignores the events our own saves trigger.
   onFsChange: (paths) => {
-    const root = get().root;
-    if (root) {
+    const folderRoot = get().folderRoot;
+    if (folderRoot) {
       clearTimeout(fsRefreshTimer);
       fsRefreshTimer = setTimeout(() => {
-        listDirectory(root)
+        listDirectory(folderRoot)
           .then((rootEntries) => set({ rootEntries }))
           .catch(() => {});
       }, 400);
@@ -914,6 +937,7 @@ export const useStore = create<AppState>((set, get) => ({
     if (root) {
       void saveLastWorkspace(root);
       void watchWorkspace([root]).catch(() => {});
+      void get().setFolderRoot(root); // adopt into the Folder tab so it isn't left empty
     }
   },
 

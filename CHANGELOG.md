@@ -5,6 +5,20 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.41.0] - 2026-07-11
+
+### Changed
+
+- **The Folder panel is now a proper file explorer rooted at one folder, cleanly separate from
+  Projects.** Two changes: (1) the folder itself is shown as the top, collapsible node — you
+  browse "from the root on down" (previously it listed the root's contents flat, with no root
+  header). (2) The Folder tab is **decoupled from projects**: opening a project no longer makes
+  the Folder tab mirror the project's first folder. Internally, `root` stays the operational
+  anchor (where new files, quick-open, save-as, and watching are rooted) while a new `folderRoot`
+  drives only the Folder tab's display — so the two tabs are independent. Add-folder remains a
+  Project-only action, as before; no palette commands were removed. (The soft external-change
+  refresh still updates the tree in place without collapsing your expanded folders.)
+
 ## [1.40.0] - 2026-07-11
 
 ### Added
