@@ -3,6 +3,17 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-11 — 1.42.0 draggable editor|preview splitter
+
+- Item 2 from the same batch. Cheap reuse: the generic `<Resizer>` already drives tree/outline
+  widths. Added a third `<Resizer>` inside `.split-body`, rendered only in split mode
+  (`showEditor && showPreview`). New `splitRatio` state (0.2–0.8, default 0.5) + `setSplitRatio`;
+  editor pane gets inline `flex: 0 0 <pct>` in split mode, preview stays `flex:1 1 0`. Persisted
+  per-workspace via new nullable `split_ratio` on `Session` (api.ts + session.rs, `#[serde(default)]`
+  → old sessions 50/50). Drag math uses `splitBodyRef.getBoundingClientRect()` (NOT innerWidth) since
+  the split-body's left edge shifts with the tree width. CodeMirror self-measures (no refresh);
+  scroll-sync is fractional (width-agnostic). `tsc` + `cargo check` clean.
+
 ## 2026-07-11 — 1.41.0 Folder panel = single-root explorer, decoupled from Projects
 
 - Steve: "the Folder view is silly now we have projects — make it a full explorer from root down,

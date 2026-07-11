@@ -18,6 +18,8 @@ pub struct Session {
     pub tree_width: Option<f64>,
     #[serde(default)]
     pub outline_width: Option<f64>,
+    #[serde(default)]
+    pub split_ratio: Option<f64>,
 }
 
 #[derive(Serialize, Deserialize, Default)]

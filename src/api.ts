@@ -130,6 +130,7 @@ export type Session = {
   active_tab: string | null;
   tree_width: number | null;
   outline_width: number | null;
+  split_ratio: number | null;
 };
 
 // Session is keyed per workspace; session.json holds only the last workspace.

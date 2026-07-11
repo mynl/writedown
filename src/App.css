@@ -387,6 +387,11 @@ body {
 .split-pane + .split-pane {
   border-left: 1px solid var(--border);
 }
+/* In split view a <Resizer> sits between the two panes, so the adjacent-sibling border above
+   no longer matches — carry the hairline on the resizer itself (it still highlights on hover). */
+.split-body > .resizer {
+  border-left: 1px solid var(--border);
+}
 
 /* Document outline — font from config [outline] (default Arial Narrow 10pt). */
 .outline {

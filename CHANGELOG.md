@@ -5,6 +5,17 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.42.0] - 2026-07-11
+
+### Added
+
+- **The editor|preview splitter is now draggable.** In split view, a divider between the editor
+  and preview panes lets you set their relative width (previously fixed at 50/50). It reuses the
+  same resize handle as the tree/outline panes, clamps to a readable 20–80%, and the ratio is
+  **remembered per workspace** (a new nullable `split_ratio` session field — old sessions default
+  to 50/50). The divider only appears in split view (not editor-only or preview-only). CodeMirror
+  reflows on its own and preview scroll-sync is unaffected.
+
 ## [1.41.0] - 2026-07-11
 
 ### Changed

@@ -60,6 +60,8 @@ let fsRefreshTimer: ReturnType<typeof setTimeout> | undefined;
 const MIN_PANE = 140;
 const MAX_PANE = 600;
 const clamp = (w: number) => Math.max(MIN_PANE, Math.min(MAX_PANE, w));
+// Editor|preview split fraction (the editor's share) — kept within readable bounds.
+const clampRatio = (r: number) => Math.max(0.2, Math.min(0.8, r));
 
 export type Doc = {
   path: string;
@@ -115,6 +117,8 @@ type AppState = {
 
   treeWidth: number;
   outlineWidth: number;
+  /** Editor|preview split fraction in split view (0..1, the editor's share). */
+  splitRatio: number;
 
   treeVersion: number;
   palette: "files" | "commands" | null;
@@ -216,6 +220,7 @@ type AppState = {
   setCursorPos: (line: number, col: number) => void;
   setTreeWidth: (w: number) => void;
   setOutlineWidth: (w: number) => void;
+  setSplitRatio: (r: number) => void;
 };
 
 export const useStore = create<AppState>((set, get) => ({
@@ -252,6 +257,7 @@ export const useStore = create<AppState>((set, get) => ({
   scratchCounter: 0,
   treeWidth: 240,
   outlineWidth: 220,
+  splitRatio: 0.5,
 
   // Restore the last session on startup (spec §24), keyed by workspace. Missing
   // folders/files are skipped silently — a stale session must never block launch.
@@ -292,6 +298,7 @@ export const useStore = create<AppState>((set, get) => ({
     }
     if (s.tree_width != null) set({ treeWidth: clamp(s.tree_width) });
     if (s.outline_width != null) set({ outlineWidth: clamp(s.outline_width) });
+    if (s.split_ratio != null) set({ splitRatio: clampRatio(s.split_ratio) });
     for (const p of s.open_tabs ?? []) {
       try {
         await get().openFile(p);
@@ -724,6 +731,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   setTreeWidth: (w) => set({ treeWidth: clamp(w) }),
   setOutlineWidth: (w) => set({ outlineWidth: clamp(w) }),
+  setSplitRatio: (r) => set({ splitRatio: clampRatio(r) }),
 
   openPrompt: (title, placeholder, submit) => set({ prompt: { title, placeholder, submit } }),
   closePrompt: () => set({ prompt: null }),
@@ -967,4 +975,5 @@ export const sessionSnapshot = (s: AppState): Session => ({
   active_tab: s.activePath,
   tree_width: s.treeWidth,
   outline_width: s.outlineWidth,
+  split_ratio: s.splitRatio,
 });
