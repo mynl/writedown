@@ -5,6 +5,23 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.40.0] - 2026-07-11
+
+### Added
+
+- **Syntax highlighting for fenced code blocks in the preview** (both the live Preview pane and
+  the Rendered tab), colored to **match the editor's Sublime scheme exactly**. Previously code
+  blocks rendered as plain monospace — markdown-it had no highlighter wired in. Now the preview
+  reuses the *same* CodeMirror `HighlightStyle` instance and the *same* Lezer parsers the editor
+  uses, so a `python`/`json`/`rust`/… block looks identical in the preview and the editor, and
+  switching color schemes recolors both in lockstep. **No new dependency and no startup cost** —
+  it's built entirely from what already ships; grammars load on demand (their own lazy chunks,
+  exactly like the editor). Quarto cells (` ```{python} `, ` ```{r, echo=FALSE} `) resolve like
+  the editor does; ` ```mermaid ` blocks still render as diagrams (never token-highlighted);
+  unknown languages, oversized blocks, or a parser that fails to load simply stay plain text —
+  the preview never breaks. Highlighting runs after the sanitizer, so nothing about the security
+  model changes.
+
 ## [1.39.1] - 2026-07-10
 
 ### Fixed

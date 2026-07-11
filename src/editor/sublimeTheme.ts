@@ -6,6 +6,7 @@ import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { tags as t, type Tag } from "@lezer/highlight";
 import type { Extension } from "@codemirror/state";
 import type { ScopeRule, SublimeTheme } from "../api";
+import { editorHighlight } from "./theme";
 
 /** First rule whose scope matches (or contains, space/comma-separated) a target scope. */
 function ruleFor(rules: ScopeRule[], ...scopes: string[]): ScopeRule | undefined {
@@ -58,6 +59,34 @@ export function buildSublimeTheme(
     { dark: st.dark },
   );
 
+  return {
+    theme,
+    highlight: syntaxHighlighting(highlightStyleFor(st)),
+    selection: st.selection,
+  };
+}
+
+// One HighlightStyle per imported scheme, memoized by `st` identity. The editor and the
+// markdown preview both go through this factory, so they share the SAME instance — and a
+// HighlightStyle's scoped class names are randomized per `.define()`, so sharing is what makes
+// the preview's colors match the editor exactly.
+const styleCache = new WeakMap<SublimeTheme, HighlightStyle>();
+
+/** The raw HighlightStyle currently in effect: the Sublime-derived one when a scheme is
+ *  loaded, else the built-in `editorHighlight`. */
+export function highlightStyleFor(st: SublimeTheme | null): HighlightStyle {
+  if (!st) return editorHighlight;
+  let hs = styleCache.get(st);
+  if (!hs) {
+    hs = HighlightStyle.define(buildHighlightSpec(st));
+    styleCache.set(st, hs);
+  }
+  return hs;
+}
+
+/** Map the imported Sublime scopes onto Lezer tags → the HighlightStyle spec (colors only;
+ *  font settings live in the EditorView theme, not here). */
+function buildHighlightSpec(st: SublimeTheme) {
   const r = st.rules;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const spec: any[] = [];
@@ -98,10 +127,5 @@ export function buildSublimeTheme(
     [t.propertyName, t.definition(t.propertyName), t.attributeName],
     colorFor(r, "entity.name.tag.yaml", "keyword"),
   );
-
-  return {
-    theme,
-    highlight: syntaxHighlighting(HighlightStyle.define(spec)),
-    selection: st.selection,
-  };
+  return spec;
 }

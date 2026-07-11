@@ -12,6 +12,10 @@ import "katex/dist/katex.min.css";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { getActiveView, onActiveViewChange } from "../editor/editorView";
+import { logError } from "../api";
+import { useStore } from "../store";
+import { highlightStyleFor } from "../editor/sublimeTheme";
+import { highlightCodeBlocks } from "./codeHighlight";
 
 // html:true renders raw HTML (tables, divs, Quarto blocks); DOMPurify then strips
 // scripts/handlers AND HTML comments, so `<!-- … -->` never shows and code can't run
@@ -151,6 +155,12 @@ export function Preview({ content, baseDir }: { content: string; baseDir?: strin
   }, [content, baseDir]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // The editor's current highlight style (Sublime-derived, or the built-in fallback). Shared
+  // by identity with the editor, so preview code colors match exactly; a theme switch yields a
+  // new instance → the highlight effect below re-runs and recolors.
+  const st = useStore((s) => s.sublimeTheme);
+  const highlightStyle = useMemo(() => highlightStyleFor(st), [st]);
+
   // Detected OS color scheme; mermaid diagrams re-render to match when it changes.
   const [dark, setDark] = useState(
     () => window.matchMedia("(prefers-color-scheme: dark)").matches,
@@ -224,6 +234,22 @@ export function Preview({ content, baseDir }: { content: string; baseDir?: strin
       cancelled = true;
     };
   }, [html, dark]);
+
+  // Syntax-highlight fenced code blocks to match the editor's Sublime colours. Runs after the
+  // sanitized HTML is mounted (like the mermaid upgrade); reuses the editor's HighlightStyle +
+  // Lezer parsers. Re-runs on every content change (cheap via cache) and on theme switch
+  // (highlightStyle identity changes → recolor). Skips mermaid; never throws.
+  useEffect(() => {
+    const root = scrollRef.current;
+    if (!root) return;
+    let cancelled = false;
+    void highlightCodeBlocks(root, highlightStyle, () => cancelled).catch((e) => {
+      void logError("preview code highlight pass: " + String(e));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [html, highlightStyle]);
 
   // Bidirectional proportional scroll sync between editor and preview (spec §15). A short
   // lock ignores the echo scroll the programmatic scrollTop triggers on the other pane.

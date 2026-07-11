@@ -12,8 +12,9 @@ import { toml } from "@codemirror/legacy-modes/mode/toml";
 import { stex } from "@codemirror/legacy-modes/mode/stex";
 
 // Quarto / RMarkdown code cells use ```{python}, ```{r, echo=FALSE}, ```{=html} — strip
-// the braces/options so the nested language still highlights (spec §16).
-function codeLanguages(info: string): LanguageDescription | null {
+// the braces/options so the nested language still highlights (spec §16). Exported so the
+// markdown preview resolves fence languages identically to the editor.
+export function codeLanguages(info: string): LanguageDescription | null {
   const name = info.replace(/^\{=?/, "").replace(/\}$/, "").trim().split(/[\s,]/)[0];
   return name ? LanguageDescription.matchLanguageName(languages, name, true) : null;
 }

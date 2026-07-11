@@ -3,6 +3,28 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-11 — 1.40.0 preview code highlighting (Sublime-matched)
+
+- "Why is there no code colorization in preview/rendered?" → markdown-it in `Preview.tsx` had no
+  `highlight` option (known-deferred backlog since ~v1.16); code came out as plain `<pre><code
+  class="language-x">`. Steve chose the harder option: **match the editor's Sublime colors exactly**.
+- Approach: **reuse the shipped CM6/Lezer stack — zero new deps.** New `highlightStyleFor(st)`
+  factory in `sublimeTheme.ts` (WeakMap-memoized by `st` identity) so editor + preview share ONE
+  `HighlightStyle` instance (scoped class names are randomized per `.define()`, so sharing the
+  instance is what makes colors match). Fallback = `editorHighlight`. Exported `codeLanguages`
+  from `languages.ts` for identical fence-language resolution.
+- New `src/preview/codeHighlight.ts`: post-sanitize DOM pass mirroring the mermaid `useEffect` —
+  `StyleModule.mount(document, hs.module)` (editor is unmounted in preview-only view, so the
+  preview must mount the CSS itself), resolve lang → `desc.load()` (on-demand chunk) → `parser.parse`
+  → `highlightCode(text, tree, hs, putText, putBreak)` → spans. `Preview.tsx` adds one `useEffect`
+  deps `[html, highlightStyle]`.
+- **Key correctness fix over the plan-agent sketch:** cache keyed FIRST by HighlightStyle instance
+  (`WeakMap<HighlightStyle, Map>`), NOT a content-only `dataset.hl` guard — else a theme switch
+  (same text, new hs) would early-skip and keep OLD colors. Per-hs cache = clean recolor.
+- Verified: `tsc --noEmit` clean; `npm run build` bundles clean (style-mod transitive import +
+  dynamic chunks OK). `render.rs` unchanged (already emits `language-<x>` fences → covers Rendered
+  tab too). Deferred: `--wd-code-fg` base-text tint (contrast risk if scheme polarity ≠ app theme).
+
 ## 2026-07-10 — 1.39.0 prose spellchecker (dictionary-backed)
 
 - Steve wanted a spellchecker; expected a "plugin." Reality: no drop-in CM6 plugin. Presented
