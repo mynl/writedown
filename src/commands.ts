@@ -9,6 +9,7 @@ import { getActiveView } from "./editor/editorView";
 import { isMarkdownDoc } from "./editor/languages";
 import { renumberOrderedList } from "./editor/lists";
 import { reformatTables } from "./editor/tables";
+import { toggleBold, toggleItalic } from "./editor/markdownFormat";
 import { toggleWordWrap } from "./editor/wrap";
 
 export type Command = { id: string; title: string; run: () => void };
@@ -72,6 +73,8 @@ export function appCommands(): Command[] {
     { id: "previous-versions", title: "Previous Versions…", run: () => s().openVersions() },
     { id: "renumber-list", title: "Renumber Ordered List", run: onMarkdownView(renumberOrderedList) },
     { id: "reformat-tables", title: "Reformat Markdown Table(s)", run: onMarkdownView(reformatTables) },
+    { id: "format-bold", title: "Bold (surround with **…**)", run: onMarkdownView(toggleBold) },
+    { id: "format-italic", title: "Italic (surround with *…*)", run: onMarkdownView(toggleItalic) },
     {
       id: "spell-add-word",
       title: "Add Word to Dictionary",

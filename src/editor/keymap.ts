@@ -8,6 +8,7 @@ import {
 import { EditorSelection, Prec, type StateCommand } from "@codemirror/state";
 import {
   copyLineDown,
+  deleteToLineEnd,
   moveLineDown,
   moveLineUp,
   selectLine,
@@ -16,6 +17,7 @@ import {
 import { gotoLine, openSearchPanel, selectNextOccurrence } from "@codemirror/search";
 import { joinLines } from "./lists";
 import { reformatTables } from "./tables";
+import { toggleBold, toggleItalic } from "./markdownFormat";
 import { useStore } from "../store";
 
 /** Add a cursor on the line above (-1) or below (+1) each existing cursor, same column. */
@@ -66,8 +68,13 @@ export const sublimeEditing = [
       { key: "Mod-Alt-ArrowDown", run: addCursorVertically(1), preventDefault: true },
       // Ctrl+Shift+L toggles the preview view (Joplin-style), even when the editor is focused.
       { key: "Mod-Shift-l", run: () => (useStore.getState().cycleView(), true), preventDefault: true },
-      // Ctrl+B renders the document — Sublime's Build key; render IS this app's build.
-      { key: "Mod-b", run: () => (void useStore.getState().renderActive(), true), preventDefault: true },
+      // Markdown emphasis: Ctrl+B bold, Ctrl+I italic (toggle the surrounding ** / * markers).
+      { key: "Mod-b", run: toggleBold, preventDefault: true },
+      { key: "Mod-i", run: toggleItalic, preventDefault: true },
+      // Build = render the document — Sublime's Ctrl+Shift+B (Ctrl+B was the old build key).
+      { key: "Mod-Shift-b", run: () => (void useStore.getState().renderActive(), true), preventDefault: true },
+      // Kill to end of line (emacs / ST-style): Ctrl+K.
+      { key: "Mod-k", run: deleteToLineEnd, preventDefault: true },
       // Find / replace / go-to-line (Sublime: Ctrl+F, Ctrl+H, Ctrl+G).
       { key: "Mod-f", run: openSearchPanel, preventDefault: true },
       { key: "Mod-h", run: openSearchPanel, preventDefault: true },

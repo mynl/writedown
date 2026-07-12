@@ -5,6 +5,22 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.44.0] - 2026-07-12
+
+### Added
+
+- **Markdown emphasis shortcuts.** `Ctrl+B` wraps the selection in `**bold**`, `Ctrl+I` in
+  `*italic*` — press again to remove the markers (a true toggle). Both are multi-cursor aware,
+  land as a single undo step, and with no selection drop the caret between the markers ready to
+  type. Also available from the command palette ("Bold" / "Italic").
+- **`Ctrl+K` kills to end of line** (emacs / Sublime-style delete-to-line-end).
+
+### Changed
+
+- **Build (Render Document) moved from `Ctrl+B` to `Ctrl+Shift+B`** to free `Ctrl+B` for bold —
+  matching Sublime Text, where the build key is `Ctrl+Shift+B`. The palette "Render Document"
+  entry is unchanged.
+
 ## [1.43.0] - 2026-07-12
 
 ### Added
