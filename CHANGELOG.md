@@ -5,6 +5,15 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.46.0] - 2026-07-12
+
+### Added
+
+- **Keyboard-shortcuts help overlay.** Press **F1** (or run "Help: Keyboard Shortcuts" from the
+  palette) for a compact, two-column cheat sheet of every binding, grouped by category (Files &
+  tabs, Selection & cursors, Editing, Markdown, View, Search, Palette & help). Esc or a backdrop
+  click closes it. The list is a single hand-maintained catalog (`src/shortcuts.ts`).
+
 ## [1.45.0] - 2026-07-12
 
 ### Added

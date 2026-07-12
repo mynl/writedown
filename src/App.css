@@ -1015,6 +1015,76 @@ body {
   font-size: 13px;
 }
 
+/* Keyboard-shortcuts overlay (Help.tsx) — reuses .palette-backdrop. */
+.help {
+  margin-top: 8vh;
+  width: min(720px, 92vw);
+  max-height: 78vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  color: var(--fg);
+}
+.help-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  font-size: 14px;
+}
+.help-close {
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.help-close:hover {
+  color: var(--fg);
+}
+.help-body {
+  overflow-y: auto;
+  padding: 10px 14px 14px;
+  columns: 2;
+  column-gap: 28px;
+}
+.help-group {
+  break-inside: avoid;
+  margin-bottom: 12px;
+}
+.help-cat {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.help-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12.5px;
+  padding: 2px 0;
+}
+.help-keys {
+  font-family: var(--mono);
+  color: var(--accent, #4a90d9);
+  white-space: nowrap;
+}
+.help-desc {
+  color: var(--fg);
+  text-align: right;
+  opacity: 0.85;
+}
+
 /* Previous Versions picker (reuses .palette shell). */
 .palette:focus {
   outline: none;

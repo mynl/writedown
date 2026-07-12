@@ -111,6 +111,7 @@ export function appCommands(): Command[] {
     { id: "refresh-tree", title: "Refresh File Tree", run: () => void s().refreshTree() },
     { id: "toggle-word-wrap", title: "Toggle Word Wrap", run: () => toggleWordWrap() },
     { id: "toggle-preview", title: "Toggle Preview (editor / split / preview)", run: () => s().cycleView() },
+    { id: "help-shortcuts", title: "Help: Keyboard Shortcuts", run: () => s().toggleHelp() },
     { id: "render-doc", title: "Render Document (run code cells)", run: () => void s().renderActive() },
     {
       id: "render-restart-kernel",

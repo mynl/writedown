@@ -128,6 +128,8 @@ type AppState = {
   /** Last tree-body scroll offset, restored across a remount so New File/Delete don't jump. */
   treeScrollTop: number;
   palette: "files" | "commands" | null;
+  /** Keyboard-shortcuts help overlay open (F1 / palette). */
+  helpOpen: boolean;
   /** Path whose Previous Versions picker is open (null = closed). */
   versionsFor: string | null;
   /** Small one-line input dialog (new file/folder names, etc.). */
@@ -206,6 +208,8 @@ type AppState = {
   saveAll: () => Promise<void>;
   openPalette: (mode: "files" | "commands") => void;
   closePalette: () => void;
+  /** Toggle the keyboard-shortcuts help overlay (F1). */
+  toggleHelp: () => void;
   openPrompt: (
     title: string,
     placeholder: string,
@@ -262,6 +266,7 @@ export const useStore = create<AppState>((set, get) => ({
   expandedPaths: new Set(),
   treeScrollTop: 0,
   palette: null,
+  helpOpen: false,
   versionsFor: null,
   prompt: null,
   treeMenu: null,
@@ -719,6 +724,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   openPalette: (mode) => set({ palette: mode }),
   closePalette: () => set({ palette: null }),
+  toggleHelp: () => set((s) => ({ helpOpen: !s.helpOpen })),
 
   cycleView: () =>
     set((s) => ({
