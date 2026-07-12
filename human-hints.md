@@ -3,6 +3,48 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-12 — 1.42.1→1.47.0 punch-up batch (tree/wrap/keys/spell/help/projects)
+
+Seven-item punch list. Planned via 3 Explore agents + a Plan agent; Steve's answers narrowed
+scope (palette-only projects, no chord bindings, session-only toggles, footer status). Each item
+= one commit + version bump + CHANGELOG entry. `tsc` + `cargo check` clean throughout; **UI not
+yet verified live** — needs Steve's dev-server pass (esp. Item 6 AltGr fallback, scroll-restore feel).
+
+- **1.42.1 — tree fold-up fix.** Root cause: every file op → `refreshTree()` bumps `treeVersion`,
+  which is the React `key` on `<div className="tree">`, so the whole tree remounts and each
+  `TreeNode`'s LOCAL `expanded`/`children` state dies. Fix (Option A): lifted `expandedPaths:
+  Set<string>` + `treeScrollTop` into the store; `TreeNode` seeds `expanded` non-reactively
+  (`getState().expandedPaths.has(path)`), records toggles, and a new lazy-load effect fetches
+  children for store-restored-expanded nodes on mount. Scroll restored in `App.tsx` over ~10 rAFs
+  (async subtree height grows), guarded by a `restoringTreeScroll` ref so programmatic scroll isn't
+  recorded. ProjectTree fixed for free (same TreeNode).
+- **1.42.2 — table `Ctrl+Alt+Shift+T` keybinding fix.** Steve: works from palette, not the shortcut.
+  App-level handler already excluded Alt, so it wasn't stealing it → the *editor keymap* wasn't
+  matching. Cause: WebView2 treats Ctrl+Alt as AltGr, breaking CM's key-name match for
+  Ctrl+Alt+letter. Fix: app-level fallback keyed on `e.code === "KeyT"` (physical key, AltGr-immune)
+  → runs `reformatTables` on the active markdown view. Editor keymap still `preventDefault`s when it
+  does fire, so no double-format.
+- **1.43.0 — word wrap toggle.** App's FIRST CodeMirror `Compartment` (`editor/wrap.ts`) so toggling
+  never rebuilds the editor. Revived the dead `[editor] word_wrap` config (was in the template but
+  unparsed). Session-only + config default (seeded first-load-only in `loadTheme` so a later config
+  save doesn't clobber a session toggle). Palette "Toggle Word Wrap" + clickable footer `Wrap: On/Off`.
+- **1.44.0 — emphasis + kill-line + build remap.** `Ctrl+B`/`Ctrl+I` toggle `**`/`*` surround (new
+  `editor/markdownFormat.ts`, `changeByRange`, multi-cursor, single undo, clean-run guards so italic
+  inside bold gives `***…***` not corruption). `Ctrl+K` = `deleteToLineEnd` (Steve wanted plain
+  Ctrl+K, not the ST chord). Build moved `Ctrl+B`→`Ctrl+Shift+B` (keymap.ts + App.tsx together).
+- **1.45.0 — spell toggle + ignore + surface errors.** `spellOn` store bool (seeded from
+  `[spelling] enabled`, first-load) read by Editor instead of config directly → fixes old configs with
+  no `[spelling]` block ("toggle did nothing"). `spellIgnore: Set` session-only, filtered before
+  `spellCheck`; palette + lint-tooltip "Ignore this session". Un-swallowed the add-word/lookup
+  `.catch`es (were silent) → now `logError` + `configError`.
+- **1.46.0 — F1 help overlay.** `src/shortcuts.ts` (hand-maintained catalog) + `src/Help.tsx` (reuses
+  `.palette-backdrop`, two-column CSS `columns:2`). Store `helpOpen`+`toggleHelp`; F1 + palette.
+- **1.47.0 — managed projects (palette-only).** Rust `new_project` (name-only, writes
+  `~/.writedown/projects/<stem>.wdproj`, collision-suffix) + `list_projects` (dir scan). "New Project"
+  seeds folders from what's open and KEEPS tabs (names current workspace, doesn't switch away — like
+  Save Project As). Palette switch list now enumerates ALL managed projects + legacy recents.
+  `openProject` guard relaxed to allow empty projects. `projects` subdir added to `ensure_setup`.
+
 ## 2026-07-11 — 1.42.0 draggable editor|preview splitter
 
 - Item 2 from the same batch. Cheap reuse: the generic `<Resizer>` already drives tree/outline
