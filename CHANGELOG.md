@@ -5,6 +5,19 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.42.1] - 2026-07-12
+
+### Fixed
+
+- **The file tree no longer folds up (and no longer jumps to the top) after New File, New
+  Folder, Rename, or Delete.** Those operations remount the tree, which previously discarded
+  every folder's expanded/collapsed state — deeply-nested work would collapse to the root on
+  each edit. Expanded folders are now tracked in the store (keyed by path, not by React mount
+  identity), so a remount restores exactly which folders were open; a store-restored folder
+  lazily re-lists its children on mount. The tree-body scroll offset is likewise recorded and
+  restored across the remount (re-applied over a few animation frames while nested subtrees
+  finish listing). Applies to both the Folder and Project panels.
+
 ## [1.42.0] - 2026-07-11
 
 ### Added

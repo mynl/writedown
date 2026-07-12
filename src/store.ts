@@ -121,6 +121,12 @@ type AppState = {
   splitRatio: number;
 
   treeVersion: number;
+  /** Expanded folder paths in the tree, kept in the store so a treeVersion remount (after a
+   *  file op) restores expansion instead of folding everything up. Keyed by path, not by
+   *  React mount identity. */
+  expandedPaths: Set<string>;
+  /** Last tree-body scroll offset, restored across a remount so New File/Delete don't jump. */
+  treeScrollTop: number;
   palette: "files" | "commands" | null;
   /** Path whose Previous Versions picker is open (null = closed). */
   versionsFor: string | null;
@@ -159,6 +165,10 @@ type AppState = {
   setRoot: (path: string) => Promise<void>;
   setFolderRoot: (path: string) => Promise<void>;
   refreshTree: () => Promise<void>;
+  /** Record a folder's expanded/collapsed state (survives tree remounts). */
+  setPathExpanded: (path: string, on: boolean) => void;
+  /** Record the tree-body scroll offset for restore across a remount. */
+  setTreeScrollTop: (top: number) => void;
   openFile: (path: string, preview?: boolean) => Promise<void>;
   reloadDoc: (path: string) => Promise<void>;
   onFsChange: (paths: string[]) => void;
@@ -236,6 +246,8 @@ export const useStore = create<AppState>((set, get) => ({
   activePath: null,
   closedStack: [],
   treeVersion: 0,
+  expandedPaths: new Set(),
+  treeScrollTop: 0,
   palette: null,
   versionsFor: null,
   prompt: null,
@@ -357,6 +369,19 @@ export const useStore = create<AppState>((set, get) => ({
       set((s) => ({ treeVersion: s.treeVersion + 1 })); // folder gone — still remount
     }
   },
+
+  setPathExpanded: (path, on) => {
+    // New Set for Zustand identity. Read non-reactively in TreeNode, so this never
+    // re-renders the whole tree — only records state for the next remount.
+    set((s) => {
+      const next = new Set(s.expandedPaths);
+      if (on) next.add(path);
+      else next.delete(path);
+      return { expandedPaths: next };
+    });
+  },
+
+  setTreeScrollTop: (top) => set({ treeScrollTop: top }),
 
   openFile: async (path: string, preview = false) => {
     const existing = get().tabs.find((t) => t.path === path);

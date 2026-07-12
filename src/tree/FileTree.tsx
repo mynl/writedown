@@ -41,7 +41,12 @@ function TreeNode({
   defaultExpanded?: boolean;
   initialChildren?: Entry[];
 }) {
-  const [expanded, setExpanded] = useState(defaultExpanded);
+  // Seed expansion from the store (non-reactive read) so a treeVersion remount after a file
+  // op restores which folders were open instead of folding everything up. Not subscribed —
+  // reading the Set reactively would re-render every node on any toggle.
+  const [expanded, setExpanded] = useState(
+    () => useStore.getState().expandedPaths.has(entry.path) || defaultExpanded,
+  );
   const [children, setChildren] = useState<Entry[] | null>(initialChildren ?? null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,25 +58,39 @@ function TreeNode({
     if (initialChildren) setChildren(initialChildren);
   }, [initialChildren]);
 
+  // Load children lazily whenever this folder is expanded but hasn't loaded — covers both a
+  // click-to-expand and a store-restored expansion on remount (the root gets initialChildren,
+  // so it never re-fetches here).
+  useEffect(() => {
+    if (!entry.is_dir || !expanded || children !== null) return;
+    let cancelled = false;
+    setLoading(true);
+    listDirectory(entry.path)
+      .then((c) => {
+        if (!cancelled) setChildren(c);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(String(e));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [expanded, children, entry.is_dir, entry.path]);
+
   const openFile = useStore((s) => s.openFile);
   const openTreeMenu = useStore((s) => s.openTreeMenu);
   const activePath = useStore((s) => s.activePath);
   const isActive = !entry.is_dir && entry.path === activePath;
 
-  async function onClick() {
+  function onClick() {
     if (entry.is_dir) {
       const next = !expanded;
       setExpanded(next);
-      if (next && children === null) {
-        setLoading(true);
-        try {
-          setChildren(await listDirectory(entry.path));
-        } catch (e) {
-          setError(String(e));
-        } finally {
-          setLoading(false);
-        }
-      }
+      useStore.getState().setPathExpanded(entry.path, next); // remembered across remounts
+      // Children load via the lazy effect above.
     } else {
       // Single-click = preview (Sublime): opens in the transient preview tab.
       openFile(entry.path, true).catch((e) => setError(String(e)));
