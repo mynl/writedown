@@ -13,6 +13,28 @@ pub struct Project {
     pub folders: Vec<String>,
 }
 
+/// A managed project (name + file path) for the quick-switch list.
+#[derive(Serialize)]
+pub struct ProjectInfo {
+    pub name: String,
+    pub path: String,
+}
+
+/// Where managed projects live: `~/.writedown/projects/` (created by `ensure_setup`).
+fn projects_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    Ok(writedown_dir(app)?.join("projects"))
+}
+
+/// Turn a project name into a safe file stem — replace path-hostile characters, never empty.
+fn sanitize_stem(name: &str) -> String {
+    let s: String = name
+        .chars()
+        .map(|c| if "\\/:*?\"<>|".contains(c) { '-' } else { c })
+        .collect();
+    let s = s.trim().trim_matches('.').trim();
+    if s.is_empty() { "project".to_string() } else { s.to_string() }
+}
+
 /// Load a `.wdproj` file. The name falls back to the file stem.
 #[tauri::command]
 pub fn load_project(path: String) -> Result<Project, String> {
@@ -33,6 +55,60 @@ pub fn load_project(path: String) -> Result<Project, String> {
 pub fn save_project(path: String, project: Project) -> Result<(), String> {
     let json = serde_json::to_string_pretty(&project).map_err(|e| e.to_string())?;
     std::fs::write(&path, json).map_err(|e| format!("write {path}: {e}"))
+}
+
+/// Create a new managed project under `~/.writedown/projects/`. The location is managed —
+/// the user is never asked where. Name collisions get a numeric suffix. Returns the path.
+#[tauri::command]
+pub fn new_project(
+    app: tauri::AppHandle,
+    name: String,
+    folders: Vec<String>,
+) -> Result<String, String> {
+    let dir = projects_dir(&app)?;
+    std::fs::create_dir_all(&dir).map_err(|e| format!("create {}: {e}", dir.display()))?;
+    let stem = sanitize_stem(&name);
+    let mut path = dir.join(format!("{stem}.wdproj"));
+    let mut n = 2;
+    while path.exists() {
+        path = dir.join(format!("{stem}-{n}.wdproj"));
+        n += 1;
+    }
+    let display = {
+        let t = name.trim();
+        if t.is_empty() { "project".to_string() } else { t.to_string() }
+    };
+    let project = Project { name: display, folders };
+    let json = serde_json::to_string_pretty(&project).map_err(|e| e.to_string())?;
+    std::fs::write(&path, json).map_err(|e| format!("write {}: {e}", path.display()))?;
+    Ok(path.to_string_lossy().to_string())
+}
+
+/// List every managed project in `~/.writedown/projects/` (name + full path), name-sorted.
+#[tauri::command]
+pub fn list_projects(app: tauri::AppHandle) -> Result<Vec<ProjectInfo>, String> {
+    let dir = projects_dir(&app)?;
+    let mut out = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(&dir) {
+        for e in entries.flatten() {
+            let p = e.path();
+            if p.extension().and_then(|s| s.to_str()) == Some("wdproj") {
+                let name = std::fs::read_to_string(&p)
+                    .ok()
+                    .and_then(|t| serde_json::from_str::<Project>(&t).ok())
+                    .map(|pr| pr.name)
+                    .filter(|n| !n.is_empty())
+                    .or_else(|| p.file_stem().map(|s| s.to_string_lossy().to_string()))
+                    .unwrap_or_else(|| "project".into());
+                out.push(ProjectInfo {
+                    name,
+                    path: p.to_string_lossy().to_string(),
+                });
+            }
+        }
+    }
+    out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    Ok(out)
 }
 
 fn recent_file(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {

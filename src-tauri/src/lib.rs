@@ -72,6 +72,8 @@ pub fn run() {
             render::restart_kernel,
             project::load_project,
             project::save_project,
+            project::new_project,
+            project::list_projects,
             project::recent_projects,
             project::add_recent_project,
         ])

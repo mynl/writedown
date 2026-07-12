@@ -5,6 +5,26 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.47.0] - 2026-07-12
+
+### Added
+
+- **Managed projects.** New palette command **"Project: New Project…"** prompts only for a name
+  and writes a `.wdproj` under `~/.writedown/projects/` — you're never asked where to save it.
+  It seeds the project's folders from whatever's currently open (the open project's folders, else
+  the Folder-tab root) and keeps your open tabs, so it names your current workspace rather than
+  switching away from it. Name collisions get a numeric suffix (`name-2.wdproj`).
+- **Quick-switch lists every managed project.** The command palette now offers a
+  "Project: Switch to …" entry for every project in `~/.writedown/projects/` (name-sorted),
+  scanned from disk — not just the recent-projects MRU. Legacy `.wdproj` files saved elsewhere
+  still appear via the recents list.
+
+### Changed
+
+- Opening a project with no folders no longer errors — an empty managed project is valid; add
+  folders afterward via "Project: Add Folder to Project". The `projects` subdirectory is created
+  under `~/.writedown/` on launch alongside the other app-state folders.
+
 ## [1.46.0] - 2026-07-12
 
 ### Added

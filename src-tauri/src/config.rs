@@ -98,7 +98,7 @@ pub fn writedown_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 /// Create the app directory tree and a default `config.toml` if missing (spec §5).
 pub fn ensure_setup(app: &tauri::AppHandle) -> Result<(), String> {
     let dir = writedown_dir(app)?;
-    for sub in ["", "cache", "index", "logs", "themes"] {
+    for sub in ["", "cache", "index", "logs", "themes", "projects"] {
         let p = if sub.is_empty() { dir.clone() } else { dir.join(sub) };
         std::fs::create_dir_all(&p).map_err(|e| format!("create {}: {e}", p.display()))?;
     }

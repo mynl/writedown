@@ -47,11 +47,20 @@ export const watchWorkspace = (paths: string[]) =>
 
 // Sublime-style projects: a named set of folder roots in a .wdproj JSON file.
 export type Project = { name: string; folders: string[] };
+/** A managed project (name + full path) for the quick-switch list. */
+export type ProjectInfo = { name: string; path: string };
 
 export const loadProject = (path: string) => invoke<Project>("load_project", { path });
 
 export const saveProject = (path: string, project: Project) =>
   invoke<void>("save_project", { path, project });
+
+/** Create a managed project under ~/.writedown/projects/ (location is managed — no dialog). */
+export const newProject = (name: string, folders: string[]) =>
+  invoke<string>("new_project", { name, folders });
+
+/** All managed projects under ~/.writedown/projects/, name-sorted. */
+export const listProjects = () => invoke<ProjectInfo[]>("list_projects");
 
 export const recentProjects = () => invoke<string[]>("recent_projects");
 

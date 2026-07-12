@@ -147,17 +147,30 @@ export function appCommands(): Command[] {
       title: "Project: Add Folder to Project…",
       run: () => void s().addFolderToProject(),
     },
+    { id: "proj-new", title: "Project: New Project…", run: () => s().newProject() },
     { id: "proj-save-as", title: "Project: Save Project As…", run: () => void s().saveProjectAs() },
     { id: "proj-open", title: "Project: Open Project…", run: () => void s().openProject() },
     { id: "proj-close", title: "Project: Close Project", run: () => s().closeProject() },
-    // Quick switch: one entry per recent project (MRU order).
-    ...s().recentProjects.map((p, i) => {
-      const name = p.replace(/\\/g, "/").split("/").pop()!.replace(/\.wdproj$/i, "");
-      return {
-        id: `proj-switch-${i}`,
-        title: `Project: Switch to “${name}”`,
-        run: () => void s().openProject(p),
-      };
-    }),
+    // Quick switch: every managed project (~/.writedown/projects/, name-sorted), plus any
+    // recent project stored elsewhere that isn't already in the managed set.
+    ...projectSwitches(),
   ];
+}
+
+/** Switch entries: all managed projects, then legacy recents saved outside the managed dir. */
+function projectSwitches(): Command[] {
+  const s = useStore.getState();
+  const norm = (p: string) => p.replace(/\\/g, "/").toLowerCase();
+  const managedPaths = new Set(s.projects.map((p) => norm(p.path)));
+  const recents = s.recentProjects
+    .filter((p) => !managedPaths.has(norm(p)))
+    .map((p) => ({
+      name: p.replace(/\\/g, "/").split("/").pop()!.replace(/\.wdproj$/i, ""),
+      path: p,
+    }));
+  return [...s.projects, ...recents].map((proj, i) => ({
+    id: `proj-switch-${i}`,
+    title: `Project: Switch to “${proj.name}”`,
+    run: () => void useStore.getState().openProject(proj.path),
+  }));
 }

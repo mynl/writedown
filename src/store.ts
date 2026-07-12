@@ -8,12 +8,14 @@ import {
   createFile,
   deletePath,
   listDirectory,
+  listProjects,
   loadBibliography,
   loadEditorSettings,
   loadLastWorkspace,
   loadProject,
   loadSession,
   loadSublimeTheme,
+  newProject as newProjectApi,
   pickFolder,
   pickProjectOpenPath,
   pickProjectSavePath,
@@ -29,6 +31,7 @@ import {
   writeFile,
   type EditorSettings,
   type Entry,
+  type ProjectInfo,
   type Session,
   type SublimeTheme,
 } from "./api";
@@ -108,6 +111,8 @@ type AppState = {
   projectFile: string | null;
   projectName: string;
   recentProjects: string[];
+  /** All managed projects under ~/.writedown/projects/ (for the palette quick-switch). */
+  projects: ProjectInfo[];
   panelTab: "folder" | "project";
 
   tabs: Doc[];
@@ -236,6 +241,11 @@ type AppState = {
   setPanelTab: (tab: "folder" | "project") => void;
   addFolderToProject: () => Promise<void>;
   saveProjectAs: () => Promise<void>;
+  /** Create a managed project (name prompt only) under ~/.writedown/projects/, seeding its
+   *  folders from whatever is currently open. Keeps the current tabs. */
+  newProject: () => void;
+  /** Refresh the managed-projects list from disk. */
+  loadProjects: () => Promise<void>;
   openProject: (path?: string) => Promise<void>;
   closeProject: () => void;
   removeProjectFolder: (path: string) => void;
@@ -258,6 +268,7 @@ export const useStore = create<AppState>((set, get) => ({
   projectFile: null,
   projectName: "",
   recentProjects: [],
+  projects: [],
   panelTab: "folder",
   tabs: [],
   activePath: null,
@@ -296,6 +307,7 @@ export const useStore = create<AppState>((set, get) => ({
   // folders/files are skipped silently — a stale session must never block launch.
   hydrate: async () => {
     void get().loadRecentProjects();
+    void get().loadProjects();
     let ws: string | null = null;
     try {
       ws = await loadLastWorkspace();
@@ -976,11 +988,41 @@ export const useStore = create<AppState>((set, get) => ({
     setTitle(name);
   },
 
+  newProject: () => {
+    get().openPrompt("New project name", "My Project", async (name) => {
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      // Seed from whatever is open: the current project's folders, else the Folder-tab root,
+      // else the operational root. An empty seed makes an empty project (add folders after).
+      const { projFolders, folderRoot, root } = get();
+      const seed =
+        projFolders.length > 0 ? projFolders : folderRoot ? [folderRoot] : root ? [root] : [];
+      const path = await newProjectApi(trimmed, seed);
+      // Like "Save Project As", this names the current workspace — keep the open tabs.
+      set({ projFolders: seed, projectFile: path, projectName: trimmed, panelTab: "project" });
+      if (seed.length > 0) {
+        if (!get().root) await get().setRoot(seed[0]);
+        void watchWorkspace(seed).catch(() => {});
+      }
+      void addRecentProject(path).then(() => get().loadRecentProjects());
+      void saveLastWorkspace(path);
+      setTitle(trimmed);
+      void get().loadProjects();
+    });
+  },
+
+  loadProjects: async () => {
+    try {
+      set({ projects: await listProjects() });
+    } catch {
+      /* fine — none yet */
+    }
+  },
+
   openProject: async (path?: string) => {
     const file = path ?? (await pickProjectOpenPath());
     if (!file) return;
     const proj = await loadProject(file);
-    if (proj.folders.length === 0) throw new Error(`project has no folders: ${file}`);
     set({
       projFolders: proj.folders,
       projectFile: file,
@@ -990,8 +1032,11 @@ export const useStore = create<AppState>((set, get) => ({
       activePath: null,
       closedStack: [],
     });
-    await get().setRoot(proj.folders[0]);
-    void watchWorkspace(proj.folders).catch(() => {});
+    // An empty managed project is valid (folders added later) — guard the folder-only steps.
+    if (proj.folders.length > 0) {
+      await get().setRoot(proj.folders[0]);
+      void watchWorkspace(proj.folders).catch(() => {});
+    }
     void addRecentProject(file).then(() => get().loadRecentProjects());
     void saveLastWorkspace(file);
     setTitle(proj.name);
