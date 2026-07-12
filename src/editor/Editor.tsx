@@ -16,6 +16,7 @@ import { citationExtensions } from "./citations";
 import { documentLint } from "./lint";
 import { spellingExtensions } from "./spelling";
 import { setActiveView } from "./editorView";
+import { wrapCompartment, wrapExtension } from "./wrap";
 import { cssFontWeight } from "../fontWeight";
 import { logError } from "../api";
 
@@ -52,7 +53,10 @@ export function Editor({ path, content }: { path: string; content: string }) {
     const ext = [
       cmExceptionLogger,
       ...(lang ? [lang] : []),
-      EditorView.lineWrapping,
+      // Word wrap in a Compartment so the palette/footer toggle reconfigures it live (no
+      // rebuild). Non-reactive read: a wrap toggle dispatches to the view and must not
+      // re-run this useMemo; unrelated rebuilds re-read the current value and stay in sync.
+      wrapCompartment.of(wrapExtension(useStore.getState().wordWrap)),
       search({ top: true }),
       ...sublimeEditing,
       built ? built.highlight : syntaxHighlighting(editorHighlight),

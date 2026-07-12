@@ -148,6 +148,9 @@ type AppState = {
   cursorCol: number;
   sublimeTheme: SublimeTheme | null;
   editorSettings: EditorSettings | null;
+  /** Session word-wrap state. [editor] word_wrap sets the launch default; toggled live via a
+   *  CodeMirror Compartment (editor/wrap.ts), so it never rebuilds the editor. */
+  wordWrap: boolean;
   configFile: string | null;
   /** Non-null when config.toml failed to parse — surfaced in the UI (fonts + bibliography
    *  silently fall back to defaults otherwise). Cleared on a successful load. */
@@ -260,6 +263,7 @@ export const useStore = create<AppState>((set, get) => ({
   cursorCol: 1,
   sublimeTheme: null,
   editorSettings: null,
+  wordWrap: true,
   configFile: null,
   configError: null,
   editorZoom: (() => {
@@ -653,8 +657,12 @@ export const useStore = create<AppState>((set, get) => ({
       /* no Sublime install / unreadable — the built-in theme stays */
     }
     try {
+      // Seed word wrap from config only on the FIRST load, so a later config save doesn't
+      // clobber a session toggle (session-only semantics; config just sets the default).
+      const firstLoad = get().editorSettings === null;
       const es = await loadEditorSettings();
       set({ editorSettings: es, configError: null });
+      if (firstLoad) set({ wordWrap: es.word_wrap ?? true });
       const root = document.documentElement.style;
       if (es.outline_font_family) root.setProperty("--outline-font", es.outline_font_family);
       if (es.outline_font_size != null) {

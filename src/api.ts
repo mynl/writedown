@@ -173,6 +173,7 @@ export type EditorSettings = {
   font_size: number | null;
   font_family: string | null;
   font_weight: string | null;
+  word_wrap: boolean | null;
   outline_font_family: string | null;
   outline_font_size: number | null;
   outline_font_weight: string | null;

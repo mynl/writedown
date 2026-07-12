@@ -168,7 +168,7 @@ body {
 .status-right {
   flex: 0 0 auto;
   display: flex;
-  gap: 12px;
+  gap: 8px;
   align-items: center;
 }
 .status-pos {
@@ -176,6 +176,24 @@ body {
 }
 .status-ver {
   opacity: 0.7;
+}
+/* Clickable session-state indicators (Wrap / Spell), labeled with current state. */
+.status-item {
+  background: none;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  opacity: 0.7;
+  cursor: pointer;
+}
+.status-item:hover {
+  opacity: 1;
+}
+.status-sep {
+  opacity: 0.35;
+  user-select: none;
 }
 
 /* Draggable pane divider */

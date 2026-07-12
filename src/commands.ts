@@ -9,6 +9,7 @@ import { getActiveView } from "./editor/editorView";
 import { isMarkdownDoc } from "./editor/languages";
 import { renumberOrderedList } from "./editor/lists";
 import { reformatTables } from "./editor/tables";
+import { toggleWordWrap } from "./editor/wrap";
 
 export type Command = { id: string; title: string; run: () => void };
 
@@ -83,6 +84,7 @@ export function appCommands(): Command[] {
       },
     },
     { id: "refresh-tree", title: "Refresh File Tree", run: () => void s().refreshTree() },
+    { id: "toggle-word-wrap", title: "Toggle Word Wrap", run: () => toggleWordWrap() },
     { id: "toggle-preview", title: "Toggle Preview (editor / split / preview)", run: () => s().cycleView() },
     { id: "render-doc", title: "Render Document (run code cells)", run: () => void s().renderActive() },
     {

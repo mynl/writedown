@@ -153,6 +153,8 @@ pub struct EditorSettings {
     font_size: Option<u32>,
     font_family: Option<String>,
     font_weight: Option<String>,
+    /// Editor word wrap default ([editor] word_wrap). Runtime toggle is session-only.
+    word_wrap: Option<bool>,
     outline_font_family: Option<String>,
     outline_font_size: Option<f64>,
     outline_font_weight: Option<String>,
@@ -194,6 +196,7 @@ pub fn load_editor_settings(app: tauri::AppHandle) -> Result<EditorSettings, Str
             .map(|i| i as u32),
         font_family: ed.and_then(|e| e.get("font_family")).and_then(string),
         font_weight: ed.and_then(|e| e.get("font_weight")).and_then(weight),
+        word_wrap: ed.and_then(|e| e.get("word_wrap")).and_then(|v| v.as_bool()),
         outline_font_family: ol.and_then(|o| o.get("font_family")).and_then(string),
         outline_font_size: ol.and_then(|o| o.get("font_size")).and_then(num),
         outline_font_weight: ol.and_then(|o| o.get("font_weight")).and_then(weight),

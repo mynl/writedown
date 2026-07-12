@@ -5,6 +5,22 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.43.0] - 2026-07-12
+
+### Added
+
+- **Word wrap can be toggled on/off.** New command-palette entry **"Toggle Word Wrap"** and a
+  clickable **`Wrap: On/Off`** indicator in the footer status bar (bottom-right). The toggle is
+  session-only; the launch default comes from the `[editor] word_wrap` config key — which was
+  present in the default config but previously ignored, and is now actually honored. Wrapping is
+  reconfigured live through a CodeMirror **Compartment** (the app's first), so toggling never
+  rebuilds the editor — selection, undo history, and scroll position are all preserved.
+
+### Changed
+
+- Footer status items on the right are now `·`-separated, and the wrap indicator is the first of
+  a small family of clickable session-state toggles.
+
 ## [1.42.2] - 2026-07-12
 
 ### Fixed
