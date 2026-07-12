@@ -5,6 +5,18 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.42.2] - 2026-07-12
+
+### Fixed
+
+- **The `Ctrl+Alt+Shift+T` shortcut for "Reformat Markdown Table(s)" now fires.** The command
+  always worked from the palette but its keybinding silently did nothing: on Windows, WebView2
+  treats `Ctrl+Alt` as `AltGr`, which prevents CodeMirror's editor keymap from matching
+  `Ctrl+Alt+Shift+<letter>` chords. Added an app-level fallback that catches the combo by
+  physical key code (immune to AltGr character remapping) and runs the reformatter against the
+  active Markdown view. The palette entry is unchanged, and there's no double-format (the
+  editor keymap still marks the event handled when it does fire).
+
 ## [1.42.1] - 2026-07-12
 
 ### Fixed
