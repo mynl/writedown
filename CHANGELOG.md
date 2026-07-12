@@ -5,6 +5,26 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.45.0] - 2026-07-12
+
+### Added
+
+- **Spell check can be toggled without editing config.** New palette entry **"Toggle Spell
+  Check"** and a clickable **`Spell: On/Off`** footer indicator (next to Wrap). The launch
+  default still comes from `[spelling] enabled`, but the runtime toggle needs no config section —
+  so configs predating the spellchecker (which have no `[spelling]` block to flip) can now turn
+  it on/off, which is why toggling previously appeared to do nothing.
+- **"Ignore Word (this session)"** — a new palette command and lint-tooltip action that
+  suppresses a word's squiggle for the current session only, distinct from the permanent
+  **"Add to Dictionary"**.
+
+### Fixed
+
+- **Spell-check failures are no longer swallowed silently.** "Add to Dictionary" and the
+  dictionary lookup previously caught and discarded all errors, so a failed personal-dictionary
+  write looked like a no-op. Failures are now logged and surfaced in the UI, making the reported
+  "add word doesn't work" observable and diagnosable.
+
 ## [1.44.0] - 2026-07-12
 
 ### Added

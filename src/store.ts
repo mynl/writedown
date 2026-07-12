@@ -151,6 +151,12 @@ type AppState = {
   /** Session word-wrap state. [editor] word_wrap sets the launch default; toggled live via a
    *  CodeMirror Compartment (editor/wrap.ts), so it never rebuilds the editor. */
   wordWrap: boolean;
+  /** Session spellcheck on/off. [spelling] enabled sets the launch default; the runtime toggle
+   *  needs no config edit (old configs missing the [spelling] section still toggle). */
+  spellOn: boolean;
+  /** Words to ignore for this session only (lowercased). Distinct from "Add to Dictionary",
+   *  which is permanent (a Rust-side personal dictionary file). */
+  spellIgnore: Set<string>;
   configFile: string | null;
   /** Non-null when config.toml failed to parse — surfaced in the UI (fonts + bibliography
    *  silently fall back to defaults otherwise). Cleared on a successful load. */
@@ -172,6 +178,10 @@ type AppState = {
   setPathExpanded: (path: string, on: boolean) => void;
   /** Record the tree-body scroll offset for restore across a remount. */
   setTreeScrollTop: (top: number) => void;
+  /** Toggle prose spellcheck for the session (no config edit needed). */
+  toggleSpell: () => void;
+  /** Ignore a word for this session only (lowercased) — distinct from Add to Dictionary. */
+  ignoreWord: (word: string) => void;
   openFile: (path: string, preview?: boolean) => Promise<void>;
   reloadDoc: (path: string) => Promise<void>;
   onFsChange: (paths: string[]) => void;
@@ -264,6 +274,8 @@ export const useStore = create<AppState>((set, get) => ({
   sublimeTheme: null,
   editorSettings: null,
   wordWrap: true,
+  spellOn: true,
+  spellIgnore: new Set(),
   configFile: null,
   configError: null,
   editorZoom: (() => {
@@ -386,6 +398,15 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   setTreeScrollTop: (top) => set({ treeScrollTop: top }),
+
+  toggleSpell: () => set((s) => ({ spellOn: !s.spellOn })),
+
+  ignoreWord: (word) =>
+    set((s) => {
+      const next = new Set(s.spellIgnore);
+      next.add(word.toLowerCase());
+      return { spellIgnore: next };
+    }),
 
   openFile: async (path: string, preview = false) => {
     const existing = get().tabs.find((t) => t.path === path);
@@ -662,7 +683,7 @@ export const useStore = create<AppState>((set, get) => ({
       const firstLoad = get().editorSettings === null;
       const es = await loadEditorSettings();
       set({ editorSettings: es, configError: null });
-      if (firstLoad) set({ wordWrap: es.word_wrap ?? true });
+      if (firstLoad) set({ wordWrap: es.word_wrap ?? true, spellOn: es.spelling_enabled ?? true });
       const root = document.documentElement.style;
       if (es.outline_font_family) root.setProperty("--outline-font", es.outline_font_family);
       if (es.outline_font_size != null) {

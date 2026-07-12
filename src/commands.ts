@@ -3,7 +3,7 @@
 import { type StateCommand } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { forceLinting } from "@codemirror/lint";
-import { addToDictionary, configPath, restartKernel } from "./api";
+import { addToDictionary, configPath, logError, restartKernel } from "./api";
 import { useStore } from "./store";
 import { getActiveView } from "./editor/editorView";
 import { isMarkdownDoc } from "./editor/languages";
@@ -75,6 +75,7 @@ export function appCommands(): Command[] {
     { id: "reformat-tables", title: "Reformat Markdown Table(s)", run: onMarkdownView(reformatTables) },
     { id: "format-bold", title: "Bold (surround with **…**)", run: onMarkdownView(toggleBold) },
     { id: "format-italic", title: "Italic (surround with *…*)", run: onMarkdownView(toggleItalic) },
+    { id: "spell-toggle", title: "Toggle Spell Check", run: () => s().toggleSpell() },
     {
       id: "spell-add-word",
       title: "Add Word to Dictionary",
@@ -83,7 +84,28 @@ export function appCommands(): Command[] {
         const view = getActiveView();
         if (!view || !activePath || !isMarkdownDoc(activePath)) return;
         const word = wordAtCursor(view);
-        if (word) void addToDictionary(word).then(() => forceLinting(view)).catch(() => {});
+        if (word)
+          void addToDictionary(word)
+            .then(() => forceLinting(view))
+            .catch((e) => {
+              // Surface it — swallowing this is why "add word" appeared not to work.
+              void logError("add to dictionary failed: " + String(e));
+              useStore.setState({ configError: String(e) });
+            });
+      },
+    },
+    {
+      id: "spell-ignore-word",
+      title: "Ignore Word (this session)",
+      run: () => {
+        const { activePath } = s();
+        const view = getActiveView();
+        if (!view || !activePath || !isMarkdownDoc(activePath)) return;
+        const word = wordAtCursor(view);
+        if (word) {
+          s().ignoreWord(word);
+          forceLinting(view);
+        }
       },
     },
     { id: "refresh-tree", title: "Refresh File Tree", run: () => void s().refreshTree() },

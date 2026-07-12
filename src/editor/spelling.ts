@@ -1,23 +1,28 @@
 // Prose spellcheck as a CodeMirror lint source. Reuses the existing @codemirror/lint pipeline
 // (same gutter/overlay/½s-idle debounce as the python + citation checks). Only prose is checked
-// (see prose.ts); misspellings get a low-key dotted underline with one-click suggestion fixes
-// and an "Add to dictionary" action. Fully offline — the dictionary lives in Rust.
+// (see prose.ts); misspellings get a low-key dotted underline with one-click suggestion fixes,
+// an "Add to dictionary" action (permanent), and "Ignore this session". Fully offline — the
+// dictionary lives in Rust.
 import { EditorView } from "@codemirror/view";
 import { linter, forceLinting, type Diagnostic } from "@codemirror/lint";
-import { spellCheck, addToDictionary } from "../api";
+import { spellCheck, addToDictionary, logError } from "../api";
 import { spellTokens } from "./prose";
+import { useStore } from "../store";
 
 const spellLint = linter(
   async (view): Promise<Diagnostic[]> => {
-    const spans = spellTokens(view.state);
+    // Session ignore list wins before we even ask Rust (cheaper, and re-checked each lint run).
+    const ignore = useStore.getState().spellIgnore;
+    const spans = spellTokens(view.state).filter((s) => !ignore.has(s.word.toLowerCase()));
     if (spans.length === 0) return [];
     const unique = [...new Set(spans.map((s) => s.word))];
 
     let results;
     try {
       results = await spellCheck(unique);
-    } catch {
-      return []; // dictionary unavailable — never block editing
+    } catch (e) {
+      void logError("spell check failed: " + String(e)); // dictionary unavailable — never block editing
+      return [];
     }
     if (results.length === 0) return [];
 
@@ -43,7 +48,18 @@ const spellLint = linter(
             apply: (v: EditorView) => {
               void addToDictionary(s.word)
                 .then(() => forceLinting(v))
-                .catch(() => {});
+                .catch((e) => {
+                  // Surface it — a silent failure is exactly why "add word" looked broken.
+                  void logError("add to dictionary failed: " + String(e));
+                  useStore.setState({ configError: String(e) });
+                });
+            },
+          },
+          {
+            name: "Ignore this session",
+            apply: (v: EditorView) => {
+              useStore.getState().ignoreWord(s.word);
+              forceLinting(v);
             },
           },
         ],

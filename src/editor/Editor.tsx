@@ -39,7 +39,7 @@ export function Editor({ path, content }: { path: string; content: string }) {
     settings?.font_size != null || zoom !== 0 ? (settings?.font_size ?? 14) + zoom : undefined;
   const fontFamily = settings?.font_family ?? undefined;
   const fontWeight = cssFontWeight(settings?.font_weight);
-  const spellEnabled = settings?.spelling_enabled ?? true; // default on
+  const spellEnabled = useStore((s) => s.spellOn); // session toggle; default from config
 
 
 
