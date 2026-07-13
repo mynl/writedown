@@ -6,6 +6,7 @@ import { crosshairCursor, keymap, rectangularSelection, type Command } from "@co
 import { Compartment, Prec } from "@codemirror/state";
 import { COMMAND_REGISTRY } from "./commandRegistry";
 import { toCmKey } from "./keyFormat";
+import { CATEGORY_ORDER } from "../shortcuts";
 
 /** Column selection (Alt+drag) + crosshair — always on, not part of the configurable keymap. */
 export const editingExtras = [rectangularSelection(), crosshairCursor()];
@@ -120,4 +121,30 @@ export function editorShortcutRows(userKeys?: Record<string, string> | null): {
     rows.push({ keys: key, description: entry.label, action, category: entry.category });
   }
   return rows;
+}
+
+/** Serialize the effective keymap (defaults + current overrides) as a config.toml [keys] block —
+ *  every shortcut, grouped by category, ready for the user to edit in place. */
+export function keymapConfigBlock(userKeys?: Record<string, string> | null): string {
+  const rows = editorShortcutRows(userKeys);
+  const byCat = new Map<string, typeof rows>();
+  for (const r of rows) {
+    const list = byCat.get(r.category) ?? [];
+    list.push(r);
+    byCat.set(r.category, list);
+  }
+  const cats = [
+    ...CATEGORY_ORDER.filter((c) => byCat.has(c)),
+    ...[...byCat.keys()].filter((c) => !CATEGORY_ORDER.includes(c)),
+  ];
+  const lines = [
+    "[keys]",
+    '# Every editor shortcut. Edit any line; "" unbinds; a space makes a chord ("Ctrl+K Ctrl+U").',
+    "# Delete a line to fall back to the built-in default. Press F1 for the full action-name list.",
+  ];
+  for (const cat of cats) {
+    lines.push(`# ${cat}`);
+    for (const r of byCat.get(cat)!) lines.push(`"${r.keys}" = "${r.action}"`);
+  }
+  return lines.join("\n");
 }

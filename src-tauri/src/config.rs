@@ -93,7 +93,9 @@ language = "en_US"
 # ── Custom keybindings ───────────────────────────────────────────────────────────────────────
 # Remap or add EDITOR keys without a rebuild — edit here, save, and they apply live. Format:
 #   "Friendly+Key" = "actionName"
-# Press F1 in the app to see every action name and its current key. Notes:
+# Press F1 in the app to see every action name and its current key, or run the palette command
+# "Keybindings: Write All Shortcuts to Config" to fill a [keys] block below with EVERY current
+# binding, ready to edit. Notes:
 #   • Set a key to "" to unbind a default:      "Ctrl+D" = ""
 #   • Chords use a space:                       "Ctrl+K Ctrl+U" = "upperCase"
 #   • Ctrl+Alt+<letter> combos can be flaky on Windows (WebView2 treats Ctrl+Alt as AltGr).

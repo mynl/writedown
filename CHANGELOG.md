@@ -5,6 +5,18 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.54.0] - 2026-07-13
+
+### Added
+
+- **"Keybindings: Write All Shortcuts to Config"** (command palette) — dumps the complete current
+  keymap into `config.toml`'s `[keys]` block and opens it, so every shortcut is listed in one file
+  you can edit in place (grouped by category, each line `"Ctrl+…" = "actionName"`). Previously
+  `[keys]` only held the bindings you overrode; the defaults lived in code and were visible only via
+  F1. Edit any line and save to apply live; delete a line to fall back to the built-in default. The
+  write is surgical (replaces just the `[keys]` table, preserving the rest of the config, atomic +
+  auto-backed-up) and idempotent — re-running rewrites the table in place rather than duplicating it.
+
 ## [1.53.0] - 2026-07-13
 
 ### Added

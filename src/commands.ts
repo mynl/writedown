@@ -11,6 +11,7 @@ import { renumberOrderedList } from "./editor/lists";
 import { reformatTables } from "./editor/tables";
 import { toggleBold, toggleItalic } from "./editor/markdownFormat";
 import { toggleWordWrap } from "./editor/wrap";
+import { keymapConfigBlock } from "./editor/keymap";
 
 export type Command = { id: string; title: string; run: () => void };
 
@@ -129,6 +130,12 @@ export function appCommands(): Command[] {
             /* ignore */
           }
         })(),
+    },
+    {
+      id: "keys-write-config",
+      title: "Keybindings: Write All Shortcuts to Config",
+      run: () =>
+        void s().writeKeymapToConfig(keymapConfigBlock(useStore.getState().editorSettings?.keys)),
     },
     {
       id: "close-tab",
