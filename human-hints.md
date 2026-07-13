@@ -3,6 +3,35 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-13 — 1.48.0–1.49.0 user-configurable keybindings (config-driven keymap)
+
+Steve asked (a) is jupyterlab_sublime useful, (b) can ST bindings be added without a rebuild / w/o
+asking me. Answers: (a) **no reusable code** — it just toggles CM's built-in sublime keymap, JLab-
+coupled; the useful artifact is CM5's `keymap/sublime.js` (canonical ~60-binding list) as a
+checklist. (b) **yes → config-driven keymap**, built this. `tsc` + `cargo check` clean; **not yet
+verified live** (needs Steve's dev-server pass).
+
+- **1.48.0 — config-driven editor keymap.** New `[keys]` table in config.toml (friendly format
+  `"Ctrl+Shift+K" = "actionName"`, `""` unbinds, space = chord), read at runtime, applied **live on
+  config-save** via a `keymapCompartment` (reconfigured from an Editor `useEffect` on
+  `settings?.keys` identity change — reused the wrap.ts Compartment pattern; NO store change, avoids
+  a store→keymap cycle). New pieces: `commandRegistry.ts` (first action-name→command map, incl.
+  wrappers for store-action closures via `act()` and `addCursorVertically` MOVED here from keymap.ts
+  to keep the import one-way), `keyFormat.ts` (friendly→CM translator; consume leading modifier
+  tokens, last token = key, alias Up→ArrowUp etc.), `textOps.ts` (upperCase/lowerCase/sortLines/
+  insertLineAfter/Before). keymap.ts is now DATA: `DEFAULT_KEYS` (26 originals + deleteLine, subword
+  L/R, fold/unfold) + `buildEditingKeymap`/`keymapWarnings`/`editorShortcutRows`. Rust: `keys:
+  Option<HashMap<String,String>>` parsed via `val.get("keys").as_table()`; api.ts `keys` field;
+  commented `[keys]` block in DEFAULT_CONFIG. Warnings (bad action/key) surfaced via configError from
+  the Editor effect (NOT during render). **App-level keys (App.tsx) deliberately NOT configurable**
+  (Steve's choice); 6 keys are duplicated there for out-of-editor focus — a remap won't cover those.
+  **No Ctrl+K chords by default** (would collide with plain Ctrl+K kill-line); mechanism supports
+  chords so Steve can opt in.
+- **1.49.0 — F1 help generated from the keymap.** `editorShortcutRows(userKeys)` drives the editor
+  section (always reflects config); `shortcuts.ts` shrank to `APP_SHORTCUTS` (Save/close/refresh/F1)
+  + `CATEGORY_ORDER`. Row tooltip shows the action name; a "More actions (unbound)" group lists
+  bindable-but-unbound commands for discovery. Kills the old hand-maintained drift.
+
 ## 2026-07-12 — 1.42.1→1.47.0 punch-up batch (tree/wrap/keys/spell/help/projects)
 
 Seven-item punch list. Planned via 3 Explore agents + a Plan agent; Steve's answers narrowed
