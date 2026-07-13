@@ -35,6 +35,7 @@ sync_scroll = true
 
 [outline]
 enabled = true
+# Outline pane side: "left" (between the tree and editor) or "right" (far right, past the preview).
 position = "right"
 font_family = "Arial Narrow"
 font_size = 10
@@ -172,6 +173,9 @@ pub struct EditorSettings {
     outline_font_family: Option<String>,
     outline_font_size: Option<f64>,
     outline_font_weight: Option<String>,
+    /// Outline pane side ([outline] position): "left" or "right" (default). "left" places it
+    /// between the tree and editor; "right" is the far-right column.
+    outline_position: Option<String>,
     tree_font_family: Option<String>,
     tree_font_size: Option<f64>,
     tree_font_weight: Option<String>,
@@ -216,6 +220,7 @@ pub fn load_editor_settings(app: tauri::AppHandle) -> Result<EditorSettings, Str
         outline_font_family: ol.and_then(|o| o.get("font_family")).and_then(string),
         outline_font_size: ol.and_then(|o| o.get("font_size")).and_then(num),
         outline_font_weight: ol.and_then(|o| o.get("font_weight")).and_then(weight),
+        outline_position: ol.and_then(|o| o.get("position")).and_then(string),
         tree_font_family: tr.and_then(|t| t.get("font_family")).and_then(string),
         tree_font_size: tr.and_then(|t| t.get("font_size")).and_then(num),
         tree_font_weight: tr.and_then(|t| t.get("font_weight")).and_then(weight),

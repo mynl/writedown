@@ -5,6 +5,15 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.53.0] - 2026-07-13
+
+### Added
+
+- **The outline pane's side is configurable** via `[outline] position` — `"left"` puts it between
+  the file tree and the editor (hugging the text), `"right"` keeps the far-right column past the
+  preview (the default). Applies live on config-save; its resizer drags correctly from either side.
+  (The config key existed but was previously ignored.)
+
 ## [1.52.0] - 2026-07-13
 
 ### Added

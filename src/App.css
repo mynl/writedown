@@ -87,6 +87,11 @@ body {
   flex: 0 0 220px;
   border-left: 1px solid var(--border);
 }
+/* Left-placed outline ([outline] position = "left"): border on its right, toward the editor. */
+.pane-outline-left {
+  border-left: none;
+  border-right: 1px solid var(--border);
+}
 
 .pane-header {
   flex: 0 0 auto;

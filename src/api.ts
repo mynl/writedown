@@ -186,6 +186,7 @@ export type EditorSettings = {
   outline_font_family: string | null;
   outline_font_size: number | null;
   outline_font_weight: string | null;
+  outline_position: string | null;
   tree_font_family: string | null;
   tree_font_size: number | null;
   tree_font_weight: string | null;
