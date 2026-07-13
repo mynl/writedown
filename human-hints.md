@@ -3,6 +3,23 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-13 — 1.54.0 "Write all shortcuts to config" command
+
+Steve expected all shortcuts listed in an editable file; 1.48.0 only wrote OVERRIDES to `[keys]`
+(defaults live in code / F1). Added palette **"Keybindings: Write All Shortcuts to Config"**: dumps
+the full effective keymap into config.toml `[keys]`, grouped by category, then opens+reloads it.
+- **Import-cycle gotcha (important):** store.ts must NOT import keymap.ts — `store → keymap →
+  commandRegistry → store`, and commandRegistry runs `const s = useStore.getState` at module init →
+  startup crash. So the block is built in **commands.ts** (`keymapConfigBlock(userKeys)` from
+  keymap.ts) and passed to the store action `writeKeymapToConfig(block)`.
+- `keymapConfigBlock` (keymap.ts) reuses `editorShortcutRows` + `CATEGORY_ORDER`. Write reuses the
+  `setSizeAsDefault` precedent (loadConfig → surgical text edit → writeFile atomic+backup →
+  loadTheme). `replaceKeysTable(text, block)` (store.ts): replaces an ACTIVE `[keys]` body (regex
+  `/^[ \t]*\[keys\]$/` — a commented `# [keys]` doesn't match) up to the next active section header,
+  else appends at EOF; idempotent. After write: openFile + reloadDoc(config) so a stale open buffer
+  refreshes. Trade-off noted in the block comment: dumping pins bindings; delete a line to fall back.
+- Steve builds the exe himself: `npm run tauri build` (output → V: target; no install/junction step).
+
 ## 2026-07-13 — 1.50.0–1.53.0 Ctrl+K chords · quieter spell · project fixes · movable outline
 
 Four follow-ups. Planned via 3 Explore agents (spelling, projects, layout); Steve picked hollow-grey
