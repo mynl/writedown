@@ -4,7 +4,7 @@ import { type StateCommand } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { forceLinting } from "@codemirror/lint";
 import { addToDictionary, configPath, logError, restartKernel } from "./api";
-import { useStore } from "./store";
+import { mergedProjects, useStore } from "./store";
 import { getActiveView } from "./editor/editorView";
 import { isMarkdownDoc } from "./editor/languages";
 import { renumberOrderedList } from "./editor/lists";
@@ -148,6 +148,7 @@ export function appCommands(): Command[] {
       run: () => void s().addFolderToProject(),
     },
     { id: "proj-new", title: "Project: New Project…", run: () => s().newProject() },
+    { id: "proj-quick-switch", title: "Project: Quick Switch… (Ctrl+Alt+P)", run: () => s().openPalette("projects") },
     { id: "proj-save-as", title: "Project: Save Project As…", run: () => void s().saveProjectAs() },
     { id: "proj-open", title: "Project: Open Project…", run: () => void s().openProject() },
     { id: "proj-close", title: "Project: Close Project", run: () => s().closeProject() },
@@ -157,18 +158,9 @@ export function appCommands(): Command[] {
   ];
 }
 
-/** Switch entries: all managed projects, then legacy recents saved outside the managed dir. */
+/** Switch entries: the deduped, name-disambiguated managed+recent list (see mergedProjects). */
 function projectSwitches(): Command[] {
-  const s = useStore.getState();
-  const norm = (p: string) => p.replace(/\\/g, "/").toLowerCase();
-  const managedPaths = new Set(s.projects.map((p) => norm(p.path)));
-  const recents = s.recentProjects
-    .filter((p) => !managedPaths.has(norm(p)))
-    .map((p) => ({
-      name: p.replace(/\\/g, "/").split("/").pop()!.replace(/\.wdproj$/i, ""),
-      path: p,
-    }));
-  return [...s.projects, ...recents].map((proj, i) => ({
+  return mergedProjects(useStore.getState()).map((proj, i) => ({
     id: `proj-switch-${i}`,
     title: `Project: Switch to “${proj.name}”`,
     run: () => void useStore.getState().openProject(proj.path),

@@ -5,6 +5,23 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.52.0] - 2026-07-13
+
+### Added
+
+- **`Ctrl+Alt+P` project quick-switcher** — a dedicated palette (like Ctrl+P for files) that lists
+  your projects and opens the one you pick on Enter. Also reachable via the command palette
+  ("Project: Quick Switch…").
+
+### Fixed
+
+- **The project switch list no longer shows duplicates**, and two projects that share a name are now
+  distinguished by their folder (e.g. `AI — projects` vs `AI — AI`). The list is deduped by path and
+  disambiguated by name, shared by both the command palette and the new quick-switcher. (Projects
+  are saved as `.wdproj` files; "New Project" puts them in the managed `~/.writedown/projects/`,
+  while "Save Project As" can put them anywhere — the switch list merges the managed scan with the
+  recent-projects list.)
+
 ## [1.51.0] - 2026-07-13
 
 ### Changed

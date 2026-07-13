@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { listAllFiles, type FileItem } from "./api";
 import { appCommands, type Command } from "./commands";
 import { fuzzyRank, type Ranked } from "./fuzzy";
-import { useStore } from "./store";
+import { mergedProjects, useStore } from "./store";
+
+type ProjItem = { name: string; path: string };
 
 function Highlight({ text, positions }: { text: string; positions: number[] }) {
   const hit = new Set(positions);
@@ -25,6 +27,8 @@ export function Palette() {
   const mode = useStore((s) => s.palette);
   const root = useStore((s) => s.root);
   const projFolders = useStore((s) => s.projFolders);
+  const projects = useStore((s) => s.projects);
+  const recents = useStore((s) => s.recentProjects);
   const closePalette = useStore((s) => s.closePalette);
   const openFile = useStore((s) => s.openFile);
 
@@ -56,15 +60,25 @@ export function Palette() {
         ),
       ).then((all) => setFiles(all.flat()));
     }
+    // Refresh the project lists so a just-created/renamed project shows immediately.
+    if (mode === "projects") {
+      void useStore.getState().loadProjects();
+      void useStore.getState().loadRecentProjects();
+    }
   }, [mode, root, projFolders]);
 
   const commands = useMemo(() => (mode === "commands" ? appCommands() : []), [mode]);
+  const projectItems = useMemo<ProjItem[]>(
+    () => (mode === "projects" ? mergedProjects(useStore.getState()) : []),
+    [mode, projects, recents],
+  );
 
-  const results = useMemo<Ranked<FileItem | Command>[]>(() => {
+  const results = useMemo<Ranked<FileItem | Command | ProjItem>[]>(() => {
     if (mode === "files") return fuzzyRank(query, files, (f) => f.rel);
     if (mode === "commands") return fuzzyRank(query, commands, (c) => c.title);
+    if (mode === "projects") return fuzzyRank(query, projectItems, (p) => p.name);
     return [];
-  }, [mode, query, files, commands]);
+  }, [mode, query, files, commands, projectItems]);
 
   useEffect(() => setSel(0), [query]);
   useEffect(() => {
@@ -77,6 +91,7 @@ export function Palette() {
     const r = results[i];
     if (r) {
       if (mode === "files") void openFile((r.item as FileItem).path, false);
+      else if (mode === "projects") void useStore.getState().openProject((r.item as ProjItem).path);
       else (r.item as Command).run();
     }
     closePalette();
@@ -104,7 +119,13 @@ export function Palette() {
         <input
           ref={inputRef}
           className="palette-input"
-          placeholder={mode === "files" ? "Go to file…" : "Run a command…"}
+          placeholder={
+            mode === "files"
+              ? "Go to file…"
+              : mode === "projects"
+                ? "Switch project…"
+                : "Run a command…"
+          }
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={onKeyDown}
@@ -112,8 +133,17 @@ export function Palette() {
         <div className="palette-list" ref={listRef}>
           {results.map((r, i) => {
             const label =
-              mode === "files" ? (r.item as FileItem).rel : (r.item as Command).title;
-            const id = mode === "files" ? (r.item as FileItem).path : (r.item as Command).id;
+              mode === "files"
+                ? (r.item as FileItem).rel
+                : mode === "projects"
+                  ? (r.item as ProjItem).name
+                  : (r.item as Command).title;
+            const id =
+              mode === "files"
+                ? (r.item as FileItem).path
+                : mode === "projects"
+                  ? (r.item as ProjItem).path
+                  : (r.item as Command).id;
             return (
               <div
                 key={id}

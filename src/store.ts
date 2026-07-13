@@ -132,7 +132,7 @@ type AppState = {
   expandedPaths: Set<string>;
   /** Last tree-body scroll offset, restored across a remount so New File/Delete don't jump. */
   treeScrollTop: number;
-  palette: "files" | "commands" | null;
+  palette: "files" | "commands" | "projects" | null;
   /** Keyboard-shortcuts help overlay open (F1 / palette). */
   helpOpen: boolean;
   /** Path whose Previous Versions picker is open (null = closed). */
@@ -211,7 +211,7 @@ type AppState = {
   saveDoc: (path: string) => Promise<void>;
   saveActive: () => Promise<void>;
   saveAll: () => Promise<void>;
-  openPalette: (mode: "files" | "commands") => void;
+  openPalette: (mode: "files" | "commands" | "projects") => void;
   closePalette: () => void;
   /** Toggle the keyboard-shortcuts help overlay (F1). */
   toggleHelp: () => void;
@@ -1068,6 +1068,34 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 }));
+
+/** Managed + recent projects as a deduped (by path), name-disambiguated list for the switch UI.
+ *  Managed projects (the ~/.writedown/projects scan) come first, then recents from elsewhere;
+ *  a display name shared by more than one entry gets its parent folder appended so both are
+ *  distinguishable (e.g. "AI — projects" vs "AI — AI"). */
+export function mergedProjects(s: AppState): { name: string; path: string }[] {
+  const norm = (p: string) => p.replace(/\\/g, "/").toLowerCase();
+  const base = (p: string) => p.replace(/\\/g, "/").split("/").pop()!.replace(/\.wdproj$/i, "");
+  const parent = (p: string) => {
+    const parts = p.replace(/\\/g, "/").replace(/\/+$/, "").split("/");
+    return parts[parts.length - 2] ?? "";
+  };
+  const seen = new Set<string>();
+  const out: { name: string; path: string }[] = [];
+  const add = (name: string, path: string) => {
+    const k = norm(path);
+    if (seen.has(k)) return;
+    seen.add(k);
+    out.push({ name, path });
+  };
+  for (const p of s.projects) add(p.name, p.path);
+  for (const p of s.recentProjects) add(base(p), p);
+  const counts = new Map<string, number>();
+  for (const o of out) counts.set(o.name.toLowerCase(), (counts.get(o.name.toLowerCase()) ?? 0) + 1);
+  return out.map((o) =>
+    (counts.get(o.name.toLowerCase()) ?? 0) > 1 ? { ...o, name: `${o.name} — ${parent(o.path)}` } : o,
+  );
+}
 
 /** The key a session is stored under: the project file when one is open, else the root. */
 export const sessionKey = (s: AppState): string | null =>
