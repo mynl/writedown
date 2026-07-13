@@ -5,6 +5,25 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.48.0] - 2026-07-13
+
+### Added
+
+- **Editor keybindings are now user-configurable — no rebuild required.** A new `[keys]` table in
+  `config.toml` remaps or adds editor bindings; edit it, save, and they apply **live** (the keymap
+  lives in a CodeMirror Compartment reconfigured on config-save — selection/undo/scroll preserved).
+  Format is `"Ctrl+Shift+K" = "actionName"`, matching how the F1 help displays keys; `""` unbinds a
+  default; chords use a space (`"Ctrl+K Ctrl+U" = "upperCase"`). A commented example block ships in
+  the default config. Internally this introduces the app's first action-name→command **registry**
+  (`commandRegistry.ts`), a friendly-key→CodeMirror translator (`keyFormat.ts`), and a data-driven
+  default keymap (`DEFAULT_KEYS`). Unknown actions / bad keys are skipped and surfaced (the rest of
+  the keymap still loads). App-level shortcuts (Save, Ctrl+W, palette, F5) remain fixed.
+- **Broader Sublime coverage** out of the box: `Ctrl+Shift+K` delete line, `Alt+Left`/`Alt+Right`
+  subword motion, `Ctrl+Shift+[` / `Ctrl+Shift+]` fold/unfold. Several more commands ship *bindable*
+  (uppercase, lowercase, sort lines, insert-line above/below, fold/unfold all, renumber list) — set
+  a key for them in `[keys]`. Chords are supported (Sublime's `Ctrl+K …` prefix would collide with
+  the existing plain `Ctrl+K` kill-line, so it's left for you to opt into).
+
 ## [1.47.0] - 2026-07-12
 
 ### Added

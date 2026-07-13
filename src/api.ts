@@ -195,6 +195,8 @@ export type EditorSettings = {
   tab_width: number | null;
   spelling_enabled: boolean | null;
   spelling_language: string | null;
+  /** User keybinding overrides: friendly-key ("Ctrl+Shift+K") → action name. */
+  keys: Record<string, string> | null;
 };
 
 export const loadEditorSettings = () => invoke<EditorSettings>("load_editor_settings");

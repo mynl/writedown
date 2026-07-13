@@ -2,6 +2,7 @@
 //! state only — never user documents.
 
 use serde::Serialize;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use tauri::Manager;
 
@@ -87,6 +88,19 @@ language = "en_US"
 # %APPDATA%\com.mynl.writedown\personal-dictionary.txt. Point it at a synced folder to
 # carry your added words across machines.
 # personal_dictionary = "C:/Users/steve/Documents/CloudStation/writedown-personal.dic"
+
+# ── Custom keybindings ───────────────────────────────────────────────────────────────────────
+# Remap or add EDITOR keys without a rebuild — edit here, save, and they apply live. Format:
+#   "Friendly+Key" = "actionName"
+# Press F1 in the app to see every action name and its current key. Notes:
+#   • Set a key to "" to unbind a default:      "Ctrl+D" = ""
+#   • Chords use a space:                       "Ctrl+K Ctrl+U" = "upperCase"
+#   • Ctrl+Alt+<letter> combos can be flaky on Windows (WebView2 treats Ctrl+Alt as AltGr).
+#   • App-level keys (Save, Ctrl+W, palette, F5) are NOT remappable here.
+# [keys]
+# "Ctrl+Shift+K" = "deleteLine"
+# "F9" = "sortLines"
+# "Ctrl+Enter" = "insertLineAfter"
 "#;
 
 /// `~/.writedown/`.
@@ -171,6 +185,8 @@ pub struct EditorSettings {
     /// read entirely in Rust (spelling.rs) — the frontend only needs the on/off gate.
     spelling_enabled: Option<bool>,
     spelling_language: Option<String>,
+    /// User keybinding overrides from `[keys]`: friendly-key string → action name.
+    keys: Option<HashMap<String, String>>,
 }
 
 /// Parse `[editor]`/`[outline]`/`[tree]` font settings from `config.toml` (spec §5).
@@ -209,5 +225,10 @@ pub fn load_editor_settings(app: tauri::AppHandle) -> Result<EditorSettings, Str
         tab_width: tb.and_then(|t| t.get("width")).and_then(num),
         spelling_enabled: sp.and_then(|s| s.get("enabled")).and_then(|v| v.as_bool()),
         spelling_language: sp.and_then(|s| s.get("language")).and_then(string),
+        keys: val.get("keys").and_then(|v| v.as_table()).map(|t| {
+            t.iter()
+                .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
+                .collect()
+        }),
     })
 }

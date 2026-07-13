@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { syntaxHighlighting } from "@codemirror/language";
 import { EditorView } from "@codemirror/view";
@@ -11,11 +11,16 @@ import { csvRainbow } from "./csvRainbow";
 import { mathHighlight } from "./math";
 import { frontmatterBlock } from "./frontmatter";
 import { isCsv, isMarkdownDoc, languageForPath } from "./languages";
-import { sublimeEditing } from "./keymap";
+import {
+  buildEditingKeymap,
+  editingExtras,
+  keymapCompartment,
+  keymapWarnings,
+} from "./keymap";
 import { citationExtensions } from "./citations";
 import { documentLint } from "./lint";
 import { spellingExtensions } from "./spelling";
-import { setActiveView } from "./editorView";
+import { getActiveView, setActiveView } from "./editorView";
 import { wrapCompartment, wrapExtension } from "./wrap";
 import { cssFontWeight } from "../fontWeight";
 import { logError } from "../api";
@@ -58,7 +63,10 @@ export function Editor({ path, content }: { path: string; content: string }) {
       // re-run this useMemo; unrelated rebuilds re-read the current value and stay in sync.
       wrapCompartment.of(wrapExtension(useStore.getState().wordWrap)),
       search({ top: true }),
-      ...sublimeEditing,
+      ...editingExtras,
+      // Editing keymap in a Compartment so config [keys] changes reconfigure it live (see the
+      // effect below). Non-reactive read, like word wrap, so a reconfigure never rebuilds here.
+      keymapCompartment.of(buildEditingKeymap(useStore.getState().editorSettings?.keys)),
       built ? built.highlight : syntaxHighlighting(editorHighlight),
     ];
     // Prec.highest so math colouring wins over list/other syntax marks (e.g. in bullets).
@@ -80,6 +88,21 @@ export function Editor({ path, content }: { path: string; content: string }) {
     }
     return ext;
   }, [path, built, fontSize, fontWeight, spellEnabled]);
+
+  // Live-apply keybinding changes when config.toml is saved (loadTheme replaces editorSettings,
+  // so `userKeys` gets a new identity). Reconfigure the Compartment in place — no rebuild — and
+  // surface any bad-action/bad-key warnings here (an effect, so state isn't set during render).
+  const userKeys = settings?.keys;
+  useEffect(() => {
+    getActiveView()?.dispatch({
+      effects: keymapCompartment.reconfigure(buildEditingKeymap(userKeys)),
+    });
+    const w = keymapWarnings(userKeys);
+    if (w.length) {
+      void logError("keybindings: " + w.join("; "));
+      useStore.setState({ configError: "keybindings — " + w.join("; ") });
+    }
+  }, [userKeys]);
 
   return (
     <CodeMirror
