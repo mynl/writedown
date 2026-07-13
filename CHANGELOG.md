@@ -5,6 +5,17 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.50.0] - 2026-07-13
+
+### Changed
+
+- **Kill-to-end-of-line moved from `Ctrl+K` to `Ctrl+K Ctrl+K`** (Sublime's actual binding), which
+  frees the `Ctrl+K` prefix for a chord family. Added defaults: `Ctrl+K Ctrl+Backspace`
+  delete-to-line-start, `Ctrl+K Ctrl+U` / `Ctrl+K Ctrl+L` uppercase / lowercase selection,
+  `Ctrl+K Ctrl+W` toggle word wrap, `Ctrl+K Ctrl+0` / `Ctrl+K Ctrl+1` unfold-all / fold-all. All are
+  remappable (and unbindable) via config `[keys]`, and appear in the F1 help. Plain `Ctrl+K` on its
+  own now waits for the second stroke.
+
 ## [1.49.0] - 2026-07-13
 
 ### Changed
