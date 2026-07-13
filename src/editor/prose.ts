@@ -103,6 +103,14 @@ export function spellTokens(state: EditorState): SpellToken[] {
     const to = from + word.length;
     if (word.length < 2) continue;
     if (skipWord(word)) continue;
+    // Skip dotted-identifier segments — "csv" in abc.csv, "foo" in foo.csv, interior a.b.c — by
+    // checking for a "." glued to the word with an alphanumeric on the far side (so a normal word
+    // after a sentence period + space isn't caught).
+    if (
+      (text[from - 1] === "." && /[\p{L}\p{N}]/u.test(text[from - 2] ?? "")) ||
+      (text[to] === "." && /[\p{L}\p{N}]/u.test(text[to + 1] ?? ""))
+    )
+      continue;
     if (inSkip(from, to)) continue;
     if (!isProsePos(state, from)) continue;
     out.push({ word, from, to });

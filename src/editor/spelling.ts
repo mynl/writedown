@@ -34,7 +34,10 @@ const spellLint = linter(
       .map((s): Diagnostic => ({
         from: s.from,
         to: s.to,
-        severity: "warning",
+        // "info" (lowest severity) → a quiet hollow-grey-ring gutter marker, not a loud triangle.
+        // Nothing else in the app uses "info", so the marker restyle is spelling-only.
+        severity: "info",
+        source: "spell",
         markClass: "wd-spell-error",
         message: `“${s.word}” may be misspelled`,
         actions: [

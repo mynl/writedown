@@ -891,12 +891,19 @@ body {
 .wd-math-brace { color: var(--wd-math-brace, #8a9a95) !important; } /* { } ( ) [ ] */
 
 /* Spellcheck: a quiet dotted underline, deliberately less shouty than the red wavy line the
-   citation "error" check uses. Overrides the lint default so it reads as a hint, not an error. */
-.cm-lintRange.cm-lintRange-warning.wd-spell-error {
+   citation "error" check uses. Overrides the lint default so it reads as a hint, not an error.
+   (Spelling is severity "info" — see spelling.ts.) */
+.cm-lintRange.cm-lintRange-info.wd-spell-error {
   background: none;
   text-decoration: underline dotted var(--wd-spell, #c9a227);
   text-decoration-thickness: 1px;
   text-underline-offset: 2px;
+}
+/* Spellcheck gutter marker: a small hollow grey ring, replacing the library's loud shape. Only
+   spelling uses "info", so this is spelling-exclusive. Two classes beat the lib's single-class
+   base rule. */
+.cm-lint-marker.cm-lint-marker-info {
+  content: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><circle cx="20" cy="20" r="11" fill="none" stroke="%23888" stroke-width="5"/></svg>');
 }
 
 /* YAML front-matter (coloured from the imported scheme: orange keys, green values). */

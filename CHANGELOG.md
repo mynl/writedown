@@ -5,6 +5,18 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.51.0] - 2026-07-13
+
+### Changed
+
+- **Spellcheck no longer flags file-extension / dotted-identifier fragments** like `csv` in
+  `abc.csv` (or `foo` in `foo.csv`, or interior segments of `a.b.c`). A word glued to a `.` with an
+  alphanumeric on the far side is skipped, while a normal word after a sentence period is not.
+- **The spellcheck gutter marker is now a small hollow grey ring instead of a loud orange warning
+  triangle.** Misspellings are downgraded to the lowest lint severity (which nothing else uses), so
+  the quiet ring is spelling-exclusive and never masks a real error/warning on the same line. The
+  dotted underline and the suggestion / "add to dictionary" / "ignore" tooltip are unchanged.
+
 ## [1.50.0] - 2026-07-13
 
 ### Changed
