@@ -3,6 +3,38 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-13 — 1.50.0–1.53.0 Ctrl+K chords · quieter spell · project fixes · movable outline
+
+Four follow-ups. Planned via 3 Explore agents (spelling, projects, layout); Steve picked hollow-grey
+-ring gutter + config outline position. `tsc`+`cargo check` clean; **not yet verified live**.
+
+- **1.50.0 — Ctrl+K chord family.** Kill-line moved plain `Ctrl+K` → `Ctrl+K Ctrl+K` (can't have
+  both — a plain key blocks the chord prefix). Added `Ctrl+K Ctrl+U/L` case, `Ctrl+K Ctrl+W` wrap,
+  `Ctrl+K Ctrl+Backspace` kill-to-start, `Ctrl+K Ctrl+0/1` unfold/fold-all. Just `DEFAULT_KEYS` edits
+  + one registry entry (`killToLineStart`→`deleteToLineStart`); the data-driven keymap already does
+  chords.
+- **1.51.0 — spellcheck.** (i) Skip dotted-identifier segments (`csv` in `abc.csv`): in
+  `prose.ts` spellTokens loop, skip when `text[from-1]==='.'`/`text[to]==='.'` with an alnum on the
+  far side (guards against sentence-period+space). (ii) Gutter: severity `warning`→**`info`**
+  (nothing else uses info) + `source:"spell"`; App.css restyles `.cm-lint-marker.cm-lint-marker-info`
+  with a `content: url(<svg hollow grey ring>)` (the lib draws markers via CSS `content`, confirmed
+  in @codemirror/lint index.js). Underline selector moved `-warning`→`-info`. Real errors still win
+  the line (info = lowest weight).
+- **1.52.0 — projects.** Dup root cause: `~/.writedown/projects/` is EMPTY; both "AI" entries are
+  recents (repo `projects\AI.wdproj` + loose `…\AI\AI.wdproj`) — same name, different paths, so
+  path-dedup didn't collapse them. Added `mergedProjects(s)` in store.ts (dedup by path,
+  **disambiguate same-name by parent folder** → "AI — projects" / "AI — AI"); `projectSwitches()`
+  reuses it. New **`Ctrl+Alt+P`** projects palette mode: widened `palette` union to `"projects"`;
+  Palette.tsx branches (results/choose/label/placeholder) + refresh on open; App.tsx keydown branch
+  uses `e.code==="KeyP"` (AltGr-safe) and the plain Ctrl+P branch got `!e.altKey`. Palette cmd
+  "Project: Quick Switch…".
+- **1.53.0 — outline side.** Config `[outline] position` = "left"|"right" (template already had
+  `position="right"` but it was unparsed — wired it; **default "right"**, Steve sets "left" to move
+  it). App.tsx: `outlineAside`/`outlineResizer` JSX vars placed before `<main>` (left) or after
+  (right); position-aware resizer uses the outline pane's own `getBoundingClientRect()`
+  (replaced the old `innerWidth - x`). `.pane-outline-left` flips the border side. Reactive on
+  `editorSettings.outline_position` so it reflows on config-save.
+
 ## 2026-07-13 — 1.48.0–1.49.0 user-configurable keybindings (config-driven keymap)
 
 Steve asked (a) is jupyterlab_sublime useful, (b) can ST bindings be added without a rebuild / w/o
