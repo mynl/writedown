@@ -1050,6 +1050,15 @@ body {
 .help-close:hover {
   color: var(--fg);
 }
+.help-note {
+  padding: 8px 14px 0;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.help-note code {
+  font-family: var(--mono);
+  opacity: 0.9;
+}
 .help-body {
   overflow-y: auto;
   padding: 10px 14px 14px;

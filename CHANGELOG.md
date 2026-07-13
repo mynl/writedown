@@ -5,6 +5,17 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.49.0] - 2026-07-13
+
+### Changed
+
+- **The F1 keyboard-shortcuts help is now generated from the live keymap**, so it always reflects
+  your actual bindings — including anything you remap or add in config `[keys]` — instead of a
+  hand-maintained list that could drift. Each row's tooltip shows the **action name** to type in
+  `[keys]`, and a new "More actions (unbound)" section lists every bindable command that has no key
+  yet (uppercase, sort lines, fold all, …), so they're discoverable. App-level keys (Save, close
+  tab, refresh, F1) remain listed statically since they aren't part of the editor keymap.
+
 ## [1.48.0] - 2026-07-13
 
 ### Added
