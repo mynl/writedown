@@ -10,6 +10,7 @@ import { isMarkdownDoc } from "./editor/languages";
 import { renumberOrderedList } from "./editor/lists";
 import { reformatTables } from "./editor/tables";
 import { toggleBold, toggleItalic } from "./editor/markdownFormat";
+import { insertDateTime } from "./editor/textOps";
 import { toggleWordWrap } from "./editor/wrap";
 import { keymapConfigBlock } from "./editor/keymap";
 
@@ -76,6 +77,15 @@ export function appCommands(): Command[] {
     { id: "reformat-tables", title: "Reformat Markdown Table(s)", run: onMarkdownView(reformatTables) },
     { id: "format-bold", title: "Bold (surround with **…**)", run: onMarkdownView(toggleBold) },
     { id: "format-italic", title: "Italic (surround with *…*)", run: onMarkdownView(toggleItalic) },
+    {
+      // Any editor, not just markdown — timestamps are useful in every file type.
+      id: "insert-datetime",
+      title: "Insert Date-Time (YYYY-MM-DD HH:MM:SS)",
+      run: () => {
+        const view = getActiveView();
+        if (view) insertDateTime({ state: view.state, dispatch: (tr) => view.dispatch(tr) });
+      },
+    },
     { id: "spell-toggle", title: "Toggle Spell Check", run: () => s().toggleSpell() },
     {
       id: "spell-add-word",

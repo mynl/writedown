@@ -48,6 +48,18 @@ export const insertLineAfter: StateCommand = ({ state, dispatch }) => {
   return true;
 };
 
+// Insert the local date-time as `YYYY-MM-DD HH:MM:SS` at every cursor (replacing any
+// selection) — note/journal timestamps.
+export const insertDateTime: StateCommand = ({ state, dispatch }) => {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  const stamp = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(
+    d.getHours(),
+  )}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  dispatch(state.update(state.replaceSelection(stamp), { scrollIntoView: true, userEvent: "input" }));
+  return true;
+};
+
 export const insertLineBefore: StateCommand = ({ state, dispatch }) => {
   const tr = state.changeByRange((range) => {
     const line = state.doc.lineAt(range.head);

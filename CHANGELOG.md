@@ -5,6 +5,15 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.57.0] - 2026-07-14
+
+### Added
+
+- **Insert Date-Time** (command palette) — inserts the local timestamp as
+  `YYYY-MM-DD HH:MM:SS` at every cursor (multicursor-aware, replaces a selection). Works
+  in any file type, not just markdown. Registered as editor action `insertDateTime`, so a
+  key can be bound to it via config `[keys]` (none by default).
+
 ## [1.56.0] - 2026-07-14
 
 ### Changed

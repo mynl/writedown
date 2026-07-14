@@ -20,7 +20,14 @@ import { foldAll, foldCode, unfoldAll, unfoldCode } from "@codemirror/language";
 import { joinLines, renumberOrderedList } from "./lists";
 import { reformatTables } from "./tables";
 import { toggleBold, toggleItalic } from "./markdownFormat";
-import { insertLineAfter, insertLineBefore, lowerCase, sortLines, upperCase } from "./textOps";
+import {
+  insertDateTime,
+  insertLineAfter,
+  insertLineBefore,
+  lowerCase,
+  sortLines,
+  upperCase,
+} from "./textOps";
 import { toggleWordWrap } from "./wrap";
 import { useStore } from "../store";
 
@@ -83,6 +90,7 @@ export const COMMAND_REGISTRY: Record<string, RegistryEntry> = {
   sortLines: { run: sortLines, label: "Sort lines", category: "Editing" },
   insertLineAfter: { run: insertLineAfter, label: "Insert line below", category: "Editing" },
   insertLineBefore: { run: insertLineBefore, label: "Insert line above", category: "Editing" },
+  insertDateTime: { run: insertDateTime, label: "Insert date-time (YYYY-MM-DD HH:MM:SS)", category: "Editing" },
 
   // Markdown
   bold: { run: toggleBold, label: "Bold (**…**)", category: "Markdown" },
