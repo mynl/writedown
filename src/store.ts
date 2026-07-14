@@ -192,6 +192,9 @@ type AppState = {
   /** Ignore a word for this session only (lowercased) — distinct from Add to Dictionary. */
   ignoreWord: (word: string) => void;
   openFile: (path: string, preview?: boolean) => Promise<void>;
+  /** Open the configured `[files] quick_file` (Ctrl+Shift+Q). Missing config or file
+   *  surfaces in the footer rather than failing silently. */
+  openQuickFile: () => Promise<void>;
   reloadDoc: (path: string) => Promise<void>;
   onFsChange: (paths: string[]) => void;
   setActive: (path: string) => void;
@@ -363,6 +366,19 @@ export const useStore = create<AppState>((set, get) => ({
     }
     if (s.active_tab && get().tabs.some((t) => t.path === s.active_tab)) {
       set({ activePath: s.active_tab });
+    }
+  },
+
+  openQuickFile: async () => {
+    const qf = get().editorSettings?.quick_file;
+    if (!qf) {
+      set({ configError: "quick file — set quick_file under [files] in config.toml" });
+      return;
+    }
+    try {
+      await get().openFile(qf, false);
+    } catch (e) {
+      set({ configError: `quick file ${qf} — ${String(e)}` });
     }
   },
 

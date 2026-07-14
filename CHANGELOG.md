@@ -5,6 +5,17 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.58.0] - 2026-07-14
+
+### Added
+
+- **Ctrl+Shift+Q opens your quick file** — the one always-at-hand notes/issues file.
+  Configure it as `quick_file = 'C:\path\to\notes.md'` under `[files]` in config.toml
+  (single quotes keep backslashes literal); also on the palette as "Open Quick File" and
+  listed in F1 help. Unset, or a bad path, surfaces a footer message pointing at the
+  config key — never a silent no-op. (The author's config now points at his
+  `writedown-issues.md` bug reporter.)
+
 ## [1.57.0] - 2026-07-14
 
 ### Added

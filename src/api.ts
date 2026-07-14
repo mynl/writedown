@@ -193,6 +193,8 @@ export type EditorSettings = {
   tab_width: number | null;
   spelling_enabled: boolean | null;
   spelling_language: string | null;
+  /** `[files] quick_file`: file opened by Ctrl+Shift+Q / "Open Quick File". */
+  quick_file: string | null;
   /** User keybinding overrides: friendly-key ("Ctrl+Shift+K") → action name. */
   keys: Record<string, string> | null;
 };

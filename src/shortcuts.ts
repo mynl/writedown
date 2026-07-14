@@ -12,6 +12,7 @@ export const APP_SHORTCUTS: ShortcutGroup[] = [
       { keys: "Ctrl+S", description: "Save" },
       { keys: "Ctrl+W", description: "Save and close tab" },
       { keys: "Ctrl+Shift+T", description: "Reopen closed tab" },
+      { keys: "Ctrl+Shift+Q", description: "Open quick file ([files] quick_file)" },
       { keys: "F5  ·  Ctrl+Shift+R", description: "Refresh file tree" },
       { keys: "F1", description: "Keyboard shortcuts (this list)" },
     ],

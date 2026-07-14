@@ -81,6 +81,9 @@ extensions = ["md", "qmd", "markdown"]
 # Show dot files/dirs (.writedown, .github, …) in the tree and quick-open. The tree still
 # lists only file types Writedown can open.
 show_hidden = true
+# quick_file: opened by Ctrl+Shift+Q / palette "Open Quick File" — a running notes or
+# issues file you jump to constantly. Absolute path; single quotes keep backslashes literal.
+# quick_file = 'C:\path\to\notes.md'
 
 [spelling]
 # Prose spellchecker (English US). Only prose is checked — code, math, citation keys, and
@@ -193,6 +196,8 @@ pub struct EditorSettings {
     /// read entirely in Rust (spelling.rs) — the frontend only needs the on/off gate.
     spelling_enabled: Option<bool>,
     spelling_language: Option<String>,
+    /// `[files] quick_file`: file opened by Ctrl+Shift+Q / "Open Quick File".
+    quick_file: Option<String>,
     /// User keybinding overrides from `[keys]`: friendly-key string → action name.
     keys: Option<HashMap<String, String>>,
 }
@@ -234,6 +239,10 @@ pub fn load_editor_settings(app: tauri::AppHandle) -> Result<EditorSettings, Str
         tab_width: tb.and_then(|t| t.get("width")).and_then(num),
         spelling_enabled: sp.and_then(|s| s.get("enabled")).and_then(|v| v.as_bool()),
         spelling_language: sp.and_then(|s| s.get("language")).and_then(string),
+        quick_file: val
+            .get("files")
+            .and_then(|f| f.get("quick_file"))
+            .and_then(string),
         keys: val.get("keys").and_then(|v| v.as_table()).map(|t| {
             t.iter()
                 .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))

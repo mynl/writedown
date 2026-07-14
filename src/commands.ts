@@ -65,6 +65,11 @@ export function appCommands(): Command[] {
         ),
     },
     { id: "new-scratch", title: "New Scratch File (unsaved)", run: () => s().newScratch() },
+    {
+      id: "open-quick-file",
+      title: "Open Quick File (Ctrl+Shift+Q)",
+      run: () => void s().openQuickFile(),
+    },
     { id: "save", title: "Save", run: () => void s().saveActive() },
     { id: "save-as", title: "Save As…", run: () => void s().saveAs() },
     {
