@@ -622,6 +622,20 @@ body {
   flex: 1 1 0;
   min-height: 0;
 }
+/* CSV preview: the CsvGrid host (the library adds .csvgrid to this same element) fills
+   the pane as a flex column — its own toolbar and status bar pin top/bottom, and the
+   grid's scroll wrapper takes the remaining height so the table scrolls between them. */
+.csv-preview {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.csv-preview .csvgrid-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+}
 .render-status {
   flex: 0 0 auto;
   display: flex;

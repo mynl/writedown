@@ -5,6 +5,27 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.60.0] - 2026-07-14
+
+### Added
+
+- **CSV/TSV preview via CsvGrid.** Opening a `.csv`/`.tsv` now fills the Preview pane with
+  the CsvGrid control (from the sibling csv-viewer repo, v3.9): fzf-style global search,
+  per-column filter row, sortable headers, Expand/Contract width buttons, Copy/Save export
+  split-buttons (current view or all rows, CSV or markdown, formatted or raw values), and
+  a rows×cols status bar. Type inference and number/date formatting follow the
+  greater_tables conventions; TSV/`;`/`|` delimiters and markdown pipe tables are
+  auto-detected. The pane shows a single "CSV" tab (no live/rendered split for data
+  files); split/preview modes, Ctrl+Shift+L, and the drag divider all work as for
+  markdown. Grid refreshes ~300 ms after you stop typing in the editor pane; a
+  ResizeObserver re-solves column widths on pane resizes. Dark mode follows the OS, like
+  the rest of the preview.
+- **Consumed as a build-level link, not a copy**: a Vite alias resolves `csv-grid` to
+  `../csv-viewer/dist/csv-grid.es.js` (committed in that repo, self-contained, zero
+  dependencies) — rebuilding csv-grid there flows into Writedown on the next reload, with
+  no vendored files and no npm coupling. The parse worker is disabled (`worker: false`;
+  it only engages at ≥1 MB anyway), so no worker asset needs hosting.
+
 ## [1.59.0] - 2026-07-14
 
 ### Added

@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { realpathSync } from "node:fs";
+import { resolve } from "node:path";
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
@@ -24,10 +25,22 @@ const realRoot = (() => {
   }
 })();
 
+// CsvGrid (the CSV preview control) is consumed straight from the SIBLING repo's committed
+// dist — a build-level link, never a copy: rebuilding csv-grid there flows into writedown on
+// the next reload. Both repos ride the same synced tree, so the relative path holds on every
+// machine. If the checkout is missing, the build fails loudly with this path.
+const csvGridDist = resolve(realRoot, "../csv-viewer/dist");
+
 // https://vite.dev/config/
 export default defineConfig(async ({ command }) => ({
   ...(command === "build" ? { root: realRoot } : {}),
   plugins: [react()],
+  resolve: {
+    alias: {
+      "csv-grid": resolve(csvGridDist, "csv-grid.es.js"),
+      "csv-grid.css": resolve(csvGridDist, "csv-grid.css"),
+    },
+  },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
@@ -48,6 +61,11 @@ export default defineConfig(async ({ command }) => ({
     watch: {
       // 3. tell Vite to ignore watching `src-tauri`
       ignored: ["**/src-tauri/**"],
+    },
+    // The dev server refuses files outside the project root by default; allow the
+    // sibling csv-grid dist (production build is unaffected — rollup just reads it).
+    fs: {
+      allow: [realRoot, csvGridDist],
     },
   },
 }));
