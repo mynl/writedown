@@ -62,10 +62,14 @@ export default defineConfig(async ({ command }) => ({
       // 3. tell Vite to ignore watching `src-tauri`
       ignored: ["**/src-tauri/**"],
     },
-    // The dev server refuses files outside the project root by default; allow the
-    // sibling csv-grid dist (production build is unaffected — rollup just reads it).
+    // The dev server refuses files outside the project root by default, and setting
+    // `allow` REPLACES the default list — so it must contain the project root in BOTH
+    // forms: the raw cwd (the C:\S junction path requests actually arrive under when dev
+    // is launched from there) and the junction-resolved real path, plus the sibling
+    // csv-grid dist (production build is unaffected — rollup just reads the file).
     fs: {
-      allow: [realRoot, csvGridDist],
+      // @ts-expect-error process is a nodejs global
+      allow: [process.cwd(), realRoot, csvGridDist],
     },
   },
 }));

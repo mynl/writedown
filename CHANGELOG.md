@@ -5,6 +5,17 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.60.1] - 2026-07-14
+
+### Fixed
+
+- **Dev server 403 "outside of Vite serving allow list" on startup** (1.60.0 regression).
+  Setting `server.fs.allow` for the sibling csv-grid dist *replaces* Vite's default allow
+  list, and only the junction-resolved project root had been listed — so when dev is
+  launched from the `C:\S` junction, the request for `index.html` arrives under the
+  junction path and was refused. The allow list now carries the project root in both
+  forms (raw cwd and resolved) plus the csv-grid dist.
+
 ## [1.60.0] - 2026-07-14
 
 ### Added
