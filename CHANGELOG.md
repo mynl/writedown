@@ -5,6 +5,21 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.59.0] - 2026-07-14
+
+### Added
+
+- **"Extract Citations to .bib (scratch)"** (command palette) — collects every `@key` the
+  active document cites (same detection as the missing-citation linter: prose only, Quarto
+  crossrefs like `@sec-…` skipped, deduped) and pulls those entries **verbatim** out of the
+  configured bibliography into a new `Untitled-N.bib` scratch buffer, byte-for-byte as they
+  sit in the source `.bib`, in file order. Keys not found in the bibliography appear as
+  `% NOT FOUND: <key>` comment lines at the top. The authoritative `.bib` is only read,
+  never touched. (The bib index stores parsed fields only, so this reads the file directly
+  with the same entry-boundary scan as the parser — covered by a new unit test.)
+  Supporting touches: scratch buffers can now be born with content and a chosen extension,
+  and Save As on a scratch suggests its actual name (so the `.bib` extension survives).
+
 ## [1.58.0] - 2026-07-14
 
 ### Added

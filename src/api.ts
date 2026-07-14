@@ -203,6 +203,11 @@ export const loadEditorSettings = () => invoke<EditorSettings>("load_editor_sett
 
 export const configPath = () => invoke<string>("config_path");
 
+/** Verbatim BibTeX blocks for `keys` from the configured .bib (read-only); missing keys
+ *  come back as `% NOT FOUND:` comment lines. */
+export const extractBibEntries = (keys: string[]) =>
+  invoke<string>("extract_bib_entries", { keys });
+
 /** Raw text of config.toml (verbatim — used for surgical, comment-preserving edits). */
 export const loadConfig = () => invoke<string>("load_config");
 

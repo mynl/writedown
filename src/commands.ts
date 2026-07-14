@@ -3,10 +3,12 @@
 import { type StateCommand } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { forceLinting } from "@codemirror/lint";
-import { addToDictionary, configPath, logError, restartKernel } from "./api";
+import { addToDictionary, configPath, extractBibEntries, logError, restartKernel } from "./api";
 import { mergedProjects, useStore } from "./store";
 import { getActiveView } from "./editor/editorView";
 import { isMarkdownDoc } from "./editor/languages";
+import { CITE_RE, CROSSREF_PREFIX } from "./editor/citations";
+import { isProsePos } from "./editor/prose";
 import { renumberOrderedList } from "./editor/lists";
 import { reformatTables } from "./editor/tables";
 import { toggleBold, toggleItalic } from "./editor/markdownFormat";
@@ -82,6 +84,34 @@ export function appCommands(): Command[] {
     { id: "reformat-tables", title: "Reformat Markdown Table(s)", run: onMarkdownView(reformatTables) },
     { id: "format-bold", title: "Bold (surround with **…**)", run: onMarkdownView(toggleBold) },
     { id: "format-italic", title: "Italic (surround with *…*)", run: onMarkdownView(toggleItalic) },
+    {
+      // Pull every cited @key's raw BibTeX out of the configured .bib into a .bib scratch
+      // buffer — same key detection as the linter (CITE_RE, prose-only, crossrefs skipped).
+      id: "extract-refs",
+      title: "Extract Citations to .bib (scratch)",
+      run: () => {
+        const { activePath } = useStore.getState();
+        const view = getActiveView();
+        if (!view || !activePath || !isMarkdownDoc(activePath)) return;
+        const text = view.state.doc.toString();
+        const keys: string[] = [];
+        const seen = new Set<string>();
+        for (const m of text.matchAll(new RegExp(CITE_RE.source, CITE_RE.flags))) {
+          const k = m[1];
+          if (m.index === undefined || CROSSREF_PREFIX.test(k) || seen.has(k)) continue;
+          if (!isProsePos(view.state, m.index + 1)) continue;
+          seen.add(k);
+          keys.push(k);
+        }
+        if (keys.length === 0) {
+          useStore.setState({ configError: "extract refs — no citation keys in document" });
+          return;
+        }
+        void extractBibEntries(keys)
+          .then((bib) => useStore.getState().newScratch({ content: bib, ext: "bib" }))
+          .catch((e) => useStore.setState({ configError: `extract refs — ${String(e)}` }));
+      },
+    },
     {
       // Any editor, not just markdown — timestamps are useful in every file type.
       id: "insert-datetime",

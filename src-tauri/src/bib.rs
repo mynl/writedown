@@ -554,9 +554,122 @@ pub fn check_citation_keys(keys: Vec<String>, state: tauri::State<BibState>) -> 
     keys.into_iter().filter(|k| !known.contains(k.as_str())).collect()
 }
 
+/// Extract the VERBATIM source blocks of `keys` from a `.bib` source string — byte-for-byte
+/// as they sit in the file, in file order, deduped. Boundary logic mirrors `parse_bib`
+/// (same `@type{…}` / `@type(…)` scan, same open-delimiter-only depth counting).
+pub fn extract_entries(src: &str, keys: &[String]) -> String {
+    let wanted: std::collections::HashSet<&str> = keys.iter().map(|k| k.as_str()).collect();
+    let b = src.as_bytes();
+    let mut i = 0;
+    let mut blocks: Vec<(String, String)> = Vec::new(); // (key, verbatim), file order
+    let mut emitted: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+    while i < b.len() {
+        while i < b.len() && b[i] != b'@' {
+            i += 1;
+        }
+        if i >= b.len() {
+            break;
+        }
+        let at = i;
+        i += 1;
+        let ts = i;
+        while i < b.len() && (b[i] as char).is_ascii_alphabetic() {
+            i += 1;
+        }
+        let etype = src[ts..i].to_lowercase();
+        while i < b.len() && b[i].is_ascii_whitespace() {
+            i += 1;
+        }
+        if i >= b.len() || (b[i] != b'{' && b[i] != b'(') {
+            continue;
+        }
+        let (open, close) = if b[i] == b'{' { (b'{', b'}') } else { (b'(', b')') };
+        i += 1;
+        let bs = i;
+        let mut depth = 1;
+        while i < b.len() && depth > 0 {
+            let c = b[i];
+            if c == open {
+                depth += 1;
+            } else if c == close {
+                depth -= 1;
+                if depth == 0 {
+                    break;
+                }
+            }
+            i += 1;
+        }
+        let body = &src[bs..i.min(src.len())];
+        let span_end = (i + 1).min(src.len()); // include the closing delimiter
+        i += 1;
+        if matches!(etype.as_str(), "comment" | "preamble" | "string") {
+            continue;
+        }
+        let key = match body.find(',') {
+            Some(c) => body[..c].trim(),
+            None => body.trim(),
+        };
+        if wanted.contains(key) && emitted.insert(key.to_string()) {
+            blocks.push((key.to_string(), src[at..span_end].to_string()));
+        }
+    }
+
+    let mut out = String::new();
+    let mut noted: std::collections::HashSet<&str> = std::collections::HashSet::new();
+    for k in keys {
+        if !emitted.contains(k.as_str()) && noted.insert(k.as_str()) {
+            out.push_str(&format!("% NOT FOUND: {k}\n"));
+        }
+    }
+    if !out.is_empty() && !blocks.is_empty() {
+        out.push('\n');
+    }
+    out.push_str(
+        &blocks.iter().map(|(_, s)| s.as_str()).collect::<Vec<_>>().join("\n\n"),
+    );
+    if !out.ends_with('\n') {
+        out.push('\n');
+    }
+    out
+}
+
+/// Extract the given citation keys from the configured `.bib` as verbatim BibTeX text
+/// (for "Extract Citations to .bib"). Read-only — the bibliography is never modified.
+/// Missing keys become `% NOT FOUND: <key>` comment lines at the top.
+#[tauri::command]
+pub fn extract_bib_entries(app: AppHandle, keys: Vec<String>) -> Result<String, String> {
+    let path = bib_path(&app)?;
+    if path.is_empty() {
+        return Err("no bibliography configured ([bibliography] default_file)".into());
+    }
+    let src = std::fs::read_to_string(&path).map_err(|e| format!("read bib {path}: {e}"))?;
+    Ok(extract_entries(&src, &keys))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn extract_entries_verbatim_and_missing() {
+        let src = "% header comment\n@string{aa = {Ann. Act.}}\n\n@article{Mildenhall2022a,\n  author = {Mildenhall, Stephen J.},\n  title  = {Similar {Risks} (part one)},\n  year   = {2022}\n}\n\n@book(Wang1996,\n  title = {Premium (calculation)},\n)\n\n@misc{Other2020, title={x}}\n";
+        let keys = vec![
+            "Wang1996".to_string(),
+            "Mildenhall2022a".to_string(),
+            "Nope1999".to_string(),
+        ];
+        let out = extract_entries(src, &keys);
+        // Missing key surfaces as a comment; found entries are byte-identical, file order.
+        assert!(out.starts_with("% NOT FOUND: Nope1999\n"));
+        assert!(out.contains("@article{Mildenhall2022a,\n  author = {Mildenhall, Stephen J.},\n  title  = {Similar {Risks} (part one)},\n  year   = {2022}\n}"));
+        assert!(out.contains("@book(Wang1996,\n  title = {Premium (calculation)},\n)"));
+        // File order: the article precedes the book regardless of requested order.
+        assert!(out.find("Mildenhall2022a").unwrap() < out.find("Wang1996").unwrap());
+        // Unrequested entries and @string blocks are not included.
+        assert!(!out.contains("Other2020"));
+        assert!(!out.contains("Ann. Act."));
+    }
 
     #[test]
     fn ignores_unbalanced_parens_in_values() {

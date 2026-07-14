@@ -242,8 +242,9 @@ type AppState = {
   renameEntry: (entry: Entry) => void;
   /** Confirm, then move a tree entry to the Recycle Bin (closes any open tab). */
   deleteEntry: (entry: Entry) => Promise<void>;
-  /** Open a new in-memory scratch buffer (untitled, unsaved). */
-  newScratch: () => void;
+  /** Open a new in-memory scratch buffer (untitled, unsaved). Optional pre-filled
+   *  content and filename extension (default "md") — e.g. extracted refs use "bib". */
+  newScratch: (opts?: { content?: string; ext?: string }) => void;
   /** Save the given tab (or the active one) to a new path chosen via a dialog. Promotes a
    *  scratch buffer to a real file. */
   saveAs: (path?: string) => Promise<void>;
@@ -871,11 +872,13 @@ export const useStore = create<AppState>((set, get) => ({
     focusEditorSoon(); // land the cursor in the editor, not the tree
   },
 
-  newScratch: () => {
+  newScratch: (opts) => {
     const n = get().scratchCounter + 1;
-    const path = `${SCRATCH_PREFIX}Untitled-${n}.md`;
+    const path = `${SCRATCH_PREFIX}Untitled-${n}.${opts?.ext ?? "md"}`;
+    // Pre-filled content (e.g. extracted .bib refs) starts against an empty savedContent,
+    // so the buffer is born dirty — the tab shows there's something unsaved in it.
     const doc: Doc = {
-      path, content: "", savedContent: "", eol: "\n", preview: false,
+      path, content: opts?.content ?? "", savedContent: "", eol: "\n", preview: false,
       saving: false, error: null, conflict: false,
     };
     set((s) => ({ tabs: [...s.tabs, doc], activePath: path, scratchCounter: n }));
@@ -888,7 +891,7 @@ export const useStore = create<AppState>((set, get) => ({
     if (!doc) return;
     const root = get().root;
     const suggested = isScratch(doc.path)
-      ? `Untitled.md`
+      ? doc.path.slice(SCRATCH_PREFIX.length) || "Untitled.md" // keeps a .bib scratch's ext
       : doc.path.split(/[\\/]/).pop() ?? "Untitled.md";
     const defaultPath = root ? `${root}\\${suggested}` : suggested;
     const picked = await pickSavePath(defaultPath);
