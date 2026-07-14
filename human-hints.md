@@ -3,6 +3,54 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-14 — 1.54.1–1.59.0 July-14 punch list: 4 fixes + 4 features (csv-grid deferred)
+
+Steve's issues-file batch: answered Qs (multi-instance, ST command universe, project file
+location, dev-vs-exe coexistence), then 8 one-commit items. Questions worth remembering:
+**no single-instance guard** — two exes share `~/.writedown` (doc saves atomic+safe; session/
+MRU writes last-writer-wins, avoid same workspace twice); running the old exe alongside
+`tauri dev` is fine with the same caveat. "Spell flags ALL-CAPS" was a misread (it was the
+bib not-found underline) — all-caps skipped since 1.39.0.
+
+- **1.54.1 — editor-blur save.** Root cause: "focus loss" was WINDOW blur only (App.tsx);
+  clicking tree/panel never fired it. Added `EditorView.domEventHandlers({blur})` →
+  `saveDoc(activePath)` (NOT saveActive — that routes scratch to a Save As dialog).
+- **1.54.2 — Open Folder ≠ close project.** openFolder wiped project state by design and
+  (via setRoot with nulled project) overwrote session.json's last workspace → project also
+  forgotten across restarts. Now: with a project open, Open Folder only drives the Folder
+  tab (skips setRoot entirely); no project → unchanged. Folder tab unwatched in project
+  mode (watcher follows project roots) — F5 refreshes.
+- **1.54.3 — cite hover vs trailing `.`/`:`.** Hover had its own greedy regex; now shares
+  linter's CITE_RE (key must end alphanumeric) + skips crossref prefixes.
+- **1.55.0 — dot files shown; `[files] show_hidden` wired (default TRUE).** The option
+  existed in the template since 1.3 but was never read. Rust-side read per listing (bib.rs
+  precedent), no frontend plumbing. **Steve's live config.toml had `show_hidden=false`
+  from the old template — flipped it to true in place** (else the fix would've been
+  invisible). Extension whitelist + quick-open SKIP_DIRS unchanged; `.git` now visible in
+  tree.
+- **1.56.0 — project Save/Rename, fully managed.** "Save Project As…" (location dialog)
+  → "Save / Rename Project…": name-only prompt (prefilled+selected — Prompt gained an
+  `initial` field; select via rAF, controlled input), always writes
+  `~/.writedown/projects/<name>.wdproj`. Rename deletes the old MANAGED file (Steve chose
+  true-rename); outside `.wdproj` adopted in, original untouched; name collision = inline
+  prompt error, never clobber. Also fixed: **Add/Remove Folder now persist the .wdproj
+  immediately** (`persistProject`) — edits were silently in-memory-only before.
+- **1.57.0 — Insert Date-Time** palette cmd (`YYYY-MM-DD HH:MM:SS`, multicursor via
+  `replaceSelection`), registry action `insertDateTime` so `[keys]`-bindable; any filetype.
+- **1.58.0 — Ctrl+Shift+Q quick file.** `[files] quick_file` (added to Steve's config →
+  his `writedown-issues.md` via the `C:\s` junction); app-level key + palette + F1 entry;
+  unset/bad path surfaces in footer.
+- **1.59.0 — Extract Citations → .bib scratch.** BibEntry keeps parsed fields only (raw
+  source dropped at parse), so new Rust `extract_entries` re-reads the .bib and slices
+  VERBATIM blocks with the same boundary scan as parse_bib (unit-tested; % NOT FOUND
+  comments for misses; file order; read-only). Frontend scan = CITE_RE + crossref skip +
+  isProsePos, same as linter. `newScratch` now takes `{content, ext}`; scratch Save As
+  suggests its real name so `.bib` survives.
+
+**Deferred:** csv-grid CSV preview (own round; needs a per-filetype preview seam —
+preview is markdown-hardwired in App.tsx/Preview.tsx). All items tsc+cargo clean, 34 tests
+pass; **not yet verified live** — Steve to restart `tauri dev` (Rust changed).
+
 ## 2026-07-13 — 1.54.0 "Write all shortcuts to config" command
 
 Steve expected all shortcuts listed in an editable file; 1.48.0 only wrote OVERRIDES to `[keys]`
