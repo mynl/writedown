@@ -5,6 +5,17 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.54.1] - 2026-07-14
+
+### Fixed
+
+- **Autosave now fires when the editor loses focus inside the window** — clicking into the
+  folder tree, project panel, outline, or preview saves the active document. Previously the
+  only "focus loss" trigger was the OS *window* blur (Alt-Tab, clicking another app), so
+  same-window focus moves silently skipped the save. Implemented as a CodeMirror `blur`
+  handler routed through the normal `saveDoc` path, so it respects the dirty/saving guards
+  and never touches untitled scratch buffers (no surprise Save As dialog).
+
 ## [1.54.0] - 2026-07-13
 
 ### Added

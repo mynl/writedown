@@ -31,6 +31,16 @@ const cmExceptionLogger = EditorView.exceptionSink.of((err: unknown) => {
   void logError("CodeMirror exception: " + (e?.stack ?? String(err)));
 });
 
+// Save when the editor itself loses focus — clicking the tree/project panel keeps the
+// window focused, so the window-blur save in App.tsx never fires for same-window moves.
+// saveDoc (not saveActive) so an untitled scratch buffer never pops a Save As dialog.
+const saveOnBlur = EditorView.domEventHandlers({
+  blur: () => {
+    const s = useStore.getState();
+    if (s.activePath) void s.saveDoc(s.activePath);
+  },
+});
+
 export function Editor({ path, content }: { path: string; content: string }) {
   const editActive = useStore((s) => s.editActive);
   const setCursorPos = useStore((s) => s.setCursorPos);
@@ -57,6 +67,7 @@ export function Editor({ path, content }: { path: string; content: string }) {
     const lang = languageForPath(path);
     const ext = [
       cmExceptionLogger,
+      saveOnBlur,
       ...(lang ? [lang] : []),
       // Word wrap in a Compartment so the palette/footer toggle reconfigures it live (no
       // rebuild). Non-reactive read: a wrap toggle dispatches to the view and must not
