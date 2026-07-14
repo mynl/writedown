@@ -3,6 +3,37 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-14 — 1.60.0 CSV/TSV preview via CsvGrid
+
+The deferred csv-grid feature. **Easier than scoped — no YELL**: csv-grid 3.9.0's library
+build already ships the whole toolbar default-on (fzf `globalSearch`, `columnFilters`,
+`sortable`, `expandButtons` Expand/Contract, `exportButtons` Copy/Save with view/all ×
+csv/md + formatted-values, status bar); TSV + markdown-pipe-table detection is in its
+parser. Zero csv-grid changes for v1.
+
+- **Delivery = Vite alias, not a copy** (Steve rejected copying — "update nightmare";
+  hard links would silently pin the old inode when Vite rebuilds dist, symlinks dicey
+  under Synology+git). `vite.config.ts`: `csv-grid` → `../csv-viewer/dist/csv-grid.es.js`
+  (sibling repo, same synced tree, dist committed) + `server.fs.allow` for dev. Rebuild
+  csv-grid → writedown sees it on next reload. Ambient types in
+  `src/preview/csv-grid.d.ts` (tsc never resolves the alias). `worker:false` (engages only
+  at ≥1 MB; skipping avoids hosting the worker asset).
+- **CsvPreview.tsx**: mount-once grid; the library adds `.csvgrid` to the HOST element
+  (no inner wrapper — CSS targets the combined element). First feed immediate, then
+  `setData({csv})` debounced 300 ms (every setData is a full re-parse; library `loadGen`
+  makes races safe). ResizeObserver → debounced `applyLayout()` (library deliberately has
+  no RO of its own; covers split-divider drags).
+- **App.tsx**: `previewable = md || csv` gates showEditor/showPreview; CSV branch of the
+  preview pane shows a static "CSV" tab (no live/rendered) + `<CsvPreview>`. Sync-scroll
+  needed no gating (it lives inside Preview.tsx, unmounted for CSV).
+- Verified: tsc + `npm run build` (alias resolves in rollup) + cargo. **Live-verify
+  pending in Steve's dev loop**: (1) grid fill-height flex CSS (`.csv-preview` +
+  `.csvgrid-scroll` rules in App.css); (2) the **Save button** = Blob + `<a download>` —
+  unknown whether WebView2/Tauri honors anchor downloads. If inert: tweak csv-grid to take
+  an optional save-sink callback (we own it) wired to pickSavePath+writeFile. Follow-ups
+  parked: raw↔inferred + balanced↔maximize have no library buttons (methods only) —
+  could be palette commands later; `--csvgrid-*` CSS vars for theme-matching in polish.
+
 ## 2026-07-14 — 1.54.1–1.59.0 July-14 punch list: 4 fixes + 4 features (csv-grid deferred)
 
 Steve's issues-file batch: answered Qs (multi-instance, ST command universe, project file
