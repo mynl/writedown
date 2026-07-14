@@ -5,6 +5,19 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.54.2] - 2026-07-14
+
+### Fixed
+
+- **Open Folder… no longer resets the current project.** It previously wiped the project
+  (folders, name, title bar) and — worse — overwrote the remembered last workspace, so the
+  next launch restored the folder instead of the project. Folder and Project are now truly
+  independent: with a project open, Open Folder… only changes what the Folder tab browses
+  and switches to that tab; the project, its session, and cold-start restore are untouched.
+  With no project open, behavior is unchanged (the folder becomes the workspace). One
+  nuance: while a project is open the Folder tab isn't file-watched (the watcher follows
+  the project's roots) — F5 / Refresh File Tree picks up external changes there.
+
 ## [1.54.1] - 2026-07-14
 
 ### Fixed

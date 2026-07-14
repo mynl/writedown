@@ -362,10 +362,14 @@ export const useStore = create<AppState>((set, get) => ({
   openFolder: async () => {
     const picked = await pickFolder();
     if (!picked) return;
-    // Opening a folder leaves project mode (like ST's Open Folder in this window).
-    set({ projFolders: [], projectFile: null, projectName: "", panelTab: "folder" });
-    setTitle(null);
-    await get().setRoot(picked);
+    // The Folder tab is independent of the project. With a project open, only the Folder
+    // tab's browser changes — project identity, title, session key, and the remembered
+    // last workspace stay put (setRoot is skipped so nothing re-anchors or overwrites).
+    const { projectFile, projFolders } = get();
+    if (!projectFile && projFolders.length === 0) {
+      await get().setRoot(picked); // anchor + last-workspace + watch, as before
+    }
+    set({ panelTab: "folder" });
     await get().setFolderRoot(picked);
   },
 
