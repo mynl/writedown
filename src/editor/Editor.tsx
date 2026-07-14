@@ -1,8 +1,8 @@
 import { useEffect, useMemo } from "react";
 import CodeMirror from "@uiw/react-codemirror";
-import { syntaxHighlighting } from "@codemirror/language";
+import { indentUnit, syntaxHighlighting } from "@codemirror/language";
 import { EditorView } from "@codemirror/view";
-import { Prec } from "@codemirror/state";
+import { EditorState, Prec } from "@codemirror/state";
 import { search } from "@codemirror/search";
 import { useStore } from "../store";
 import { editorHighlight, editorTheme } from "./theme";
@@ -54,6 +54,7 @@ export function Editor({ path, content }: { path: string; content: string }) {
     settings?.font_size != null || zoom !== 0 ? (settings?.font_size ?? 14) + zoom : undefined;
   const fontFamily = settings?.font_family ?? undefined;
   const fontWeight = cssFontWeight(settings?.font_weight);
+  const tabSize = settings?.tab_size ?? 4; // [editor] tab_size — indent width in spaces
   const spellEnabled = useStore((s) => s.spellOn); // session toggle; default from config
 
 
@@ -73,6 +74,10 @@ export function Editor({ path, content }: { path: string; content: string }) {
       // rebuild). Non-reactive read: a wrap toggle dispatches to the view and must not
       // re-run this useMemo; unrelated rebuilds re-read the current value and stay in sync.
       wrapCompartment.of(wrapExtension(useStore.getState().wordWrap)),
+      // Indent width = [editor] tab_size spaces, spaces only (never a literal tab). Prec.highest
+      // overrides basicSetup's default of 2; tabSize sets how wide any existing "\t" renders.
+      Prec.highest(indentUnit.of(" ".repeat(tabSize))),
+      EditorState.tabSize.of(tabSize),
       search({ top: true }),
       ...editingExtras,
       // Editing keymap in a Compartment so config [keys] changes reconfigure it live (see the
@@ -98,7 +103,7 @@ export function Editor({ path, content }: { path: string; content: string }) {
       );
     }
     return ext;
-  }, [path, built, fontSize, fontWeight, spellEnabled]);
+  }, [path, built, fontSize, fontWeight, spellEnabled, tabSize]);
 
   // Live-apply keybinding changes when config.toml is saved (loadTheme replaces editorSettings,
   // so `userKeys` gets a new identity). Reconfigure the Compartment in place — no rebuild — and

@@ -3,6 +3,29 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-14 — 1.62.0 config template tidy + configurable tab_size (wired)
+
+Followed the 1.61.0 config audit (agent-mapped 6 reader sites; everything else inert): pruned
+the DEFAULT_CONFIG template AND Steve's live `~/.writedown/config.toml` (explicit ask) of dead
+keys — `[general]`, `[editor] strip_trailing_whitespace/preserve_markdown_hard_breaks/autosave_*`,
+`[preview]`, `[theme]`, most of `[bibliography]`, `[files] extensions`, `[outline]`/`[tree]`
+enabled/position, `[spelling] language` — with a header note that every listed key is one the
+app reads. New test `default_config_is_valid_toml_and_honest`. Added the missing live keys to
+Steve's config (`[render]` timeout/figure_*, `[spelling]` enabled/skip_proper_nouns), preserving
+his `min_length` comment and the commented miniconda `python`.
+
+**Reversal:** `tab_size` was set to be pruned as inert, but Steve wants it working — so it's kept
+AND wired: `[editor] tab_size` (default 4, spaces only, never `\t`) → `EditorSettings`
+(`config.rs`+`api.ts`) → `Editor.tsx` `Prec.highest(indentUnit.of(" ".repeat(n)))` +
+`EditorState.tabSize.of(n)`, in the extensions memo so a config save re-applies live. Indent had
+been hardcoded to 2 (@uiw basicSetup default). `spelling_language` left as dead code (harmless).
+New standing rule (CLAUDE.md, separate commit): **one commit per point release** — don't batch
+version bumps.
+
+Also cleared up Steve's confusion: his live config DID change on disk (it lives OUTSIDE the git
+repo, hence absent from commits); the app reads config only at launch, so a stale open buffer
+must not be saved over it.
+
 ## 2026-07-14 — 1.60.0 CSV/TSV preview via CsvGrid
 
 The deferred csv-grid feature. **Easier than scoped — no YELL**: csv-grid 3.9.0's library

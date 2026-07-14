@@ -5,6 +5,29 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.62.0] - 2026-07-14
+
+### Added
+
+- **`[editor] tab_size` now works** — sets the editor indent width in spaces (default 4).
+  Indentation is always spaces, never a literal tab. Wired config → `EditorSettings` →
+  CodeMirror `indentUnit`/`tabSize`, reconfiguring live on a config save. The key sat in the
+  template before but was never read (indent had been hardcoded to 2).
+
+### Changed
+
+- **Default `config.toml` template pruned to only keys Writedown actually reads.** An audit
+  found many template keys were decorative — never parsed by any code, so setting them did
+  nothing: `[general] restore_session`; `[editor] strip_trailing_whitespace /
+  preserve_markdown_hard_breaks / autosave_on_focus_loss / autosave_idle_ms`; the whole
+  `[preview]` and `[theme]` sections; most of `[bibliography]` (only `default_file` is read —
+  the .bib is always watched and read-only); `[files] extensions`; `[outline]`/`[tree]`
+  `enabled`/`position`; and `[spelling] language` (only en_US is bundled). All removed from
+  the shipped template, with a header note that every listed key is one the app reads. A new
+  test asserts the template parses and stays honest. (`[editor] tab_size` was the one
+  reprieve — kept and wired; see Added.) Behavior otherwise unchanged — every removed key was
+  already inert.
+
 ## [1.61.0] - 2026-07-14
 
 ### Added

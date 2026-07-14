@@ -10,10 +10,7 @@ use tauri::Manager;
 /// ordinary use, so the user's edits and comments are safe.
 const DEFAULT_CONFIG: &str = r#"# Writedown configuration (~/.writedown/config.toml)
 # Created automatically on first launch. Edit freely; Writedown does not rewrite
-# this file during ordinary use.
-
-[general]
-restore_session = true
+# this file during ordinary use. Every key below is one Writedown actually reads.
 
 [editor]
 # font_family/font_size override the imported Sublime font (leave unset to use Sublime's).
@@ -21,20 +18,11 @@ restore_session = true
 font_family = "Source Code Pro"
 font_size = 14
 # font_weight = "normal"
+# tab_size: spaces per indent level. Indentation is always spaces — never a literal tab.
 tab_size = 4
 word_wrap = true
-strip_trailing_whitespace = true
-preserve_markdown_hard_breaks = true
-autosave_on_focus_loss = true
-autosave_idle_ms = 1500
-
-[preview]
-enabled = true
-position = "right"
-sync_scroll = true
 
 [outline]
-enabled = true
 # Outline pane side: "left" (between the tree and editor) or "right" (far right, past the preview).
 position = "right"
 font_family = "Arial Narrow"
@@ -50,17 +38,8 @@ font_size = 10
 # height = 24
 # width = 180
 
-[theme]
-name = "default-dark"
-source = "builtin"
-
 [bibliography]
-enabled = true
 default_file = ""
-additional_files = []
-citation_style = "pandoc"
-watch_for_changes = true
-read_only = true
 
 [render]
 # Render Document: run {python} cells through this interpreter (explicit path — no
@@ -77,7 +56,6 @@ font_size = 9
 # font_weight = "normal"
 
 [files]
-extensions = ["md", "qmd", "markdown"]
 # Show dot files/dirs (.writedown, .github, …) in the tree and quick-open. The tree still
 # lists only file types Writedown can open.
 show_hidden = true
@@ -89,7 +67,6 @@ show_hidden = true
 # Prose spellchecker (English US). Only prose is checked — code, math, citation keys, file
 # paths, and YAML front matter are skipped. Set enabled = false to turn it off.
 enabled = true
-language = "en_US"
 # min_length: the shortest word that gets spell-checked. Default 4 — skips short tokens
 # like "px", "md", "js" that are almost always deliberate, not typos.
 min_length = 4
@@ -185,6 +162,8 @@ pub struct EditorSettings {
     font_weight: Option<String>,
     /// Editor word wrap default ([editor] word_wrap). Runtime toggle is session-only.
     word_wrap: Option<bool>,
+    /// Editor indent width in spaces ([editor] tab_size, default 4). Indentation is spaces-only.
+    tab_size: Option<u32>,
     outline_font_family: Option<String>,
     outline_font_size: Option<f64>,
     outline_font_weight: Option<String>,
@@ -240,6 +219,10 @@ pub fn load_editor_settings(app: tauri::AppHandle) -> Result<EditorSettings, Str
         font_family: ed.and_then(|e| e.get("font_family")).and_then(string),
         font_weight: ed.and_then(|e| e.get("font_weight")).and_then(weight),
         word_wrap: ed.and_then(|e| e.get("word_wrap")).and_then(|v| v.as_bool()),
+        tab_size: ed
+            .and_then(|e| e.get("tab_size"))
+            .and_then(|v| v.as_integer())
+            .map(|i| i.clamp(1, 16) as u32),
         outline_font_family: ol.and_then(|o| o.get("font_family")).and_then(string),
         outline_font_size: ol.and_then(|o| o.get("font_size")).and_then(num),
         outline_font_weight: ol.and_then(|o| o.get("font_weight")).and_then(weight),
@@ -270,4 +253,28 @@ pub fn load_editor_settings(app: tauri::AppHandle) -> Result<EditorSettings, Str
                 .collect()
         }),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DEFAULT_CONFIG;
+
+    #[test]
+    fn default_config_is_valid_toml_and_honest() {
+        let v: toml::Value = DEFAULT_CONFIG.parse().expect("default config parses as TOML");
+        // Live keys the tidy must keep (representatives across sections).
+        assert!(v.get("editor").and_then(|e| e.get("word_wrap")).is_some());
+        assert!(v.get("spelling").and_then(|s| s.get("min_length")).is_some());
+        assert!(v.get("spelling").and_then(|s| s.get("skip_proper_nouns")).is_some());
+        assert!(v.get("render").and_then(|r| r.get("figure_dpi")).is_some());
+        assert!(v.get("bibliography").and_then(|b| b.get("default_file")).is_some());
+        // Inert keys/sections the tidy removed must not reappear (the template only
+        // advertises options the code actually reads).
+        assert!(v.get("preview").is_none(), "[preview] is decorative");
+        assert!(v.get("theme").is_none(), "[theme] is decorative");
+        assert!(v.get("general").is_none(), "[general] is decorative");
+        assert!(v.get("files").and_then(|f| f.get("extensions")).is_none());
+        // tab_size is a WIRED live key (editor indent width) — it stays in the template.
+        assert!(v.get("editor").and_then(|e| e.get("tab_size")).is_some());
+    }
 }

@@ -183,6 +183,8 @@ export type EditorSettings = {
   font_family: string | null;
   font_weight: string | null;
   word_wrap: boolean | null;
+  /** `[editor] tab_size`: editor indent width in spaces (default 4; spaces-only, never a tab). */
+  tab_size: number | null;
   outline_font_family: string | null;
   outline_font_size: number | null;
   outline_font_weight: string | null;
