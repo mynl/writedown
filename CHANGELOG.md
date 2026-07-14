@@ -5,6 +5,21 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.55.0] - 2026-07-14
+
+### Added
+
+- **Dot files and dot directories are now shown** in the file tree and quick-open
+  (`.writedown`, `.github`, dotfile configs, …), and the long-inert `[files] show_hidden`
+  config option finally does something: set it to `false` to hide them again. Default is
+  `true`. The option is read per listing (like the bibliography config), so a config edit
+  applies on the next tree expand / F5 — no restart. The openable-extension whitelist is
+  unchanged (the tree still shows only files Writedown can open), and quick-open still
+  skips heavy build/VCS directories (`node_modules`, `target`, `.git`, `__pycache__`,
+  `.venv`). Note `.git` folders now appear in the *tree*; their contents are mostly
+  extension-filtered anyway. Existing configs carrying the old default `show_hidden =
+  false` need that one value flipped (done for the author's config with this release).
+
 ## [1.54.3] - 2026-07-14
 
 ### Fixed

@@ -19,19 +19,32 @@ pub struct DirEntry {
     ext: Option<String>,
 }
 
+/// `[files] show_hidden` from config.toml, default **true** — dot files/dirs (`.writedown`,
+/// `.github`, …) are shown unless the user opts out. Read per call (like the bib module
+/// reads `[bibliography]`), so a config edit applies on the next listing without plumbing.
+fn show_hidden(app: &tauri::AppHandle) -> bool {
+    let Ok(dir) = crate::config::writedown_dir(app) else { return true };
+    let Ok(txt) = std::fs::read_to_string(dir.join("config.toml")) else { return true };
+    txt.parse::<toml::Value>()
+        .ok()
+        .and_then(|v| v.get("files")?.get("show_hidden")?.as_bool())
+        .unwrap_or(true)
+}
+
 /// List the immediate children of `path` (lazy — the tree expands on demand so it
 /// stays responsive on directories with thousands of files, spec §12). Directories
 /// first, then supported files, each alphabetical (case-insensitive). Unsupported
-/// files are omitted; dotfiles are omitted (a `show_hidden` config option lands in 1.3).
+/// files are omitted; dot entries are shown unless `[files] show_hidden = false`.
 #[tauri::command]
-pub fn list_directory(path: String) -> Result<Vec<DirEntry>, String> {
+pub fn list_directory(app: tauri::AppHandle, path: String) -> Result<Vec<DirEntry>, String> {
     let read = std::fs::read_dir(&path).map_err(|e| format!("read_dir {path}: {e}"))?;
+    let show_dots = show_hidden(&app);
     let mut entries: Vec<DirEntry> = Vec::new();
 
     for item in read {
         let item = item.map_err(|e| e.to_string())?;
         let name = item.file_name().to_string_lossy().to_string();
-        if name.starts_with('.') {
+        if !show_dots && name.starts_with('.') {
             continue;
         }
         let full = item.path();
@@ -78,10 +91,12 @@ pub struct FileItem {
 const SKIP_DIRS: &[&str] = &["node_modules", "target", ".git", "__pycache__", ".venv"];
 
 /// Recursively list every supported file under `root` (for quick-open, spec §10, §23).
-/// Skips hidden entries and heavy build/VCS directories; capped for safety.
+/// Honors `[files] show_hidden` (default true); always skips heavy build/VCS
+/// directories (SKIP_DIRS); capped for safety.
 #[tauri::command]
-pub fn list_all_files(root: String) -> Result<Vec<FileItem>, String> {
+pub fn list_all_files(app: tauri::AppHandle, root: String) -> Result<Vec<FileItem>, String> {
     let root_path = std::path::Path::new(&root);
+    let show_dots = show_hidden(&app);
     let mut out: Vec<FileItem> = Vec::new();
     let mut stack = vec![root_path.to_path_buf()];
     const CAP: usize = 50_000;
@@ -93,7 +108,7 @@ pub fn list_all_files(root: String) -> Result<Vec<FileItem>, String> {
         };
         for item in read.flatten() {
             let name = item.file_name().to_string_lossy().to_string();
-            if name.starts_with('.') {
+            if !show_dots && name.starts_with('.') {
                 continue;
             }
             let full = item.path();

@@ -78,7 +78,9 @@ font_size = 9
 
 [files]
 extensions = ["md", "qmd", "markdown"]
-show_hidden = false
+# Show dot files/dirs (.writedown, .github, …) in the tree and quick-open. The tree still
+# lists only file types Writedown can open.
+show_hidden = true
 
 [spelling]
 # Prose spellchecker (English US). Only prose is checked — code, math, citation keys, and
