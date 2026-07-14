@@ -156,7 +156,7 @@ export function appCommands(): Command[] {
     },
     { id: "proj-new", title: "Project: New Project…", run: () => s().newProject() },
     { id: "proj-quick-switch", title: "Project: Quick Switch… (Ctrl+Alt+P)", run: () => s().openPalette("projects") },
-    { id: "proj-save-as", title: "Project: Save Project As…", run: () => void s().saveProjectAs() },
+    { id: "proj-save", title: "Project: Save / Rename Project…", run: () => s().saveRenameProject() },
     { id: "proj-open", title: "Project: Open Project…", run: () => void s().openProject() },
     { id: "proj-close", title: "Project: Close Project", run: () => s().closeProject() },
     // Quick switch: every managed project (~/.writedown/projects/, name-sorted), plus any

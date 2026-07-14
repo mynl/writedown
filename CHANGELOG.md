@@ -5,6 +5,26 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.56.0] - 2026-07-14
+
+### Changed
+
+- **"Project: Save Project As…" is now "Project: Save / Rename Project…"** — it asks for a
+  *name only*, never a location. Project files are fully managed: every save/rename writes
+  `~/.writedown/projects/<name>.wdproj` (same rule as New Project). Enter with the same
+  name saves in place; a new name renames (the old managed file is removed — a `.wdproj`
+  living *outside* the managed folder is adopted in and the original left untouched).
+  Trying to take another project's name is refused with an inline error, never a silent
+  overwrite. The prompt opens prefilled with the current name, selected, so typing
+  replaces it. The native save-file dialog for projects is gone.
+
+### Fixed
+
+- **Project edits persist immediately.** "Add Folder to Project" and removing a folder now
+  rewrite the project's `.wdproj` on the spot; previously they only changed in-memory
+  state, so a named project silently lost its added folders unless you remembered to Save
+  As. (An unsaved ad-hoc project still has no file until you Save / Rename it.)
+
 ## [1.55.0] - 2026-07-14
 
 ### Added

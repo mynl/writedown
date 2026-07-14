@@ -18,7 +18,7 @@ import {
   newProject as newProjectApi,
   pickFolder,
   pickProjectOpenPath,
-  pickProjectSavePath,
+  saveManagedProject,
   pickSavePath,
   readFile,
   recentProjects as fetchRecentProjects,
@@ -137,11 +137,13 @@ type AppState = {
   helpOpen: boolean;
   /** Path whose Previous Versions picker is open (null = closed). */
   versionsFor: string | null;
-  /** Small one-line input dialog (new file/folder names, etc.). */
+  /** Small one-line input dialog (new file/folder names, etc.). `initial` prefills the
+   *  input (selected, so typing replaces it) — used by rename-style prompts. */
   prompt: {
     title: string;
     placeholder: string;
     submit: (value: string) => void | Promise<void>;
+    initial?: string;
   } | null;
   /** Right-click file-tree context menu (null = closed). */
   treeMenu: { x: number; y: number; entry: Entry } | null;
@@ -222,6 +224,7 @@ type AppState = {
     title: string,
     placeholder: string,
     submit: (value: string) => void | Promise<void>,
+    initial?: string,
   ) => void;
   closePrompt: () => void;
   newFile: (rel: string) => Promise<void>;
@@ -243,7 +246,9 @@ type AppState = {
   saveAs: (path?: string) => Promise<void>;
   setPanelTab: (tab: "folder" | "project") => void;
   addFolderToProject: () => Promise<void>;
-  saveProjectAs: () => Promise<void>;
+  /** Save or rename the current project — name prompt only, the .wdproj lives in the
+   *  managed dir (~/.writedown/projects/). Renaming moves the managed file. */
+  saveRenameProject: () => void;
   /** Create a managed project (name prompt only) under ~/.writedown/projects/, seeding its
    *  folders from whatever is currently open. Keeps the current tabs. */
   newProject: () => void;
@@ -252,6 +257,8 @@ type AppState = {
   openProject: (path?: string) => Promise<void>;
   closeProject: () => void;
   removeProjectFolder: (path: string) => void;
+  /** Write the current project's .wdproj (no-op for unsaved projects). */
+  persistProject: () => void;
   loadRecentProjects: () => Promise<void>;
   cycleView: () => void;
   setPreviewTab: (tab: "live" | "rendered") => void;
@@ -833,7 +840,8 @@ export const useStore = create<AppState>((set, get) => ({
   setOutlineWidth: (w) => set({ outlineWidth: clamp(w) }),
   setSplitRatio: (r) => set({ splitRatio: clampRatio(r) }),
 
-  openPrompt: (title, placeholder, submit) => set({ prompt: { title, placeholder, submit } }),
+  openPrompt: (title, placeholder, submit, initial) =>
+    set({ prompt: { title, placeholder, submit, initial } }),
   closePrompt: () => set({ prompt: null }),
 
   // New file/folder, relative to the workspace root (or absolute if given).
@@ -990,8 +998,8 @@ export const useStore = create<AppState>((set, get) => ({
     const picked = await pickFolder();
     if (!picked) return;
     // Add exactly the folder you pick — never auto-absorb the currently-open folder.
-    // (Snapshotting the open folder into a project is done deliberately via Save Project
-    // As.) So the first add yields a one-folder project, the second yields two, etc.
+    // (Snapshotting the open folder into a project is done deliberately via Save/Rename
+    // Project.) So the first add yields a one-folder project, the second yields two, etc.
     const { projFolders } = get();
     if (projFolders.includes(picked)) return;
     const folders = [...projFolders, picked];
@@ -999,21 +1007,31 @@ export const useStore = create<AppState>((set, get) => ({
     if (!get().root) await get().setRoot(picked);
     void watchWorkspace(folders).catch(() => {});
     setTitle(get().projectName || "unsaved project");
+    get().persistProject();
   },
 
-  saveProjectAs: async () => {
+  saveRenameProject: () => {
     const { projFolders, root, projectName } = get();
     const folders = projFolders.length > 0 ? projFolders : root ? [root] : [];
     if (folders.length === 0) return;
-    const suggested = `${root ?? folders[0]}\\${projectName || "project"}.wdproj`;
-    const path = await pickProjectSavePath(suggested);
-    if (!path) return;
-    const name = path.replace(/\\/g, "/").split("/").pop()!.replace(/\.wdproj$/i, "");
-    await saveProject(path, { name, folders });
-    set({ projFolders: folders, projectFile: path, projectName: name, panelTab: "project" });
-    void addRecentProject(path).then(() => get().loadRecentProjects());
-    void saveLastWorkspace(path);
-    setTitle(name);
+    // Name only — the location is managed (~/.writedown/projects/). Same name = save in
+    // place; new name = rename (Rust moves the managed file). "Name taken" errors from
+    // Rust surface inline in the prompt.
+    get().openPrompt(
+      "Project name (save / rename)",
+      "My Project",
+      async (name) => {
+        const trimmed = name.trim();
+        if (!trimmed) return;
+        const path = await saveManagedProject(trimmed, folders, get().projectFile);
+        set({ projFolders: folders, projectFile: path, projectName: trimmed, panelTab: "project" });
+        void addRecentProject(path).then(() => get().loadRecentProjects());
+        void saveLastWorkspace(path);
+        setTitle(trimmed);
+        void get().loadProjects();
+      },
+      projectName,
+    );
   },
 
   newProject: () => {
@@ -1086,6 +1104,18 @@ export const useStore = create<AppState>((set, get) => ({
     const folders = get().projFolders.filter((f) => f !== path);
     set({ projFolders: folders });
     if (folders.length > 0) void watchWorkspace(folders).catch(() => {});
+    get().persistProject();
+  },
+
+  // Project edits (add/remove folder) persist to the .wdproj immediately — a named
+  // project should never silently lose changes. Unsaved (ad-hoc) projects have no file
+  // yet; Save/Rename Project creates one. Write failures surface in the footer.
+  persistProject: () => {
+    const { projectFile, projectName, projFolders } = get();
+    if (!projectFile) return;
+    void saveProject(projectFile, { name: projectName, folders: projFolders }).catch((e) =>
+      set({ configError: `project save failed — ${String(e)}` }),
+    );
   },
 
   loadRecentProjects: async () => {

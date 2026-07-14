@@ -59,6 +59,12 @@ export const saveProject = (path: string, project: Project) =>
 export const newProject = (name: string, folders: string[]) =>
   invoke<string>("new_project", { name, folders });
 
+/** Save/rename the current project in the managed dir — name only, location is managed.
+ *  Renaming a managed project removes its old file; one from elsewhere is adopted in
+ *  (original untouched). Rejects if a different project already has the name. */
+export const saveManagedProject = (name: string, folders: string[], oldPath: string | null) =>
+  invoke<string>("save_managed_project", { name, folders, oldPath });
+
 /** All managed projects under ~/.writedown/projects/, name-sorted. */
 export const listProjects = () => invoke<ProjectInfo[]>("list_projects");
 
@@ -66,15 +72,6 @@ export const recentProjects = () => invoke<string[]>("recent_projects");
 
 export const addRecentProject = (path: string) =>
   invoke<void>("add_recent_project", { path });
-
-/** Native save dialog for a project file. Returns the chosen path, or null. */
-export async function pickProjectSavePath(defaultPath?: string): Promise<string | null> {
-  const result = await save({
-    defaultPath,
-    filters: [{ name: "Writedown Project", extensions: ["wdproj"] }],
-  });
-  return typeof result === "string" ? result : null;
-}
 
 /** Native "Save As" dialog for a document. Returns the chosen path, or null if cancelled. */
 export async function pickSavePath(defaultPath?: string): Promise<string | null> {

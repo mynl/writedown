@@ -84,6 +84,47 @@ pub fn new_project(
     Ok(path.to_string_lossy().to_string())
 }
 
+/// Save or rename the current project under the managed dir (`~/.writedown/projects/`).
+/// The location is managed — the user supplies a name only. `old_path` is the project's
+/// current file, if any: renaming a managed project moves it (the old file is removed);
+/// a project living elsewhere is adopted in and its original file left untouched (user
+/// files are never deleted). Refuses to overwrite a DIFFERENT existing project.
+#[tauri::command]
+pub fn save_managed_project(
+    app: tauri::AppHandle,
+    name: String,
+    folders: Vec<String>,
+    old_path: Option<String>,
+) -> Result<String, String> {
+    let dir = projects_dir(&app)?;
+    std::fs::create_dir_all(&dir).map_err(|e| format!("create {}: {e}", dir.display()))?;
+    let stem = sanitize_stem(&name);
+    let path = dir.join(format!("{stem}.wdproj"));
+    // Windows paths: compare case-insensitively so "my proj" → "My Proj" counts as the
+    // same file (the write below updates the stored display name in place).
+    let is_own_file = old_path
+        .as_deref()
+        .map(|o| path.to_string_lossy().eq_ignore_ascii_case(o))
+        .unwrap_or(false);
+    if path.exists() && !is_own_file {
+        return Err(format!("a project named \"{stem}\" already exists"));
+    }
+    let display = {
+        let t = name.trim();
+        if t.is_empty() { "project".to_string() } else { t.to_string() }
+    };
+    let project = Project { name: display, folders };
+    let json = serde_json::to_string_pretty(&project).map_err(|e| e.to_string())?;
+    std::fs::write(&path, json).map_err(|e| format!("write {}: {e}", path.display()))?;
+    if let Some(old) = old_path {
+        let old_p = std::path::PathBuf::from(&old);
+        if !is_own_file && old_p.starts_with(&dir) && old_p.exists() {
+            let _ = std::fs::remove_file(&old_p); // true rename inside the managed dir
+        }
+    }
+    Ok(path.to_string_lossy().to_string())
+}
+
 /// List every managed project in `~/.writedown/projects/` (name + full path), name-sorted.
 #[tauri::command]
 pub fn list_projects(app: tauri::AppHandle) -> Result<Vec<ProjectInfo>, String> {

@@ -11,9 +11,14 @@ export function Prompt() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setValue("");
+    setValue(prompt?.initial ?? "");
     setError(null);
-    if (prompt) inputRef.current?.focus();
+    if (prompt) {
+      inputRef.current?.focus();
+      // Select after React has committed the prefilled value, so a rename prompt opens
+      // with the whole current name selected (typing replaces it).
+      requestAnimationFrame(() => inputRef.current?.select());
+    }
   }, [prompt]);
 
   if (!prompt) return null;
