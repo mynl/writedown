@@ -5,6 +5,16 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.54.3] - 2026-07-14
+
+### Fixed
+
+- **Citation hover works with trailing punctuation** — hovering `@Key2024.` or `@Key2024:`
+  now shows the title. The hover used its own greedy pattern that swallowed a trailing
+  `.`/`:` into the key (comma/semicolon happened to work), so the lookup missed; it now
+  shares `CITE_RE` with the linter, which requires keys to end on an alphanumeric. Hovering
+  a Quarto crossref (`@sec-…`, `@fig-…`) also no longer performs a pointless bib lookup.
+
 ## [1.54.2] - 2026-07-14
 
 ### Fixed

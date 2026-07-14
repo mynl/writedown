@@ -97,15 +97,19 @@ function renderLabel(completion: Completion): Node {
 const citeHover = hoverTooltip(async (view, pos) => {
   const line = view.state.doc.lineAt(pos);
   const rel = pos - line.from;
-  const re = /@[\p{L}\d_:.\-]+/gu;
+  // Fresh CITE_RE instance (avoid the shared lastIndex, as in prose.ts). Unlike the old
+  // local pattern, CITE_RE requires the key to end alphanumeric, so a trailing `.`/`:`
+  // (sentence punctuation) stays out of the key and the lookup succeeds.
+  const re = new RegExp(CITE_RE.source, CITE_RE.flags);
   let m: RegExpExecArray | null;
   while ((m = re.exec(line.text))) {
     const s = m.index;
     const e = s + m[0].length;
     if (rel < s || rel > e) continue;
+    if (CROSSREF_PREFIX.test(m[1])) return null; // Quarto crossref — nothing to look up
     let entry: BibEntry | null;
     try {
-      entry = await getCitation(m[0].slice(1));
+      entry = await getCitation(m[1]);
     } catch {
       return null;
     }
