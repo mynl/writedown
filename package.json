@@ -1,7 +1,7 @@
 {
   "name": "writedown",
   "private": true,
-  "version": "1.60.1",
+  "version": "1.61.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

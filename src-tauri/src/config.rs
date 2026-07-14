@@ -86,10 +86,18 @@ show_hidden = true
 # quick_file = 'C:\path\to\notes.md'
 
 [spelling]
-# Prose spellchecker (English US). Only prose is checked — code, math, citation keys, and
-# YAML front matter are skipped. Set enabled = false to turn it off.
+# Prose spellchecker (English US). Only prose is checked — code, math, citation keys, file
+# paths, and YAML front matter are skipped. Set enabled = false to turn it off.
 enabled = true
 language = "en_US"
+# min_length: the shortest word that gets spell-checked. Default 4 — skips short tokens
+# like "px", "md", "js" that are almost always deliberate, not typos.
+min_length = 4
+# skip_proper_nouns: skip a Capitalized word that is NOT at the start of a sentence (treat
+# it as a proper noun — "Tauri", "Zustand"). Trade-off: a genuinely misspelled Capitalized
+# word mid-sentence won't be flagged. Set false to check those too. Sentence-start words
+# (where a typo like "Teh" hides) are always checked.
+skip_proper_nouns = true
 # personal_dictionary: file for words you add via "Add to dictionary". Defaults to
 # %APPDATA%\com.mynl.writedown\personal-dictionary.txt. Point it at a synced folder to
 # carry your added words across machines.
@@ -192,10 +200,16 @@ pub struct EditorSettings {
     /// Document tab strip sizing ([tabs] height / width), in px.
     tab_height: Option<f64>,
     tab_width: Option<f64>,
-    /// Prose spellchecker ([spelling] enabled / language). The personal-dictionary path is
-    /// read entirely in Rust (spelling.rs) — the frontend only needs the on/off gate.
+    /// Prose spellchecker ([spelling] enabled / language / min_length / skip_proper_nouns).
+    /// The personal-dictionary path is read entirely in Rust (spelling.rs) — the frontend
+    /// only needs the on/off gate and the tokenizer knobs.
     spelling_enabled: Option<bool>,
     spelling_language: Option<String>,
+    /// Shortest word the tokenizer will spell-check ([spelling] min_length, default 4).
+    spelling_min_length: Option<u32>,
+    /// Skip mid-sentence Capitalized words as proper nouns ([spelling] skip_proper_nouns,
+    /// default true).
+    spelling_skip_proper_nouns: Option<bool>,
     /// `[files] quick_file`: file opened by Ctrl+Shift+Q / "Open Quick File".
     quick_file: Option<String>,
     /// User keybinding overrides from `[keys]`: friendly-key string → action name.
@@ -239,6 +253,13 @@ pub fn load_editor_settings(app: tauri::AppHandle) -> Result<EditorSettings, Str
         tab_width: tb.and_then(|t| t.get("width")).and_then(num),
         spelling_enabled: sp.and_then(|s| s.get("enabled")).and_then(|v| v.as_bool()),
         spelling_language: sp.and_then(|s| s.get("language")).and_then(string),
+        spelling_min_length: sp
+            .and_then(|s| s.get("min_length"))
+            .and_then(|v| v.as_integer())
+            .map(|i| i.clamp(1, 64) as u32),
+        spelling_skip_proper_nouns: sp
+            .and_then(|s| s.get("skip_proper_nouns"))
+            .and_then(|v| v.as_bool()),
         quick_file: val
             .get("files")
             .and_then(|f| f.get("quick_file"))

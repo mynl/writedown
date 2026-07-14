@@ -38,6 +38,9 @@ export const addToDictionary = (word: string) =>
 /** Re-read the personal dictionary from disk (after its path changes or a hand edit). */
 export const reloadSpelling = () => invoke<void>("spell_reload");
 
+/** Absolute path to the personal dictionary (created + seeded on first use). */
+export const personalDictionaryPath = () => invoke<string>("personal_dictionary_path");
+
 export const listDirectory = (path: string) =>
   invoke<Entry[]>("list_directory", { path });
 
@@ -193,6 +196,10 @@ export type EditorSettings = {
   tab_width: number | null;
   spelling_enabled: boolean | null;
   spelling_language: string | null;
+  /** `[spelling] min_length`: shortest word the tokenizer spell-checks (default 4). */
+  spelling_min_length: number | null;
+  /** `[spelling] skip_proper_nouns`: skip mid-sentence Capitalized words (default true). */
+  spelling_skip_proper_nouns: boolean | null;
   /** `[files] quick_file`: file opened by Ctrl+Shift+Q / "Open Quick File". */
   quick_file: string | null;
   /** User keybinding overrides: friendly-key ("Ctrl+Shift+K") → action name. */

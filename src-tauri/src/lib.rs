@@ -68,6 +68,7 @@ pub fn run() {
             spelling::spell_check,
             spelling::add_to_dictionary,
             spelling::spell_reload,
+            spelling::personal_dictionary_path,
             render::render_document,
             render::restart_kernel,
             bib::extract_bib_entries,

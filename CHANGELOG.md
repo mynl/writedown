@@ -5,6 +5,36 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.61.0] - 2026-07-14
+
+### Added
+
+- **Spell check: far fewer false alarms, plus a seeded, reachable personal dictionary.**
+  The engine was never the problem (it's a full Hunspell affix dictionary); the noise came
+  from the tokenizer flagging things that aren't prose. Four levers, all in
+  `src/editor/prose.ts` unless noted:
+  - **Configurable minimum word length** — `[spelling] min_length` (default **4**), so short
+    tokens like `px`, `md`, `js` are no longer checked. Threads config → `EditorSettings` →
+    the tokenizer (previously hardcoded to 2).
+  - **File paths are skipped** — any whitespace-delimited run containing `/` or `\` (Windows,
+    UNC, POSIX, relative paths, non-`http` URLs, and slash tokens like `TCP/IP`). This fixes
+    the long-standing case where `C:/dir/Photos/roman` had its segments underlined.
+  - **Mid-sentence proper nouns are skipped** — a Capitalized word that isn't at a sentence
+    start (`Tauri`, `Zustand`) is treated as a proper noun. Sentence-initial words stay
+    checked, so a real typo like "Teh cat" is still caught. Gated by
+    `[spelling] skip_proper_nouns` (default true) — set false to check them.
+  - **Personal dictionary is seeded on first creation** with common file extensions and
+    tooling/domain terms, and is now reachable via two palette commands, **Open Personal
+    Dictionary** and **Reload Personal Dictionary** (also keybindable: `openSpellDictionary`
+    / `reloadSpellDictionary`). It still lives in the durable app-config dir (not the
+    disposable `~/.writedown/` tree) and is repointable via `[spelling] personal_dictionary`;
+    an existing dictionary is never reseeded or clobbered.
+
+### Changed
+
+- The `[spelling]` config block documents the two new keys (`min_length`, `skip_proper_nouns`).
+  Existing configs without them fall back to the defaults (4 / true).
+
 ## [1.60.1] - 2026-07-14
 
 ### Fixed

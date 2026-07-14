@@ -154,6 +154,16 @@ export function appCommands(): Command[] {
         }
       },
     },
+    {
+      id: "spell-open-dictionary",
+      title: "Open Personal Dictionary",
+      run: () => void s().openPersonalDictionary(),
+    },
+    {
+      id: "spell-reload-dictionary",
+      title: "Reload Personal Dictionary",
+      run: () => void s().reloadPersonalDictionary(),
+    },
     { id: "refresh-tree", title: "Refresh File Tree", run: () => void s().refreshTree() },
     { id: "toggle-word-wrap", title: "Toggle Word Wrap", run: () => toggleWordWrap() },
     { id: "toggle-preview", title: "Toggle Preview (editor / split / preview)", run: () => s().cycleView() },

@@ -19,6 +19,74 @@ use tauri::Manager;
 const AFF: &str = include_str!("../assets/dict/en_US.aff");
 const DIC: &str = include_str!("../assets/dict/en_US.dic");
 
+/// Written to the personal dictionary the first time it is created, so common file
+/// extensions and tooling/domain terms don't get underlined out of the box. Ordinary
+/// plain text the user fully owns and can edit; "Add to dictionary" appends below it.
+/// Only ever written when the file is ABSENT — a hand-edited or emptied file is never
+/// reseeded, so deletions are respected.
+const SEED: &str = r#"# Writedown personal dictionary — words treated as correctly spelled.
+# One word per line; '#' starts a comment; matching is case-insensitive. Words you add
+# via "Add to dictionary" are appended below. Edit freely, then run the palette command
+# "Reload Personal Dictionary" (or save config.toml) to pick up hand edits.
+
+# — file extensions —
+md
+qmd
+markdown
+toml
+json
+yaml
+yml
+csv
+tsv
+png
+jpg
+jpeg
+svg
+gif
+pdf
+docx
+xlsx
+pptx
+ipynb
+py
+rs
+ts
+tsx
+js
+jsx
+html
+css
+scss
+bib
+tex
+bat
+sh
+exe
+dll
+zip
+
+# — tools & domain terms —
+writedown
+quarto
+pandoc
+tauri
+zustand
+codemirror
+lezer
+katex
+dompurify
+hunspell
+repo
+config
+changelog
+frontmatter
+bibtex
+crossref
+actuary
+actuarial
+"#;
+
 /// Parsed once on first use. `None` means the embedded data failed to parse — a build/data
 /// bug we surface (stderr + an Err from `spell_check`) rather than silently disabling checks.
 static DICT: OnceLock<Option<Dictionary>> = OnceLock::new();
@@ -158,6 +226,9 @@ pub fn spell_reload(app: tauri::AppHandle, state: tauri::State<SpellState>) -> R
 /// from `setup`, like the bibliography). Failures are logged, never fatal.
 pub fn warm(app: &tauri::AppHandle) {
     let _ = dict(); // pay the one-time parse cost now, not on the first keystroke
+    if let Err(e) = ensure_personal_seeded(app) {
+        eprintln!("writedown: personal dictionary seed failed: {e}");
+    }
     let state = app.state::<SpellState>();
     match load_personal(app) {
         Ok(words) => *state.personal.lock().unwrap() = words,
@@ -173,6 +244,36 @@ fn personal_dict_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     }
     let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
     Ok(dir.join("personal-dictionary.txt"))
+}
+
+/// Absolute path to the personal dictionary (for the "Open Personal Dictionary" command).
+/// Ensures the file exists — seeded on first creation — so the command always opens a real,
+/// populated file rather than a "file not found".
+#[tauri::command]
+pub fn personal_dictionary_path(app: tauri::AppHandle) -> Result<String, String> {
+    ensure_personal_seeded(&app)?;
+    Ok(personal_dict_path(&app)?.to_string_lossy().to_string())
+}
+
+/// Create + seed the personal dictionary when it does not yet exist. No-op if present, so a
+/// hand-edited, emptied, or intentionally-trimmed file is never clobbered or reseeded.
+fn ensure_personal_seeded(app: &tauri::AppHandle) -> Result<(), String> {
+    let path = personal_dict_path(app)?;
+    seed_if_absent(&path).map_err(|e| format!("seed {}: {e}", path.display()))?;
+    Ok(())
+}
+
+/// Write the seed to `path` only if it is absent. Returns whether it wrote. Pure filesystem
+/// logic (no AppHandle) so it is unit-testable.
+fn seed_if_absent(path: &std::path::Path) -> std::io::Result<bool> {
+    if path.exists() {
+        return Ok(false);
+    }
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(path, SEED)?;
+    Ok(true)
 }
 
 /// The `[spelling] personal_dictionary` override, if present and non-empty.
@@ -225,6 +326,25 @@ mod tests {
         let mut s = Vec::new();
         d.suggest("teh", &mut s);
         assert!(s.iter().any(|x| x == "the"), "suggestions were {s:?}");
+    }
+
+    #[test]
+    fn seed_written_once_then_left_alone() {
+        // process-id-scoped temp dir keeps parallel test runs from colliding (no Date/rand).
+        let dir = std::env::temp_dir().join(format!("wd-seed-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let path = dir.join("personal-dictionary.txt");
+
+        assert!(seed_if_absent(&path).unwrap(), "first call creates the file");
+        assert!(path.exists());
+        assert!(std::fs::read_to_string(&path).unwrap().contains("quarto"));
+
+        // A hand edit must survive: seeding is a no-op once the file exists.
+        std::fs::write(&path, "myword\n").unwrap();
+        assert!(!seed_if_absent(&path).unwrap(), "existing file is never reseeded");
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "myword\n");
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

@@ -1,16 +1,35 @@
 Feature Ideas
------------------
+===============
+ 
+## July 14 Round 2
 
-See @sec-one.
+- [ ] (1) Min length of word for spell check = 4 / where is the list of ignored words? add all file extensions!  
+ 
+## July 14 bugs, punchups, and features 
 
-- [ ] (a) Extract refs to *.bib file - put in scratch buffer.
-- [x] (b) spell checker
-- [ ] (c) variable width between the text editor and the preview/rendered view
+### Bugs / Punchups 
+- [x] (1) save on lost focus = when you move off the tab onto folder or project it does not save ATM. it should
+- [ ] (2) change folder results in projects being reset? - the folder and projects should be independent --> seems to still be an issue 
+- [x] (3) do **not** filter dot files! (eg in users\steve\.writedown should be visible in the tree view)
+- [x] (4) @ REEYYYY defeated by trailing period, colon punctuation (comma, semicolon ok) - adjust regex. @Mildenhall2022a.
+- [x] (6) spell check should ignore words in all caps. it DOESE already, doese. 
 
-***
+ABUCRK abucrk 
 
-Issues {#sec-one}
-=====
+### Questions 
+- [ ] (5) what happens when you have multiple instances of the exe running?
+- [ ] (e) what is the universe of ST commands available?
+- [ ] (f) Project save file location: this should be completely managed - user never asked where to save a project. I don't think that is the case right now.  User should not be asked about where to save projects. Quick switch projects discovers those in saved location. What does palette -> save project as do? It should just rename (no file dialog box)? 
+- [ ] (g) when we iterate on code, an I keep the old compiled exe open and use it - and iterate on a tauri dev instance?
+
+### Features 
+- [x] (a) FEATURE: Extract refs in qmd / md file to *.bib file - put in a new scratch buffer.
+- [x] (d) FEATURE: insert date time function on palette YYYY-MM-DD HH:MM:SS format. 2026-07-14 16:45:25 
+- [x] FEATURE: Use csv-grid for csv preview - load with fzf and column headers and resize, and copy/export buttons (see C:/s/AI/csv-viewer).
+- [x] (4) FEATURE: add Ctrl+Shift+Q -> quick open a file. Default for me is the writedown bug reporter:  \s\ai\writedown\writedown-issues.md (my bug reporter). Customize location in config. 
+
+Past Issues {#sec-one}
+================
 
 - [x] (1) new project -> the (dev) features folder gets added in addition to the folder you add
 
@@ -28,14 +47,14 @@ Issues {#sec-one}
 
 ### July 12 punch ups
 
-- [ ] (1) save projects under ~/.writedown/projects - and list provide quick switch projects etc. User should not be asked about where to save projects - that is  all managed. 
+*I think these are all done*
+
 - [ ] (2) new file -> lose spot in files/projects (dir list folds up); ditto delete me etc. investigate file ops and folder/project tree interaction. 
-- [ ] (3) text wrap on / off in editor window (see (4) too)  
-- [ ] (4) other ST key mappings (Ctrl K + Ctrl W toggle wrap, Ctrl +K kill to end of line, make Ctrl + B **xxx** (and Ctrl + I for italics); remap build to Ctrl+Shift + B; help shows list of key bindings;
+- [x] (3) text wrap on / off in editor window (see (4) too)  
+- [x] (4) other ST key mappings (Ctrl K + Ctrl W toggle wrap, Ctrl +K kill to end of line, make Ctrl + B **xxx** (and Ctrl + I for italics); remap build to Ctrl+Shift + B; help shows list of key bindings;
 - [ ] (5) spell checker on/off; add word; ignore word (??not working)
-- [ ] (6) table format - add ST ctrl + alt + shft + T as shortcut (strong muscle memory) 
-- [ ] (7)
-- [ ] (8)
+- [x] (6) table format - add ST ctrl + alt + shft + T as shortcut (strong muscle memory) 
+
 
 ### Too hard - pend 
 
@@ -54,12 +73,23 @@ sequenceDiagram
 ````
 
 <!-- remember this is deleted each evening!  -->
-![caption](C:/tmp/cypriot_medium.jpg){width=50%}
+![caption Space 20](C:/s/Photos/Headshots/roman%20med.jpg){width=10%}
 
-![caption2](../../../../tmp/cypriot_medium.jpg){width=25% #fig-cyp}
+![caption A](C:/s/Photos/Headshots/roman%20med.jpg){width=50%}
 
-<!-- need to escape the backslash -->
+![caption B](C:\s\Photos\Headshots\roman_med.jpg){width=35%}
+
+![caption C](C:/s/Photos/Headshots/roman_med.jpg){width=25%  #fig-cyp}
+
+![caption D](/s/Photos/Headshots/roman_med.jpg){width=25%  #fig-cyp2}
+
+![caption E](c:\\s\\Photos\\Headshots\\roman_med.jpg){width=25%  #fig-cyp3}
+
+
+<!-- need to escape the backslash 
+![caption2](../../../../tmp/cypriot_medium.jpg){width=25%}
 ![caption3](..\\..\\..\\..\tmp\cypriot_medium.jpg){width=5%}
+-->
 
 
 ```{python}

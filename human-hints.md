@@ -34,6 +34,38 @@ parser. Zero csv-grid changes for v1.
   parked: raw↔inferred + balanced↔maximize have no library buttons (methods only) —
   could be palette commands later; `--csvgrid-*` CSS vars for theme-matching in polish.
 
+## 2026-07-14 — 1.61.0 spell check: fewer false positives + seeded/reachable dictionary
+
+Steve: spell check is a "mixed blessing" — too many false flags (paths, extensions, proper
+nouns, short tokens). Diagnosed first: the **engine is fine** (real Hunspell affix dict,
+`spellbook`, ~49k stems); all noise is in the **tokenizer** (`src/editor/prose.ts`). Also
+answered his "where are words saved?": **durable** `%APPDATA%\com.mynl.writedown\
+personal-dictionary.txt` (deliberately NOT `~/.writedown`, which the spec calls disposable);
+"Ignore this session" is **ephemeral** Zustand only (never persisted). Shipped all four
+levers he picked (durable dict + Open command; kept the proper-noun one behind a config
+toggle given its false-negative trade-off):
+
+- **`[spelling] min_length` (default 4)** — replaces the hardcoded `< 2`. Config →
+  `EditorSettings` (Rust `config.rs` + `api.ts`) → `spellTokens(state, minLen, skipProper)`.
+- **Skip file paths** — any whitespace-delimited run containing `/` or `\` (`RUN_RE`) joins
+  the existing merged skip-interval set. Fixes `C:/dir/Photos/roman`-style flags; also covers
+  the space-in-image-path case (that image renders as literal prose, so the path would've
+  been checked). Cost: `and/or`/`TCP/IP` also skipped — harmless.
+- **Skip mid-sentence Capitalized words** (`skip_proper_nouns`, default true) — `isSentenceStart`
+  scans back past spaces + line-lead markers (`# > - * + |`, ordered digits, quotes); at doc
+  start / after `\n` / after `.?!:` it's a sentence start → still checked (so "Teh" is caught);
+  otherwise skipped as a proper noun.
+- **Seed the personal dict on first creation** (Rust `spelling.rs` `seed_if_absent`, unit-tested;
+  never reseeds/clobbers an existing file) with extensions + tooling terms; new palette
+  **Open / Reload Personal Dictionary** (+ keybindable `openSpellDictionary`/`reloadSpellDictionary`,
+  store actions `openPersonalDictionary`/`reloadPersonalDictionary`). New Rust command
+  `personal_dictionary_path` ensures-seeded then returns the path.
+
+tsc clean; `cargo test` 35 pass (incl. new `seed_written_once_then_left_alone`), target on V:
+(firewall intact). **Not yet verified live** — Steve to restart `tauri dev` (Rust changed).
+Note for Steve: an *existing* personal-dictionary.txt is never reseeded — delete it (it's tiny)
+and relaunch to pick up the seed block, or paste it in via Open Personal Dictionary.
+
 ## 2026-07-14 — 1.54.1–1.59.0 July-14 punch list: 4 fixes + 4 features (csv-grid deferred)
 
 Steve's issues-file batch: answered Qs (multi-instance, ST command universe, project file

@@ -20,6 +20,7 @@ import {
   pickProjectOpenPath,
   saveManagedProject,
   pickSavePath,
+  personalDictionaryPath,
   readFile,
   recentProjects as fetchRecentProjects,
   reloadSpelling,
@@ -35,6 +36,7 @@ import {
   type Session,
   type SublimeTheme,
 } from "./api";
+import { forceLinting } from "@codemirror/lint";
 import { getActiveView } from "./editor/editorView";
 import { isMarkdownDoc } from "./editor/languages";
 import { cssFontWeight } from "./fontWeight";
@@ -195,6 +197,10 @@ type AppState = {
   /** Open the configured `[files] quick_file` (Ctrl+Shift+Q). Missing config or file
    *  surfaces in the footer rather than failing silently. */
   openQuickFile: () => Promise<void>;
+  /** Open the personal spelling dictionary (created + seeded on first use) in a tab. */
+  openPersonalDictionary: () => Promise<void>;
+  /** Re-read the personal dictionary from disk and re-lint the active view. */
+  reloadPersonalDictionary: () => Promise<void>;
   reloadDoc: (path: string) => Promise<void>;
   onFsChange: (paths: string[]) => void;
   setActive: (path: string) => void;
@@ -380,6 +386,24 @@ export const useStore = create<AppState>((set, get) => ({
       await get().openFile(qf, false);
     } catch (e) {
       set({ configError: `quick file ${qf} — ${String(e)}` });
+    }
+  },
+
+  openPersonalDictionary: async () => {
+    try {
+      await get().openFile(await personalDictionaryPath(), false);
+    } catch (e) {
+      set({ configError: `personal dictionary — ${String(e)}` });
+    }
+  },
+
+  reloadPersonalDictionary: async () => {
+    try {
+      await reloadSpelling();
+      const v = getActiveView(); // re-lint so reloaded words clear their squiggles at once
+      if (v) forceLinting(v);
+    } catch (e) {
+      set({ configError: `reload dictionary — ${String(e)}` });
     }
   },
 

@@ -12,8 +12,12 @@ import { useStore } from "../store";
 const spellLint = linter(
   async (view): Promise<Diagnostic[]> => {
     // Session ignore list wins before we even ask Rust (cheaper, and re-checked each lint run).
-    const ignore = useStore.getState().spellIgnore;
-    const spans = spellTokens(view.state).filter((s) => !ignore.has(s.word.toLowerCase()));
+    const { spellIgnore: ignore, editorSettings: es } = useStore.getState();
+    const spans = spellTokens(
+      view.state,
+      es?.spelling_min_length ?? 4,
+      es?.spelling_skip_proper_nouns ?? true,
+    ).filter((s) => !ignore.has(s.word.toLowerCase()));
     if (spans.length === 0) return [];
     const unique = [...new Set(spans.map((s) => s.word))];
 

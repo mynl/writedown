@@ -104,6 +104,8 @@ export const COMMAND_REGISTRY: Record<string, RegistryEntry> = {
   zoomReset: { run: act(() => s().setEditorZoom("reset")), label: "Editor zoom reset", category: "View" },
   toggleWordWrap: { run: act(() => toggleWordWrap()), label: "Toggle word wrap", category: "View" },
   toggleSpell: { run: act(() => s().toggleSpell()), label: "Toggle spell check", category: "View" },
+  openSpellDictionary: { run: act(() => void s().openPersonalDictionary()), label: "Open personal dictionary", category: "View" },
+  reloadSpellDictionary: { run: act(() => void s().reloadPersonalDictionary()), label: "Reload personal dictionary", category: "View" },
   build: { run: act(() => void s().renderActive()), label: "Build (render document)", category: "View" },
   foldCode: { run: foldCode, label: "Fold", category: "View" },
   unfoldCode: { run: unfoldCode, label: "Unfold", category: "View" },
