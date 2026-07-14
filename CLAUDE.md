@@ -156,6 +156,9 @@ Standing rules — follow without being re-asked.
   bullets. The changelog carries the detail the terse commit omits.
 - **Commit style:** terse subject, optionally version-prefixed (e.g. `1.2.0 outline
   click-to-jump`); no long body. One shippable change ≈ one commit ≈ one CHANGELOG entry.
+- **One commit per point release.** Commit each point release (x.y.z) as its own commit —
+  never batch several version bumps into a single commit, and don't push several releases
+  together. So history stays bisectable and any one release can be reverted alone.
 - **`README.md`** is the stable front page; touch it only when that material changes.
 - **Work proceeds from plan docs** in `dev/`; move a plan to `dev/done/` only when the
   author says it's done.
