@@ -3,6 +3,27 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-15 — 1.66.2 unclosable-window fix (capability ACL, not logic)
+
+Steve reported the app unclosable — X and system-menu Close both ignored, task-manager
+kill required. Broken since 1.66.0, and it's a **Tauri permissions gap**, not a bug in the
+flush logic:
+
+- Registering *any* JS `onCloseRequested` listener makes Tauri core veto the native close
+  unconditionally — so from 1.66.0 the handler's own `destroy()` was the only possible
+  exit, and that call was silently rejected by the capability ACL:
+  `capabilities/default.json` (untouched since 1.27.0, when `allow-set-title` was added)
+  grants only read-only window permissions. Every close: intercepted → flushed → denied.
+  The "second click forces close" escape hatch died on the same denial.
+- Fix: `core:window:allow-destroy` (+ `allow-show` — the hidden-window first-paint reveal
+  was failing silently the same way, masked by `.catch()` and rescued by the window-state
+  plugin). Also hardened the flush: a *rejecting* `saveSession` skipped `destroy()` (the
+  3 s race only covered a *hung* one); flush errors now caught + logged so close always
+  proceeds.
+- **Lesson (standing):** when frontend code gains a new `@tauri-apps/api` window/webview
+  call, check `capabilities/default.json` in the same change — ACL denials are silent
+  promise rejections, invisible under `.catch(() => {})`.
+
 ## 2026-07-15 — 1.62.1–1.66.1 punch-up batch: hot exit, folder persistence, small fixes
 
 Five punch-ups, one commit per point release. Nothing surprisingly hard (no YELL needed).
