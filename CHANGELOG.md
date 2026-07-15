@@ -5,6 +5,25 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.65.0] - 2026-07-15
+
+### Added
+
+- **The Folder panel now survives a restart.** The Folder tab's root and the active
+  side-panel tab (Folder vs Project) are persisted in `~/.writedown/session.json` and
+  restored on launch, independent of the workspace. Previously the folder root had no
+  persistence at all: with a project open (or as the last workspace), an opened folder
+  was never remembered, so it "disappeared" on the next launch — and the panel always
+  reset to the Folder tab.
+
+### Changed
+
+- `session.json` grew `folder_root` and `panel_tab` alongside `workspace` (all optional —
+  old files load fine, old builds ignore the new keys). Writing the last workspace is now
+  read-modify-write so it can't clobber the folder fields. Folder/panel changes persist via
+  the same debounced watcher as the per-workspace session — one watch point rather than a
+  save call at every mutation site.
+
 ## [1.64.0] - 2026-07-15
 
 ### Added

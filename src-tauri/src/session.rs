@@ -23,8 +23,16 @@ pub struct Session {
 }
 
 #[derive(Serialize, Deserialize, Default)]
-struct Global {
-    workspace: Option<String>,
+pub struct Global {
+    #[serde(default)]
+    pub workspace: Option<String>,
+    /// Folder-tab root, independent of the project — the Folder tab must survive a
+    /// restart even when the last workspace was a .wdproj.
+    #[serde(default)]
+    pub folder_root: Option<String>,
+    /// "folder" | "project" — which side-panel tab was showing.
+    #[serde(default)]
+    pub panel_tab: Option<String>,
 }
 
 fn session_file(app: &tauri::AppHandle, workspace: &str) -> Result<PathBuf, String> {
@@ -40,19 +48,44 @@ fn global_file(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(writedown_dir(app)?.join("session.json"))
 }
 
-/// The workspace to restore on a cold start (last one opened), if any.
+fn read_global(app: &tauri::AppHandle) -> Global {
+    // Missing/corrupt → default; a bad session.json must never block launch.
+    global_file(app)
+        .ok()
+        .and_then(|p| std::fs::read_to_string(p).ok())
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default()
+}
+
+fn write_global(app: &tauri::AppHandle, g: &Global) -> Result<(), String> {
+    let json = serde_json::to_string_pretty(g).map_err(|e| e.to_string())?;
+    std::fs::write(global_file(app)?, json).map_err(|e| format!("write session.json: {e}"))
+}
+
+/// Cold-start state: last workspace, Folder-tab root, and active panel tab.
 #[tauri::command]
-pub fn load_last_workspace(app: tauri::AppHandle) -> Result<Option<String>, String> {
-    match std::fs::read_to_string(global_file(&app)?) {
-        Ok(s) => Ok(serde_json::from_str::<Global>(&s).map(|g| g.workspace).unwrap_or(None)),
-        Err(_) => Ok(None),
-    }
+pub fn load_global_state(app: tauri::AppHandle) -> Result<Global, String> {
+    Ok(read_global(&app))
 }
 
 #[tauri::command]
 pub fn save_last_workspace(app: tauri::AppHandle, workspace: Option<String>) -> Result<(), String> {
-    let json = serde_json::to_string_pretty(&Global { workspace }).map_err(|e| e.to_string())?;
-    std::fs::write(global_file(&app)?, json).map_err(|e| format!("write session.json: {e}"))
+    // Read-modify-write so setting the workspace never wipes the folder fields.
+    let mut g = read_global(&app);
+    g.workspace = workspace;
+    write_global(&app, &g)
+}
+
+#[tauri::command]
+pub fn save_folder_state(
+    app: tauri::AppHandle,
+    folder_root: Option<String>,
+    panel_tab: Option<String>,
+) -> Result<(), String> {
+    let mut g = read_global(&app);
+    g.folder_root = folder_root;
+    g.panel_tab = panel_tab;
+    write_global(&app, &g)
 }
 
 /// Load a workspace's session (tabs/pane widths). Missing/corrupt → default.

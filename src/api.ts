@@ -142,11 +142,21 @@ export type Session = {
   split_ratio: number | null;
 };
 
-// Session is keyed per workspace; session.json holds only the last workspace.
-export const loadLastWorkspace = () => invoke<string | null>("load_last_workspace");
+// Session is keyed per workspace; session.json holds the cold-start state (last
+// workspace, Folder-tab root, active panel tab).
+export type GlobalState = {
+  workspace: string | null;
+  folder_root: string | null;
+  panel_tab: string | null;
+};
+
+export const loadGlobalState = () => invoke<GlobalState>("load_global_state");
 
 export const saveLastWorkspace = (workspace: string | null) =>
   invoke<void>("save_last_workspace", { workspace });
+
+export const saveFolderState = (folderRoot: string | null, panelTab: string | null) =>
+  invoke<void>("save_folder_state", { folderRoot, panelTab });
 
 export const loadSession = (workspace: string) =>
   invoke<Session>("load_session", { workspace });

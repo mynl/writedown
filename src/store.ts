@@ -11,7 +11,7 @@ import {
   listProjects,
   loadBibliography,
   loadEditorSettings,
-  loadLastWorkspace,
+  loadGlobalState,
   loadProject,
   loadSession,
   loadSublimeTheme,
@@ -328,29 +328,40 @@ export const useStore = create<AppState>((set, get) => ({
   hydrate: async () => {
     void get().loadRecentProjects();
     void get().loadProjects();
-    let ws: string | null = null;
+    let g: { workspace: string | null; folder_root: string | null; panel_tab: string | null };
     try {
-      ws = await loadLastWorkspace();
+      g = await loadGlobalState();
     } catch {
       return;
     }
-    if (!ws) return;
-    if (ws.toLowerCase().endsWith(".wdproj")) {
+    const ws = g.workspace;
+    if (ws?.toLowerCase().endsWith(".wdproj")) {
       // Last workspace was a project — reopen it (openProject restores its session).
       try {
         await get().openProject(ws);
       } catch {
         /* project file gone */
       }
-      return;
+    } else if (ws) {
+      try {
+        await get().setRoot(ws);
+        await get().setFolderRoot(ws);
+        await get().restoreSession(ws);
+      } catch {
+        /* workspace no longer exists — fall through to the folder-tab restore */
+      }
     }
-    try {
-      await get().setRoot(ws);
-      await get().setFolderRoot(ws);
-    } catch {
-      return; // workspace no longer exists
+    // The Folder tab is restored independently of the workspace, so a folder opened
+    // alongside a project survives a restart too. Restore panelTab LAST — it overrides
+    // openProject's panelTab:"project" when the user was last on the Folder tab.
+    if (g.folder_root && g.folder_root !== get().folderRoot) {
+      try {
+        await get().setFolderRoot(g.folder_root);
+      } catch {
+        /* folder gone — leave the tab empty */
+      }
     }
-    await get().restoreSession(ws);
+    if (g.panel_tab === "folder" || g.panel_tab === "project") set({ panelTab: g.panel_tab });
   },
 
   // Restore tabs/pane-widths for a session key (a folder path or a project file path).
