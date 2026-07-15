@@ -5,6 +5,22 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.66.1] - 2026-07-15
+
+### Fixed
+
+- **Hot-exit checkpoint now has a ceiling during sustained typing.** The session writer is
+  a trailing debounce (write 400 ms after the last change), so pauseless typing with
+  keystroke gaps under 400 ms could postpone the checkpoint indefinitely — a crash
+  mid-flow could lose the whole run, not the advertised ~400 ms. A vim-style max-wait
+  (idle **or** ceiling, like vim's 4 s / 200 chars) now forces a write at least every 5 s
+  while changes are pending. Normal typing is unchanged — same single write 400 ms after
+  you pause; the ceiling only adds writes during long pauseless runs, which previously
+  produced none at all. Clean quits were already fully covered by the 1.66.0 close-time
+  flush. (For context: every editor checkpoints rather than journaling keystrokes —
+  Sublime's periodic `Auto Save Session.sublime_session`, vim's swap file, Emacs
+  auto-save; ours was missing only the ceiling half of the pattern.)
+
 ## [1.66.0] - 2026-07-15
 
 ### Added
