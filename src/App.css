@@ -326,6 +326,7 @@ body {
 /* Preview (transient) tab shows its name in italics, Sublime-style. */
 .tab.preview .tab-name {
   font-style: italic;
+  font-size: 11px; /* optical: the italic face renders larger than 11.5px roman */
 }
 
 .tab-name {

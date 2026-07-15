@@ -5,6 +5,16 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.62.1] - 2026-07-15
+
+### Fixed
+
+- **Preview tabs no longer look bigger than normal tabs.** A single-click (preview) tab's
+  italic name rendered optically larger than the roman names beside it — there was never an
+  actual `font-size` difference; the italic face just has larger apparent glyph metrics. The
+  preview-tab name now gets a small optical compensation (11px vs the strip's 11.5px) so both
+  read as the same size.
+
 ## [1.62.0] - 2026-07-14
 
 ### Added
