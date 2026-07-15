@@ -1,6 +1,7 @@
 // Pick the CodeMirror language by file extension so Writedown opens code/data files,
 // not just Markdown (spec §6). Colours come from the imported Sublime scheme via the
 // shared highlight style, so e.g. Python looks the same here as in a fenced code block.
+import { useEffect, useState } from "react";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
 import { LanguageDescription, StreamLanguage } from "@codemirror/language";
@@ -48,6 +49,28 @@ export function languageForPath(path: string): Extension | null {
     default:
       return null; // csv/tsv/txt etc. — plain text (csv also gets the rainbow layer)
   }
+}
+
+/** Language for the editor: the first-class types above resolve synchronously; anything
+ *  else (rst, C/C++, R, PowerShell, JS/TS, …) falls back to language-data, whose support
+ *  loads lazily as a Vite chunk. The description memoizes its own load, so each language
+ *  pays the (ms) import once per app run; the hook re-renders when the chunk arrives. */
+export function useLanguageFor(path: string): Extension | null {
+  const sync = languageForPath(path);
+  const filename = path.split(/[\\/]/).pop() ?? path;
+  const desc = sync ? null : LanguageDescription.matchFilename(languages, filename);
+  const [, bump] = useState(0);
+  useEffect(() => {
+    if (!desc || desc.support) return;
+    let alive = true;
+    void desc.load().then(() => {
+      if (alive) bump((n) => n + 1);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [desc]);
+  return sync ?? desc?.support ?? null;
 }
 
 export const isCsv = (path: string): boolean => /\.(csv|tsv)$/i.test(path);

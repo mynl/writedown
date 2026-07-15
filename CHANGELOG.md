@@ -5,6 +5,18 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.67.0] - 2026-07-15
+
+### Added
+
+- **Many more file types open colorized** — reStructuredText, C/C++, JavaScript/TypeScript,
+  CSS, HTML, SQL, and PowerShell join the tree and the editor, and the already-listed R and
+  shell files now actually highlight. Resolution falls back to `@codemirror/language-data`
+  (already in the pipeline for fenced code blocks), whose grammars load lazily as separate
+  chunks — a one-time, millisecond import per language, zero cost until a file of that type
+  is opened. The first-class types (md/qmd, py, json, yaml, toml, tex, csv) resolve exactly
+  as before.
+
 ## [1.66.2] - 2026-07-15
 
 ### Fixed

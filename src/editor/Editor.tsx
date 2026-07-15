@@ -10,7 +10,7 @@ import { buildSublimeTheme } from "./sublimeTheme";
 import { csvRainbow } from "./csvRainbow";
 import { mathHighlight } from "./math";
 import { frontmatterBlock } from "./frontmatter";
-import { isCsv, isMarkdownDoc, languageForPath } from "./languages";
+import { isCsv, isMarkdownDoc, useLanguageFor } from "./languages";
 import {
   buildEditingKeymap,
   editingExtras,
@@ -64,8 +64,9 @@ export function Editor({ path, content }: { path: string; content: string }) {
     [st, fontSize, fontFamily, fontWeight],
   );
 
+  const lang = useLanguageFor(path);
+
   const extensions = useMemo(() => {
-    const lang = languageForPath(path);
     const ext = [
       cmExceptionLogger,
       saveOnBlur,
@@ -103,7 +104,7 @@ export function Editor({ path, content }: { path: string; content: string }) {
       );
     }
     return ext;
-  }, [path, built, fontSize, fontWeight, spellEnabled, tabSize]);
+  }, [path, lang, built, fontSize, fontWeight, spellEnabled, tabSize]);
 
   // Live-apply keybinding changes when config.toml is saved (loadTheme replaces editorSettings,
   // so `userKeys` gets a new identity). Reconfigure the Compartment in place — no rebuild — and
