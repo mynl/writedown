@@ -5,6 +5,18 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.69.0] - 2026-07-15
+
+### Added
+
+- **Drag tabs to reorder them.** Pointer-based (HTML5 drag-and-drop is unreliable in
+  webviews): a ~5 px horizontal threshold separates a drag from a click, then the strip
+  reorders live as the pointer crosses neighboring tabs' midpoints; dragging also selects
+  the tab, ST-style. The new order persists in the per-workspace session (which already
+  stored tabs in array order), and the Open Files panel section follows automatically —
+  both read the same array. Plain click, double-click promote, and the close × behave
+  exactly as before.
+
 ## [1.68.0] - 2026-07-15
 
 ### Added

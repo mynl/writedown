@@ -343,6 +343,11 @@ body {
   user-select: none;
   overflow: hidden; /* clip transiently-tall content (e.g. a just-mounted preview tab's
                        italic name) so a single tab can't drag the whole strip up */
+  touch-action: none; /* pointer-drag reorder owns horizontal movement */
+}
+
+.tab.dragging {
+  opacity: 0.6;
 }
 
 .tab.active {

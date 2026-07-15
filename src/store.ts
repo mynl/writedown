@@ -209,6 +209,8 @@ type AppState = {
   onFsChange: (paths: string[]) => void;
   setActive: (path: string) => void;
   promoteTab: (path: string) => void;
+  /** Move a tab to a new position in the strip (drag-reorder). Session order follows. */
+  moveTab: (path: string, toIndex: number) => void;
   closeTab: (path: string) => void;
   reopenClosed: () => Promise<void>;
   nextTab: (dir: 1 | -1) => void;
@@ -575,6 +577,17 @@ export const useStore = create<AppState>((set, get) => ({
     set((s) => ({
       tabs: s.tabs.map((t) => (t.path === path ? { ...t, preview: false } : t)),
     })),
+
+  moveTab: (path, toIndex) =>
+    set((s) => {
+      const from = s.tabs.findIndex((t) => t.path === path);
+      const to = Math.max(0, Math.min(toIndex, s.tabs.length - 1));
+      if (from < 0 || from === to) return {};
+      const tabs = [...s.tabs];
+      const [moved] = tabs.splice(from, 1);
+      tabs.splice(to, 0, moved);
+      return { tabs };
+    }),
 
   reloadDoc: async (path) => {
     if (!get().tabs.some((t) => t.path === path)) return;
