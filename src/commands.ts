@@ -66,7 +66,11 @@ export function appCommands(): Command[] {
           s().newFolder(v),
         ),
     },
-    { id: "new-scratch", title: "New Scratch File (unsaved)", run: () => s().newScratch() },
+    {
+      id: "new-scratch",
+      title: "New Scratch File (unsaved) (Ctrl+Shift+N)",
+      run: () => s().newScratch(),
+    },
     {
       id: "open-quick-file",
       title: "Open Quick File (Ctrl+Shift+Q)",

@@ -5,6 +5,15 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.64.0] - 2026-07-15
+
+### Added
+
+- **Ctrl+Shift+N opens a new scratch file** (the existing "New Scratch File (unsaved)"
+  palette command, now one chord away). Works from any focus — editor, tree, or preview —
+  and lands the cursor in the new buffer. Listed in the F1 shortcut help and in the palette
+  entry's title.
+
 ## [1.63.0] - 2026-07-15
 
 ### Changed
