@@ -5,6 +5,26 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.66.2] - 2026-07-15
+
+### Fixed
+
+- **Window was unclosable since 1.66.0 — titlebar X and system-menu Close were silently
+  ignored.** Two Tauri facts combined: (1) registering any JS close-request listener makes
+  Tauri core veto the native close, so the 1.66.0 close-time-flush handler's own
+  `destroy()` call became the *only* way the window could ever close; (2) that `destroy()`
+  was rejected by the capability ACL — `capabilities/default.json` (untouched since 1.27.0)
+  granted only read-only window permissions plus `allow-set-title`. Every close attempt was
+  intercepted, flushed, then denied; the "second click forces close" escape hatch died on
+  the same denial. Added `core:window:allow-destroy` (the fix) and
+  `core:window:allow-show` (the first-paint reveal was failing silently the same way,
+  rescued only by the window-state plugin's Rust-side restore).
+- **Close-time flush hardened: a rejecting session write can no longer skip the close.**
+  The 3 s bound only covered a *hung* flush; a flush promise that *rejected* (e.g.
+  `saveSession` erroring) rejected the race and skipped `destroy()`, wedging the window
+  open with the force-close guard latched. Flush errors are now caught and logged, so the
+  close always proceeds.
+
 ## [1.66.1] - 2026-07-15
 
 ### Fixed
