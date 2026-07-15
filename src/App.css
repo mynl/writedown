@@ -1154,6 +1154,51 @@ body {
   opacity: 0.85;
 }
 
+/* About dialog (reuses the .help modal shell). */
+.about {
+  width: min(460px, 92vw);
+}
+.about-body {
+  overflow-y: auto;
+  padding: 12px 16px 16px;
+}
+.about-version {
+  font-size: 18px;
+  font-weight: 600;
+}
+.about-platform {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 2px 0 4px;
+}
+.about-cat {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin: 12px 0 3px;
+}
+.about-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  padding: 1px 0;
+}
+.about-row.about-core {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.about-ver {
+  font-family: var(--mono);
+  color: var(--accent, #4a90d9);
+}
+.about-crates {
+  font-size: 12px;
+  color: var(--fg);
+  opacity: 0.85;
+}
+
 /* Previous Versions picker (reuses .palette shell). */
 .palette:focus {
   outline: none;

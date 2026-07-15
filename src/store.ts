@@ -138,6 +138,8 @@ type AppState = {
   palette: "files" | "commands" | "projects" | null;
   /** Keyboard-shortcuts help overlay open (F1 / palette). */
   helpOpen: boolean;
+  /** About dialog open (palette: "About Writedown"). */
+  aboutOpen: boolean;
   /** Path whose Previous Versions picker is open (null = closed). */
   versionsFor: string | null;
   /** Small one-line input dialog (new file/folder names, etc.). `initial` prefills the
@@ -235,6 +237,7 @@ type AppState = {
   closePalette: () => void;
   /** Toggle the keyboard-shortcuts help overlay (F1). */
   toggleHelp: () => void;
+  toggleAbout: () => void;
   openPrompt: (
     title: string,
     placeholder: string,
@@ -304,6 +307,7 @@ export const useStore = create<AppState>((set, get) => ({
   treeScrollTop: 0,
   palette: null,
   helpOpen: false,
+  aboutOpen: false,
   versionsFor: null,
   prompt: null,
   treeMenu: null,
@@ -870,6 +874,7 @@ export const useStore = create<AppState>((set, get) => ({
   openPalette: (mode) => set({ palette: mode }),
   closePalette: () => set({ palette: null }),
   toggleHelp: () => set((s) => ({ helpOpen: !s.helpOpen })),
+  toggleAbout: () => set((s) => ({ aboutOpen: !s.aboutOpen })),
 
   cycleView: () =>
     set((s) => ({

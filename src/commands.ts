@@ -172,6 +172,7 @@ export function appCommands(): Command[] {
     { id: "toggle-word-wrap", title: "Toggle Word Wrap", run: () => toggleWordWrap() },
     { id: "toggle-preview", title: "Toggle Preview (editor / split / preview)", run: () => s().cycleView() },
     { id: "help-shortcuts", title: "Help: Keyboard Shortcuts", run: () => s().toggleHelp() },
+    { id: "about", title: "About Writedown", run: () => s().toggleAbout() },
     { id: "render-doc", title: "Render Document (run code cells)", run: () => void s().renderActive() },
     {
       id: "render-restart-kernel",

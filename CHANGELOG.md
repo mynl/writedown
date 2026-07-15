@@ -5,6 +5,17 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.70.0] - 2026-07-15
+
+### Added
+
+- **About dialog** (palette → "About Writedown"): app version, Tauri and WebView2
+  versions, the core pipeline components highlighted (CodeMirror, markdown-it, KaTeX,
+  mermaid, DOMPurify, React), the full frontend dependency list, and the Rust backend
+  crates. Nothing is hand-synced — the app version is read from tauri.conf.json at
+  runtime and dependency versions from package.json at build time, so the dialog can
+  never drift from what's actually shipped. Esc or a backdrop click closes it.
+
 ## [1.69.0] - 2026-07-15
 
 ### Added
