@@ -80,8 +80,6 @@ These rules apply in every project — follow them without being re-asked.
 - Keep rendered output tight — no gratuitous blank lines in blocks.
 - US spelling throughout (prose, docstrings, comments, identifiers). (The *spec* uses
   UK spelling; match the spec when quoting it, US spelling in our own prose/code.)
-- **Keep `human-hints.md` current** — a very high-level running summary of what we
-  discuss and decide, newest first. Update it at the close of each working session.
 - Periodically remind the author to stop biting his tongue.
 
 ## Steve-terminology
@@ -121,7 +119,6 @@ Each is a decision with its rejected alternative in parens; revisit only with ca
 CLAUDE.md              standing instructions (this file)
 README.md              stable front page — touch only when that material changes
 CHANGELOG.md           Keep-a-Changelog; one section per version bump
-human-hints.md         running decision journal, newest first (update each session)
 writedown-spec.md      the authoritative spec
 dev/                   plan docs (plan-<version>-<desc>.md); move to dev/done/ when
                        the author declares done (not when the code lands)

@@ -186,11 +186,30 @@ Created on first launch under `~/.writedown/` (`C:\Users\<you>\.writedown\`):
 See `writedown-spec.md` §5 for the full config schema. Nothing here is a source of truth
 for your documents — it is all derived and reconstructible.
 
+**Multiple instances.** There is no single-instance guard: two copies of the exe (or the
+installed exe alongside a dev build) run fine, and document saves stay atomic and safe.
+They share `~/.writedown/`, though, so session and recent-project writes are
+last-writer-wins — avoid opening the *same workspace* in two instances at once.
+
 ## Development
 
-Setup and run commands will be documented here once the project is scaffolded. Note:
-all build churn (Rust `target/`, `node_modules/`) lives on the `V:` developer drive,
-not in this folder — see `CLAUDE.md`.
+`npm run tauri dev` for the live dev build (Vite HMR), `npm run tauri build` for the
+release `.exe` — full command list in `CLAUDE.md`. All build churn (Rust `target/`,
+`node_modules/`) lives on the `V:` developer drive, not in this folder — see `CLAUDE.md`.
+
+Hard-won notes:
+
+- **Run cargo with its working directory inside `src-tauri/`** — never
+  `cargo --manifest-path` from the repo root. Cargo reads `.cargo/config.toml` from the
+  *current directory*, not the manifest's, so a root-run misses the `target-dir = V:`
+  override and dumps gigabytes of build output into this synced tree.
+- **A new `@tauri-apps/api` window/webview call needs a matching grant** in
+  `src-tauri/capabilities/default.json`, added in the same change. ACL denials are
+  silent promise rejections — invisible under `.catch(() => {})` — which is how the
+  1.66.x unclosable-window bug shipped.
+- **Python kernel integration tests** (`cargo test -- --ignored`, from `src-tauri/`)
+  need `WRITEDOWN_TEST_PYTHON` pointing at a real interpreter — the `python` on PATH
+  is typically the Microsoft Store stub.
 
 ## License
 
