@@ -14,9 +14,12 @@ const DEPS: [string, string][] = Object.entries(pkg.dependencies).map(([name, ve
 
 const dep = (name: string) => DEPS.find(([n]) => n === name)?.[1] ?? "?";
 
-/** The load-bearing pipeline pieces, surfaced above the full list. */
+/** The load-bearing pipeline pieces, surfaced above the full list. CsvGrid is consumed
+ *  from the sibling csv-viewer repo via a Vite alias (not package.json), so its version
+ *  is baked in by vite.config.ts from that repo's package.json. */
 const CORE: [string, string][] = [
   ["CodeMirror (editor)", dep("@codemirror/view")],
+  ["CsvGrid (csv preview — csv-viewer)", __CSVGRID_VERSION__],
   ["markdown-it (preview)", dep("markdown-it")],
   ["KaTeX (math)", dep("katex")],
   ["mermaid (diagrams)", dep("mermaid")],

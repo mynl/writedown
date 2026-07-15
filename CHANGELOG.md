@@ -5,6 +5,16 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.72.1] - 2026-07-15
+
+### Changed
+
+- **About now lists CsvGrid** (the CSV preview control) among the core components, with
+  its version. CsvGrid comes from the sibling csv-viewer repo via a Vite alias rather
+  than package.json, so its version is baked in at build time from that repo's
+  package.json — still nothing hand-synced. New versions are picked up when the dev
+  server (re)starts.
+
 ## [1.72.0] - 2026-07-15
 
 ### Added

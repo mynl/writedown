@@ -1,6 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import { realpathSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { resolve } from "node:path";
 
 // @ts-expect-error process is a nodejs global
@@ -31,10 +31,25 @@ const realRoot = (() => {
 // machine. If the checkout is missing, the build fails loudly with this path.
 const csvGridDist = resolve(realRoot, "../csv-viewer/dist");
 
+// CsvGrid's version, baked in at config time for the About dialog (the dist build exports
+// no version marker; the sibling repo's package.json is its authoritative statement).
+// Picked up on dev-server (re)start — version changes there are rare and low-stakes.
+const csvGridVersion = (() => {
+  try {
+    const pkg = readFileSync(resolve(realRoot, "../csv-viewer/package.json"), "utf-8");
+    return String(JSON.parse(pkg).version ?? "?");
+  } catch {
+    return "?";
+  }
+})();
+
 // https://vite.dev/config/
 export default defineConfig(async ({ command }) => ({
   ...(command === "build" ? { root: realRoot } : {}),
   plugins: [react()],
+  define: {
+    __CSVGRID_VERSION__: JSON.stringify(csvGridVersion),
+  },
   resolve: {
     alias: {
       "csv-grid": resolve(csvGridDist, "csv-grid.es.js"),
