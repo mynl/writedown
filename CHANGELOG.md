@@ -5,6 +5,18 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.72.0] - 2026-07-15
+
+### Added
+
+- **Open Shell Here.** Tree right-click → "Open Shell Here" opens the configured shell
+  (`[tools] shell` in config.toml; default `pwsh`) in its own console window at that
+  folder (a file's entry uses its parent). Palette → "Open Shell (document folder)" does
+  the same at the active document's folder, falling back to the workspace root for a
+  scratch buffer or empty editor. Known limit: `shell = "wt"` won't honor the directory —
+  Windows Terminal uses its own startingDirectory profile setting, not the spawn cwd;
+  the pwsh default lands in the right place.
+
 ## [1.71.0] - 2026-07-15
 
 ### Added

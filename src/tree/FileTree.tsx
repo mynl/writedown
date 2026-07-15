@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { listDirectory, type Entry } from "../api";
+import { listDirectory, openShell, type Entry } from "../api";
 import { isExternalDoc } from "../editor/languages";
 import { useStore } from "../store";
 
@@ -225,6 +225,9 @@ export function TreeContextMenu() {
       >
         {item("New File…", () => newFileIn(dir))}
         {item("New Folder…", () => newFolderIn(dir))}
+        {item("Open Shell Here", () =>
+          openShell(dir).catch((e) => useStore.setState({ configError: String(e) })),
+        )}
         {!entry.is_dir && isExternalDoc(entry.path) && (
           <>
             <div className="ctx-sep" />

@@ -50,6 +50,7 @@ pub fn run() {
             files::rename_path,
             files::delete_path,
             external::open_external,
+            external::open_shell,
             backup::list_backups,
             backup::read_backup,
             config::load_config,

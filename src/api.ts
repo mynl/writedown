@@ -131,6 +131,9 @@ export const deletePath = (path: string) => invoke<void>("delete_path", { path }
 /** Open a PDF/DjVu in the configured external viewer ([tools] pdf_viewer). */
 export const openExternal = (path: string) => invoke<void>("open_external", { path });
 
+/** Open the configured shell ([tools] shell, default pwsh) in a new console at `dir`. */
+export const openShell = (dir: string) => invoke<void>("open_shell", { dir });
+
 /** Native folder picker. Returns the chosen absolute path, or null if cancelled. */
 export async function pickFolder(defaultPath?: string): Promise<string | null> {
   const result = await open({ directory: true, multiple: false, defaultPath });

@@ -3,8 +3,8 @@
 import { type StateCommand } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { forceLinting } from "@codemirror/lint";
-import { addToDictionary, configPath, extractBibEntries, logError, restartKernel } from "./api";
-import { mergedProjects, useStore } from "./store";
+import { addToDictionary, configPath, extractBibEntries, logError, openShell, restartKernel } from "./api";
+import { isScratch, mergedProjects, useStore } from "./store";
 import { getActiveView } from "./editor/editorView";
 import { isMarkdownDoc } from "./editor/languages";
 import { CITE_RE, CROSSREF_PREFIX } from "./editor/citations";
@@ -173,6 +173,18 @@ export function appCommands(): Command[] {
     { id: "toggle-preview", title: "Toggle Preview (editor / split / preview)", run: () => s().cycleView() },
     { id: "help-shortcuts", title: "Help: Keyboard Shortcuts", run: () => s().toggleHelp() },
     { id: "about", title: "About Writedown", run: () => s().toggleAbout() },
+    {
+      id: "open-shell",
+      title: "Open Shell (document folder)",
+      // [tools] shell (default pwsh) at the active document's folder; a scratch buffer
+      // has no folder, so it (and no-document) falls back to the workspace root.
+      run: () => {
+        const st = s();
+        const a = st.activePath;
+        const dir = a && !isScratch(a) ? a.replace(/[\\/][^\\/]*$/, "") : st.root;
+        if (dir) void openShell(dir).catch((e) => useStore.setState({ configError: String(e) }));
+      },
+    },
     { id: "render-doc", title: "Render Document (run code cells)", run: () => void s().renderActive() },
     {
       id: "render-restart-kernel",
