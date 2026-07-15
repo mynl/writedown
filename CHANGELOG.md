@@ -5,6 +5,16 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.63.0] - 2026-07-15
+
+### Changed
+
+- **Status bar lower-left now shows the active document's full path** (previously it showed
+  the workspace root, which never changed as you switched tabs). A scratch buffer shows its
+  `Untitled-N.md` name, matching its tab; with no document open it falls back to the
+  workspace root, and with no workspace to "Writedown". Long paths ellipsize; hover for the
+  full string.
+
 ## [1.62.1] - 2026-07-15
 
 ### Fixed
