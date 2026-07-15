@@ -3,6 +3,37 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
+## 2026-07-15 — 1.62.1–1.66.0 punch-up batch: hot exit, folder persistence, small fixes
+
+Five punch-ups, one commit per point release. Nothing surprisingly hard (no YELL needed).
+
+- **1.66.0 scratch hot-exit (the headline: "no work is ever lost").** Unsaved scratch
+  buffers now survive restart — text stored in the per-workspace session JSON
+  (`~/.writedown/sessions/<hash>.json`; open_tabs carries the `untitled://` sentinels for
+  order, a `scratch_contents` map carries the text; restored born-dirty, counter resumes
+  past max restored N). Zero per-keystroke cost: a `scratchRev` counter stands in for the
+  text in the debounced writer's change fingerprint. Plus a **close-time flush**
+  (`onCloseRequested`: saveAll + session + folder state, 3 s bound, then `destroy()`) —
+  closes the 400 ms debounce hole for real files too. Crash bound (task-manager kill):
+  ≤ ~400 ms of typing. Project switch parks scratches under the old workspace's session.
+  Flagged: a multi-MB paste into a scratch means MB-scale session writes per typing pause
+  (accepted — capping would silently lose work; files are on `~/.writedown`, not synced).
+- **1.65.0 folder-panel persistence.** Root cause: `folderRoot` had NO persistence field
+  anywhere, and `openFolder` skips `saveLastWorkspace` when a project is open; `panelTab`
+  also unpersisted. `session.json` grew `folder_root` + `panel_tab` (serde defaults,
+  back-compat both ways); `save_last_workspace` became read-modify-write. Persistence rides
+  the existing debounced store subscription (one watch point, not calls sprinkled at 6+
+  mutation sites). Restore order in hydrate: workspace → folder_root → panelTab last (so it
+  overrides openProject's forced "project").
+- **1.64.0** Ctrl+Shift+N → new scratch (chord was free; app-level keymap + F1 help).
+- **1.63.0** status bar lower-left = active tab's full path (was: workspace root, which
+  never changed); scratch shows its Untitled-N name; fallback root/"Writedown".
+- **1.62.1** preview-tab "bigger font": no size difference existed — italic optics; fixed
+  with 11px (vs 11.5px roman) on `.tab.preview .tab-name`. May want live tuning.
+
+Gotcha for later: App.tsx had an invisible character (likely NBSP) in the old session-diff
+line that defeated exact-match edits twice — worked around with a narrower match.
+
 ## 2026-07-14 — 1.62.0 config template tidy + configurable tab_size (wired)
 
 Followed the 1.61.0 config audit (agent-mapped 6 reader sites; everything else inert): pruned
