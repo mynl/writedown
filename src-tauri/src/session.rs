@@ -20,6 +20,11 @@ pub struct Session {
     pub outline_width: Option<f64>,
     #[serde(default)]
     pub split_ratio: Option<f64>,
+    /// Hot exit: untitled:// scratch buffer text, keyed by sentinel path. Tab ORDER
+    /// comes from `open_tabs` (which includes the sentinels); this map only carries
+    /// the text. Old builds ignore the key and skip the sentinel tabs.
+    #[serde(default)]
+    pub scratch_contents: std::collections::HashMap<String, String>,
 }
 
 #[derive(Serialize, Deserialize, Default)]

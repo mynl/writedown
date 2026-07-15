@@ -140,6 +140,8 @@ export type Session = {
   tree_width: number | null;
   outline_width: number | null;
   split_ratio: number | null;
+  /** Hot exit: untitled:// scratch text by sentinel path (order lives in open_tabs). */
+  scratch_contents: Record<string, string>;
 };
 
 // Session is keyed per workspace; session.json holds the cold-start state (last

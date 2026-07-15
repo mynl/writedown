@@ -19,6 +19,7 @@ import {
   pickFolder,
   pickProjectOpenPath,
   saveManagedProject,
+  saveSession,
   pickSavePath,
   personalDictionaryPath,
   readFile,
@@ -177,6 +178,9 @@ type AppState = {
   editorZoom: number;
   /** Monotonic counter for naming new scratch buffers (Untitled-1, -2, …). */
   scratchCounter: number;
+  /** Bumped on every scratch-buffer edit, so the debounced session save (hot exit)
+   *  notices content changes without fingerprinting the text itself on each keystroke. */
+  scratchRev: number;
 
   hydrate: () => Promise<void>;
   restoreSession: (key: string) => Promise<void>;
@@ -319,6 +323,7 @@ export const useStore = create<AppState>((set, get) => ({
     return Number.isFinite(v) ? v : 0;
   })(),
   scratchCounter: 0,
+  scratchRev: 0,
   treeWidth: 240,
   outlineWidth: 220,
   splitRatio: 0.5,
@@ -376,12 +381,33 @@ export const useStore = create<AppState>((set, get) => ({
     if (s.outline_width != null) set({ outlineWidth: clamp(s.outline_width) });
     if (s.split_ratio != null) set({ splitRatio: clampRatio(s.split_ratio) });
     for (const p of s.open_tabs ?? []) {
+      if (isScratch(p)) {
+        // Hot exit: rebuild the scratch buffer from the session's stored text. savedContent
+        // stays "" so a non-empty scratch is born dirty — still officially unsaved.
+        if (!get().tabs.some((t) => t.path === p)) {
+          const doc: Doc = {
+            path: p, content: s.scratch_contents?.[p] ?? "", savedContent: "", eol: "\n",
+            preview: false, saving: false, error: null, conflict: false,
+          };
+          set((st) => ({ tabs: [...st.tabs, doc] }));
+        }
+        continue;
+      }
       try {
         await get().openFile(p);
       } catch {
         /* file no longer exists */
       }
     }
+    // New scratch names must never collide with restored ones.
+    const maxN = Math.max(
+      0,
+      ...get().tabs.map((t) => {
+        const m = /^untitled:\/\/Untitled-(\d+)\./.exec(t.path);
+        return m ? Number(m[1]) : 0;
+      }),
+    );
+    if (maxN > get().scratchCounter) set({ scratchCounter: maxN });
     if (s.active_tab && get().tabs.some((t) => t.path === s.active_tab)) {
       set({ activePath: s.active_tab });
     }
@@ -604,7 +630,13 @@ export const useStore = create<AppState>((set, get) => ({
       if (s.activePath === path) {
         activePath = tabs.length ? tabs[Math.min(idx, tabs.length - 1)].path : null;
       }
-      return { tabs, activePath, closedStack: [...s.closedStack, path] };
+      return {
+        tabs,
+        activePath,
+        // Ctrl+Shift+T can't resurrect a scratch (nothing on disk) — closing one is a
+        // deliberate discard, so don't leave a dead entry eating a reopen keypress.
+        closedStack: isScratch(path) ? s.closedStack : [...s.closedStack, path],
+      };
     }),
 
   reopenClosed: async () => {
@@ -633,6 +665,7 @@ export const useStore = create<AppState>((set, get) => ({
       tabs: s.tabs.map((t) =>
         t.path === s.activePath ? { ...t, content, preview: false } : t,
       ),
+      ...(s.activePath && isScratch(s.activePath) ? { scratchRev: s.scratchRev + 1 } : {}),
     })),
 
   setEditorZoom: (delta) =>
@@ -1123,6 +1156,12 @@ export const useStore = create<AppState>((set, get) => ({
     const file = path ?? (await pickProjectOpenPath());
     if (!file) return;
     const proj = await loadProject(file);
+    // Switching workspace clears the tab strip — park unsaved work first: dirty real
+    // files to disk, scratch buffers into the OLD workspace's session (hot exit, so
+    // they come back when that workspace is reopened).
+    await get().saveAll();
+    const oldKey = sessionKey(get());
+    if (oldKey) await saveSession(oldKey, sessionSnapshot(get())).catch(() => {});
     set({
       projFolders: proj.folders,
       projectFile: file,
@@ -1235,12 +1274,27 @@ export function mergedProjects(s: AppState): { name: string; path: string }[] {
 export const sessionKey = (s: AppState): string | null =>
   s.projectFile ?? (s.projFolders.length > 0 ? s.projFolders.join("|") : s.root);
 
-/** The persistable slice of state (spec §24). */
+/** The persistable slice of state (spec §24). Preview tabs are transient; scratch
+ *  buffers hot-exit — their text rides along in scratch_contents so no work is lost. */
 export const sessionSnapshot = (s: AppState): Session => ({
-  // Preview tabs and unsaved scratch buffers are transient — persist only real, permanent tabs.
-  open_tabs: s.tabs.filter((t) => !t.preview && !isScratch(t.path)).map((t) => t.path),
+  open_tabs: s.tabs.filter((t) => !t.preview).map((t) => t.path),
   active_tab: s.activePath,
   tree_width: s.treeWidth,
   outline_width: s.outlineWidth,
   split_ratio: s.splitRatio,
+  scratch_contents: Object.fromEntries(
+    s.tabs.filter((t) => !t.preview && isScratch(t.path)).map((t) => [t.path, t.content]),
+  ),
 });
+
+/** O(1) change fingerprint for the debounced session save — scratch text is represented
+ *  by scratchRev rather than inlined, so typing never stringifies the buffer. */
+export const sessionFingerprint = (s: AppState): string =>
+  JSON.stringify({
+    t: s.tabs.filter((t) => !t.preview).map((t) => t.path),
+    a: s.activePath,
+    w: s.treeWidth,
+    o: s.outlineWidth,
+    r: s.splitRatio,
+    v: s.scratchRev,
+  });

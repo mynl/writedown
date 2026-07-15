@@ -5,6 +5,27 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.66.0] - 2026-07-15
+
+### Added
+
+- **Scratch hot exit — unsaved scratch buffers survive an app restart.** Close the app with
+  an untitled scratch open and it comes back on the next launch: same name, same text, same
+  tab position, still officially unsaved (dirty). Scratch text is stored in the
+  per-workspace session (`~/.writedown/sessions/<hash>.json`, derived state — user files
+  untouched) and refreshed by the same debounced writer as the rest of the session, at zero
+  extra per-keystroke cost (a revision counter stands in for the text in the change check).
+  Restored names never collide: the Untitled-N counter resumes past the highest restored
+  number. Switching to another project parks the scratches under the old workspace's
+  session, so they return when that workspace is reopened. Explicitly closing a scratch tab
+  is still a deliberate discard (and no longer leaves a dead Ctrl+Shift+T entry).
+- **Close-time flush — quitting can no longer lose the last few seconds of work.** A window
+  close-request handler saves every dirty file and writes the session (including scratch
+  text and folder-panel state) before the window closes, eliminating the ~400 ms debounce
+  hole. The flush is bounded (3 s) so a hung write can never wedge the window open, and a
+  second close request forces an immediate close. Crash-safety bound for scratches (e.g. a
+  Task-Manager kill) is the last debounced write, ≤ ~400 ms of typing.
+
 ## [1.65.0] - 2026-07-15
 
 ### Added
