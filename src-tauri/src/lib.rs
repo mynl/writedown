@@ -2,6 +2,7 @@ mod backup;
 mod bib;
 mod check;
 mod config;
+mod external;
 mod files;
 mod project;
 mod render;
@@ -48,6 +49,7 @@ pub fn run() {
             files::create_directory,
             files::rename_path,
             files::delete_path,
+            external::open_external,
             backup::list_backups,
             backup::read_backup,
             config::load_config,

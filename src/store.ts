@@ -21,6 +21,7 @@ import {
   saveManagedProject,
   saveSession,
   pickSavePath,
+  openExternal,
   personalDictionaryPath,
   readFile,
   recentProjects as fetchRecentProjects,
@@ -39,7 +40,7 @@ import {
 } from "./api";
 import { forceLinting } from "@codemirror/lint";
 import { getActiveView } from "./editor/editorView";
-import { isMarkdownDoc } from "./editor/languages";
+import { isExternalDoc, isMarkdownDoc } from "./editor/languages";
 import { cssFontWeight } from "./fontWeight";
 
 /** Untitled scratch buffers live only in memory until "Save As" gives them a real path.
@@ -524,6 +525,14 @@ export const useStore = create<AppState>((set, get) => ({
     }),
 
   openFile: async (path: string, preview = false) => {
+    // PDF/DjVu never open in a tab (binary): route to the external viewer. Covers
+    // quick-open and the file palette too, so no path reads binary bytes as UTF-8.
+    // Failures (viewer not configured) surface on the app error bar, since several
+    // call sites invoke openFile fire-and-forget.
+    if (isExternalDoc(path)) {
+      await openExternal(path).catch((e) => set({ configError: String(e) }));
+      return;
+    }
     const existing = get().tabs.find((t) => t.path === path);
     if (existing) {
       // Already open: focus it, and promote if this was a permanent open.

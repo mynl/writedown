@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { listDirectory, type Entry } from "../api";
+import { isExternalDoc } from "../editor/languages";
 import { useStore } from "../store";
 
 function icon(entry: Entry, expanded: boolean): string {
@@ -25,6 +26,9 @@ function icon(entry: Entry, expanded: boolean): string {
       return "⚙";
     case "tex":
       return "∑";
+    case "pdf":
+    case "djvu":
+      return "📄";
     default:
       return "·";
   }
@@ -91,14 +95,16 @@ function TreeNode({
       setExpanded(next);
       useStore.getState().setPathExpanded(entry.path, next); // remembered across remounts
       // Children load via the lazy effect above.
-    } else {
+    } else if (!isExternalDoc(entry.path)) {
       // Single-click = preview (Sublime): opens in the transient preview tab.
+      // PDF/DjVu never open in a tab — double-click (or right-click) launches the
+      // configured external viewer instead; a single click is deliberately inert.
       openFile(entry.path, true).catch((e) => setError(String(e)));
     }
   }
 
   function onDoubleClick() {
-    // Double-click = open permanently.
+    // Double-click = open permanently (PDF/DjVu: openFile routes to the external viewer).
     if (!entry.is_dir) openFile(entry.path, false).catch((e) => setError(String(e)));
   }
 
@@ -219,6 +225,12 @@ export function TreeContextMenu() {
       >
         {item("New File…", () => newFileIn(dir))}
         {item("New Folder…", () => newFolderIn(dir))}
+        {!entry.is_dir && isExternalDoc(entry.path) && (
+          <>
+            <div className="ctx-sep" />
+            {item("Open Externally", () => void useStore.getState().openFile(entry.path, false))}
+          </>
+        )}
         <div className="ctx-sep" />
         {item("Rename…", () => renameEntry(entry))}
         {item("Delete", () => void deleteEntry(entry))}

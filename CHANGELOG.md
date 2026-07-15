@@ -5,6 +5,18 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.71.0] - 2026-07-15
+
+### Added
+
+- **PDF and DjVu files open in an external viewer.** They now show in the tree (📄) and
+  quick-open; double-click, palette selection, or the tree right-click "Open Externally"
+  launches the exe configured as `[tools] pdf_viewer` in config.toml (point it at
+  SumatraPDF and one key covers both formats). Writedown never opens these binaries in a
+  tab, so nothing tries to read PDF bytes as UTF-8; a single tree click is deliberately
+  inert (no viewer spam). No viewer configured → the error bar says exactly which config
+  key to set, and clicking it opens config.toml.
+
 ## [1.70.0] - 2026-07-15
 
 ### Added

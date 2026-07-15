@@ -10,6 +10,7 @@ const DOC_EXTS: &[&str] = &["md", "qmd", "markdown"];
 const SUPPORT_EXTS: &[&str] = &[
     "bib", "csl", "yml", "yaml", "toml", "json", "py", "r", "sh", "csv", "tsv", "txt", "tex",
     "rst", "c", "h", "cpp", "hpp", "js", "mjs", "ts", "tsx", "css", "html", "sql", "ps1", "psm1",
+    "pdf", "djvu", // never opened in a tab — routed to [tools] pdf_viewer
 ];
 
 #[derive(Serialize)]

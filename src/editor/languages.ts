@@ -75,5 +75,9 @@ export function useLanguageFor(path: string): Extension | null {
 
 export const isCsv = (path: string): boolean => /\.(csv|tsv)$/i.test(path);
 
+/** Binary documents Writedown never opens in a tab — routed to the configured external
+ *  viewer ([tools] pdf_viewer) instead. */
+export const isExternalDoc = (path: string): boolean => /\.(pdf|djvu)$/i.test(path);
+
 /** Markdown/Quarto docs get the inline `$…$` / `$$…$$` math layer. */
 export const isMarkdownDoc = (path: string): boolean => /\.(md|markdown|qmd)$/i.test(path);
