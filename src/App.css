@@ -227,6 +227,34 @@ body {
   font-weight: var(--tree-weight, normal);
 }
 
+/* ST-style "Open Files" section above the tree (shown on both panel tabs). */
+.openfiles {
+  flex: 0 0 auto;
+  max-height: 30%;
+  overflow-y: auto;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 2px;
+}
+.openfiles .tree-row {
+  padding-right: 4px;
+}
+.openfiles .tree-row.preview .tree-name {
+  font-style: italic;
+}
+.openfile-dirty {
+  flex: 0 0 auto;
+  width: 1.2em;
+  text-align: center;
+  font-size: 9px;
+}
+.openfiles .tab-close {
+  visibility: hidden;
+}
+.openfiles .tree-row:hover .tab-close,
+.openfiles .tree-row.active .tab-close {
+  visibility: visible;
+}
+
 .tree-row {
   display: flex;
   align-items: center;

@@ -5,6 +5,16 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.68.0] - 2026-07-15
+
+### Added
+
+- **Open Files section in the side panel** (ST-style), shown above both the Folder and
+  Project trees whenever tabs are open: one row per tab with the dirty dot, the filename,
+  and a hover × that saves then closes — the same semantics as the tab strip. Preview
+  tabs show in italic and promote on double-click; the active document is highlighted.
+  The section caps at ~30% of the panel and scrolls beyond that.
+
 ## [1.67.0] - 2026-07-15
 
 ### Added
