@@ -3,10 +3,18 @@
 Very high-level running summary of discussions and decisions in this project.
 Newest first. (Kept current at the close of each working session — see CLAUDE.md.)
 
-## 2026-07-15 — 1.62.1–1.66.0 punch-up batch: hot exit, folder persistence, small fixes
+## 2026-07-15 — 1.62.1–1.66.1 punch-up batch: hot exit, folder persistence, small fixes
 
 Five punch-ups, one commit per point release. Nothing surprisingly hard (no YELL needed).
 
+- **1.66.1 max-wait ceiling on the hot-exit debounce.** Steve asked whether ST also saves
+  on a debounce (never noticed loss after ST crashes). Answer: every editor checkpoints —
+  ST's periodic `Auto Save Session.sublime_session`, vim 4 s/200 chars, Emacs 30 s/300
+  events — but ours was a pure trailing debounce, so pauseless typing (gaps < 400 ms)
+  postponed the write forever. Now vim-style idle-OR-ceiling: 400 ms after a pause OR
+  every 5 s mid-flow. Normal-typing chatter unchanged. **Declined (Steve):** hot-exit
+  checkpointing of dirty real-file buffers (ST parity) — save-on-blur keeps dirty files
+  rare, not worth it.
 - **1.66.0 scratch hot-exit (the headline: "no work is ever lost").** Unsaved scratch
   buffers now survive restart — text stored in the per-workspace session JSON
   (`~/.writedown/sessions/<hash>.json`; open_tabs carries the `untitled://` sentinels for
