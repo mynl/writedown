@@ -94,6 +94,18 @@ skip_proper_nouns = true
 # "Ctrl+Shift+K" = "deleteLine"
 # "F9" = "sortLines"
 # "Ctrl+Enter" = "insertLineAfter"
+
+# ── Snippets ─────────────────────────────────────────────────────────────────────────────────
+# Palette "Insert: <name>" entries. Value = text inserted at the cursor. ${} marks where the
+# cursor lands (several = Tab-through stops); ${SELECTION} is replaced with the selected text.
+# TOML multi-line strings ('''…''') keep bodies readable. Built-ins ("Aligned Math",
+# "Python Code Cell") can be overridden by name, or removed by setting them to "".
+# [snippets]
+# "Display Math" = '''
+# $$
+# ${}
+# $$
+# '''
 "#;
 
 /// `~/.writedown/`.
@@ -193,6 +205,8 @@ pub struct EditorSettings {
     quick_file: Option<String>,
     /// User keybinding overrides from `[keys]`: friendly-key string → action name.
     keys: Option<HashMap<String, String>>,
+    /// Palette insert snippets from `[snippets]`: display name → body ("" removes a built-in).
+    snippets: Option<HashMap<String, String>>,
 }
 
 /// Parse `[editor]`/`[outline]`/`[tree]` font settings from `config.toml` (spec §5).
@@ -248,6 +262,11 @@ pub fn load_editor_settings(app: tauri::AppHandle) -> Result<EditorSettings, Str
             .and_then(|f| f.get("quick_file"))
             .and_then(string),
         keys: val.get("keys").and_then(|v| v.as_table()).map(|t| {
+            t.iter()
+                .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
+                .collect()
+        }),
+        snippets: val.get("snippets").and_then(|v| v.as_table()).map(|t| {
             t.iter()
                 .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
                 .collect()

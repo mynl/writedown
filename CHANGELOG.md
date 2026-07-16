@@ -5,6 +5,20 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.79.0] - 2026-07-16
+
+### Added
+
+- **Insert snippets: a config-defined system, not one-off commands.** The palette
+  gains "Insert: <name>" entries. Two built-ins ship — "Aligned Math" (`$$` +
+  `\begin{aligned}` block) and "Python Code Cell" (`{python}` fence) — and a
+  `[snippets]` table in config.toml adds your own or overrides/removes the built-ins
+  by name (same override rules as `[keys]`; the config template documents the
+  format). Bodies use CodeMirror snippet fields: `${}` marks a cursor stop (several
+  = Tab-through), and `${SELECTION}` is replaced with the selected text, so
+  wrap-around snippets work. Palette-time only — zero baseline cost. Requires a
+  backend rebuild (config gains the `[snippets]` read).
+
 ## [1.78.1] - 2026-07-16
 
 ### Fixed

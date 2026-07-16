@@ -228,6 +228,8 @@ export type EditorSettings = {
   quick_file: string | null;
   /** User keybinding overrides: friendly-key ("Ctrl+Shift+K") → action name. */
   keys: Record<string, string> | null;
+  /** Palette insert snippets from `[snippets]`: display name → body ("" removes a built-in). */
+  snippets: Record<string, string> | null;
 };
 
 export const loadEditorSettings = () => invoke<EditorSettings>("load_editor_settings");

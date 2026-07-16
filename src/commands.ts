@@ -15,6 +15,7 @@ import { toggleBold, toggleItalic } from "./editor/markdownFormat";
 import { insertDateTime } from "./editor/textOps";
 import { toggleWordWrap } from "./editor/wrap";
 import { keymapConfigBlock } from "./editor/keymap";
+import { insertSnippet, mergedSnippets } from "./editor/snippets";
 
 export type Command = { id: string; title: string; run: () => void };
 
@@ -264,10 +265,25 @@ export function appCommands(): Command[] {
     { id: "proj-save", title: "Project: Save / Rename Project…", run: () => s().saveRenameProject() },
     { id: "proj-open", title: "Project: Open Project…", run: () => void s().openProject() },
     { id: "proj-close", title: "Project: Close Project", run: () => s().closeProject() },
+    // ---- Insert snippets (built-ins + config [snippets]) ----
+    ...snippetCommands(),
     // Quick switch: every managed project (~/.writedown/projects/, name-sorted), plus any
     // recent project stored elsewhere that isn't already in the managed set.
     ...projectSwitches(),
   ];
+}
+
+/** "Insert: <name>" palette entries — defaults overlaid with config [snippets]. */
+function snippetCommands(): Command[] {
+  const snippets = mergedSnippets(useStore.getState().editorSettings?.snippets);
+  return [...snippets.entries()].map(([name, body], i) => ({
+    id: `snippet-${i}`,
+    title: `Insert: ${name}`,
+    run: () => {
+      const view = getActiveView();
+      if (view) insertSnippet(view, body);
+    },
+  }));
 }
 
 /** Switch entries: the deduped, name-disambiguated managed+recent list (see mergedProjects). */
