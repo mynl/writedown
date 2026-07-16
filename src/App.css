@@ -237,6 +237,10 @@ body {
 }
 .openfiles .tree-row {
   padding-right: 4px;
+  touch-action: none; /* pointer-drag reorder owns vertical movement */
+}
+.openfiles .tree-row.dragging {
+  opacity: 0.6;
 }
 .openfiles .tree-row.preview .tree-name {
   font-style: italic;

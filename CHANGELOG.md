@@ -5,6 +5,16 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.78.0] - 2026-07-16
+
+### Added
+
+- **Drag to reorder the Open Files rows** in the side panel — the vertical twin of the
+  tab strip's pointer drag (same 5 px click-vs-drag threshold, live reorder as the
+  pointer crosses row midpoints, × still a plain click). Rows and the tab strip share
+  the same tab array, so reordering either reorders both, and the order persists in
+  the session as before.
+
 ## [1.77.0] - 2026-07-16
 
 ### Fixed
