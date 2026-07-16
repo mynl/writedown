@@ -5,6 +5,24 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.73.2] - 2026-07-16
+
+### Fixed
+
+- **Long preview jumps now land exactly on the first click.** `content-visibility`
+  blocks report estimated heights until first rendered, so a long jump (outline click,
+  footnote/anchor link, big editor scroll) computed its target from estimates — the
+  destination rendered, layout shifted, and the target slid away; a second identical
+  click landed because the sizes were real by then. All jump paths now settle: the
+  target is re-verified for up to 8 frames and nudged until stable, superseded by any
+  newer jump. Applies to outline→preview (both view modes), editor→preview sync, and
+  in-preview anchor links.
+- **First open of a big document no longer deadens the UI.** The progressive fill
+  inserted a fixed 64 blocks per frame, but on first open each block also pays its
+  one-time DOMPurify sanitize — frames ran 50–100 ms and the first second of clicks
+  felt dead. The fill is now time-budgeted (~8 ms of work per frame, however many
+  blocks fit), so the window stays interactive while big docs stream in.
+
 ## [1.73.1] - 2026-07-16
 
 ### Fixed

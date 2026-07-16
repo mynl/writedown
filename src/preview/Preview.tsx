@@ -248,9 +248,11 @@ function makeBlockNode(block: RenderedBlock, baseDir?: string): HTMLElement {
   return div;
 }
 
-// Blocks inserted per animation frame during a large fill (first open of a big doc).
-// Small patches — the every-keystroke case — insert synchronously below.
-const INSERT_CHUNK = 64;
+// Per-frame time budget for a large fill (first open of a big doc). Fixed-count chunks
+// ran long on first open — each block also pays its one-time DOMPurify sanitize there —
+// leaving the UI dead for the first second. Budgeted frames stay interactive; the
+// every-keystroke case (a block or two) still completes in the first synchronous pass.
+const FRAME_BUDGET_MS = 8;
 
 /** Reconcile the container's children with `blocks`: trim the common prefix and suffix
  *  by key, then replace only the middle. A within-block edit touches exactly one node;
@@ -283,11 +285,13 @@ function patchBlocks(
   let idx = p;
   const insertChunk = () => {
     if (isStale()) return; // a newer patch owns the container; it reconciles whatever exists
-    const stop = Math.min(idx + INSERT_CHUNK, nEnd + 1);
-    for (; idx < stop; idx++) {
+    const start = performance.now();
+    while (idx <= nEnd) {
       const node = makeBlockNode(blocks[idx], baseDir);
       container.insertBefore(node, anchor);
       upgrade(node);
+      idx++;
+      if (performance.now() - start > FRAME_BUDGET_MS) break;
     }
     if (idx <= nEnd) requestAnimationFrame(insertChunk);
   };
@@ -326,21 +330,42 @@ function blockAtLine(content: HTMLElement, line: number): HTMLElement | null {
   return kids[ans];
 }
 
+// Long jumps land on ESTIMATED positions: `content-visibility: auto` blocks report
+// estimated heights until first rendered, so after the jump the blocks near the target
+// render, layout shifts, and the target slides away (the "wrong on first click, right
+// on second" symptom). Settle: re-verify the target for a few frames and nudge until
+// stable. A newer jump supersedes; ~8 frames bounds the cost.
+let previewSettleSeq = 0;
+const SETTLE_FRAMES = 8;
+
 export function scrollPreviewToLine(line: number) {
   if (!activePreview) return;
   const { el, content } = activePreview;
-  const b = content ? blockAtLine(content, line) : null;
-  if (content && b) {
+  const compute = (): number | null => {
+    const b = content ? blockAtLine(content, line) : null;
+    if (!content || !b) return null;
     // Exact anchor. Like the editor's jumpToLine, land it near the top — "show me this
     // section". offsetTops are relative to the positioned .preview/.preview-scroll.
-    const top = content.offsetTop + b.offsetTop;
-    el.scrollTo({ top: Math.max(0, top - el.clientHeight * 0.12) });
+    return Math.max(0, content.offsetTop + b.offsetTop - el.clientHeight * 0.12);
+  };
+  const first = compute();
+  if (first == null) {
+    // No blocks yet (still rendering) — proportional fallback.
+    const total = activePreview.lines();
+    const frac = total > 1 ? (Math.min(line, total) - 1) / (total - 1) : 0;
+    el.scrollTo({ top: frac * (el.scrollHeight - el.clientHeight) });
     return;
   }
-  // No blocks yet (still rendering) — proportional fallback.
-  const total = activePreview.lines();
-  const frac = total > 1 ? (Math.min(line, total) - 1) / (total - 1) : 0;
-  el.scrollTo({ top: frac * (el.scrollHeight - el.clientHeight) });
+  el.scrollTop = first;
+  const id = ++previewSettleSeq;
+  let tries = 0;
+  const step = () => {
+    if (id !== previewSettleSeq || tries++ >= SETTLE_FRAMES) return;
+    const y = compute();
+    if (y != null && Math.abs(el.scrollTop - y) > 1) el.scrollTop = y;
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
 }
 
 export function Preview({
@@ -520,29 +545,55 @@ export function Preview({
       }
       return kids[ans];
     };
-    const fromEditor = () => {
+    // Editor position → preview y, reading the CURRENT editor scrollTop each call (the
+    // settle loop below re-evaluates it as estimated block heights become real).
+    const editorToPreviewY = (): number | null => {
       const sc = scroller;
       const v = view;
-      if (!el || !sc || !v || syncing) return;
+      if (!sc || !v || !content || content.children.length === 0) return null;
+      const st = sc.scrollTop;
+      const lb = v.lineBlockAtHeight(st);
+      const lineFloat =
+        v.state.doc.lineAt(lb.from).number +
+        (lb.height > 0 ? clamp01((st - lb.top) / lb.height) : 0);
+      const b = blockAtLine(content, lineFloat);
+      if (!b) return null;
+      const from = Number(b.dataset.lineFrom);
+      const to = Number(b.dataset.lineTo);
+      const within = clamp01((lineFloat - from) / (to - from + 1));
+      return content.offsetTop + b.offsetTop + within * b.offsetHeight;
+    };
+    // After a big jump (outline click → jumpToLine) the preview target is computed
+    // from estimated block heights — settle for a few frames (same reasoning as
+    // scrollPreviewToLine). Each correction re-arms the echo lock; any new editor
+    // scroll event supersedes the loop by starting a fresh one.
+    let settleId = 0;
+    const settlePreview = () => {
+      const id = ++settleId;
+      let tries = 0;
+      const step = () => {
+        if (id !== settleId || tries++ >= SETTLE_FRAMES || !el) return;
+        const y = editorToPreviewY();
+        if (y != null) {
+          const t = Math.max(0, Math.min(y, el.scrollHeight - el.clientHeight));
+          if (Math.abs(el.scrollTop - t) > 1) {
+            lock();
+            el.scrollTop = t;
+          }
+        }
+        requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    };
+    const fromEditor = () => {
+      const sc = scroller;
+      if (!el || !sc || !view || syncing) return;
       const pMax = el.scrollHeight - el.clientHeight;
       if (pMax <= 0) return;
       lock();
-      let target: number | null = null;
-      if (content && content.children.length > 0) {
-        const st = sc.scrollTop;
-        const lb = v.lineBlockAtHeight(st);
-        const lineFloat =
-          v.state.doc.lineAt(lb.from).number +
-          (lb.height > 0 ? clamp01((st - lb.top) / lb.height) : 0);
-        const b = blockAtLine(content, lineFloat);
-        if (b) {
-          const from = Number(b.dataset.lineFrom);
-          const to = Number(b.dataset.lineTo);
-          const within = clamp01((lineFloat - from) / (to - from + 1));
-          target = content.offsetTop + b.offsetTop + within * b.offsetHeight;
-        }
-      }
-      el.scrollTop = Math.max(0, Math.min(target ?? frac(sc) * pMax, pMax));
+      const y = editorToPreviewY();
+      el.scrollTop = Math.max(0, Math.min(y ?? frac(sc) * pMax, pMax));
+      if (y != null) settlePreview();
     };
     const fromPreview = () => {
       const sc = scroller;
@@ -596,9 +647,17 @@ export function Preview({
     if (/^https?:\/\//i.test(href)) {
       void openUrl(href).catch(() => {});
     } else if (href.startsWith("#") && href.length > 1) {
-      scrollRef.current
-        ?.querySelector("#" + CSS.escape(href.slice(1)))
-        ?.scrollIntoView({ block: "start" });
+      const target = scrollRef.current?.querySelector("#" + CSS.escape(href.slice(1)));
+      if (target) {
+        // Repeat for a few frames: the jump renders estimated-size blocks, layout
+        // shifts, and a single scrollIntoView lands off (see scrollPreviewToLine).
+        let n = 0;
+        const rescroll = () => {
+          target.scrollIntoView({ block: "start" });
+          if (++n < SETTLE_FRAMES) requestAnimationFrame(rescroll);
+        };
+        rescroll();
+      }
     }
   }
 
