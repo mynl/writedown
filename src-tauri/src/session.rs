@@ -20,6 +20,11 @@ pub struct Session {
     pub outline_width: Option<f64>,
     #[serde(default)]
     pub split_ratio: Option<f64>,
+    /// Side panel / outline visibility. None in sessions from older builds → visible.
+    #[serde(default)]
+    pub sidebar_visible: Option<bool>,
+    #[serde(default)]
+    pub outline_visible: Option<bool>,
     /// Hot exit: untitled:// scratch buffer text, keyed by sentinel path. Tab ORDER
     /// comes from `open_tabs` (which includes the sentinels); this map only carries
     /// the text. Old builds ignore the key and skip the sentinel tabs.

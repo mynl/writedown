@@ -146,6 +146,8 @@ export type Session = {
   tree_width: number | null;
   outline_width: number | null;
   split_ratio: number | null;
+  sidebar_visible?: boolean | null;
+  outline_visible?: boolean | null;
   /** Hot exit: untitled:// scratch text by sentinel path (order lives in open_tabs). */
   scratch_contents: Record<string, string>;
 };

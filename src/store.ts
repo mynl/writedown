@@ -128,6 +128,10 @@ type AppState = {
   outlineWidth: number;
   /** Editor|preview split fraction in split view (0..1, the editor's share). */
   splitRatio: number;
+  /** Side panel (tabs/open-files/tree) and outline visibility — session-persisted, so
+   *  project-level when a project is open, else per folder (author's rider on items 4/5). */
+  sidebarVisible: boolean;
+  outlineVisible: boolean;
 
   treeVersion: number;
   /** Expanded folder paths in the tree, kept in the store so a treeVersion remount (after a
@@ -287,6 +291,8 @@ type AppState = {
   setCursorPos: (line: number, col: number) => void;
   setTreeWidth: (w: number) => void;
   setOutlineWidth: (w: number) => void;
+  setSidebarVisible: (v: boolean) => void;
+  setOutlineVisible: (v: boolean) => void;
   setSplitRatio: (r: number) => void;
 };
 
@@ -334,6 +340,8 @@ export const useStore = create<AppState>((set, get) => ({
   treeWidth: 240,
   outlineWidth: 220,
   splitRatio: 0.5,
+  sidebarVisible: true,
+  outlineVisible: true,
 
   // Restore the last session on startup (spec §24), keyed by workspace. Missing
   // folders/files are skipped silently — a stale session must never block launch.
@@ -387,6 +395,8 @@ export const useStore = create<AppState>((set, get) => ({
     if (s.tree_width != null) set({ treeWidth: clamp(s.tree_width) });
     if (s.outline_width != null) set({ outlineWidth: clamp(s.outline_width) });
     if (s.split_ratio != null) set({ splitRatio: clampRatio(s.split_ratio) });
+    if (s.sidebar_visible != null) set({ sidebarVisible: s.sidebar_visible });
+    if (s.outline_visible != null) set({ outlineVisible: s.outline_visible });
     for (const p of s.open_tabs ?? []) {
       if (isScratch(p)) {
         // Hot exit: rebuild the scratch buffer from the session's stored text. savedContent
@@ -950,6 +960,8 @@ export const useStore = create<AppState>((set, get) => ({
 
   setTreeWidth: (w) => set({ treeWidth: clamp(w) }),
   setOutlineWidth: (w) => set({ outlineWidth: clamp(w) }),
+  setSidebarVisible: (v) => set({ sidebarVisible: v }),
+  setOutlineVisible: (v) => set({ outlineVisible: v }),
   setSplitRatio: (r) => set({ splitRatio: clampRatio(r) }),
 
   openPrompt: (title, placeholder, submit, initial) =>
@@ -1309,6 +1321,8 @@ export const sessionSnapshot = (s: AppState): Session => ({
   tree_width: s.treeWidth,
   outline_width: s.outlineWidth,
   split_ratio: s.splitRatio,
+  sidebar_visible: s.sidebarVisible,
+  outline_visible: s.outlineVisible,
   scratch_contents: Object.fromEntries(
     s.tabs.filter((t) => !t.preview && isScratch(t.path)).map((t) => [t.path, t.content]),
   ),
@@ -1323,5 +1337,7 @@ export const sessionFingerprint = (s: AppState): string =>
     w: s.treeWidth,
     o: s.outlineWidth,
     r: s.splitRatio,
+    sb: s.sidebarVisible,
+    ob: s.outlineVisible,
     v: s.scratchRev,
   });

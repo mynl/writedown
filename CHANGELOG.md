@@ -5,6 +5,18 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.76.0] - 2026-07-16
+
+### Added
+
+- **Show/hide the sidebar and the outline.** `Ctrl+K Ctrl+B` toggles the side panel
+  (tabs, open files, tree), `Ctrl+K Ctrl+O` the outline — ST muscle memory; both
+  rebindable via `[keys]`. The palette carries explicit Show/Hide verbs for each.
+  Visibility persists in the session, so it is project-level when a project is open
+  and per-folder otherwise; the dragged pane widths survive a hide/show round trip.
+  A hidden outline also skips outline parsing entirely (the pane unmounts) — a small
+  perf win on big documents. Requires a backend rebuild (session gains two fields).
+
 ## [1.75.1] - 2026-07-16
 
 ### Fixed

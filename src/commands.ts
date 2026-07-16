@@ -197,6 +197,11 @@ export function appCommands(): Command[] {
       run: () => void s().reloadPersonalDictionary(),
     },
     { id: "refresh-tree", title: "Refresh File Tree", run: () => void s().refreshTree() },
+    // Explicit Show/Hide verbs (no state-flipping labels); Ctrl+K Ctrl+B / Ctrl+K Ctrl+O toggle.
+    { id: "sidebar-show", title: "Show Sidebar (Ctrl+K Ctrl+B toggles)", run: () => s().setSidebarVisible(true) },
+    { id: "sidebar-hide", title: "Hide Sidebar (Ctrl+K Ctrl+B toggles)", run: () => s().setSidebarVisible(false) },
+    { id: "outline-show", title: "Show Outline (Ctrl+K Ctrl+O toggles)", run: () => s().setOutlineVisible(true) },
+    { id: "outline-hide", title: "Hide Outline (Ctrl+K Ctrl+O toggles)", run: () => s().setOutlineVisible(false) },
     { id: "toggle-word-wrap", title: "Toggle Word Wrap", run: () => toggleWordWrap() },
     { id: "toggle-preview", title: "Toggle Preview (editor / split / preview)", run: () => s().cycleView() },
     { id: "help-shortcuts", title: "Help: Keyboard Shortcuts", run: () => s().toggleHelp() },
