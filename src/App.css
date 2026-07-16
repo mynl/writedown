@@ -240,6 +240,12 @@ body {
 }
 .openfiles .tree-row.preview .tree-name {
   font-style: italic;
+  /* Optical: a synthesized / fallback italic face renders larger than the roman —
+     the same disease the tabs had (.tab.preview .tab-name), same compensation. */
+  font-size: calc(var(--tree-size, 11.5px) - 0.5px);
+}
+.openfiles .tree-name {
+  line-height: 1.4; /* fixed so italic / fallback-font metrics can't inflate the row box */
 }
 .openfile-dirty {
   flex: 0 0 auto;

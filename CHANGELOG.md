@@ -5,6 +5,18 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.76.1] - 2026-07-16
+
+### Fixed
+
+- **Open Files row no longer balloons when a file is opened in preview mode.** The
+  single-click (preview) row renders its name in italics; with a UI font that has no
+  true italic, the browser synthesizes one or falls back to another family whose
+  metrics render visibly larger and inflate the row box — the same disease the tab
+  strip had. Same compensation applied: the italic name is pinned half a pixel under
+  the tree font size and the row's line box is fixed. If the huge-font sighting was
+  somewhere other than the Open Files row, a screenshot will pin it down.
+
 ## [1.76.0] - 2026-07-16
 
 ### Added
