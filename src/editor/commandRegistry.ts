@@ -20,7 +20,7 @@ import {
 } from "@codemirror/commands";
 import { gotoLine, openSearchPanel, selectNextOccurrence } from "@codemirror/search";
 import { foldAll, foldCode, unfoldAll, unfoldCode } from "@codemirror/language";
-import { joinLines, renumberOrderedList } from "./lists";
+import { joinLines, listEnterTight, renumberOrderedList } from "./lists";
 import { reformatTables } from "./tables";
 import { toggleBold, toggleItalic } from "./markdownFormat";
 import {
@@ -103,6 +103,7 @@ export const COMMAND_REGISTRY: Record<string, RegistryEntry> = {
   insertDateTime: { run: insertDateTime, label: "Insert date-time (YYYY-MM-DD HH:MM:SS)", category: "Editing" },
 
   // Markdown
+  continueList: { run: listEnterTight, label: "Continue list item (single newline)", category: "Markdown" },
   bold: { run: toggleBold, label: "Bold (**…**)", category: "Markdown" },
   italic: { run: toggleItalic, label: "Italic (*…*)", category: "Markdown" },
   reformatTable: { run: reformatTables, label: "Reformat table(s)", category: "Markdown" },

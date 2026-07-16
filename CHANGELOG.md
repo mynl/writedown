@@ -5,6 +5,19 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.75.1] - 2026-07-16
+
+### Fixed
+
+- **Enter after a bullet or numbered item now inserts one newline, not two.** The
+  stock markdown Enter preserves list "looseness" — in a list whose items are
+  separated by blank lines it continues with a blank line. A new `continueList`
+  command (bound to Enter, rebindable via `[keys]`) always continues tight:
+  single newline + the right marker (bullets keep theirs, numbers increment and
+  the items below renumber, task items continue as unchecked `[ ]`). Enter on an
+  empty item still ends the list. Blockquotes, code cells, non-markdown files,
+  selections, and the completion popup all fall through to the old behavior.
+
 ## [1.75.0] - 2026-07-16
 
 ### Added

@@ -34,6 +34,8 @@ export const DEFAULT_KEYS: { key: string; action: string }[] = [
   { key: "Ctrl+Shift+L", action: "togglePreview" },
   { key: "Ctrl+B", action: "bold" },
   { key: "Ctrl+I", action: "italic" },
+  // Tight list continuation; falls through (returns false) outside markdown list items.
+  { key: "Enter", action: "continueList" },
   { key: "Ctrl+Shift+B", action: "build" },
   // Ctrl+K chord family (Sublime): kill-line moves to Ctrl+K Ctrl+K, freeing the prefix.
   { key: "Ctrl+K Ctrl+K", action: "killToLineEnd" },

@@ -1,6 +1,8 @@
-// Line/list editing commands (spec §10 neighbourhood). Both are explicit user actions
-// that edit the document as a single undo step — never automatic. US spelling throughout.
-import { type ChangeSpec, type StateCommand } from "@codemirror/state";
+// Line/list editing commands (spec §10 neighbourhood). Explicit user actions that edit
+// the document as a single undo step — never automatic. US spelling throughout.
+import { EditorSelection, type ChangeSpec, type StateCommand } from "@codemirror/state";
+import { completionStatus } from "@codemirror/autocomplete";
+import { markdownLanguage } from "@codemirror/lang-markdown";
 
 // ---- Join lines (Ctrl+Shift+J), Sublime-style -------------------------------------
 // Empty selection → join the current line with the next. A multi-line selection →
@@ -26,6 +28,59 @@ export const joinLines: StateCommand = ({ state, dispatch }) => {
   }
   if (!changes.length) return false;
   dispatch(state.update({ changes, scrollIntoView: true, userEvent: "input.joinLines" }));
+  return true;
+};
+
+// ---- Tight list continuation on Enter ----------------------------------------------
+// lang-markdown's insertNewlineContinueMarkup preserves list "looseness": in a list whose
+// items are separated by blank lines, Enter inserts a blank line + marker (\n\n). This runs
+// above it in the keymap and always continues with a single newline. Everything it doesn't
+// own — blockquotes, code, non-markdown docs, mid-marker carets, selections, an open
+// completion popup — falls through by returning false.
+const ITEM_RE = /^(\s*)([-*+]|\d+[.)])(\s+)(\[[ xX]\]\s+)?/;
+const ORDERED_FOLLOW = /^(\s*)(\d+)[.)]\s/;
+
+export const listEnterTight: StateCommand = ({ state, dispatch }) => {
+  if (completionStatus(state) === "active") return false;
+  for (const r of state.selection.ranges) {
+    if (!r.empty) return false;
+    if (!markdownLanguage.isActiveAt(state, r.head)) return false;
+    const line = state.doc.lineAt(r.head);
+    const m = ITEM_RE.exec(line.text);
+    if (!m || r.head < line.from + m[0].length) return false;
+  }
+  const tr = state.changeByRange((range) => {
+    const line = state.doc.lineAt(range.head);
+    const m = ITEM_RE.exec(line.text)!;
+    const markerEnd = line.from + m[0].length;
+    if (line.text.slice(m[0].length).trim() === "") {
+      // Enter on an empty item ends the list: drop the marker, stay on the (now plain) line.
+      return {
+        changes: { from: line.from, to: markerEnd, insert: "" },
+        range: EditorSelection.cursor(line.from),
+      };
+    }
+    const ordered = /\d/.test(m[2]);
+    const marker = ordered ? String(parseInt(m[2], 10) + 1) + m[2].slice(-1) : m[2];
+    const cont = "\n" + m[1] + marker + m[3] + (m[4] ? "[ ] " : "");
+    const changes: ChangeSpec[] = [{ from: range.head, insert: cont }];
+    if (ordered) {
+      // Keep the numbers below in sequence — same indent level; deeper items ride along.
+      let n = parseInt(m[2], 10) + 2;
+      for (let ln = line.number + 1; ln <= state.doc.lines; ln++) {
+        const l = state.doc.line(ln);
+        const f = ORDERED_FOLLOW.exec(l.text);
+        if (f && f[1] === m[1]) {
+          const from = l.from + f[1].length;
+          changes.push({ from, to: from + f[2].length, insert: String(n++) });
+        } else if (ITEM_RE.exec(l.text)?.[1] != null && ITEM_RE.exec(l.text)![1].length > m[1].length) {
+          continue;
+        } else break;
+      }
+    }
+    return { changes, range: EditorSelection.cursor(range.head + cont.length) };
+  });
+  dispatch(state.update(tr, { scrollIntoView: true, userEvent: "input" }));
   return true;
 };
 
