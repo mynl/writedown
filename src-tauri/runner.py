@@ -27,6 +27,11 @@ import sys
 import time
 import traceback
 
+# The app writes requests as raw UTF-8 JSON, but a piped stdin on Windows defaults to the
+# locale codepage (cp1252) — non-ASCII in cell code would arrive mojibake'd (λ -> Î»).
+# Replies are safe either way: json.dumps escapes non-ASCII by default.
+sys.stdin.reconfigure(encoding="utf-8", errors="replace")
+
 ns = {"__name__": "__main__"}
 
 

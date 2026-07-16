@@ -5,6 +5,18 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.73.3] - 2026-07-16
+
+### Fixed
+
+- **Unicode in python cells no longer mojibakes (`λ` → `Î»`).** The app pipes cell
+  code to the persistent kernel as raw UTF-8 JSON, but a piped Python stdin on
+  Windows decodes with the locale codepage (cp1252) — so multi-byte characters
+  arrived mangled and the cell *executed* the mangled literal, producing faithful
+  mojibake in the output. The runner now reconfigures its stdin to UTF-8 (replies
+  were already safe — JSON with non-ASCII escaped). Requires a backend rebuild;
+  the embedded runner redeploys itself at the next kernel spawn.
+
 ## [1.73.2] - 2026-07-16
 
 ### Fixed
