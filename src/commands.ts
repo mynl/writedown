@@ -84,6 +84,34 @@ export function appCommands(): Command[] {
       run: () => void s().setSizeAsDefault(),
     },
     { id: "previous-versions", title: "Previous Versions…", run: () => s().openVersions() },
+    {
+      id: "copy-file-path",
+      title: "Copy File Path",
+      run: () => {
+        const a = s().activePath;
+        if (!a || isScratch(a)) {
+          useStore.setState({ configError: "copy path — no file on disk (scratch buffer?)" });
+          return;
+        }
+        void navigator.clipboard
+          .writeText(a)
+          .catch((e) => useStore.setState({ configError: `copy path — ${String(e)}` }));
+      },
+    },
+    {
+      id: "copy-file-name",
+      title: "Copy File Name",
+      run: () => {
+        const a = s().activePath;
+        if (!a || isScratch(a)) {
+          useStore.setState({ configError: "copy name — no file on disk (scratch buffer?)" });
+          return;
+        }
+        void navigator.clipboard
+          .writeText(a.split(/[\\/]/).pop() ?? a)
+          .catch((e) => useStore.setState({ configError: `copy name — ${String(e)}` }));
+      },
+    },
     { id: "renumber-list", title: "Renumber Ordered List", run: onMarkdownView(renumberOrderedList) },
     { id: "reformat-tables", title: "Reformat Markdown Table(s)", run: onMarkdownView(reformatTables) },
     { id: "format-bold", title: "Bold (surround with **…**)", run: onMarkdownView(toggleBold) },

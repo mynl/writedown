@@ -5,6 +5,15 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.74.0] - 2026-07-16
+
+### Added
+
+- **Copy File Path / Copy File Name palette commands.** Two explicit verbs (no
+  state-dependent labels): the full resolved path or just the file name of the
+  active document, straight to the clipboard. Scratch buffers surface a notice
+  instead of silently copying nothing.
+
 ## [1.73.3] - 2026-07-16
 
 ### Fixed
