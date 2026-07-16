@@ -5,6 +5,21 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.77.0] - 2026-07-16
+
+### Fixed
+
+- **Every document now remembers its place.** Nothing stored per-tab cursor or
+  scroll: the single editor view carried the previous doc's raw cursor offset
+  (clamped) into whichever tab came next — precisely "the same position overlaid on
+  every file", and why the quick-file jump seemed to lose your spot. The editor now
+  records selection and scroll per path as you work and restores them on every tab
+  switch; open tabs persist their positions in the session (project-level with a
+  project open, per-folder otherwise), so a restart drops you back where you were.
+  Reopening a closed tab in the same run restores its spot too. Recording is a Map
+  write on cursor moves — no per-keystroke store traffic, no baseline perf change.
+  Requires a backend rebuild (session gains a positions table).
+
 ## [1.76.1] - 2026-07-16
 
 ### Fixed

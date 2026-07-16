@@ -39,7 +39,11 @@ import {
   type SublimeTheme,
 } from "./api";
 import { forceLinting } from "@codemirror/lint";
-import { getActiveView } from "./editor/editorView";
+import {
+  getActiveView,
+  seedDocPositions,
+  snapshotDocPositions,
+} from "./editor/editorView";
 import { isExternalDoc, isMarkdownDoc } from "./editor/languages";
 import { cssFontWeight } from "./fontWeight";
 
@@ -397,6 +401,8 @@ export const useStore = create<AppState>((set, get) => ({
     if (s.split_ratio != null) set({ splitRatio: clampRatio(s.split_ratio) });
     if (s.sidebar_visible != null) set({ sidebarVisible: s.sidebar_visible });
     if (s.outline_visible != null) set({ outlineVisible: s.outline_visible });
+    // Seed cursor/scroll memory BEFORE opening tabs so the first mount restores its spot.
+    seedDocPositions(s.positions ?? {});
     for (const p of s.open_tabs ?? []) {
       if (isScratch(p)) {
         // Hot exit: rebuild the scratch buffer from the session's stored text. savedContent
@@ -1326,6 +1332,9 @@ export const sessionSnapshot = (s: AppState): Session => ({
   scratch_contents: Object.fromEntries(
     s.tabs.filter((t) => !t.preview && isScratch(t.path)).map((t) => [t.path, t.content]),
   ),
+  // Deliberately NOT in the fingerprint (it would change on every cursor move) — positions
+  // ride along whenever something else triggers a write, plus the close-time flush.
+  positions: snapshotDocPositions(s.tabs.filter((t) => !t.preview).map((t) => t.path)),
 });
 
 /** O(1) change fingerprint for the debounced session save — scratch text is represented

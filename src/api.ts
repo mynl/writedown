@@ -148,6 +148,8 @@ export type Session = {
   split_ratio: number | null;
   sidebar_visible?: boolean | null;
   outline_visible?: boolean | null;
+  /** Per-document cursor/scroll memory, keyed by tab path (open non-preview tabs). */
+  positions?: Record<string, { anchor: number; head: number; scroll: number }> | null;
   /** Hot exit: untitled:// scratch text by sentinel path (order lives in open_tabs). */
   scratch_contents: Record<string, string>;
 };

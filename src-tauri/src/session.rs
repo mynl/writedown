@@ -30,6 +30,20 @@ pub struct Session {
     /// the text. Old builds ignore the key and skip the sentinel tabs.
     #[serde(default)]
     pub scratch_contents: std::collections::HashMap<String, String>,
+    /// Per-document cursor/scroll memory, keyed by tab path. Missing in old sessions.
+    #[serde(default)]
+    pub positions: std::collections::HashMap<String, DocPos>,
+}
+
+/// A remembered spot in a document: selection endpoints (char offsets) + scrollTop (px).
+#[derive(Serialize, Deserialize, Default, Clone)]
+pub struct DocPos {
+    #[serde(default)]
+    pub anchor: u64,
+    #[serde(default)]
+    pub head: u64,
+    #[serde(default)]
+    pub scroll: f64,
 }
 
 #[derive(Serialize, Deserialize, Default)]

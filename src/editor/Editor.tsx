@@ -20,7 +20,13 @@ import {
 import { citationExtensions } from "./citations";
 import { documentLint } from "./lint";
 import { spellingExtensions } from "./spelling";
-import { getActiveView, setActiveView } from "./editorView";
+import {
+  docPosition,
+  getActiveView,
+  recordDocScroll,
+  recordDocSelection,
+  setActiveView,
+} from "./editorView";
 import { wrapCompartment, wrapExtension } from "./wrap";
 import { cssFontWeight } from "../fontWeight";
 import { logError } from "../api";
@@ -133,9 +139,42 @@ export function Editor({ path, content }: { path: string; content: string }) {
         const line = vu.state.doc.lineAt(head);
         setCursorPos(line.number, head - line.from + 1);
       }
+      // Per-doc cursor memory. ONLY on selectionSet: the wrapper's whole-doc replace on a
+      // tab switch maps the old selection without setting one — recording that would
+      // clobber the incoming doc's remembered spot before the restore effect reads it.
+      if (vu.selectionSet) {
+        const m = vu.state.selection.main;
+        recordDocSelection(path, m.anchor, m.head);
+      }
     },
-    [setCursorPos],
+    [setCursorPos, path],
   );
+  // Restore this doc's remembered cursor/scroll after the doc swap (the CodeMirror child's
+  // effects have already run), and record scrolls while it is active.
+  useEffect(() => {
+    const view = getActiveView();
+    if (!view) return;
+    const pos = docPosition(path);
+    let raf = 0;
+    if (pos) {
+      const len = view.state.doc.length;
+      view.dispatch({
+        selection: { anchor: Math.min(pos.anchor, len), head: Math.min(pos.head, len) },
+      });
+      view.scrollDOM.scrollTop = pos.scroll;
+      // Re-assert once after layout — a big doc may not have its height yet.
+      raf = requestAnimationFrame(() => {
+        view.scrollDOM.scrollTop = pos.scroll;
+      });
+    }
+    const sc = view.scrollDOM;
+    const onScroll = () => recordDocScroll(path, sc.scrollTop);
+    sc.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      cancelAnimationFrame(raf);
+      sc.removeEventListener("scroll", onScroll);
+    };
+  }, [path]);
   useEffect(() => {
     getActiveView()?.dispatch({
       effects: keymapCompartment.reconfigure(buildEditingKeymap(userKeys)),
