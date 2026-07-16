@@ -11,13 +11,15 @@ import { json } from "@codemirror/lang-json";
 import { yaml, yamlFrontmatter } from "@codemirror/lang-yaml";
 import { toml } from "@codemirror/legacy-modes/mode/toml";
 import { stex } from "@codemirror/legacy-modes/mode/stex";
+import { declDescription } from "./decl";
 
 // Quarto / RMarkdown code cells use ```{python}, ```{r, echo=FALSE}, ```{=html} — strip
 // the braces/options so the nested language still highlights (spec §16). Exported so the
 // markdown preview resolves fence languages identically to the editor.
 export function codeLanguages(info: string): LanguageDescription | null {
   const name = info.replace(/^\{=?/, "").replace(/\}$/, "").trim().split(/[\s,]/)[0];
-  return name ? LanguageDescription.matchLanguageName(languages, name, true) : null;
+  // Custom languages (decl/agg) are checked first, then the stock language-data registry.
+  return name ? LanguageDescription.matchLanguageName([declDescription, ...languages], name, true) : null;
 }
 
 // Markdown with real YAML front matter parsing (spec §17), so `---` keys/values get
@@ -46,6 +48,10 @@ export function languageForPath(path: string): Extension | null {
     case "latex":
     case "sty":
       return StreamLanguage.define(stex);
+    case "agg":
+    case "dec":
+    case "decl":
+      return declDescription.support!; // built eagerly in decl.ts — never null
     default:
       return null; // csv/tsv/txt etc. — plain text (csv also gets the rainbow layer)
   }

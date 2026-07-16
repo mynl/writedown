@@ -26,6 +26,11 @@ function icon(entry: Entry, expanded: boolean): string {
       return "⚙";
     case "tex":
       return "∑";
+    case "agg":
+    case "dec":
+    case "decl":
+      return "λ"; // aggregate Dec Language
+
     case "pdf":
     case "djvu":
       return "📄";

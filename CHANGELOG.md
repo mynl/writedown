@@ -5,6 +5,21 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.80.0] - 2026-07-16
+
+### Added
+
+- **decl (aggregate Dec Language) syntax highlighting.** The author's pygments lexer
+  (decl_pygments.py in the aggregate package) ported to a CodeMirror StreamLanguage:
+  frequency/severity distribution names (grouped by parameter count, as in the
+  lexer), grammar keywords, `sev.`/`agg.` builtins, `note{…}`/`hints{…}` comment
+  blocks, numbers (incl. `%` and `inf`), and `#` comments. Applies to `.agg`/`.dec`/
+  `.decl` files (now shown in the tree, with a λ icon) and to ```` ```decl ````/
+  ```` ```agg ```` fences in both the editor and the preview. Colors come from the
+  imported Sublime scheme like every other language. The word lists are a snapshot
+  of the lexer — new grammar keywords must be re-synced by hand (source path noted
+  in decl.ts). Requires a backend rebuild (tree filter learned the extensions).
+
 ## [1.79.0] - 2026-07-16
 
 ### Added
