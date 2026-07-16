@@ -556,6 +556,9 @@ body {
      editor keystroke's forced layout in the shared document can traverse them
      (split view lagged even with a static rendered tab). */
   contain: layout style paint;
+  /* Positioned (with .preview below) so block offsetTops resolve against the preview,
+     letting scroll sync binary-search positions without rect reads. */
+  position: relative;
 }
 /* Skip layout/paint of off-screen top-level blocks entirely — on a ~2,200-formula doc
    this cuts the post-render layout from the whole document to just the viewport. The
@@ -572,6 +575,7 @@ body {
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   font-size: 15px;
   line-height: 1.6;
+  position: relative; /* offsetParent for .wd-block — see .preview-scroll */
 }
 .preview h1,
 .preview h2,

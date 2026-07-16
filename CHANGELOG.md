@@ -5,6 +5,29 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.73.1] - 2026-07-16
+
+### Fixed
+
+- **Editor↔preview scroll sync is now line-anchored, not proportional.** Proportional
+  mapping assumes source lines and rendered pixels grow at the same rate; on math-heavy
+  docs (a 3-line `$$…$$` renders 100+ px tall, dense prose the reverse) the error
+  accumulates until the panes show different sections — unusable on the benchmark doc.
+  Sync now maps the viewport's top edge through source lines: editor top line → the
+  preview block covering it (1.73.0's blocks carry source-line ranges), interpolated
+  within the block, and the mirror image coming back. Binary search over block offsets,
+  O(log n) per scroll event, no layout thrashing. Locally exact with no drift; the same
+  convention in both directions so the panes don't fight. Proportional survives only as
+  a fallback while a large doc's blocks are still streaming in.
+
+### Added
+
+- **"Rendering…" placeholder** while a document's first preview pass is in flight. The
+  render already runs off-thread (never blocks typing), but a cold first pass on a big
+  math doc takes a moment — the pane now says so instead of sitting silently empty.
+  Steady-state re-renders keep showing current content; switching documents clears the
+  pane immediately rather than showing the old doc under the notice.
+
 ## [1.73.0] - 2026-07-16
 
 ### Changed

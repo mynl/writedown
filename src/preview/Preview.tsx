@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { EditorView } from "@codemirror/view";
 import DOMPurify from "dompurify";
 import "katex/dist/katex.min.css";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -301,21 +302,42 @@ const DEBOUNCE_MS = 200;
 // Bridge so the outline can drive the preview when NO editor is mounted (preview-only
 // view) — jumpToLine targets a destroyed view there and silently does nothing. Mirror of
 // editorView's active-view pattern; one preview at a time.
-let activePreview: { el: HTMLElement; lines: () => number } | null = null;
+let activePreview: {
+  el: HTMLElement;
+  content: HTMLElement | null;
+  lines: () => number;
+} | null = null;
+
+/** Last block starting at or before `line` (blocks are DOM-ordered by source line).
+ *  Binary search over dataset attributes — no layout reads. Null when empty. */
+function blockAtLine(content: HTMLElement, line: number): HTMLElement | null {
+  const kids = content.children as HTMLCollectionOf<HTMLElement>;
+  if (kids.length === 0) return null;
+  let lo = 0,
+    hi = kids.length - 1,
+    ans = 0;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (Number(kids[mid].dataset.lineFrom) <= line) {
+      ans = mid;
+      lo = mid + 1;
+    } else hi = mid - 1;
+  }
+  return kids[ans];
+}
 
 export function scrollPreviewToLine(line: number) {
   if (!activePreview) return;
-  const { el } = activePreview;
-  // Exact anchor: first block whose source range reaches the target line. Like the
-  // editor's jumpToLine, land it near the top — "show me this section".
-  for (const b of Array.from(el.querySelectorAll<HTMLElement>(".wd-block"))) {
-    if (Number(b.dataset.lineTo) >= line) {
-      const top = b.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop;
-      el.scrollTo({ top: Math.max(0, top - el.clientHeight * 0.12) });
-      return;
-    }
+  const { el, content } = activePreview;
+  const b = content ? blockAtLine(content, line) : null;
+  if (content && b) {
+    // Exact anchor. Like the editor's jumpToLine, land it near the top — "show me this
+    // section". offsetTops are relative to the positioned .preview/.preview-scroll.
+    const top = content.offsetTop + b.offsetTop;
+    el.scrollTo({ top: Math.max(0, top - el.clientHeight * 0.12) });
+    return;
   }
-  // No block covers the line (still filling, or line past the end) — proportional fallback.
+  // No blocks yet (still rendering) — proportional fallback.
   const total = activePreview.lines();
   const frac = total > 1 ? (Math.min(line, total) - 1) / (total - 1) : 0;
   el.scrollTo({ top: frac * (el.scrollHeight - el.clientHeight) });
@@ -371,6 +393,7 @@ export function Preview({
     if (!el) return;
     activePreview = {
       el,
+      content: contentRef.current,
       lines: () => {
         const s = srcRef.current;
         let n = 1;
@@ -409,16 +432,18 @@ export function Preview({
   const patchGen = useRef(0);
   useEffect(() => {
     const container = contentRef.current;
-    if (!container || !result) return;
+    if (!container) return;
     const dk = docKey ?? "";
-    if (result.docKey !== dk) return; // stale doc's render — the new one is in flight
-    // Document switch: start from an empty container. Two docs can share an identical
-    // block (same content hash) whose relative images resolve against DIFFERENT folders —
-    // key-based patching would wrongly keep the old node.
+    // Document switch: clear IMMEDIATELY (don't wait for the new render) — the
+    // "Rendering…" placeholder should stand alone, not float over the old doc. Also a
+    // correctness matter: two docs can share an identical block (same content hash)
+    // whose relative images resolve against DIFFERENT folders — key-based patching
+    // would wrongly keep the old node.
     if (container.dataset.docKey !== dk) {
       container.dataset.docKey = dk;
       container.replaceChildren();
     }
+    if (!result || result.docKey !== dk) return; // stale render — the new one is in flight
     const gen = ++patchGen.current;
     const isStale = () => gen !== patchGen.current;
     patchBlocks(container, result.blocks, baseDir, isStale, (node) => {
@@ -453,10 +478,19 @@ export function Preview({
     };
   }, [dark]);
 
-  // Bidirectional proportional scroll sync between editor and preview (spec §15). A short
+  // Bidirectional LINE-ANCHORED scroll sync between editor and preview (spec §15).
+  // Proportional mapping drifts badly on heterogeneous docs (a 3-line $$…$$ renders
+  // 100+ px tall; dense prose is the reverse) — by mid-document the panes showed
+  // different sections. Instead, map the viewport's TOP EDGE through source lines:
+  // editor top line → the preview block covering it (blocks carry data-line-from/to),
+  // interpolated within the block; and the mirror image coming back. Locally exact, no
+  // accumulated drift; the same convention both ways, so the panes don't fight.
+  // Proportional remains only as fallback while blocks are still streaming in. A short
   // lock ignores the echo scroll the programmatic scrollTop triggers on the other pane.
   useEffect(() => {
     const el = scrollRef.current;
+    const content = contentRef.current;
+    let view: EditorView | null = null;
     let scroller: HTMLElement | null = null;
     let syncing = false;
     const lock = () => {
@@ -467,25 +501,73 @@ export function Preview({
       const max = node.scrollHeight - node.clientHeight;
       return max > 0 ? node.scrollTop / max : 0;
     };
+    const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
+    // Last block whose top is at or above y — binary search over offsetTops (cheap:
+    // O(log n) reads against the positioned .preview, no rects, no forced layout).
+    const blockAtY = (y: number): HTMLElement | null => {
+      if (!content) return null;
+      const kids = content.children as HTMLCollectionOf<HTMLElement>;
+      if (kids.length === 0) return null;
+      let lo = 0,
+        hi = kids.length - 1,
+        ans = 0;
+      while (lo <= hi) {
+        const mid = (lo + hi) >> 1;
+        if (content.offsetTop + kids[mid].offsetTop <= y) {
+          ans = mid;
+          lo = mid + 1;
+        } else hi = mid - 1;
+      }
+      return kids[ans];
+    };
     const fromEditor = () => {
       const sc = scroller;
-      if (!el || !sc || syncing) return;
+      const v = view;
+      if (!el || !sc || !v || syncing) return;
       const pMax = el.scrollHeight - el.clientHeight;
       if (pMax <= 0) return;
       lock();
-      el.scrollTop = frac(sc) * pMax;
+      let target: number | null = null;
+      if (content && content.children.length > 0) {
+        const st = sc.scrollTop;
+        const lb = v.lineBlockAtHeight(st);
+        const lineFloat =
+          v.state.doc.lineAt(lb.from).number +
+          (lb.height > 0 ? clamp01((st - lb.top) / lb.height) : 0);
+        const b = blockAtLine(content, lineFloat);
+        if (b) {
+          const from = Number(b.dataset.lineFrom);
+          const to = Number(b.dataset.lineTo);
+          const within = clamp01((lineFloat - from) / (to - from + 1));
+          target = content.offsetTop + b.offsetTop + within * b.offsetHeight;
+        }
+      }
+      el.scrollTop = Math.max(0, Math.min(target ?? frac(sc) * pMax, pMax));
     };
     const fromPreview = () => {
       const sc = scroller;
-      if (!el || !sc || syncing) return;
+      const v = view;
+      if (!el || !sc || !v || syncing) return;
       const eMax = sc.scrollHeight - sc.clientHeight;
       if (eMax <= 0) return;
       lock();
-      sc.scrollTop = frac(el) * eMax;
+      let target: number | null = null;
+      const b = blockAtY(el.scrollTop);
+      if (content && b) {
+        const top = content.offsetTop + b.offsetTop;
+        const within = clamp01((el.scrollTop - top) / Math.max(1, b.offsetHeight));
+        const from = Number(b.dataset.lineFrom);
+        const to = Number(b.dataset.lineTo);
+        const lineFloat = from + within * (to - from + 1);
+        const line = Math.min(v.state.doc.lines, Math.max(1, Math.floor(lineFloat)));
+        const lb = v.lineBlockAt(v.state.doc.line(line).from);
+        target = lb.top + clamp01(lineFloat - line) * lb.height;
+      }
+      sc.scrollTop = Math.max(0, Math.min(target ?? frac(el) * eMax, eMax));
     };
     el?.addEventListener("scroll", fromPreview, { passive: true });
     const attach = () => {
-      const view = getActiveView();
+      view = getActiveView();
       if (!view) return;
       scroller = view.scrollDOM;
       scroller.addEventListener("scroll", fromEditor, { passive: true });
@@ -494,6 +576,7 @@ export function Preview({
     const off = onActiveViewChange(() => {
       scroller?.removeEventListener("scroll", fromEditor);
       scroller = null;
+      view = null;
       attach();
     });
     return () => {
@@ -519,8 +602,14 @@ export function Preview({
     }
   }
 
+  // First pass for a document (cold KaTeX + worker-chunk load can take a beat on big
+  // docs): show a quiet reassurance instead of a silent empty pane. Steady-state
+  // re-renders of the same doc keep the current content — no flicker.
+  const waiting = !result || result.docKey !== (docKey ?? "");
+
   return (
     <div className="preview-scroll" ref={scrollRef} onClick={onClick}>
+      {waiting && <div className="placeholder">Rendering…</div>}
       <div className="preview" ref={contentRef} />
     </div>
   );
