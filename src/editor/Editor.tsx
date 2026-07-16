@@ -1,7 +1,7 @@
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { indentUnit, syntaxHighlighting } from "@codemirror/language";
-import { EditorView } from "@codemirror/view";
+import { EditorView, type ViewUpdate } from "@codemirror/view";
 import { EditorState, Prec } from "@codemirror/state";
 import { search } from "@codemirror/search";
 import { useStore } from "../store";
@@ -40,6 +40,21 @@ const saveOnBlur = EditorView.domEventHandlers({
     if (s.activePath) void s.saveDoc(s.activePath);
   },
 });
+
+// Module-level, NOT an inline literal: react-codemirror's reconfigure effect lists
+// `basicSetup` (and `onChange`/`onUpdate`) in its deps, so a fresh identity per render
+// made every keystroke dispatch a full StateEffect.reconfigure — tearing down and
+// reinstalling the whole extension stack (language, linters, spellcheck, theme). The
+// handlers below are useCallback'd for the same reason.
+const BASIC_SETUP = {
+  lineNumbers: true,
+  foldGutter: true,
+  bracketMatching: true,
+  highlightActiveLine: true,
+  highlightActiveLineGutter: true,
+  autocompletion: false,
+  closeBrackets: false, // no auto-inserted '' / () — annoying in prose, and broke @'
+};
 
 export function Editor({ path, content }: { path: string; content: string }) {
   const editActive = useStore((s) => s.editActive);
@@ -110,6 +125,17 @@ export function Editor({ path, content }: { path: string; content: string }) {
   // so `userKeys` gets a new identity). Reconfigure the Compartment in place — no rebuild — and
   // surface any bad-action/bad-key warnings here (an effect, so state isn't set during render).
   const userKeys = settings?.keys;
+  const onChange = useCallback((v: string) => editActive(v), [editActive]);
+  const onUpdate = useCallback(
+    (vu: ViewUpdate) => {
+      if (vu.selectionSet || vu.docChanged) {
+        const head = vu.state.selection.main.head;
+        const line = vu.state.doc.lineAt(head);
+        setCursorPos(line.number, head - line.from + 1);
+      }
+    },
+    [setCursorPos],
+  );
   useEffect(() => {
     getActiveView()?.dispatch({
       effects: keymapCompartment.reconfigure(buildEditingKeymap(userKeys)),
@@ -128,24 +154,10 @@ export function Editor({ path, content }: { path: string; content: string }) {
       height="100%"
       theme={built ? built.theme : editorTheme}
       extensions={extensions}
-      onChange={(v) => editActive(v)}
-      onCreateEditor={(view) => setActiveView(view)}
-      onUpdate={(vu) => {
-        if (vu.selectionSet || vu.docChanged) {
-          const head = vu.state.selection.main.head;
-          const line = vu.state.doc.lineAt(head);
-          setCursorPos(line.number, head - line.from + 1);
-        }
-      }}
-      basicSetup={{
-        lineNumbers: true,
-        foldGutter: true,
-        bracketMatching: true,
-        highlightActiveLine: true,
-        highlightActiveLineGutter: true,
-        autocompletion: false,
-        closeBrackets: false, // no auto-inserted '' / () — annoying in prose, and broke @'
-      }}
+      onChange={onChange}
+      onCreateEditor={setActiveView}
+      onUpdate={onUpdate}
+      basicSetup={BASIC_SETUP}
     />
   );
 }

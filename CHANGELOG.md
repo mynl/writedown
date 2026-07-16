@@ -5,7 +5,21 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
-## [1.72.1] - 2026-07-15
+## [1.72.2] - 2026-07-16
+
+### Fixed
+
+- **Typing no longer rebuilds the entire editor on every keystroke.** The
+  react-codemirror wrapper reconfigures CodeMirror whenever its `onChange`/`onUpdate`
+  callbacks or `basicSetup` object change identity — and Editor.tsx passed all three as
+  inline literals, so every keypress dispatched a full `StateEffect.reconfigure`,
+  tearing down and reinstalling the whole extension stack (Markdown parser, the three
+  linters, spellcheck, citations, theme, gutters, math highlighter — whose constructor
+  then re-scanned the whole document). This was the main WebView2 CPU burn behind the
+  draggy-typing report, and it hit even in editor-only view. Fix: hoist `basicSetup` to
+  a module constant and stabilize the callbacks with `useCallback`; reconfigure now
+  fires only on real changes (theme, config, file type). First of a three-part perf
+  batch — 1.72.3 debounces the preview/outline, 1.72.4 the math highlighter.
 
 ### Changed
 
