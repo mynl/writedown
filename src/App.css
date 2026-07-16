@@ -551,6 +551,19 @@ body {
 .preview-scroll {
   height: 100%;
   overflow: auto;
+  /* Wall the rendered DOM off from editor layout passes: a KaTeX-heavy doc puts
+     hundreds of thousands of nodes in this subtree, and without containment every
+     editor keystroke's forced layout in the shared document can traverse them
+     (split view lagged even with a static rendered tab). */
+  contain: layout style paint;
+}
+/* Skip layout/paint of off-screen top-level blocks entirely — on a ~2,200-formula doc
+   this cuts the post-render layout from the whole document to just the viewport. The
+   estimate refines to the real size once a block has been on screen (`auto`); slight
+   scrollbar drift on first scroll-through is the accepted trade. */
+.preview > * {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 60px;
 }
 .preview {
   padding: 16px 24px;

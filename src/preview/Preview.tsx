@@ -18,6 +18,27 @@ import { highlightStyleFor } from "../editor/sublimeTheme";
 import { highlightCodeBlocks } from "./codeHighlight";
 import { useDebouncedValue } from "../useDebounced";
 
+// KaTeX dominates the preview render on math-heavy docs (hundreds of ms vs ~40 ms for
+// markdown-it itself, measured on a 209 KB / ~2,200-formula doc) and formulas rarely
+// change between passes — cache rendered HTML by source. texmath varies only tex +
+// displayMode per call (katexOptions is constant), so that pair is the whole key.
+// Capped drop-oldest via Map insertion order.
+const katexCache = new Map<string, string>();
+const KATEX_CACHE_MAX = 5000;
+const cachedKatex = {
+  renderToString(tex: string, options?: { displayMode?: boolean }): string {
+    const key = (options?.displayMode ? "D" : "I") + "\n" + tex;
+    const hit = katexCache.get(key);
+    if (hit !== undefined) return hit;
+    const html = katex.renderToString(tex, options);
+    if (katexCache.size >= KATEX_CACHE_MAX) {
+      katexCache.delete(katexCache.keys().next().value as string);
+    }
+    katexCache.set(key, html);
+    return html;
+  },
+};
+
 // html:true renders raw HTML (tables, divs, Quarto blocks); DOMPurify then strips
 // scripts/handlers AND HTML comments, so `<!-- … -->` never shows and code can't run
 // (spec §15). LaTeX math is rendered with KaTeX.
@@ -25,7 +46,7 @@ const md: MarkdownIt = new MarkdownIt({ html: true, linkify: true, typographer: 
   .use(footnote)
   .use(taskLists, { enabled: true, label: true })
   .use(texmath, {
-    engine: katex,
+    engine: cachedKatex,
     delimiters: "dollars",
     katexOptions: { throwOnError: false },
   });
@@ -152,6 +173,20 @@ async function loadMermaid(theme: string): Promise<MermaidApi> {
 // on document switch so a new tab never flashes the previous doc.
 const DEBOUNCE_MS = 200;
 
+// Bridge so the outline can drive the preview when NO editor is mounted (preview-only
+// view) — jumpToLine targets a destroyed view there and silently does nothing. Mirror of
+// editorView's active-view pattern; one preview at a time. Proportional line→scroll
+// mapping (exact block anchors come with the incremental renderer).
+let activePreview: { el: HTMLElement; lines: () => number } | null = null;
+
+export function scrollPreviewToLine(line: number) {
+  if (!activePreview) return;
+  const { el } = activePreview;
+  const total = activePreview.lines();
+  const frac = total > 1 ? (Math.min(line, total) - 1) / (total - 1) : 0;
+  el.scrollTo({ top: frac * (el.scrollHeight - el.clientHeight) });
+}
+
 export function Preview({
   content,
   baseDir,
@@ -162,6 +197,8 @@ export function Preview({
   docKey?: string;
 }) {
   const src = useDebouncedValue(content, DEBOUNCE_MS, docKey);
+  const srcRef = useRef(src);
+  srcRef.current = src;
   const html = useMemo(() => {
     // Process images (apply `{width=… #id}` attributes, rewrite local `src`s to asset
     // URLs) BEFORE sanitizing — DOMPurify would otherwise strip a bare `C:\…` src, and it
@@ -170,6 +207,24 @@ export function Preview({
     return DOMPurify.sanitize(processImages(rendered, baseDir));
   }, [src, baseDir]);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Register with the outline→preview bridge (see scrollPreviewToLine above).
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    activePreview = {
+      el,
+      lines: () => {
+        const s = srcRef.current;
+        let n = 1;
+        for (let i = 0; i < s.length; i++) if (s.charCodeAt(i) === 10) n++;
+        return n;
+      },
+    };
+    return () => {
+      if (activePreview?.el === el) activePreview = null;
+    };
+  }, []);
 
   // The editor's current highlight style (Sublime-derived, or the built-in fallback). Shared
   // by identity with the editor, so preview code colors match exactly; a theme switch yields a

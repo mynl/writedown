@@ -5,6 +5,26 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.72.5] - 2026-07-16
+
+### Fixed
+
+- **Big math documents: first relief round** (benchmark: a 209 KB / ~2,200-formula doc
+  where split view was unusable). Three changes: (1) **KaTeX render cache** — formulas
+  are cached by source+display-mode, cutting a warm preview render from ~250 ms to
+  ~25 ms (measured); KaTeX was the entire gap between plain markdown-it (38 ms) and the
+  observed cost. (2) **CSS containment on the preview** (`contain: layout style paint`
+  on the scroll pane, `content-visibility: auto` on top-level blocks) — the rendered
+  DOM (~300 K nodes on the benchmark doc) no longer participates in editor-keystroke
+  layout passes, and off-screen blocks skip layout/paint entirely; this addresses split
+  view lagging even with a static Rendered tab. Accepted trade: slight scrollbar drift
+  on first scroll-through as block-size estimates refine. (3) The full-document
+  re-render per typing pause still exists — eliminated next in 1.73.0's incremental
+  block renderer.
+- **Outline clicks now work in preview-only view.** They targeted the editor view,
+  which is unmounted in that mode, so nothing happened. Clicks now scroll the preview
+  directly (proportional mapping; exact block anchors arrive with 1.73.0).
+
 ## [1.72.4] - 2026-07-16
 
 ### Fixed

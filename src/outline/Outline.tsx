@@ -2,7 +2,16 @@ import { useMemo, type CSSProperties } from "react";
 import { useStore } from "../store";
 import { parseOutline } from "./parse";
 import { jumpToLine } from "../editor/editorView";
+import { scrollPreviewToLine } from "../preview/Preview";
 import { useDebouncedValue } from "../useDebounced";
+
+// In preview-only view there is no live editor — jumpToLine hits a destroyed view and
+// nothing happens (the "TOC links don't work" bug). Drive the preview directly there;
+// everywhere else the editor jump is authoritative and sync-scroll drags the preview.
+function jumpTo(line: number) {
+  if (useStore.getState().viewMode === "preview") scrollPreviewToLine(line);
+  else jumpToLine(line);
+}
 
 export function Outline() {
   const activePath = useStore((s) => s.activePath);
@@ -42,7 +51,7 @@ export function Outline() {
               "--indent": `${(h.level - 1) * 12}px`,
             } as CSSProperties
           }
-          onClick={() => jumpToLine(h.line)}
+          onClick={() => jumpTo(h.line)}
           title={h.text}
         >
           {h.text}
