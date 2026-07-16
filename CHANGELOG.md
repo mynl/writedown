@@ -5,6 +5,17 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.78.1] - 2026-07-16
+
+### Fixed
+
+- **Personal-dictionary words now cover their inflections.** Adding "quantile" left
+  "quantiles" underlined: personal words matched exactly, with none of the affix
+  expansion the main dictionary gets. Unknown words are now also checked against the
+  personal list after stripping common inflections (s, es, 's, s', ed, ing, and
+  ies→y), so one added stem accepts its everyday forms. Cached as before — only
+  unknown words pay, and only once. Requires a backend rebuild.
+
 ## [1.78.0] - 2026-07-16
 
 ### Added

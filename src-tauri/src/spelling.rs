@@ -127,7 +127,30 @@ pub struct SpellResult {
 }
 
 fn is_correct(dict: &Dictionary, personal: &HashSet<String>, word: &str) -> bool {
-    dict.check(word) || personal.contains(&word.to_lowercase())
+    if dict.check(word) {
+        return true;
+    }
+    let lower = word.to_lowercase();
+    if personal.contains(&lower) {
+        return true;
+    }
+    // Personal words accept their common inflections: adding "quantile" also accepts
+    // "quantiles", "quantile's", "quantiled", … Plain stem lookups — spellbook has no
+    // runtime add-with-affixes, and asking users for Hunspell flags is hostile.
+    for suffix in ["'s", "s'", "es", "s", "ed", "ing"] {
+        if let Some(base) = lower.strip_suffix(suffix) {
+            if base.len() >= 2 && personal.contains(base) {
+                return true;
+            }
+        }
+    }
+    // "-ies" plural of a "-y" stem: added "entity" accepts "entities".
+    if let Some(base) = lower.strip_suffix("ies") {
+        if base.len() >= 2 && personal.contains(&format!("{base}y")) {
+            return true;
+        }
+    }
+    false
 }
 
 /// Check a deduped word list; return ONLY the misspelled ones, each with up to five
@@ -345,6 +368,29 @@ mod tests {
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "myword\n");
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn personal_words_match_common_inflections() {
+        let d = dict().expect("embedded dictionary parses");
+        let mut personal = HashSet::new();
+        personal.insert("quantile".to_string());
+        personal.insert("mildenhall".to_string());
+        personal.insert("copula".to_string());
+        assert!(is_correct(d, &personal, "quantiles"));
+        assert!(is_correct(d, &personal, "Quantiles"));
+        assert!(is_correct(d, &personal, "quantile's"));
+        assert!(is_correct(d, &personal, "Mildenhalls"));
+        assert!(is_correct(d, &personal, "copulas"));
+        assert!(!is_correct(d, &personal, "quantilish"), "unrelated suffixes still flagged");
+    }
+
+    #[test]
+    fn ies_plural_matches_y_stem() {
+        let d = dict().expect("embedded dictionary parses");
+        let mut personal = HashSet::new();
+        personal.insert("mesokurty".to_string()); // synthetic -y stem, not in en_US
+        assert!(is_correct(d, &personal, "mesokurties"));
     }
 
     #[test]
