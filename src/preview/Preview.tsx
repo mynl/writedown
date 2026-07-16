@@ -1,12 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import MarkdownIt from "markdown-it";
-// @ts-ignore - no bundled types
-import footnote from "markdown-it-footnote";
-// @ts-ignore - no bundled types
-import taskLists from "markdown-it-task-lists";
-// @ts-ignore - no bundled types
-import texmath from "markdown-it-texmath";
-import katex from "katex";
 import DOMPurify from "dompurify";
 import "katex/dist/katex.min.css";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -14,46 +6,48 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { getActiveView, onActiveViewChange } from "../editor/editorView";
 import { logError } from "../api";
 import { useStore } from "../store";
+import type { HighlightStyle } from "@codemirror/language";
 import { highlightStyleFor } from "../editor/sublimeTheme";
 import { highlightCodeBlocks } from "./codeHighlight";
 import { useDebouncedValue } from "../useDebounced";
+import type { RenderedBlock, RenderResult } from "./renderCore";
 
-// KaTeX dominates the preview render on math-heavy docs (hundreds of ms vs ~40 ms for
-// markdown-it itself, measured on a 209 KB / ~2,200-formula doc) and formulas rarely
-// change between passes — cache rendered HTML by source. texmath varies only tex +
-// displayMode per call (katexOptions is constant), so that pair is the whole key.
-// Capped drop-oldest via Map insertion order.
-const katexCache = new Map<string, string>();
-const KATEX_CACHE_MAX = 5000;
-const cachedKatex = {
-  renderToString(tex: string, options?: { displayMode?: boolean }): string {
-    const key = (options?.displayMode ? "D" : "I") + "\n" + tex;
-    const hit = katexCache.get(key);
-    if (hit !== undefined) return hit;
-    const html = katex.renderToString(tex, options);
-    if (katexCache.size >= KATEX_CACHE_MAX) {
-      katexCache.delete(katexCache.keys().next().value as string);
+// Markdown→HTML runs OFF the UI thread in a module worker (render.worker.ts →
+// renderCore.ts), returning the document as per-block HTML. This file owns the main-
+// thread side: sanitizing blocks, patching only changed blocks into the DOM (an edit
+// costs ~one block, not a megabytes-scale innerHTML swap), and the post-render
+// upgrades (code highlight, mermaid). If the worker can't run, the same renderCore is
+// dynamic-imported and run inline — slower, never broken.
+
+let renderWorker: Worker | null = null;
+let workerFailed = false;
+
+function getRenderWorker(): Worker | null {
+  if (workerFailed) return null;
+  if (!renderWorker) {
+    try {
+      renderWorker = new Worker(new URL("./render.worker.ts", import.meta.url), {
+        type: "module",
+      });
+    } catch (e) {
+      workerFailed = true;
+      void logError("preview render worker failed to start — using inline rendering: " + String(e));
+      return null;
     }
-    katexCache.set(key, html);
-    return html;
-  },
-};
-
-// html:true renders raw HTML (tables, divs, Quarto blocks); DOMPurify then strips
-// scripts/handlers AND HTML comments, so `<!-- … -->` never shows and code can't run
-// (spec §15). LaTeX math is rendered with KaTeX.
-const md: MarkdownIt = new MarkdownIt({ html: true, linkify: true, typographer: true })
-  .use(footnote)
-  .use(taskLists, { enabled: true, label: true })
-  .use(texmath, {
-    engine: cachedKatex,
-    delimiters: "dollars",
-    katexOptions: { throwOnError: false },
-  });
-
-function stripFrontmatter(src: string): string {
-  return src.replace(/^﻿?---\r?\n[\s\S]*?\r?\n---\r?\n?/, "");
+  }
+  return renderWorker;
 }
+
+function failRenderWorker(reason: string) {
+  void logError("preview render worker error — switching to inline rendering: " + reason);
+  workerFailed = true;
+  renderWorker?.terminate();
+  renderWorker = null;
+}
+
+// Unique across Preview instances (live/rendered tabs swap component identity), so a
+// stale worker reply from a previous instance can never be mistaken for the latest.
+let renderSeq = 0;
 
 // Resolve a document-relative image src (`img/x.png`, `./fig/y.svg`) against the doc's
 // folder and hand it to Tauri's asset protocol so the webview can load it off disk.
@@ -167,21 +161,161 @@ async function loadMermaid(theme: string): Promise<MermaidApi> {
   return mermaidMod;
 }
 
-// Trailing debounce on the source feeding the render pipeline. The full pass below
-// (markdown-it + KaTeX + DOMPurify + innerHTML swap → WebView2 relayout) is far too heavy
-// to run per keystroke — it runs once per typing pause instead. `docKey` resets the delay
-// on document switch so a new tab never flashes the previous doc.
+// Upgrade ```mermaid / ```{mermaid} blocks (both arrive as `code.language-mermaid`) under
+// `root` to rendered SVG. CSS hides the raw <pre>; the strict-mode SVG goes into a sibling
+// slot (kept across re-runs so an OS theme change can re-theme it). The SVG is trusted
+// mermaid output over the user's own local diagram source, so it is inserted past the
+// DOMPurify pass deliberately.
+async function upgradeMermaid(
+  root: HTMLElement,
+  theme: string,
+  isCancelled: () => boolean,
+): Promise<void> {
+  const blocks = Array.from(root.querySelectorAll<HTMLElement>("pre > code.language-mermaid"));
+  if (blocks.length === 0) return;
+  let mermaid: MermaidApi;
+  try {
+    mermaid = await loadMermaid(theme);
+  } catch {
+    return; // mermaid unavailable — leave blocks hidden rather than crash the preview
+  }
+  for (const code of blocks) {
+    if (isCancelled()) return;
+    const pre = code.parentElement;
+    if (!pre) continue;
+    const src = code.textContent ?? "";
+    let holder = pre.nextElementSibling as HTMLElement | null;
+    if (!holder || !holder.classList.contains("mermaid-slot")) {
+      holder = document.createElement("div");
+      holder.className = "mermaid-slot";
+      pre.after(holder);
+    }
+    if (holder.dataset.theme === theme && holder.dataset.src === src) continue;
+    const key = `${theme}\n${src}`;
+    let svg = mermaidCache.get(key);
+    if (svg === undefined) {
+      try {
+        svg = (await mermaid.render(`wd-mermaid-${++mermaidSeq}`, src)).svg;
+        mermaidCache.set(key, svg);
+      } catch (e) {
+        if (isCancelled()) return;
+        holder.className = "mermaid-slot mermaid-error";
+        holder.textContent = `Mermaid: ${e instanceof Error ? e.message : String(e)}`;
+        const srcEl = document.createElement("pre");
+        srcEl.textContent = src;
+        holder.appendChild(srcEl);
+        holder.dataset.theme = theme;
+        holder.dataset.src = src;
+        continue;
+      }
+    }
+    if (isCancelled()) return;
+    holder.className = "mermaid-slot mermaid-diagram";
+    holder.innerHTML = svg;
+    holder.dataset.theme = theme;
+    holder.dataset.src = src;
+  }
+}
+
+// ---- block DOM patching ------------------------------------------------------------
+
+// Sanitized-HTML cache: DOMPurify + image processing run once per (block, folder), not
+// once per pass. Keys are content hashes, so cross-document hits are free wins.
+const sanitizedCache = new Map<string, string>();
+const SANITIZED_CACHE_MAX = 3000;
+
+function setLineAttrs(el: HTMLElement, b: RenderedBlock) {
+  el.dataset.lineFrom = String(b.lineFrom);
+  el.dataset.lineTo = String(b.lineTo);
+}
+
+function makeBlockNode(block: RenderedBlock, baseDir?: string): HTMLElement {
+  const ck = (baseDir ?? "") + "\n" + block.key;
+  let clean = sanitizedCache.get(ck);
+  if (clean === undefined) {
+    clean = DOMPurify.sanitize(processImages(block.html, baseDir));
+    if (sanitizedCache.size >= SANITIZED_CACHE_MAX) {
+      sanitizedCache.delete(sanitizedCache.keys().next().value as string);
+    }
+    sanitizedCache.set(ck, clean);
+  }
+  const div = document.createElement("div");
+  div.className = "wd-block";
+  div.dataset.key = block.key;
+  setLineAttrs(div, block);
+  div.innerHTML = clean;
+  return div;
+}
+
+// Blocks inserted per animation frame during a large fill (first open of a big doc).
+// Small patches — the every-keystroke case — insert synchronously below.
+const INSERT_CHUNK = 64;
+
+/** Reconcile the container's children with `blocks`: trim the common prefix and suffix
+ *  by key, then replace only the middle. A within-block edit touches exactly one node;
+ *  a first fill streams in rAF chunks so the UI never blocks. `upgrade` runs once per
+ *  inserted node (code highlight + mermaid). */
+function patchBlocks(
+  container: HTMLElement,
+  blocks: RenderedBlock[],
+  baseDir: string | undefined,
+  isStale: () => boolean,
+  upgrade: (node: HTMLElement) => void,
+) {
+  const kids = container.children as HTMLCollectionOf<HTMLElement>;
+  let p = 0;
+  while (p < kids.length && p < blocks.length && kids[p].dataset.key === blocks[p].key) p++;
+  let oEnd = kids.length - 1;
+  let nEnd = blocks.length - 1;
+  while (oEnd >= p && nEnd >= p && kids[oEnd].dataset.key === blocks[nEnd].key) {
+    oEnd--;
+    nEnd--;
+  }
+  for (let k = oEnd; k >= p; k--) kids[k].remove();
+  // Stable nodes keep their DOM identity, but an edit above them shifts their source
+  // lines — refresh the anchors the outline jump relies on.
+  for (let k = 0; k < p; k++) setLineAttrs(kids[k], blocks[k]);
+  const suffixCount = blocks.length - 1 - nEnd;
+  for (let k = 0; k < suffixCount; k++) setLineAttrs(kids[p + k], blocks[nEnd + 1 + k]);
+
+  const anchor = kids[p] ?? null; // first suffix node; null appends
+  let idx = p;
+  const insertChunk = () => {
+    if (isStale()) return; // a newer patch owns the container; it reconciles whatever exists
+    const stop = Math.min(idx + INSERT_CHUNK, nEnd + 1);
+    for (; idx < stop; idx++) {
+      const node = makeBlockNode(blocks[idx], baseDir);
+      container.insertBefore(node, anchor);
+      upgrade(node);
+    }
+    if (idx <= nEnd) requestAnimationFrame(insertChunk);
+  };
+  insertChunk();
+}
+
+// Trailing debounce on the source feeding the renderer — one pass per typing pause, not
+// per keystroke. `docKey` resets the delay on document switch so a new tab never
+// flashes the previous doc.
 const DEBOUNCE_MS = 200;
 
 // Bridge so the outline can drive the preview when NO editor is mounted (preview-only
 // view) — jumpToLine targets a destroyed view there and silently does nothing. Mirror of
-// editorView's active-view pattern; one preview at a time. Proportional line→scroll
-// mapping (exact block anchors come with the incremental renderer).
+// editorView's active-view pattern; one preview at a time.
 let activePreview: { el: HTMLElement; lines: () => number } | null = null;
 
 export function scrollPreviewToLine(line: number) {
   if (!activePreview) return;
   const { el } = activePreview;
+  // Exact anchor: first block whose source range reaches the target line. Like the
+  // editor's jumpToLine, land it near the top — "show me this section".
+  for (const b of Array.from(el.querySelectorAll<HTMLElement>(".wd-block"))) {
+    if (Number(b.dataset.lineTo) >= line) {
+      const top = b.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop;
+      el.scrollTo({ top: Math.max(0, top - el.clientHeight * 0.12) });
+      return;
+    }
+  }
+  // No block covers the line (still filling, or line past the end) — proportional fallback.
   const total = activePreview.lines();
   const frac = total > 1 ? (Math.min(line, total) - 1) / (total - 1) : 0;
   el.scrollTo({ top: frac * (el.scrollHeight - el.clientHeight) });
@@ -199,14 +333,37 @@ export function Preview({
   const src = useDebouncedValue(content, DEBOUNCE_MS, docKey);
   const srcRef = useRef(src);
   srcRef.current = src;
-  const html = useMemo(() => {
-    // Process images (apply `{width=… #id}` attributes, rewrite local `src`s to asset
-    // URLs) BEFORE sanitizing — DOMPurify would otherwise strip a bare `C:\…` src, and it
-    // filters the attributes we set to the safe HTML ones.
-    const rendered = md.render(stripFrontmatter(src));
-    return DOMPurify.sanitize(processImages(rendered, baseDir));
-  }, [src, baseDir]);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  // Render off-thread; accept only the reply to the LATEST request (module-unique seq).
+  // The result remembers which document it was rendered FOR, so the patch effect can
+  // ignore a stale doc's blocks after a tab switch instead of painting them.
+  const [result, setResult] = useState<{ docKey: string; blocks: RenderedBlock[] } | null>(null);
+  const lastReqRef = useRef(0);
+  useEffect(() => {
+    const seq = ++renderSeq;
+    lastReqRef.current = seq;
+    const dk = docKey ?? "";
+    const accept = (bs: RenderedBlock[]) => {
+      if (lastReqRef.current === seq) setResult({ docKey: dk, blocks: bs });
+    };
+    const w = getRenderWorker();
+    if (w) {
+      w.onmessage = (e: MessageEvent<RenderResult>) => {
+        if (e.data.seq === lastReqRef.current) {
+          setResult({ docKey: e.data.docKey, blocks: e.data.blocks });
+        }
+      };
+      w.onerror = (e) => {
+        failRenderWorker(e.message || "unknown worker error");
+        void import("./renderCore").then((m) => accept(m.renderDoc(srcRef.current)));
+      };
+      w.postMessage({ seq, docKey: dk, src });
+    } else {
+      void import("./renderCore").then((m) => accept(m.renderDoc(src)));
+    }
+  }, [src, docKey]);
 
   // Register with the outline→preview bridge (see scrollPreviewToLine above).
   useEffect(() => {
@@ -228,7 +385,7 @@ export function Preview({
 
   // The editor's current highlight style (Sublime-derived, or the built-in fallback). Shared
   // by identity with the editor, so preview code colors match exactly; a theme switch yields a
-  // new instance → the highlight effect below re-runs and recolors.
+  // new instance → the recolor effect below re-runs.
   const st = useStore((s) => s.sublimeTheme);
   const highlightStyle = useMemo(() => highlightStyleFor(st), [st]);
 
@@ -243,84 +400,58 @@ export function Preview({
     return () => mq.removeEventListener("change", on);
   }, []);
 
-  // Upgrade ```mermaid / ```{mermaid} blocks (both arrive as `code.language-mermaid`) to
-  // rendered SVG. Runs after the sanitized HTML is in the DOM; CSS hides the raw <pre> and
-  // the strict-mode SVG is inserted into a sibling slot (kept across re-runs so an OS theme
-  // change can re-theme it). The SVG is trusted mermaid output over the user's own local
-  // diagram source, so it is inserted past the DOMPurify pass deliberately.
+  // Patch the DOM whenever a render lands. Theme/dark are read through refs — a theme
+  // flip must not force a re-patch (the dedicated effects below recolor in place).
+  const styleRef = useRef<HighlightStyle>(highlightStyle);
+  styleRef.current = highlightStyle;
+  const darkRef = useRef(dark);
+  darkRef.current = dark;
+  const patchGen = useRef(0);
   useEffect(() => {
-    const root = scrollRef.current;
-    if (!root) return;
-    const blocks = Array.from(
-      root.querySelectorAll<HTMLElement>("pre > code.language-mermaid"),
-    );
-    if (blocks.length === 0) return;
-    const theme = dark ? "dark" : "default";
-    let cancelled = false;
-    void (async () => {
-      let mermaid: MermaidApi;
-      try {
-        mermaid = await loadMermaid(theme);
-      } catch {
-        return; // mermaid unavailable — leave blocks hidden rather than crash the preview
-      }
-      for (const code of blocks) {
-        if (cancelled) return;
-        const pre = code.parentElement;
-        if (!pre) continue;
-        const src = code.textContent ?? "";
-        let holder = pre.nextElementSibling as HTMLElement | null;
-        if (!holder || !holder.classList.contains("mermaid-slot")) {
-          holder = document.createElement("div");
-          holder.className = "mermaid-slot";
-          pre.after(holder);
-        }
-        if (holder.dataset.theme === theme && holder.dataset.src === src) continue;
-        const key = `${theme}\n${src}`;
-        let svg = mermaidCache.get(key);
-        if (svg === undefined) {
-          try {
-            svg = (await mermaid.render(`wd-mermaid-${++mermaidSeq}`, src)).svg;
-            mermaidCache.set(key, svg);
-          } catch (e) {
-            if (cancelled) return;
-            holder.className = "mermaid-slot mermaid-error";
-            holder.textContent = `Mermaid: ${e instanceof Error ? e.message : String(e)}`;
-            const srcEl = document.createElement("pre");
-            srcEl.textContent = src;
-            holder.appendChild(srcEl);
-            holder.dataset.theme = theme;
-            holder.dataset.src = src;
-            continue;
-          }
-        }
-        if (cancelled) return;
-        holder.className = "mermaid-slot mermaid-diagram";
-        holder.innerHTML = svg;
-        holder.dataset.theme = theme;
-        holder.dataset.src = src;
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [html, dark]);
+    const container = contentRef.current;
+    if (!container || !result) return;
+    const dk = docKey ?? "";
+    if (result.docKey !== dk) return; // stale doc's render — the new one is in flight
+    // Document switch: start from an empty container. Two docs can share an identical
+    // block (same content hash) whose relative images resolve against DIFFERENT folders —
+    // key-based patching would wrongly keep the old node.
+    if (container.dataset.docKey !== dk) {
+      container.dataset.docKey = dk;
+      container.replaceChildren();
+    }
+    const gen = ++patchGen.current;
+    const isStale = () => gen !== patchGen.current;
+    patchBlocks(container, result.blocks, baseDir, isStale, (node) => {
+      void highlightCodeBlocks(node, styleRef.current, isStale).catch((e) => {
+        void logError("preview code highlight pass: " + String(e));
+      });
+      void upgradeMermaid(node, darkRef.current ? "dark" : "default", isStale);
+    });
+  }, [result, baseDir, docKey]);
 
-  // Syntax-highlight fenced code blocks to match the editor's Sublime colours. Runs after the
-  // sanitized HTML is mounted (like the mermaid upgrade); reuses the editor's HighlightStyle +
-  // Lezer parsers. Re-runs on every content change (cheap via cache) and on theme switch
-  // (highlightStyle identity changes → recolor). Skips mermaid; never throws.
+  // Theme switch recolors all code blocks in place (cheap via codeHighlight's cache).
   useEffect(() => {
-    const root = scrollRef.current;
-    if (!root) return;
+    const container = contentRef.current;
+    if (!container) return;
     let cancelled = false;
-    void highlightCodeBlocks(root, highlightStyle, () => cancelled).catch((e) => {
+    void highlightCodeBlocks(container, highlightStyle, () => cancelled).catch((e) => {
       void logError("preview code highlight pass: " + String(e));
     });
     return () => {
       cancelled = true;
     };
-  }, [html, highlightStyle]);
+  }, [highlightStyle]);
+
+  // OS theme change re-themes existing diagrams in place.
+  useEffect(() => {
+    const container = contentRef.current;
+    if (!container) return;
+    let cancelled = false;
+    void upgradeMermaid(container, dark ? "dark" : "default", () => cancelled);
+    return () => {
+      cancelled = true;
+    };
+  }, [dark]);
 
   // Bidirectional proportional scroll sync between editor and preview (spec §15). A short
   // lock ignores the echo scroll the programmatic scrollTop triggers on the other pane.
@@ -390,7 +521,7 @@ export function Preview({
 
   return (
     <div className="preview-scroll" ref={scrollRef} onClick={onClick}>
-      <div className="preview" dangerouslySetInnerHTML={{ __html: html }} />
+      <div className="preview" ref={contentRef} />
     </div>
   );
 }

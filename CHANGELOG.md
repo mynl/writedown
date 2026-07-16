@@ -5,6 +5,26 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.73.0] - 2026-07-16
+
+### Changed
+
+- **Incremental preview engine.** The markdown→HTML pipeline (markdown-it + KaTeX +
+  plugins) moved into a Web Worker — rendering never blocks typing — and the document
+  now renders as independent top-level blocks with a per-block cache, patched into the
+  preview DOM by content key: an edit re-renders and re-lays-out ~one block instead of
+  swapping megabytes of HTML. Measured on the 209 KB benchmark doc: a mid-document edit
+  changes exactly 1 of 515 blocks; a full off-thread pass is ~40 ms warm. Correctness
+  held to the letter: per-block output concatenates byte-identically to the old
+  full-document render (verified programmatically, including footnotes, reference
+  links, tables, task lists, and math); reference/footnote definition edits invalidate
+  the cache and propagate to all uses. Big docs open progressively (blocks stream in
+  per frame) rather than freezing the window. If the worker can't start, the same
+  renderer runs inline as a fallback — slower, never broken. DOMPurify still sanitizes
+  every block on the main thread before insertion, exactly as before.
+- **Outline clicks in preview land exactly** on the target section now (blocks carry
+  source-line ranges), replacing 1.72.5's proportional approximation.
+
 ## [1.72.5] - 2026-07-16
 
 ### Fixed
