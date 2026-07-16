@@ -112,14 +112,30 @@ function buildInner(view: EditorView): DecorationSet {
   return builder.finish();
 }
 
+const REBUILD_MS = 200;
+
 export const mathHighlight = ViewPlugin.fromClass(
   class {
     decorations: DecorationSet;
-    constructor(view: EditorView) {
+    private timer: number | null = null;
+    constructor(private view: EditorView) {
       this.decorations = build(view);
     }
     update(u: ViewUpdate) {
-      if (u.docChanged) this.decorations = build(u.view);
+      if (!u.docChanged) return;
+      // Per-keystroke path stays O(edit): shift the existing marks through the change.
+      // The full rebuild (doc.toString() + whole-doc regex scan) runs once per typing
+      // pause; the empty dispatch makes the view re-read `decorations` and repaint.
+      this.decorations = this.decorations.map(u.changes);
+      if (this.timer != null) window.clearTimeout(this.timer);
+      this.timer = window.setTimeout(() => {
+        this.timer = null;
+        this.decorations = build(this.view);
+        this.view.dispatch({});
+      }, REBUILD_MS);
+    }
+    destroy() {
+      if (this.timer != null) window.clearTimeout(this.timer);
     }
   },
   { decorations: (v) => v.decorations },

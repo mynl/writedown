@@ -5,6 +5,19 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.72.4] - 2026-07-16
+
+### Fixed
+
+- **Math highlighting no longer rescans the whole document per keystroke.** The
+  highlighter stringified the entire document and re-ran the region regexes on every
+  edit. Existing marks are now shifted through each edit (O(edit), positions stay
+  exact), and the full rescan runs once, 200 ms after the last keystroke. Viewport-only
+  scanning was considered and rejected — a `$$` block can open above the viewport, so
+  this keeps highlighting exact at a bounded cost. Final part of the perf batch
+  (1.72.2–1.72.4). The same pattern fits the CSV rainbow if large CSVs ever feel slow;
+  left as-is for now since it only affects CSV/TSV tabs.
+
 ## [1.72.3] - 2026-07-16
 
 ### Fixed
