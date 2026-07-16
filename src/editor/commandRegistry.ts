@@ -5,6 +5,8 @@ import { EditorSelection, type StateCommand } from "@codemirror/state";
 import { type Command } from "@codemirror/view";
 import {
   copyLineDown,
+  cursorLineEnd,
+  cursorLineStart,
   cursorSubwordBackward,
   cursorSubwordForward,
   deleteLine,
@@ -14,6 +16,7 @@ import {
   moveLineUp,
   selectLine,
   toggleComment,
+  transposeChars,
 } from "@codemirror/commands";
 import { gotoLine, openSearchPanel, selectNextOccurrence } from "@codemirror/search";
 import { foldAll, foldCode, unfoldAll, unfoldCode } from "@codemirror/language";
@@ -26,6 +29,8 @@ import {
   insertLineBefore,
   lowerCase,
   sortLines,
+  titleCase,
+  transposeWords,
   upperCase,
 } from "./textOps";
 import { toggleWordWrap } from "./wrap";
@@ -74,6 +79,8 @@ export const COMMAND_REGISTRY: Record<string, RegistryEntry> = {
   addCursorBelow: { run: addCursorVertically(1), label: "Add cursor below", category: "Selection & cursors" },
   subwordLeft: { run: cursorSubwordBackward, label: "Move to previous subword", category: "Selection & cursors" },
   subwordRight: { run: cursorSubwordForward, label: "Move to next subword", category: "Selection & cursors" },
+  lineStart: { run: cursorLineStart, label: "Move to line start", category: "Selection & cursors" },
+  lineEnd: { run: cursorLineEnd, label: "Move to line end", category: "Selection & cursors" },
 
   // Editing
   duplicateLine: { run: copyLineDown, label: "Duplicate line down", category: "Editing" },
@@ -87,6 +94,9 @@ export const COMMAND_REGISTRY: Record<string, RegistryEntry> = {
   renumberList: { run: renumberOrderedList, label: "Renumber ordered list", category: "Editing" },
   upperCase: { run: upperCase, label: "Uppercase selection", category: "Editing" },
   lowerCase: { run: lowerCase, label: "Lowercase selection", category: "Editing" },
+  titleCase: { run: titleCase, label: "Title case selection", category: "Editing" },
+  transposeChars: { run: transposeChars, label: "Transpose characters", category: "Editing" },
+  transposeWords: { run: transposeWords, label: "Transpose words", category: "Editing" },
   sortLines: { run: sortLines, label: "Sort lines", category: "Editing" },
   insertLineAfter: { run: insertLineAfter, label: "Insert line below", category: "Editing" },
   insertLineBefore: { run: insertLineBefore, label: "Insert line above", category: "Editing" },

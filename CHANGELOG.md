@@ -5,6 +5,18 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.75.0] - 2026-07-16
+
+### Added
+
+- **Five new editing keybindings**, all in the command registry (remap via config
+  `[keys]`, listed in F1 help): `Ctrl+Shift+A` move to line start, `Ctrl+E` move to
+  line end, `Ctrl+K Ctrl+T` title-case selection, `Ctrl+T` transpose characters,
+  and `Alt+T` transpose words (emacs M-t — swaps the word at/before the caret with
+  the next; repeated presses drag a word rightward; multi-cursor aware). Alt+T was
+  chosen over "Esc T" deliberately: making Escape a chord prefix would delay its
+  immediate jobs (close search, collapse multi-cursor).
+
 ## [1.74.0] - 2026-07-16
 
 ### Added

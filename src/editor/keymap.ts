@@ -54,6 +54,13 @@ export const DEFAULT_KEYS: { key: string; action: string }[] = [
   { key: "Ctrl+Shift+K", action: "deleteLine" },
   { key: "Alt+Left", action: "subwordLeft" },
   { key: "Alt+Right", action: "subwordRight" },
+  // Emacs-flavored movement/editing (author's muscle memory). Alt+T IS emacs M-t;
+  // an "Esc T" chord would steal Escape's immediate jobs, so it is deliberately not used.
+  { key: "Ctrl+Shift+A", action: "lineStart" },
+  { key: "Ctrl+E", action: "lineEnd" },
+  { key: "Ctrl+K Ctrl+T", action: "titleCase" },
+  { key: "Ctrl+T", action: "transposeChars" },
+  { key: "Alt+T", action: "transposeWords" },
   { key: "Ctrl+Shift+[", action: "foldCode" },
   { key: "Ctrl+Shift+]", action: "unfoldCode" },
 ];

@@ -19,6 +19,54 @@ function transformCase(fn: (s: string) => string): StateCommand {
 
 export const upperCase = transformCase((s) => s.toUpperCase());
 export const lowerCase = transformCase((s) => s.toLowerCase());
+// Sublime-style Title Case: first letter of every word up, the rest down.
+export const titleCase = transformCase((s) =>
+  s.replace(/[\p{L}\p{N}][\p{L}\p{N}']*/gu, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase()),
+);
+
+// Word chars for transpose: letters/digits/underscore with internal apostrophes ("don't").
+const WORD_RE = /[\p{L}\p{N}_]+(?:'[\p{L}\p{N}_]+)*/gu;
+// How far around the caret to look for the two words (crosses newlines, like emacs).
+const TRANSPOSE_WINDOW = 500;
+
+// Emacs M-t: swap the word at/before the caret with the word after it; the caret ends after
+// the pair (so repeated presses drag a word rightward). Multi-cursor aware.
+export const transposeWords: StateCommand = ({ state, dispatch }) => {
+  const changes = [];
+  const ends: number[] = [];
+  for (const r of state.selection.ranges) {
+    if (!r.empty) continue;
+    const base = Math.max(0, r.head - TRANSPOSE_WINDOW);
+    const text = state.sliceDoc(base, Math.min(state.doc.length, r.head + TRANSPOSE_WINDOW));
+    const rel = r.head - base;
+    const words: { from: number; to: number; text: string }[] = [];
+    for (const m of text.matchAll(WORD_RE)) {
+      words.push({ from: m.index, to: m.index + m[0].length, text: m[0] });
+    }
+    // A = the word containing the caret, else the last word ending at/before it; B = the next.
+    let i = words.findIndex((w) => w.from < rel && rel < w.to);
+    if (i < 0) {
+      i = -1;
+      for (let k = 0; k < words.length; k++) if (words[k].to <= rel) i = k;
+    }
+    const a = i >= 0 ? words[i] : undefined;
+    const b = i >= 0 ? words[i + 1] : undefined;
+    if (!a || !b) continue;
+    changes.push({ from: base + a.from, to: base + a.to, insert: b.text });
+    changes.push({ from: base + b.from, to: base + b.to, insert: a.text });
+    ends.push(base + b.to); // total region length is unchanged by the swap
+  }
+  if (changes.length === 0) return false;
+  dispatch(
+    state.update({
+      changes,
+      selection: EditorSelection.create(ends.map((e) => EditorSelection.cursor(e))),
+      scrollIntoView: true,
+      userEvent: "input.transpose",
+    }),
+  );
+  return true;
+};
 
 // Sort the lines spanned by the primary selection (or the whole document region it covers).
 export const sortLines: StateCommand = ({ state, dispatch }) => {
