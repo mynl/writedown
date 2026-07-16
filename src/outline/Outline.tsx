@@ -2,6 +2,7 @@ import { useMemo, type CSSProperties } from "react";
 import { useStore } from "../store";
 import { parseOutline } from "./parse";
 import { jumpToLine } from "../editor/editorView";
+import { useDebouncedValue } from "../useDebounced";
 
 export function Outline() {
   const activePath = useStore((s) => s.activePath);
@@ -9,9 +10,13 @@ export function Outline() {
   const cursorLine = useStore((s) => s.cursorLine);
   const doc = tabs.find((t) => t.path === activePath) ?? null;
 
+  // Debounced source: parseOutline scans every line of the doc, far too heavy to run per
+  // keystroke (the Outline is mounted in every layout, even with the preview hidden). The
+  // path resetKey keeps tab switches instant.
+  const src = useDebouncedValue(doc?.content ?? "", 300, doc?.path);
   const headings = useMemo(
-    () => (doc ? parseOutline(doc.content, doc.path) : []),
-    [doc?.content, doc?.path],
+    () => (doc ? parseOutline(src, doc.path) : []),
+    [src, doc?.path],
   );
 
   // Active heading = the last one at or before the cursor line (spec §18).

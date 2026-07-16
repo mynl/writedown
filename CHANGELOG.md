@@ -5,6 +5,21 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.72.3] - 2026-07-16
+
+### Fixed
+
+- **Live preview and outline no longer re-render on every keystroke.** The preview ran
+  the full pipeline — markdown-it parse, KaTeX over all math, DOMPurify, then a wholesale
+  `innerHTML` swap forcing WebView2 to relayout the entire rendered document — per
+  keypress, with no debounce (the CSV pane and linters were already debounced; the md
+  preview never was). The outline likewise re-scanned every line per keypress, in every
+  layout, even with the preview hidden. Both now run once per typing pause (preview
+  200 ms, outline 300 ms) via a shared `useDebouncedValue` hook whose document-key reset
+  keeps tab switches instant — no flash of the previous document. The file tree is also
+  memoized so App's per-keystroke re-render stops reconciling it. Part two of the
+  three-part perf batch begun in 1.72.2.
+
 ## [1.72.2] - 2026-07-16
 
 ### Fixed

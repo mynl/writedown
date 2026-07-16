@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { listDirectory, openShell, type Entry } from "../api";
 import { isExternalDoc } from "../editor/languages";
 import { useStore } from "../store";
@@ -146,7 +146,9 @@ function TreeNode({
   );
 }
 
-export function FileTree() {
+// memo: App re-renders on every keystroke (it subscribes to `tabs`); the tree takes no
+// props and reads the store itself, so there is nothing per-keystroke to reconcile here.
+export const FileTree = memo(function FileTree() {
   const folderRoot = useStore((s) => s.folderRoot);
   const rootEntries = useStore((s) => s.rootEntries);
   const treeVersion = useStore((s) => s.treeVersion);
@@ -170,7 +172,7 @@ export function FileTree() {
       />
     </div>
   );
-}
+});
 
 /** Right-click menu for a file/folder in the tree: New, Rename, Delete (Recycle Bin),
  *  plus Save / Save As on the active document. Mounted once at app root. */

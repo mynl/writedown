@@ -16,6 +16,7 @@ import { logError } from "../api";
 import { useStore } from "../store";
 import { highlightStyleFor } from "../editor/sublimeTheme";
 import { highlightCodeBlocks } from "./codeHighlight";
+import { useDebouncedValue } from "../useDebounced";
 
 // html:true renders raw HTML (tables, divs, Quarto blocks); DOMPurify then strips
 // scripts/handlers AND HTML comments, so `<!-- … -->` never shows and code can't run
@@ -145,14 +146,29 @@ async function loadMermaid(theme: string): Promise<MermaidApi> {
   return mermaidMod;
 }
 
-export function Preview({ content, baseDir }: { content: string; baseDir?: string }) {
+// Trailing debounce on the source feeding the render pipeline. The full pass below
+// (markdown-it + KaTeX + DOMPurify + innerHTML swap → WebView2 relayout) is far too heavy
+// to run per keystroke — it runs once per typing pause instead. `docKey` resets the delay
+// on document switch so a new tab never flashes the previous doc.
+const DEBOUNCE_MS = 200;
+
+export function Preview({
+  content,
+  baseDir,
+  docKey,
+}: {
+  content: string;
+  baseDir?: string;
+  docKey?: string;
+}) {
+  const src = useDebouncedValue(content, DEBOUNCE_MS, docKey);
   const html = useMemo(() => {
     // Process images (apply `{width=… #id}` attributes, rewrite local `src`s to asset
     // URLs) BEFORE sanitizing — DOMPurify would otherwise strip a bare `C:\…` src, and it
     // filters the attributes we set to the safe HTML ones.
-    const rendered = md.render(stripFrontmatter(content));
+    const rendered = md.render(stripFrontmatter(src));
     return DOMPurify.sanitize(processImages(rendered, baseDir));
-  }, [content, baseDir]);
+  }, [src, baseDir]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // The editor's current highlight style (Sublime-derived, or the built-in fallback). Shared
