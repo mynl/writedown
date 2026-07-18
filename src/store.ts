@@ -117,6 +117,10 @@ export type Rendered = {
   errors: number;
   elapsedMs: number;
   python: string;
+  /** Expanded→source line map from the build (index = expanded line − 1; 0 = synthetic). */
+  lineMap: number[];
+  /** Editor's top visible source line at build time — the rendered view opens there. */
+  srcLine: number | null;
 };
 
 type AppState = {
@@ -1038,6 +1042,12 @@ export const useStore = create<AppState>((set, get) => ({
     set({ renderBusy: true });
     try {
       const r = await renderDocument(source, isScratch(doc.path) ? null : doc.path);
+      // Where the editor is NOW — the rendered view opens at this spot instead of the
+      // top (issue 4). Read post-render so a long build still lands where you are.
+      const v = getActiveView();
+      const srcLine = v
+        ? v.state.doc.lineAt(v.lineBlockAtHeight(v.scrollDOM.scrollTop).from).number
+        : null;
       set((s) => ({
         rendered: {
           ...s.rendered,
@@ -1049,6 +1059,8 @@ export const useStore = create<AppState>((set, get) => ({
             errors: r.errors,
             elapsedMs: r.elapsed_ms,
             python: r.python,
+            lineMap: r.line_map,
+            srcLine,
           },
         },
         previewTab: "rendered",
@@ -1068,6 +1080,8 @@ export const useStore = create<AppState>((set, get) => ({
             errors: 1,
             elapsedMs: 0,
             python: String(e),
+            lineMap: [],
+            srcLine: null,
           },
         },
         previewTab: "rendered",

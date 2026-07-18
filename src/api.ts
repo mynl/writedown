@@ -292,6 +292,8 @@ export type RenderResult = {
   elapsed_ms: number;
   /** "ok" | "not_configured" | error message. */
   python: string;
+  /** Per expanded-markdown line: its 1-based source line, 0 = synthetic content. */
+  line_map: number[];
 };
 
 /** Render the live buffer (never reads or writes the file). `path` resolves a relative

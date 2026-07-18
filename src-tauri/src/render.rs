@@ -38,6 +38,8 @@ pub struct RenderResult {
     elapsed_ms: u64,
     /// "ok" | "not_configured" | error message.
     python: String,
+    /// Per expanded-markdown line: its 1-based source line, 0 = synthetic (see Expanded).
+    line_map: Vec<u32>,
 }
 
 // ---- python kernel ---------------------------------------------------------------------
@@ -387,15 +389,16 @@ impl Default for CellOpts {
 }
 
 pub(crate) enum Segment {
-    /// Prose — the cite/crossref pass applies.
-    Markdown { text: String },
+    /// Prose — the cite/crossref pass applies. `start` = 1-based document line of the
+    /// first prose line (line-map anchor; likewise on the other variants).
+    Markdown { text: String, start: usize },
     /// Plain fenced blocks including the fence lines — passed through verbatim.
-    PlainFence { text: String },
+    PlainFence { text: String, start: usize },
     /// ```{python} cell. `first_line` = 1-based document line of the first body line
     /// (maps cell-relative traceback lines back to the document).
     PythonCell { code: String, opts: CellOpts, first_line: usize },
-    /// ```{r}, ```{julia}, … — shown as source, never run.
-    OtherCell { code: String, lang: String, opts: CellOpts },
+    /// ```{r}, ```{julia}, … — shown as source, never run. `start` = the fence line.
+    OtherCell { code: String, lang: String, opts: CellOpts, start: usize },
 }
 
 /// `#|` option lines at the top of a cell (Quarto). Quotes stripped; unknown keys ignored.
@@ -479,17 +482,18 @@ pub(crate) fn split_document(text: &str) -> (FrontMatter, Vec<Segment>) {
 
     let mut segs: Vec<Segment> = Vec::new();
     let mut prose: Vec<&str> = Vec::new();
-    let flush = |prose: &mut Vec<&str>, segs: &mut Vec<Segment>| {
+    let mut prose_start = i; // 0-based index of prose[0] in `lines`
+    let flush = |prose: &mut Vec<&str>, segs: &mut Vec<Segment>, start: usize| {
         // Blank-only runs between fences carry nothing — assembly re-spaces blocks.
         if prose.iter().any(|l| !l.trim().is_empty()) {
-            segs.push(Segment::Markdown { text: prose.join("\n") });
+            segs.push(Segment::Markdown { text: prose.join("\n"), start: start + 1 });
         }
         prose.clear();
     };
     while i < lines.len() {
         let trimmed = lines[i].trim_start();
         if let Some(f) = fence_open(trimmed) {
-            flush(&mut prose, &mut segs);
+            flush(&mut prose, &mut segs, prose_start);
             let mut j = i + 1;
             while j < lines.len() && !fence_close(lines[j].trim_start(), f.ticks) {
                 j += 1;
@@ -505,19 +509,26 @@ pub(crate) fn split_document(text: &str) -> (FrontMatter, Vec<Segment>) {
                     code: body.join("\n"),
                     lang: lang.to_string(),
                     opts: parse_cell_opts(body),
+                    start: i + 1,
                 }),
                 None => {
                     let last = if j < lines.len() { j } else { lines.len() - 1 };
-                    segs.push(Segment::PlainFence { text: lines[i..=last].join("\n") });
+                    segs.push(Segment::PlainFence {
+                        text: lines[i..=last].join("\n"),
+                        start: i + 1,
+                    });
                 }
             }
             i = j + 1;
         } else {
+            if prose.is_empty() {
+                prose_start = i;
+            }
             prose.push(lines[i]);
             i += 1;
         }
     }
-    flush(&mut prose, &mut segs);
+    flush(&mut prose, &mut segs, prose_start);
     (fm, segs)
 }
 
@@ -611,7 +622,7 @@ fn collect_labels(segments: &[Segment]) -> HashMap<String, String> {
                     add(l, None, &mut map);
                 }
             }
-            Segment::Markdown { text } => {
+            Segment::Markdown { text, .. } => {
                 for line in text.lines() {
                     let heading = heading_re().captures(line).map(|c| {
                         trailing_attr_re().replace(&c[2], "").trim().to_string()
@@ -944,6 +955,21 @@ pub(crate) struct Expanded {
     pub(crate) markdown: String,
     pub(crate) cells: usize,
     pub(crate) warnings: Vec<String>,
+    /// One entry per line of `markdown`: the 1-based SOURCE line it came from, or 0
+    /// for synthetic content (separators, references). Lets the frontend translate
+    /// between editor (source) and rendered (expanded) coordinates for scroll sync
+    /// and the after-build position restore (issue 4).
+    pub(crate) line_map: Vec<u32>,
+}
+
+/// How a block's lines map back to the source document.
+enum BlockMap {
+    /// Block line k (0-based) ↔ source line `start + k` — prose, fences.
+    Linear(usize),
+    /// Every block line ↔ this one source line — spliced cell output, errors.
+    Anchor(usize),
+    /// No source counterpart (the generated References section).
+    Synthetic,
 }
 
 /// Leading `#|` option lines are stripped from the echoed source (Quarto behavior).
@@ -1062,59 +1088,92 @@ pub(crate) fn expand(
     let mut cited: Vec<String> = Vec::new();
     let mut n_cites = 0usize;
     let mut cells = 0usize;
-    let mut blocks: Vec<String> = Vec::new();
+    let mut blocks: Vec<(String, BlockMap)> = Vec::new();
+    // Leading `#|` option lines are stripped from an echoed cell, shifting its first
+    // echoed line down by their count in the source.
+    let opt_lines = |code: &str| {
+        code.lines().take_while(|l| l.trim_start().starts_with("#|")).count()
+    };
 
     if let Some(t) = &fm.title {
-        blocks.push(format!("# {t}"));
+        blocks.push((format!("# {t}"), BlockMap::Anchor(1)));
     }
     for (idx, seg) in segments.iter().enumerate() {
         match seg {
-            Segment::Markdown { text } => {
-                let p = process_prose(text, &labels, &refs, &mut cited, &mut n_cites);
-                let p = p.trim_matches('\n');
+            Segment::Markdown { text, start } => {
+                let processed = process_prose(text, &labels, &refs, &mut cited, &mut n_cites);
+                // trim_matches drops leading newlines — account for them in the anchor.
+                let leading = processed.chars().take_while(|c| *c == '\n').count();
+                let p = processed.trim_matches('\n');
                 if !p.trim().is_empty() {
-                    blocks.push(p.to_string());
+                    blocks.push((p.to_string(), BlockMap::Linear(start + leading)));
                 }
             }
-            Segment::PlainFence { text } => blocks.push(text.clone()),
+            Segment::PlainFence { text, start } => {
+                blocks.push((text.clone(), BlockMap::Linear(*start)));
+            }
             Segment::PythonCell { code, opts, first_line } => {
                 cells += 1;
                 if !opts.include {
                     continue; // run, emit nothing (summary still counts it)
                 }
-                let mut parts: Vec<String> = Vec::new();
                 if opts.echo {
                     let src = echo_source(code);
                     if !src.trim().is_empty() {
-                        parts.push(source_fence(&src, "python"));
+                        // Fence line ↔ the line before the first echoed body line.
+                        let start = (first_line + opt_lines(code)).saturating_sub(1);
+                        blocks.push((source_fence(&src, "python"), BlockMap::Linear(start)));
                     }
                 }
                 if let Some(o) = exec.get(&idx) {
+                    let mut parts: Vec<String> = Vec::new();
                     splice_output(o, opts, *first_line, cells, &labels, &mut parts);
+                    blocks.extend(
+                        parts.into_iter().map(|p| (p, BlockMap::Anchor(*first_line))),
+                    );
                 }
-                blocks.extend(parts);
             }
-            Segment::OtherCell { code, lang, opts } => {
+            Segment::OtherCell { code, lang, opts, start } => {
                 if !opts.include {
                     continue;
                 }
                 if opts.echo {
                     let src = echo_source(code);
                     if !src.trim().is_empty() {
-                        blocks.push(source_fence(&src, lang));
+                        blocks.push((
+                            source_fence(&src, lang),
+                            BlockMap::Linear(start + opt_lines(code)),
+                        ));
                     }
                 }
             }
         }
     }
     if let Some(r) = references_section(&cited, &refs) {
-        blocks.push(r);
+        blocks.push((r, BlockMap::Synthetic));
     }
     let mut warnings = Vec::new();
     if n_cites > 0 && entries.is_empty() {
         warnings.push("bibliography not loaded — citations are unresolved".to_string());
     }
-    Expanded { markdown: blocks.join("\n\n"), cells, warnings }
+    // Assemble: blocks joined by a blank line, with one line-map entry per output line
+    // (the separator maps to 0 = synthetic).
+    let mut markdown = String::new();
+    let mut line_map: Vec<u32> = Vec::new();
+    for (bi, (text, map)) in blocks.iter().enumerate() {
+        if bi > 0 {
+            markdown.push_str("\n\n");
+            line_map.push(0);
+        }
+        let n = text.lines().count().max(1);
+        match map {
+            BlockMap::Linear(s) => line_map.extend((0..n).map(|k| (s + k) as u32)),
+            BlockMap::Anchor(s) => line_map.extend(std::iter::repeat(*s as u32).take(n)),
+            BlockMap::Synthetic => line_map.extend(std::iter::repeat(0u32).take(n)),
+        }
+        markdown.push_str(text);
+    }
+    Expanded { markdown, cells, warnings, line_map }
 }
 
 // ---- command ----------------------------------------------------------------------
@@ -1220,7 +1279,11 @@ fn render_impl(app: &tauri::AppHandle, text: &str, path: Option<&str>) -> Render
     }
     md.push_str("\n\n");
     md.push_str(&exp.markdown);
-    RenderResult { markdown: md, cells, errors, elapsed_ms, python }
+    // The prefix contributes: the summary line, one line per warning, and the blank
+    // separator line from "\n\n" — all synthetic.
+    let mut line_map = vec![0u32; 1 + warnings.len() + 1];
+    line_map.extend(&exp.line_map);
+    RenderResult { markdown: md, cells, errors, elapsed_ms, python, line_map }
 }
 
 /// Render the live buffer (no save side effect, no temp files). Async + spawn_blocking so
@@ -1280,7 +1343,7 @@ mod tests {
             _ => panic!("expected python cell"),
         }
         match &segs[2] {
-            Segment::PlainFence { text } => assert_eq!(text, "```\nplain\n```"),
+            Segment::PlainFence { text, .. } => assert_eq!(text, "```\nplain\n```"),
             _ => panic!("expected plain fence"),
         }
     }

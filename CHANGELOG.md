@@ -140,6 +140,23 @@ messages point here for detail.
   unchanged: clean tab → auto-reload, dirty tab → conflict flag (never a silent
   clobber), own saves suppressed. Requires a backend rebuild.
 
+## [1.86.0] - 2026-07-18
+
+### Fixed
+
+- **The Rendered view now speaks your document's coordinates** (issue 4). The build
+  splices cell output, a title, and a References section into the markdown, so the
+  rendered blocks' line numbers referred to the expanded document — scroll sync ran
+  in the wrong coordinate system (drifting further as outputs accumulated) and a
+  build always opened at the top. The renderer now emits a line map alongside the
+  markdown (one entry per expanded line: its source line, or 0 for synthetic
+  content — built during assembly, zero extra passes), and everything hangs off
+  it: editor↔rendered scroll sync translates in both directions, outline clicks
+  land correctly in the rendered pane, and after a build the rendered view opens
+  at the editor's current location instead of the top. Spliced cell output anchors
+  to its cell's line, so scrolling through results tracks the producing cell.
+  Requires a backend rebuild.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added

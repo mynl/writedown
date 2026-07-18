@@ -303,6 +303,27 @@ function patchBlocks(
 // flashes the previous doc.
 const DEBOUNCE_MS = 200;
 
+// ---- expanded ↔ source line mapping (Rendered view) -------------------------------
+// The build splices cell output, a title, and a References section into the markdown,
+// so rendered blocks carry EXPANDED line numbers while the editor speaks SOURCE lines.
+// `lineMap[i]` (expanded line i+1) = source line, or 0 for synthetic content, which
+// inherits its nearest real neighbor above (below when at the very top).
+function expToSrc(map: number[], exp: number): number | null {
+  if (map.length === 0) return null;
+  const start = Math.min(map.length - 1, Math.max(0, Math.floor(exp) - 1));
+  for (let i = start; i >= 0; i--) if (map[i] !== 0) return map[i];
+  for (let i = start + 1; i < map.length; i++) if (map[i] !== 0) return map[i];
+  return null;
+}
+/** First expanded line whose source line reaches `src` (source values are ordered). */
+function srcToExp(map: number[], src: number): number | null {
+  const want = Math.max(1, Math.floor(src));
+  for (let i = 0; i < map.length; i++) {
+    if (map[i] !== 0 && map[i] >= want) return i + 1;
+  }
+  return null;
+}
+
 // Bridge so the outline can drive the preview when NO editor is mounted (preview-only
 // view) — jumpToLine targets a destroyed view there and silently does nothing. Mirror of
 // editorView's active-view pattern; one preview at a time.
@@ -310,6 +331,8 @@ let activePreview: {
   el: HTMLElement;
   content: HTMLElement | null;
   lines: () => number;
+  /** Rendered view's expanded→source map; null for the live preview. */
+  map: () => number[] | null;
 } | null = null;
 
 /** Last block starting at or before `line` (blocks are DOM-ordered by source line).
@@ -341,6 +364,11 @@ const SETTLE_FRAMES = 8;
 export function scrollPreviewToLine(line: number) {
   if (!activePreview) return;
   const { el, content } = activePreview;
+  // Rendered view: callers pass SOURCE lines — translate to expanded coordinates.
+  const m = activePreview.map();
+  if (m && m.length > 0) {
+    line = srcToExp(m, line) ?? m.length;
+  }
   const compute = (): number | null => {
     const b = content ? blockAtLine(content, line) : null;
     if (!content || !b) return null;
@@ -372,10 +400,18 @@ export function Preview({
   content,
   baseDir,
   docKey,
+  lineMap,
+  initialSourceLine,
+  initialKey,
 }: {
   content: string;
   baseDir?: string;
   docKey?: string;
+  /** Rendered view: expanded→source line map from the build (see render.rs). */
+  lineMap?: number[];
+  /** Rendered view: scroll here (a SOURCE line) once per `initialKey` (the build id). */
+  initialSourceLine?: number | null;
+  initialKey?: number;
 }) {
   const src = useDebouncedValue(content, DEBOUNCE_MS, docKey);
   const srcRef = useRef(src);
@@ -389,6 +425,8 @@ export function Preview({
   liveRef.current = content;
   const renderedSrcRef = useRef<string | null>(null);
   const patchedAtRef = useRef(0);
+  const lineMapRef = useRef<number[] | null>(null);
+  lineMapRef.current = lineMap && lineMap.length > 0 ? lineMap : null;
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -434,6 +472,7 @@ export function Preview({
         for (let i = 0; i < s.length; i++) if (s.charCodeAt(i) === 10) n++;
         return n;
       },
+      map: () => lineMapRef.current,
     };
     return () => {
       if (activePreview?.el === el) activePreview = null;
@@ -493,6 +532,17 @@ export function Preview({
     renderedSrcRef.current = srcRef.current;
     patchedAtRef.current = performance.now();
   }, [result, baseDir, docKey]);
+
+  // After a build lands, open the rendered view at the editor's location instead of the
+  // top (issue 4) — once per build (`initialKey`), after its blocks are in the DOM.
+  const initialConsumed = useRef<number | null>(null);
+  useEffect(() => {
+    if (initialKey == null || initialSourceLine == null) return;
+    if (initialConsumed.current === initialKey) return;
+    if (!result || result.docKey !== (docKey ?? "")) return; // blocks not patched yet
+    initialConsumed.current = initialKey;
+    scrollPreviewToLine(initialSourceLine); // translates source→expanded via the map
+  }, [initialKey, initialSourceLine, result, docKey]);
 
   // Theme switch recolors all code blocks in place (cheap via codeHighlight's cache).
   useEffect(() => {
@@ -575,9 +625,16 @@ export function Preview({
       if (!sc || !v || !content || content.children.length === 0) return null;
       const st = sc.scrollTop;
       const lb = v.lineBlockAtHeight(st);
-      const lineFloat =
+      let lineFloat =
         v.state.doc.lineAt(lb.from).number +
         (lb.height > 0 ? clamp01((st - lb.top) / lb.height) : 0);
+      // Rendered view: editor lines are SOURCE lines; blocks carry EXPANDED lines.
+      const m = lineMapRef.current;
+      if (m) {
+        const e = srcToExp(m, lineFloat);
+        if (e == null) return null;
+        lineFloat = e;
+      }
       const b = blockAtLine(content, lineFloat);
       if (!b) return null;
       const from = Number(b.dataset.lineFrom);
@@ -633,7 +690,14 @@ export function Preview({
         const within = clamp01((el.scrollTop - top) / Math.max(1, b.offsetHeight));
         const from = Number(b.dataset.lineFrom);
         const to = Number(b.dataset.lineTo);
-        const lineFloat = from + within * (to - from + 1);
+        let lineFloat = from + within * (to - from + 1);
+        // Rendered view: translate the block's EXPANDED line back to a SOURCE line.
+        const m = lineMapRef.current;
+        if (m) {
+          const src = expToSrc(m, lineFloat);
+          if (src == null) return;
+          lineFloat = src;
+        }
         const line = Math.min(v.state.doc.lines, Math.max(1, Math.floor(lineFloat)));
         const lb = v.lineBlockAt(v.state.doc.line(line).from);
         target = lb.top + clamp01(lineFloat - line) * lb.height;
