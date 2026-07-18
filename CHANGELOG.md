@@ -74,6 +74,22 @@ messages point here for detail.
   (superseded by any newer jump), converging as measurements arrive — the editor
   twin of the settle loop the preview jump gained in 1.73.2. Click-time only.
 
+## [1.81.5] - 2026-07-18
+
+### Fixed
+
+- **Scroll sync stands down while the preview is behind the buffer** (issues 6 and,
+  with 1.81.0, the rest of 9). While typing, the rendered blocks lag the editor by
+  the 200 ms render debounce plus render time; syncing against those stale line
+  ranges walked off the end of the block list and clamped the preview to the
+  bottom — and the settle loop then held it there (worst inside big display math,
+  where one block spans many source lines and a transiently unbalanced $$ swallows
+  the document). Both sync directions, and the settle loop, now check that the
+  rendered source IS the live buffer before moving anything; preview DOM churn in
+  the 150 ms after a patch is likewise ignored, so patch-induced scroll events can
+  no longer rewrite the editor's position. Sync resumes by itself once the render
+  catches up. No cost outside the sync handlers.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added

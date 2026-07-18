@@ -380,6 +380,15 @@ export function Preview({
   const src = useDebouncedValue(content, DEBOUNCE_MS, docKey);
   const srcRef = useRef(src);
   srcRef.current = src;
+  // Live (undebounced) content, plus the src whose render the DOM currently shows and
+  // when it landed. Block line-ranges are only trustworthy for scroll sync when the
+  // rendered src IS the live content — while they diverge (typing: debounce + render
+  // in flight) a sync maps against stale ranges, falls off the end, and clamps to an
+  // extreme (the mid-edit jump to bottom/top). The sync effect checks these refs.
+  const liveRef = useRef(content);
+  liveRef.current = content;
+  const renderedSrcRef = useRef<string | null>(null);
+  const patchedAtRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -467,6 +476,7 @@ export function Preview({
     if (container.dataset.docKey !== dk) {
       container.dataset.docKey = dk;
       container.replaceChildren();
+      renderedSrcRef.current = null; // nothing rendered for this doc yet
     }
     if (!result || result.docKey !== dk) return; // stale render — the new one is in flight
     const gen = ++patchGen.current;
@@ -477,6 +487,11 @@ export function Preview({
       });
       void upgradeMermaid(node, darkRef.current ? "dark" : "default", isStale);
     });
+    // Only the latest request's reply is ever accepted, so the result just patched in
+    // was rendered from the current srcRef value. Mark the DOM in-sync and note when —
+    // scroll events raised by the patch's own DOM churn are ignored briefly.
+    renderedSrcRef.current = srcRef.current;
+    patchedAtRef.current = performance.now();
   }, [result, baseDir, docKey]);
 
   // Theme switch recolors all code blocks in place (cheap via codeHighlight's cache).
@@ -526,6 +541,13 @@ export function Preview({
       const max = node.scrollHeight - node.clientHeight;
       return max > 0 ? node.scrollTop / max : 0;
     };
+    // Sync is only allowed when the rendered blocks correspond to the live document.
+    // While stale (typing → debounce/render in flight, or right after a DOM patch),
+    // both directions stand down: the editor must not drag the preview against wrong
+    // ranges, and preview DOM churn must not rewrite the editor's scrollTop.
+    const stale = () =>
+      renderedSrcRef.current !== liveRef.current ||
+      performance.now() - patchedAtRef.current < 150;
     const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
     // Last block whose top is at or above y — binary search over offsetTops (cheap:
     // O(log n) reads against the positioned .preview, no rects, no forced layout).
@@ -572,7 +594,9 @@ export function Preview({
       const id = ++settleId;
       let tries = 0;
       const step = () => {
-        if (id !== settleId || tries++ >= SETTLE_FRAMES || !el) return;
+        // stale(): if an edit lands mid-settle, stop — re-asserting against ranges
+        // that no longer match the buffer is what pinned the preview to the bottom.
+        if (id !== settleId || tries++ >= SETTLE_FRAMES || !el || stale()) return;
         const y = editorToPreviewY();
         if (y != null) {
           const t = Math.max(0, Math.min(y, el.scrollHeight - el.clientHeight));
@@ -587,7 +611,7 @@ export function Preview({
     };
     const fromEditor = () => {
       const sc = scroller;
-      if (!el || !sc || !view || syncing) return;
+      if (!el || !sc || !view || syncing || stale()) return;
       const pMax = el.scrollHeight - el.clientHeight;
       if (pMax <= 0) return;
       lock();
@@ -598,7 +622,7 @@ export function Preview({
     const fromPreview = () => {
       const sc = scroller;
       const v = view;
-      if (!el || !sc || !v || syncing) return;
+      if (!el || !sc || !v || syncing || stale()) return;
       const eMax = sc.scrollHeight - sc.clientHeight;
       if (eMax <= 0) return;
       lock();
