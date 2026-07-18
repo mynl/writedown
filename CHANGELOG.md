@@ -50,6 +50,19 @@ messages point here for detail.
   button's 18 px) plus overflow:hidden, making the row immune to whatever face the
   italic resolves to. CSS only.
 
+## [1.81.3] - 2026-07-18
+
+### Fixed
+
+- **Saving personal-dictionary.txt now takes effect immediately** (issue 3). The
+  palette "Add Word" always worked, but words typed into the dictionary file
+  itself sat on disk while the checker kept its startup snapshot — the file lives
+  in the app-config dir outside every watched root, and only config.toml saves
+  reloaded spelling. The store now learns the resolved dictionary path (re-resolved
+  when config changes it) and a save of that file mirrors the config branch:
+  reload the word set, clear the caches, re-lint the open document. Path
+  comparison is case- and separator-insensitive.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added

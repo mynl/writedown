@@ -53,6 +53,10 @@ import { cssFontWeight } from "./fontWeight";
 export const SCRATCH_PREFIX = "untitled://";
 export const isScratch = (path: string) => path.startsWith(SCRATCH_PREFIX);
 
+/** Case-insensitive, separator-insensitive path equality (Windows). */
+const samePath = (a: string, b: string) =>
+  a.replace(/\\/g, "/").toLowerCase() === b.replace(/\\/g, "/").toLowerCase();
+
 /** Focus the live editor once it has mounted for a just-opened/created document. */
 function focusEditorSoon() {
   requestAnimationFrame(() => requestAnimationFrame(() => getActiveView()?.focus()));
@@ -182,6 +186,8 @@ type AppState = {
    *  which is permanent (a Rust-side personal dictionary file). */
   spellIgnore: Set<string>;
   configFile: string | null;
+  /** Resolved personal-dictionary path, so saving it as a tab can reload spelling. */
+  personalDictFile: string | null;
   /** Non-null when config.toml failed to parse — surfaced in the UI (fonts + bibliography
    *  silently fall back to defaults otherwise). Cleared on a successful load. */
   configError: string | null;
@@ -341,6 +347,7 @@ export const useStore = create<AppState>((set, get) => ({
   spellOn: true,
   spellIgnore: new Set(),
   configFile: null,
+  personalDictFile: null,
   configError: null,
   editorZoom: (() => {
     const v = Number(localStorage.getItem("wd.editorZoom"));
@@ -817,6 +824,11 @@ export const useStore = create<AppState>((set, get) => ({
         void loadBibliography().catch(() => {});
         void reloadSpelling().catch(() => {});
       }
+      // Saving the personal dictionary applies it immediately: reload the checker's
+      // in-memory word set and re-lint, so words typed into the file stop being
+      // flagged without a restart (issue 3 — the config.toml branch's missing twin).
+      const dict = get().personalDictFile;
+      if (dict && samePath(path, dict)) void get().reloadPersonalDictionary();
     } catch (e) {
       set((s) => ({
         tabs: s.tabs.map((t) => (t.path === path ? { ...t, saving: false, error: String(e) } : t)),
@@ -901,6 +913,11 @@ export const useStore = create<AppState>((set, get) => ({
     }
     try {
       set({ configFile: await configPath() });
+    } catch {
+      /* ignore */
+    }
+    try {
+      set({ personalDictFile: await personalDictionaryPath() });
     } catch {
       /* ignore */
     }
