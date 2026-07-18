@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { indentUnit, syntaxHighlighting } from "@codemirror/language";
 import { EditorView, type ViewUpdate } from "@codemirror/view";
-import { EditorState, Prec } from "@codemirror/state";
+import { Annotation, EditorState, Prec, Transaction } from "@codemirror/state";
 import { search } from "@codemirror/search";
 import { useStore } from "../store";
 import { editorHighlight, editorTheme } from "./theme";
@@ -30,6 +30,10 @@ import {
 import { wrapCompartment, wrapExtension } from "./wrap";
 import { cssFontWeight } from "../fontWeight";
 import { logError } from "../api";
+
+// Marks our own synchronous doc-swap dispatches (tab switch / external reload) so
+// onChange can tell them apart from user edits. Value = the path being swapped in.
+const docSwap = Annotation.define<string>();
 
 // Log any exception thrown during a CodeMirror update (these can leave the view stale).
 const cmExceptionLogger = EditorView.exceptionSink.of((err: unknown) => {
@@ -63,7 +67,7 @@ const BASIC_SETUP = {
 };
 
 export function Editor({ path, content }: { path: string; content: string }) {
-  const editActive = useStore((s) => s.editActive);
+  const editTab = useStore((s) => s.editTab);
   const setCursorPos = useStore((s) => s.setCursorPos);
   const st = useStore((s) => s.sublimeTheme);
   const settings = useStore((s) => s.editorSettings);
@@ -131,7 +135,41 @@ export function Editor({ path, content }: { path: string; content: string }) {
   // so `userKeys` gets a new identity). Reconfigure the Compartment in place — no rebuild — and
   // surface any bad-action/bad-key warnings here (an effect, so state isn't set during render).
   const userKeys = settings?.keys;
-  const onChange = useCallback((v: string) => editActive(v), [editActive]);
+  // The last text we reported to the store. The store hands the same string object
+  // back as the `content` prop, so reference equality is an O(1) "own echo" test.
+  const lastEmitted = useRef<string | null>(null);
+  // Attribute edits to the path THIS component was rendered for, never to whatever
+  // activePath is by the time the event fires, and ignore our own swap dispatches.
+  // Together with the synchronous swap below this closes the cross-tab window that
+  // let one document's buffer be saved under another document's path (issue 12).
+  const onChange = useCallback(
+    (v: string, vu: ViewUpdate) => {
+      if (vu.transactions.some((tr) => tr.annotation(docSwap) !== undefined)) return;
+      lastEmitted.current = v;
+      editTab(path, v);
+    },
+    [editTab, path],
+  );
+  // Apply the controlled value to the view SYNCHRONOUSLY whenever it diverges (tab
+  // switch, external reload). The wrapper defers this behind a ~200 ms typing latch
+  // (wider in practice — WebView2 clamps its 1 ms countdown timer), leaving the view
+  // showing the previous document; edits landing in that window were misattributed.
+  // Applying here, in a layout effect, means the view is correct before paint and the
+  // wrapper's own value-sync effect sees value === doc and does nothing — its deferred
+  // whole-doc replace (a scroll-to-top) never fires. addToHistory:false keeps undo
+  // from ever crossing a document boundary.
+  useLayoutEffect(() => {
+    const view = getActiveView();
+    if (!view || content === lastEmitted.current) return;
+    lastEmitted.current = content; // mark synced — repeat renders skip in O(1)
+    const cur = view.state.doc;
+    if (cur.length === content.length && cur.toString() === content) return;
+    view.dispatch({
+      changes: { from: 0, to: cur.length, insert: content },
+      selection: { anchor: Math.min(view.state.selection.main.head, content.length) },
+      annotations: [docSwap.of(path), Transaction.addToHistory.of(false)],
+    });
+  }, [path, content]);
   const onUpdate = useCallback(
     (vu: ViewUpdate) => {
       if (vu.selectionSet || vu.docChanged) {
@@ -139,10 +177,13 @@ export function Editor({ path, content }: { path: string; content: string }) {
         const line = vu.state.doc.lineAt(head);
         setCursorPos(line.number, head - line.from + 1);
       }
-      // Per-doc cursor memory. ONLY on selectionSet: the wrapper's whole-doc replace on a
-      // tab switch maps the old selection without setting one — recording that would
-      // clobber the incoming doc's remembered spot before the restore effect reads it.
-      if (vu.selectionSet) {
+      // Per-doc cursor memory. Skip our own doc-swap dispatch (it sets a placeholder
+      // selection) — recording it would clobber the incoming doc's remembered spot
+      // before the restore effect reads it. Same reason as the selectionSet-only rule.
+      if (
+        vu.selectionSet &&
+        !vu.transactions.some((tr) => tr.annotation(docSwap) !== undefined)
+      ) {
         const m = vu.state.selection.main;
         recordDocSelection(path, m.anchor, m.head);
       }
@@ -168,7 +209,14 @@ export function Editor({ path, content }: { path: string; content: string }) {
       });
     }
     const sc = view.scrollDOM;
-    const onScroll = () => recordDocScroll(path, sc.scrollTop);
+    const mountedAt = performance.now();
+    const onScroll = () => {
+      // A programmatic reset right after a doc swap reports scrollTop 0; recording it
+      // would overwrite this doc's remembered spot and replay the jump on every
+      // revisit. Real user scrolls to non-zero positions always record.
+      if (sc.scrollTop === 0 && performance.now() - mountedAt < 300) return;
+      recordDocScroll(path, sc.scrollTop);
+    };
     sc.addEventListener("scroll", onScroll, { passive: true });
     return () => {
       cancelAnimationFrame(raf);

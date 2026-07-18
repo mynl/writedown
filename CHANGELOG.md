@@ -5,6 +5,26 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [1.81.0] - 2026-07-18
+
+### Fixed
+
+- **A document's edits can no longer land in another document's file** (issue 12:
+  index.qmd twice overwritten wholesale by other tabs' buffers). Root cause: one
+  CodeMirror view serves all tabs, the active path flips synchronously on a tab
+  click, but the react-codemirror wrapper defers the actual document swap behind a
+  ~200 ms typing latch — so edits made in that beat were attributed, and then
+  autosaved, to the newly active file. Three-part fix: (a) the controlled value is
+  now applied to the view synchronously (layout effect) the moment it diverges, so
+  the view can never show one document while another is active — this also stops the
+  wrapper's deferred whole-document replace, the prime suspect for "jumps to top on
+  paste" (issue 9); (b) editor changes are written to the tab the editor was
+  rendered for (new `editTab` store action), never to whatever is active when the
+  event fires; (c) the swap transaction is excluded from undo history (undo can no
+  longer resurrect a previous tab's text) and from cursor/scroll recording, and a
+  programmatic scroll-to-0 straight after a swap is no longer recorded as the
+  document's remembered position (the "sticky" jump amplifier). Frontend only.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added

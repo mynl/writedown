@@ -226,6 +226,12 @@ type AppState = {
   reopenClosed: () => Promise<void>;
   nextTab: (dir: 1 | -1) => void;
   editActive: (content: string) => void;
+  /** Write edited content to the tab at `path` — the document the editor view was
+   *  actually showing when the edit was made, NOT whatever is active now. This is
+   *  the safe sink for editor onChange: it closes the window where an edit made
+   *  against a not-yet-swapped view was attributed to the newly active tab and
+   *  then autosaved over the wrong file. No-ops if the tab is gone. */
+  editTab: (path: string, content: string) => void;
   /** Adjust the editor font zoom: +1 / -1 points, or "reset" to the configured size. */
   setEditorZoom: (delta: number | "reset") => void;
   /** Bake the current zoomed size into config.toml's [editor] font_size (a deliberate,
@@ -701,13 +707,16 @@ export const useStore = create<AppState>((set, get) => ({
     set({ activePath: tabs[n].path });
   },
 
-  editActive: (content) =>
+  editActive: (content) => {
+    const p = get().activePath;
+    if (p) get().editTab(p, content);
+  },
+
+  editTab: (path, content) =>
     set((s) => ({
       // Editing promotes a preview tab to permanent (Sublime behaviour).
-      tabs: s.tabs.map((t) =>
-        t.path === s.activePath ? { ...t, content, preview: false } : t,
-      ),
-      ...(s.activePath && isScratch(s.activePath) ? { scratchRev: s.scratchRev + 1 } : {}),
+      tabs: s.tabs.map((t) => (t.path === path ? { ...t, content, preview: false } : t)),
+      ...(isScratch(path) ? { scratchRev: s.scratchRev + 1 } : {}),
     })),
 
   setEditorZoom: (delta) =>
