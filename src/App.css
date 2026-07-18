@@ -238,6 +238,13 @@ body {
 .openfiles .tree-row {
   padding-right: 4px;
   touch-action: none; /* pointer-drag reorder owns vertical movement */
+  /* Pin + clip the row like the tab strip does. line-height alone cannot cap the row:
+     it is a floor, not a ceiling — an italic fallback face with tall metrics inflates
+     the line box past the strut and the flex row grows with it (the ballooning
+     preview row). A fixed height with overflow:hidden makes the row immune to any
+     inline metrics; 18px floor keeps the 16px close button inside. */
+  height: max(18px, calc(var(--tree-size, 11.5px) * 1.4 + 2px));
+  overflow: hidden;
 }
 .openfiles .tree-row.dragging {
   opacity: 0.6;

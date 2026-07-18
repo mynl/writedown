@@ -37,6 +37,19 @@ messages point here for detail.
   properly awaited, and the capability grants it. Requires a backend rebuild (the
   capability file is compiled in).
 
+## [1.81.2] - 2026-07-18
+
+### Fixed
+
+- **The preview-mode Open Files row can no longer balloon** (third time's the charm).
+  The 1.76.1 font-size/line-height pins treated the wrong disease: line-height is a
+  floor for the line box, not a ceiling, so an italic fallback face with tall
+  metrics still inflated the row. The tab strip never ballooned because it is
+  clipped, not because of its pins — the Open Files rows now get the same cure: a
+  pinned row height (scaled from the [tree] font size, floored at the close
+  button's 18 px) plus overflow:hidden, making the row immune to whatever face the
+  italic resolves to. CSS only.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added
