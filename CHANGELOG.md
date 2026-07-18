@@ -102,6 +102,17 @@ messages point here for detail.
   nothing auto-inserts at a bare caret (closeBrackets stays off, as decided).
   Works in every file type, multicursor-aware.
 
+## [1.83.0] - 2026-07-18
+
+### Added
+
+- **The command palette remembers what you ran** (issue 10, ST behaviour). Opening
+  it with an empty query lists commands most-recently-used first with the last one
+  preselected — so Ctrl+Shift+P, Enter reruns the previous command. Typing any
+  query switches back to pure fuzzy ranking. The MRU (last 50, in localStorage)
+  survives restarts; ids that no longer exist — say a config snippet you removed —
+  just rank nowhere. Palette-time only.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added

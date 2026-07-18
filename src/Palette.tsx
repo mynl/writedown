@@ -6,6 +6,25 @@ import { mergedProjects, useStore } from "./store";
 
 type ProjItem = { name: string; path: string };
 
+// Most-recently-used command ordering (ST behaviour): with an empty query the last-run
+// commands float to the top, selection on the most recent — so Ctrl+Shift+P, Enter
+// reruns the previous command. Typed queries stay pure fuzzy rank. localStorage so it
+// survives restarts; unknown ids (e.g. a removed config snippet) simply rank nowhere.
+const MRU_KEY = "wd.commandMru";
+const MRU_MAX = 50;
+function loadCommandMru(): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(MRU_KEY) ?? "[]");
+    return Array.isArray(v) ? v.filter((x) => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+function recordCommandUse(id: string) {
+  const m = [id, ...loadCommandMru().filter((x) => x !== id)].slice(0, MRU_MAX);
+  localStorage.setItem(MRU_KEY, JSON.stringify(m));
+}
+
 function Highlight({ text, positions }: { text: string; positions: number[] }) {
   const hit = new Set(positions);
   return (
@@ -75,10 +94,22 @@ export function Palette() {
 
   const results = useMemo<Ranked<FileItem | Command | ProjItem>[]>(() => {
     if (mode === "files") return fuzzyRank(query, files, (f) => f.rel);
-    if (mode === "commands") return fuzzyRank(query, commands, (c) => c.title);
+    if (mode === "commands") {
+      if (query === "") {
+        const rank = new Map(loadCommandMru().map((id, i) => [id, i]));
+        return [...commands]
+          .sort(
+            (a, b) =>
+              (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+              (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER),
+          ) // stable: never-used commands keep registration order below the MRU block
+          .map((c) => ({ item: c, positions: [], score: 0 }));
+      }
+      return fuzzyRank(query, commands, (c) => c.title);
+    }
     if (mode === "projects") return fuzzyRank(query, projectItems, (p) => p.name);
     return [];
-  }, [mode, query, files, commands, projectItems]);
+  }, [mode, query, commands, files, projectItems]);
 
   useEffect(() => setSel(0), [query]);
   useEffect(() => {
@@ -92,7 +123,10 @@ export function Palette() {
     if (r) {
       if (mode === "files") void openFile((r.item as FileItem).path, false);
       else if (mode === "projects") void useStore.getState().openProject((r.item as ProjItem).path);
-      else (r.item as Command).run();
+      else {
+        recordCommandUse((r.item as Command).id);
+        (r.item as Command).run();
+      }
     }
     closePalette();
   }
