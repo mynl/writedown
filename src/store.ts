@@ -57,6 +57,10 @@ export const isScratch = (path: string) => path.startsWith(SCRATCH_PREFIX);
 const samePath = (a: string, b: string) =>
   a.replace(/\\/g, "/").toLowerCase() === b.replace(/\\/g, "/").toLowerCase();
 
+/** Pending auto-clear for the transient status-bar message (one at a time; a new
+ *  message supersedes the old timer). */
+let statusMsgTimer: number | undefined;
+
 /** Focus the live editor once it has mounted for a just-opened/created document. */
 function focusEditorSoon() {
   requestAnimationFrame(() => requestAnimationFrame(() => getActiveView()?.focus()));
@@ -223,6 +227,13 @@ type AppState = {
   openPersonalDictionary: () => Promise<void>;
   /** Re-read the personal dictionary from disk and re-lint the active view. */
   reloadPersonalDictionary: () => Promise<void>;
+  /** Transient status-bar message (bottom-left, replaces the path); auto-clears ~20 s. */
+  statusMessage: string | null;
+  showStatusMessage: (msg: string) => void;
+  /** Reveal the active document in the sidebar: pick the panel whose root contains it,
+   *  expand its ancestor folders, remount the tree, and scroll the highlighted row
+   *  into view. Not under any root → transient "name (not found in sidebar)". */
+  revealActive: () => void;
   reloadDoc: (path: string) => Promise<void>;
   onFsChange: (paths: string[]) => void;
   setActive: (path: string) => void;
@@ -348,6 +359,7 @@ export const useStore = create<AppState>((set, get) => ({
   spellIgnore: new Set(),
   configFile: null,
   personalDictFile: null,
+  statusMessage: null,
   configError: null,
   editorZoom: (() => {
     const v = Number(localStorage.getItem("wd.editorZoom"));
@@ -479,6 +491,66 @@ export const useStore = create<AppState>((set, get) => ({
     } catch (e) {
       set({ configError: `reload dictionary — ${String(e)}` });
     }
+  },
+
+  showStatusMessage: (msg) => {
+    if (statusMsgTimer !== undefined) clearTimeout(statusMsgTimer);
+    set({ statusMessage: msg });
+    statusMsgTimer = window.setTimeout(() => {
+      statusMsgTimer = undefined;
+      set({ statusMessage: null });
+    }, 20_000);
+  },
+
+  revealActive: () => {
+    const { activePath, folderRoot, projFolders, showStatusMessage } = get();
+    const base = (p: string) => p.split(/[\\/]/).pop() ?? p;
+    if (!activePath) return showStatusMessage("locate file — nothing open");
+    if (isScratch(activePath)) {
+      return showStatusMessage(`${activePath.slice(SCRATCH_PREFIX.length)} (not on disk)`);
+    }
+    // Which panel's root contains the file? Case- and separator-insensitive (Windows);
+    // prefer the panel already showing when both contain it.
+    const norm = (p: string) => p.replace(/\\/g, "/").toLowerCase().replace(/\/+$/, "");
+    const contains = (root: string) => norm(activePath).startsWith(norm(root) + "/");
+    const projRoot = projFolders.find(contains) ?? null;
+    const foldRoot = folderRoot && contains(folderRoot) ? folderRoot : null;
+    const pick =
+      get().panelTab === "project"
+        ? (projRoot ? ("project" as const) : foldRoot ? ("folder" as const) : null)
+        : (foldRoot ? ("folder" as const) : projRoot ? ("project" as const) : null);
+    if (!pick) return showStatusMessage(`${base(activePath)} (not found in sidebar)`);
+    const root = (pick === "project" ? projRoot : foldRoot) as string;
+    // Expansion state is applied at tree REMOUNT (it is read non-reactively), so:
+    // record every ancestor dir, then bump treeVersion. Ancestor keys are built the
+    // way list_directory builds child paths — root string as stored + "\" segments —
+    // so they match the tree's expandedPaths keys exactly.
+    const rel = activePath.slice(root.length).replace(/^[\\/]+/, "");
+    const parts = rel.split(/[\\/]/);
+    parts.pop(); // drop the file name — we expand its ancestors
+    get().setPathExpanded(root, true);
+    let anc = root;
+    for (const part of parts) {
+      anc = anc + "\\" + part;
+      get().setPathExpanded(anc, true);
+    }
+    if (!get().sidebarVisible) get().setSidebarVisible(true);
+    set((s) => ({ panelTab: pick, treeVersion: s.treeVersion + 1 }));
+    // Scroll the highlighted row into view once the remount and the per-level lazy
+    // listings settle (each expanded level lists asynchronously); after it appears,
+    // re-assert a few frames so late-loading siblings can't push it away again.
+    const t0 = performance.now();
+    let extra = 10;
+    const tick = () => {
+      const row = document.querySelector<HTMLElement>(".tree-body .tree-row.active");
+      if (row) {
+        row.scrollIntoView({ block: "center" });
+        if (--extra > 0) requestAnimationFrame(tick);
+      } else if (performance.now() - t0 < 2000) {
+        requestAnimationFrame(tick);
+      }
+    };
+    requestAnimationFrame(tick);
   },
 
   openFolder: async () => {

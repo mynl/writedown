@@ -113,6 +113,19 @@ messages point here for detail.
   survives restarts; ids that no longer exist — say a config snippet you removed —
   just rank nowhere. Palette-time only.
 
+## [1.84.0] - 2026-07-18
+
+### Added
+
+- **Locate File in Sidebar** (issue 8): a palette command that reveals the active
+  document — picks whichever panel's root contains it (preferring the one already
+  showing), expands its ancestor folders, switches to that panel (showing the
+  sidebar if hidden), and scrolls the highlighted row into view once the lazy
+  per-level listings settle. Containment is case- and separator-insensitive. If
+  the file is under no root — a quick-opened stray, a scratch — the status bar's
+  left slot shows "name (not found in sidebar)" for ~20 s instead of the path;
+  that transient-message slot is new and reusable. Command-time only.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added

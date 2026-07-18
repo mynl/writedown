@@ -85,6 +85,7 @@ export function appCommands(): Command[] {
       run: () => void s().setSizeAsDefault(),
     },
     { id: "previous-versions", title: "Previous Versions…", run: () => s().openVersions() },
+    { id: "locate-file", title: "Locate File in Sidebar", run: () => s().revealActive() },
     {
       id: "copy-file-path",
       title: "Copy File Path",
