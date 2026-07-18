@@ -15,6 +15,53 @@ impl Default for WatchState {
     }
 }
 
+/// Independent watcher for open files that live OUTSIDE every workspace root (e.g. a
+/// quick-opened file from another folder) — without it those tabs never see external
+/// edits (issue 11). Same replace-on-call semantics as the workspace watcher, but
+/// non-recursive and per-file.
+pub struct ExtraWatchState(pub Mutex<Option<RecommendedWatcher>>);
+
+impl Default for ExtraWatchState {
+    fn default() -> Self {
+        ExtraWatchState(Mutex::new(None))
+    }
+}
+
+/// Watch the given out-of-root files individually (empty list drops the watcher).
+/// Individual failures are skipped — a just-deleted file must not unwatch the rest.
+#[tauri::command]
+pub fn watch_extra_files(
+    app: AppHandle,
+    paths: Vec<String>,
+    state: tauri::State<ExtraWatchState>,
+) -> Result<(), String> {
+    if paths.is_empty() {
+        *state.0.lock().map_err(|e| e.to_string())? = None;
+        return Ok(());
+    }
+    let app2 = app.clone();
+    let mut watcher = notify::recommended_watcher(move |res: notify::Result<Event>| {
+        if let Ok(event) = res {
+            let paths: Vec<String> = event
+                .paths
+                .iter()
+                .map(|p| p.to_string_lossy().to_string())
+                .collect();
+            if !paths.is_empty() {
+                let _ = app2.emit("fs-change", paths);
+            }
+        }
+    })
+    .map_err(|e| e.to_string())?;
+
+    for path in &paths {
+        let _ = watcher.watch(std::path::Path::new(path), RecursiveMode::NonRecursive);
+    }
+
+    *state.0.lock().map_err(|e| e.to_string())? = Some(watcher);
+    Ok(())
+}
+
 /// Watch one or more roots (a folder workspace, or every folder of a project). One
 /// watcher instance covers all of them; calling again replaces the previous set.
 #[tauri::command]

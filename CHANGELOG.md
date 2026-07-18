@@ -126,6 +126,20 @@ messages point here for detail.
   left slot shows "name (not found in sidebar)" for ~20 s instead of the path;
   that transient-message slot is new and reusable. Command-time only.
 
+## [1.85.0] - 2026-07-18
+
+### Fixed
+
+- **Files opened from outside the workspace now see external edits** (issue 11 —
+  "this file is not refreshing"). The watcher only ever covered workspace roots, so
+  a quick-opened stray (the issues file being Exhibit A) never received change
+  events: clean tabs didn't refresh, dirty tabs never learned they were in
+  conflict. A second, independent watcher now covers exactly the open tabs that
+  live under no root — per-file, non-recursive, re-pointed as tabs open/close and
+  when roots change, dropped when no strays remain. The existing rules are
+  unchanged: clean tab → auto-reload, dirty tab → conflict flag (never a silent
+  clobber), own saves suppressed. Requires a backend rebuild.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added

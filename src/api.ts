@@ -48,6 +48,11 @@ export const listDirectory = (path: string) =>
 export const watchWorkspace = (paths: string[]) =>
   invoke<void>("watch_workspace", { paths });
 
+/** Watch open files that live outside every root (non-recursive, per-file); an empty
+ *  list drops the watcher. Same `fs-change` events as the workspace watcher. */
+export const watchExtraFiles = (paths: string[]) =>
+  invoke<void>("watch_extra_files", { paths });
+
 // Sublime-style projects: a named set of folder roots in a .wdproj JSON file.
 export type Project = { name: string; folders: string[] };
 /** A managed project (name + full path) for the quick-switch list. */

@@ -31,6 +31,7 @@ import {
   renderDocument,
   saveLastWorkspace,
   saveProject,
+  watchExtraFiles,
   watchWorkspace,
   writeFile,
   type EditorSettings,
@@ -60,6 +61,10 @@ const samePath = (a: string, b: string) =>
 /** Pending auto-clear for the transient status-bar message (one at a time; a new
  *  message supersedes the old timer). */
 let statusMsgTimer: number | undefined;
+
+const normPath = (p: string) => p.replace(/\\/g, "/").toLowerCase().replace(/\/+$/, "");
+/** Is `p` inside `root`? Case- and separator-insensitive (Windows). */
+const underRoot = (p: string, root: string) => normPath(p).startsWith(normPath(root) + "/");
 
 /** Focus the live editor once it has mounted for a just-opened/created document. */
 function focusEditorSoon() {
@@ -234,6 +239,9 @@ type AppState = {
    *  expand its ancestor folders, remount the tree, and scroll the highlighted row
    *  into view. Not under any root → transient "name (not found in sidebar)". */
   revealActive: () => void;
+  /** Re-point the out-of-root file watcher at the open tabs not under any root, so
+   *  quick-opened strays (e.g. the issues file) see external edits too (issue 11). */
+  syncExtraWatch: () => void;
   reloadDoc: (path: string) => Promise<void>;
   onFsChange: (paths: string[]) => void;
   setActive: (path: string) => void;
@@ -511,8 +519,7 @@ export const useStore = create<AppState>((set, get) => ({
     }
     // Which panel's root contains the file? Case- and separator-insensitive (Windows);
     // prefer the panel already showing when both contain it.
-    const norm = (p: string) => p.replace(/\\/g, "/").toLowerCase().replace(/\/+$/, "");
-    const contains = (root: string) => norm(activePath).startsWith(norm(root) + "/");
+    const contains = (root: string) => underRoot(activePath, root);
     const projRoot = projFolders.find(contains) ?? null;
     const foldRoot = folderRoot && contains(folderRoot) ? folderRoot : null;
     const pick =
@@ -553,6 +560,15 @@ export const useStore = create<AppState>((set, get) => ({
     requestAnimationFrame(tick);
   },
 
+  syncExtraWatch: () => {
+    const { tabs, folderRoot, projFolders } = get();
+    const roots = [...projFolders, ...(folderRoot ? [folderRoot] : [])];
+    const extras = tabs
+      .map((t) => t.path)
+      .filter((p) => !isScratch(p) && !roots.some((r) => underRoot(p, r)));
+    void watchExtraFiles(extras).catch(() => {});
+  },
+
   openFolder: async () => {
     const picked = await pickFolder();
     if (!picked) return;
@@ -576,6 +592,7 @@ export const useStore = create<AppState>((set, get) => ({
     if (!projectFile && projFolders.length === 0) {
       void saveLastWorkspace(path); // remember for the next cold start
       void watchWorkspace([path]).catch(() => {}); // watch for external changes (spec §14)
+      get().syncExtraWatch();
     }
   },
 
@@ -678,6 +695,7 @@ export const useStore = create<AppState>((set, get) => ({
       }
       return { tabs: [...s.tabs, doc], activePath: path };
     });
+    get().syncExtraWatch(); // an out-of-root file gets its own watch
   },
 
   setActive: (path) => {
@@ -750,7 +768,7 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  closeTab: (path) =>
+  closeTab: (path) => {
     set((s) => {
       const idx = s.tabs.findIndex((t) => t.path === path);
       const tabs = s.tabs.filter((t) => t.path !== path);
@@ -765,7 +783,9 @@ export const useStore = create<AppState>((set, get) => ({
         // deliberate discard, so don't leave a dead entry eating a reopen keypress.
         closedStack: isScratch(path) ? s.closedStack : [...s.closedStack, path],
       };
-    }),
+    });
+    get().syncExtraWatch(); // last out-of-root tab closed → its watch is dropped
+  },
 
   reopenClosed: async () => {
     const { closedStack } = get();
@@ -1245,6 +1265,7 @@ export const useStore = create<AppState>((set, get) => ({
     set({ projFolders: folders, panelTab: "project" });
     if (!get().root) await get().setRoot(picked);
     void watchWorkspace(folders).catch(() => {});
+    get().syncExtraWatch();
     setTitle(get().projectName || "unsaved project");
     get().persistProject();
   },
@@ -1288,6 +1309,7 @@ export const useStore = create<AppState>((set, get) => ({
       if (seed.length > 0) {
         if (!get().root) await get().setRoot(seed[0]);
         void watchWorkspace(seed).catch(() => {});
+        get().syncExtraWatch();
       }
       void addRecentProject(path).then(() => get().loadRecentProjects());
       void saveLastWorkspace(path);
@@ -1327,6 +1349,7 @@ export const useStore = create<AppState>((set, get) => ({
     if (proj.folders.length > 0) {
       await get().setRoot(proj.folders[0]);
       void watchWorkspace(proj.folders).catch(() => {});
+      get().syncExtraWatch();
     }
     void addRecentProject(file).then(() => get().loadRecentProjects());
     void saveLastWorkspace(file);
@@ -1341,6 +1364,7 @@ export const useStore = create<AppState>((set, get) => ({
     if (root) {
       void saveLastWorkspace(root);
       void watchWorkspace([root]).catch(() => {});
+      get().syncExtraWatch();
       void get().setFolderRoot(root); // adopt into the Folder tab so it isn't left empty
     }
   },
@@ -1349,6 +1373,7 @@ export const useStore = create<AppState>((set, get) => ({
     const folders = get().projFolders.filter((f) => f !== path);
     set({ projFolders: folders });
     if (folders.length > 0) void watchWorkspace(folders).catch(() => {});
+    get().syncExtraWatch();
     get().persistProject();
   },
 

@@ -20,6 +20,7 @@ pub fn run() {
         // app data; pane widths live in the per-workspace session instead).
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .manage(watch::WatchState::default())
+        .manage(watch::ExtraWatchState::default())
         .manage(bib::BibState::default())
         .manage(render::RenderState::default())
         .manage(spelling::SpellState::default())
@@ -64,6 +65,7 @@ pub fn run() {
             session::save_folder_state,
             sublime::load_sublime_theme,
             watch::watch_workspace,
+            watch::watch_extra_files,
             bib::load_bibliography,
             bib::search_bibliography,
             bib::get_citation,
