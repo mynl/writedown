@@ -60,6 +60,14 @@ export function seedDocPositions(rec: Record<string, DocPosition>): void {
   }
 }
 
+// Frames the post-jump settle loop may run: lineBlockAt uses ESTIMATED heights for
+// never-drawn lines, so the first computed target y lands short/long; scrolling forces
+// real measurement, and re-deriving the target for a few frames converges on it. This
+// is the editor twin of the preview's settle loop (Preview.tsx, 1.73.2) — the editor
+// side never got one, hence "first outline click imperfect, second click lands".
+const JUMP_SETTLE_FRAMES = 8;
+let jumpSeq = 0; // supersedes an in-flight settle when a newer jump starts
+
 /** Move the cursor to `line` (1-based), scroll sensibly, and focus the editor.
  *  If the target sits below the viewport midpoint (or above the viewport), it is
  *  brought near the TOP of the page — clicking an outline entry means "show me this
@@ -68,16 +76,32 @@ export function jumpToLine(line: number) {
   const view = activeView;
   if (!view) return;
   const n = Math.min(Math.max(line, 1), view.state.doc.lines);
-  const l = view.state.doc.line(n);
-  view.dispatch({ selection: { anchor: l.from } });
+  const pos = view.state.doc.line(n).from;
+  view.dispatch({ selection: { anchor: pos } });
 
   const sc = view.scrollDOM;
-  const top = view.lineBlockAt(l.from).top; // document-space y of the target line
-  const midpoint = sc.scrollTop + sc.clientHeight / 2;
-  if (top > midpoint || top < sc.scrollTop) {
-    sc.scrollTo({ top: Math.max(0, top - sc.clientHeight * 0.12) });
+  // Target scrollTop for the top-anchored jump, or null when the line already sits
+  // comfortably in the upper half of the viewport (small nudge is enough).
+  const target = (): number | null => {
+    const top = view.lineBlockAt(pos).top; // document-space y of the target line
+    const midpoint = sc.scrollTop + sc.clientHeight / 2;
+    if (top > midpoint || top < sc.scrollTop) return Math.max(0, top - sc.clientHeight * 0.12);
+    return null;
+  };
+  const first = target();
+  if (first === null) {
+    view.dispatch({ effects: EditorView.scrollIntoView(pos) });
   } else {
-    view.dispatch({ effects: EditorView.scrollIntoView(l.from) });
+    sc.scrollTo({ top: first });
+    const seq = ++jumpSeq;
+    let frames = JUMP_SETTLE_FRAMES;
+    const settle = () => {
+      if (seq !== jumpSeq || --frames < 0) return;
+      const t = target();
+      if (t !== null && Math.abs(sc.scrollTop - t) > 1) sc.scrollTo({ top: t });
+      requestAnimationFrame(settle);
+    };
+    requestAnimationFrame(settle);
   }
   view.focus();
 }

@@ -63,6 +63,17 @@ messages point here for detail.
   reload the word set, clear the caches, re-lint the open document. Path
   comparison is case- and separator-insensitive.
 
+## [1.81.4] - 2026-07-18
+
+### Fixed
+
+- **Outline clicks land on the first try** (issue 1). The editor-side jump computed
+  its target from CodeMirror's estimated heights for never-drawn lines and scrolled
+  once — the scroll forced real measurement, so only a second identical click
+  landed. The jump now re-derives the target for up to 8 frames after scrolling
+  (superseded by any newer jump), converging as measurements arrive — the editor
+  twin of the settle loop the preview jump gained in 1.73.2. Click-time only.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added
