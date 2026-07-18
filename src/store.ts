@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { confirm as confirmDialog } from "@tauri-apps/plugin-dialog";
 import {
   addRecentProject,
   configPath,
@@ -1112,7 +1113,15 @@ export const useStore = create<AppState>((set, get) => ({
 
   deleteEntry: async (entry) => {
     const kind = entry.is_dir ? "folder" : "file";
-    if (!window.confirm(`Move ${kind} "${entry.name}" to the Recycle Bin?`)) return;
+    // Tauri replaces window.confirm with an async IPC call: the un-awaited Promise is
+    // truthy, so the old `!window.confirm(...)` guard NEVER blocked — in the packaged
+    // exe (where the ACL also denied the dialog) deletes ran with no confirmation at
+    // all. Use the plugin API and await the actual answer.
+    const ok = await confirmDialog(`Move ${kind} "${entry.name}" to the Recycle Bin?`, {
+      title: "Writedown",
+      kind: "warning",
+    });
+    if (!ok) return;
     try {
       await deletePath(entry.path);
     } catch (e) {

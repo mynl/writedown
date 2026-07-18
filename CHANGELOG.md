@@ -25,6 +25,18 @@ messages point here for detail.
   programmatic scroll-to-0 straight after a swap is no longer recorded as the
   document's remembered position (the "sticky" jump amplifier). Frontend only.
 
+## [1.81.1] - 2026-07-18
+
+### Fixed
+
+- **Delete asks for confirmation again.** Tauri swaps `window.confirm` for an async
+  IPC dialog call: the un-awaited Promise is always truthy, so the guard in Delete
+  never blocked — and in the packaged exe the dialog permission was also denied by
+  the ACL (the "plugin:dialog|confirm not allowed" log lines), so files went to the
+  Recycle Bin with no prompt at all. Delete now uses the dialog plugin's `confirm`
+  properly awaited, and the capability grants it. Requires a backend rebuild (the
+  capability file is compiled in).
+
 ## [1.80.0] - 2026-07-16
 
 ### Added
