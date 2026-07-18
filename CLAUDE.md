@@ -142,10 +142,13 @@ tests/                 automated tests (config parse, atomic save, whitespace, Y
 
 Standing rules — follow without being re-asked.
 
-- **Single source of version truth.** Set the version in `src-tauri/tauri.conf.json`
-  (mirrored in `Cargo.toml` / `package.json` as the toolchain requires); the footer
-  reads it at runtime via `@tauri-apps/api/app` `getVersion()` — do **not** hard-code
-  a second copy in a JS constant.
+- **Single source of version truth: `src-tauri/Cargo.toml` — and ONLY it.** Since
+  2026-07-18, `tauri.conf.json` omits `version` (Tauri 2 falls back to the Cargo
+  version; verified: exe/installer stamp and `getVersion()` both report it) and
+  `package.json` (private) has no version field. A release bump edits exactly one
+  line, in Cargo.toml (Cargo.lock follows on the next build). The footer reads it at
+  runtime via `@tauri-apps/api/app` `getVersion()` — do **not** hard-code a second
+  copy in a JS constant, and do not re-add version fields to the other two files.
 - **Every feature-bearing change bumps the version** (SemVer: MAJOR breaking, MINOR
   features, PATCH fixes). Pure tidying does not bump.
 - **`CHANGELOG.md` is current at every bump** — a `## [x.y.z] - YYYY-MM-DD` section,

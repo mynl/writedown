@@ -1,7 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Writedown",
-  "version": "1.86.0",
   "identifier": "com.mynl.writedown",
   "build": {
     "beforeDevCommand": "npm run dev",
