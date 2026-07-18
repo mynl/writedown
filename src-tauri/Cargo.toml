@@ -1,6 +1,6 @@
 [package]
 name = "writedown"
-version = "1.81.5"
+version = "1.82.0"
 description = "A fast, local, predictable Markdown and Quarto editor for Windows"
 authors = ["Stephen J. Mildenhall"]
 edition = "2021"

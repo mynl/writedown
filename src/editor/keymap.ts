@@ -7,9 +7,10 @@ import { Compartment, Prec } from "@codemirror/state";
 import { COMMAND_REGISTRY } from "./commandRegistry";
 import { toCmKey } from "./keyFormat";
 import { CATEGORY_ORDER } from "../shortcuts";
+import { wrapSelectionOnType } from "./wrapOnType";
 
-/** Column selection (Alt+drag) + crosshair — always on, not part of the configurable keymap. */
-export const editingExtras = [rectangularSelection(), crosshairCursor()];
+/** Column selection (Alt+drag) + crosshair + type-to-wrap — always on, not configurable. */
+export const editingExtras = [rectangularSelection(), crosshairCursor(), wrapSelectionOnType];
 
 /** The reconfigurable slot the editing keymap lives in. */
 export const keymapCompartment = new Compartment();

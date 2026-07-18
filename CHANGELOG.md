@@ -90,6 +90,18 @@ messages point here for detail.
   no longer rewrite the editor's position. Sync resumes by itself once the render
   catches up. No cost outside the sync handlers.
 
+## [1.82.0] - 2026-07-18
+
+### Added
+
+- **Type to wrap the selection** (issue 5, ST muscle memory). With text selected,
+  typing `"` `'` `` ` `` `*` `(` `[` `{` surrounds the selection (paired for
+  brackets, doubled for the symmetric characters) and keeps it selected, so wraps
+  nest. Empty cursors in a multi-selection still type the character; with nothing
+  selected the handler declines entirely, so ordinary typing is untouched and
+  nothing auto-inserts at a bare caret (closeBrackets stays off, as decided).
+  Works in every file type, multicursor-aware.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added
