@@ -20,6 +20,8 @@ font_size = 14
 # font_weight = "normal"
 # tab_size: spaces per indent level. Indentation is always spaces — never a literal tab.
 tab_size = 4
+# tab_complete_min_len: shortest nearby word Tab word-completion will offer (default 5).
+# tab_complete_min_len = 5
 word_wrap = true
 
 [outline]
@@ -176,6 +178,9 @@ pub struct EditorSettings {
     word_wrap: Option<bool>,
     /// Editor indent width in spaces ([editor] tab_size, default 4). Indentation is spaces-only.
     tab_size: Option<u32>,
+    /// Shortest nearby word Tab word-completion will offer ([editor] tab_complete_min_len,
+    /// default 5) — shorter words aren't worth a Tab.
+    tab_complete_min_len: Option<u32>,
     outline_font_family: Option<String>,
     outline_font_size: Option<f64>,
     outline_font_weight: Option<String>,
@@ -237,6 +242,10 @@ pub fn load_editor_settings(app: tauri::AppHandle) -> Result<EditorSettings, Str
             .and_then(|e| e.get("tab_size"))
             .and_then(|v| v.as_integer())
             .map(|i| i.clamp(1, 16) as u32),
+        tab_complete_min_len: ed
+            .and_then(|e| e.get("tab_complete_min_len"))
+            .and_then(|v| v.as_integer())
+            .map(|i| i.clamp(1, 64) as u32),
         outline_font_family: ol.and_then(|o| o.get("font_family")).and_then(string),
         outline_font_size: ol.and_then(|o| o.get("font_size")).and_then(num),
         outline_font_weight: ol.and_then(|o| o.get("font_weight")).and_then(weight),

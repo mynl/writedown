@@ -216,6 +216,8 @@ export type EditorSettings = {
   word_wrap: boolean | null;
   /** `[editor] tab_size`: editor indent width in spaces (default 4; spaces-only, never a tab). */
   tab_size: number | null;
+  /** `[editor] tab_complete_min_len`: shortest nearby word Tab word-completion offers (default 5). */
+  tab_complete_min_len: number | null;
   outline_font_family: string | null;
   outline_font_size: number | null;
   outline_font_weight: string | null;

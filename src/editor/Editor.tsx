@@ -18,6 +18,7 @@ import {
   keymapWarnings,
 } from "./keymap";
 import { citationExtensions } from "./citations";
+import { wordCompleteExtensions } from "./wordComplete";
 import { documentLint } from "./lint";
 import { spellingExtensions } from "./spelling";
 import {
@@ -113,6 +114,8 @@ export function Editor({ path, content }: { path: string; content: string }) {
       // Editing keymap in a Compartment so config [keys] changes reconfigure it live (see the
       // effect below). Non-reactive read, like word wrap, so a reconfigure never rebuilds here.
       keymapCompartment.of(buildEditingKeymap(useStore.getState().editorSettings?.keys)),
+      // Tab word-completion for every language (declines to indent when not after a word).
+      ...wordCompleteExtensions,
       built ? built.highlight : syntaxHighlighting(editorHighlight),
     ];
     // Prec.highest so math colouring wins over list/other syntax marks (e.g. in bullets).

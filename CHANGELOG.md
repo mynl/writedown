@@ -263,6 +263,21 @@ messages point here for detail.
   leave it unbounded. Wheel deltas are accumulated so one physical notch steps once on any
   device, and WebView2's page-zoom is suppressed. Frontend only.
 
+## [1.91.0] - 2026-07-20
+
+### Added
+
+- **Sublime-style Tab word-completion** (issue 5). Type the first letter(s) of a long word
+  and press Tab: the nearest matching longer word from nearby in the buffer is inserted;
+  Tab again cycles through the other matches, then back to what you typed. It fires whenever
+  a word character sits right before the caret; at line start or after whitespace Tab now
+  indents (and Shift+Tab dedents), which it didn't before. Candidates are words of at least
+  `[editor] tab_complete_min_len` characters (default 5) — short words aren't worth a Tab —
+  harvested from a window around the caret and ranked by distance, so it stays instant even
+  on large documents. It yields to an open @-citation popup and to snippet tab-through, and
+  runs only on an explicit Tab (zero baseline cost). Requires a backend rebuild (new config
+  key).
+
 ## [1.80.0] - 2026-07-16
 
 ### Added
