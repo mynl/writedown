@@ -238,6 +238,20 @@ messages point here for detail.
   bad absolute path surfaces the usual "python failed to start" warning. Requires a backend
   rebuild.
 
+## [1.89.1] - 2026-07-20
+
+### Fixed
+
+- **Preview syncs to the editor's spot on a tab switch and a Preview↔Rendered switch**
+  (issues 6 & 8). Editor↔preview scroll sync was driven only by live scroll events, so
+  switching tabs left the preview pinned at the top until you scrolled (the tab switch's
+  own scroll event fires before the new document has rendered, so it is correctly dropped
+  as stale), and switching between the Preview and Rendered tabs remounted the pane at the
+  top. A single one-shot now runs once the switched-to document's render is patched in,
+  scrolling the preview to the editor's current top line. The "a build opens at your Ctrl+B
+  spot" behavior is preserved — it now survives a Preview↔Rendered switch instead of
+  replaying the stale build position. Frontend only.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added

@@ -360,6 +360,10 @@ function blockAtLine(content: HTMLElement, line: number): HTMLElement | null {
 // stable. A newer jump supersedes; ~8 frames bounds the cost.
 let previewSettleSeq = 0;
 const SETTLE_FRAMES = 8;
+// The build id (`ren.at`) whose one-time "open at your Ctrl+B spot" scroll has already
+// run — module-level so a Preview remount (a Preview↔Rendered switch) doesn't replay a
+// stale build position (issue 6). Reset lazily as new build ids arrive.
+let consumedBuildKey: number | null = null;
 
 export function scrollPreviewToLine(line: number) {
   if (!activePreview) return;
@@ -533,16 +537,34 @@ export function Preview({
     patchedAtRef.current = performance.now();
   }, [result, baseDir, docKey]);
 
-  // After a build lands, open the rendered view at the editor's location instead of the
-  // top (issue 4) — once per build (`initialKey`), after its blocks are in the DOM.
-  const initialConsumed = useRef<number | null>(null);
+  // Sync the preview to the editor's position when a render lands — not only on scroll
+  // events (issues 6 & 8). Three triggers, one effect, all after the current doc's blocks
+  // are patched in: (a) a fresh build opens at the spot you pressed Ctrl+B from (issue 4,
+  // preserved via initialSourceLine, consumed once per build GLOBALLY so a later
+  // Preview↔Rendered remount doesn't replay a stale build position); (b) a tab switch
+  // (docKey change, issue 8) and (c) a Preview↔Rendered switch (this component remounts,
+  // issue 6) both re-sync to the editor's CURRENT top line. The docKey guard fires it once
+  // per doc since mount — never on the debounced re-renders while you type (which must not
+  // yank the preview) and never in preview-only mode (no live editor to read).
+  const syncedDocKey = useRef<string | null>(null);
   useEffect(() => {
-    if (initialKey == null || initialSourceLine == null) return;
-    if (initialConsumed.current === initialKey) return;
-    if (!result || result.docKey !== (docKey ?? "")) return; // blocks not patched yet
-    initialConsumed.current = initialKey;
-    scrollPreviewToLine(initialSourceLine); // translates source→expanded via the map
-  }, [initialKey, initialSourceLine, result, docKey]);
+    const dk = docKey ?? "";
+    if (!result || result.docKey !== dk) return; // this doc's blocks aren't patched yet
+    // (a) fresh build → honor the build-time editor position, once per build.
+    if (initialKey != null && initialSourceLine != null && consumedBuildKey !== initialKey) {
+      consumedBuildKey = initialKey;
+      syncedDocKey.current = dk;
+      scrollPreviewToLine(initialSourceLine); // source→expanded via the map
+      return;
+    }
+    // (b)/(c) mount / mode-switch / tab-switch → sync to the editor's CURRENT top line.
+    if (syncedDocKey.current === dk) return; // already synced this doc since mount
+    syncedDocKey.current = dk;
+    const view = getActiveView();
+    if (!view || !view.dom.isConnected) return; // preview-only: no live editor to read
+    const lb = view.lineBlockAtHeight(view.scrollDOM.scrollTop);
+    scrollPreviewToLine(view.state.doc.lineAt(lb.from).number);
+  }, [result, docKey, initialKey, initialSourceLine]);
 
   // Theme switch recolors all code blocks in place (cheap via codeHighlight's cache).
   useEffect(() => {

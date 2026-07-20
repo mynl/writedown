@@ -13,9 +13,9 @@ For each of these issues, or product enhancements please tell me:  low, medium o
 | 3  |  | MRU projects only (not folders) quick-switch dropdown in panel footer (1.87.0) |
 | 4  |  | Ctrl+D: bold, clearly-visible selection highlight (1.86.3) |
 | 5  |  | Sublime Tab word-completion (nearby long words) — re-scope |
-| 6  |  | Preview↔Rendered switch syncs to editor location |
+| 6  |  | Preview↔Rendered switch syncs to editor location (1.89.1) |
 | 7  |  | @ citation works in an indented footnote definition (1.86.2) |
-| 8  |  | Tab switch syncs preview at once (not only after scroll) |
+| 8  |  | Tab switch syncs preview at once (not only after scroll) (1.89.1) |
 | 9  |  | Per-doc Python kernel via YAML `wd-python:` (absolute only) (1.89.0) |
 | 10 |  DROP | Palette: sort sidebar by name (default) or mod date |
 | 11 |  | Ctrl+MouseWheel font size, transient, floor + cap |
