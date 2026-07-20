@@ -156,24 +156,38 @@ fn recent_file(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
     Ok(writedown_dir(app)?.join("recent-projects.json"))
 }
 
-/// MRU list of project file paths (most recent first), pruned of vanished files.
+/// Normalized comparison key for a project path: case- and separator-insensitive,
+/// trailing slash stripped (Windows). Mirrors the frontend `normPath` so the same file
+/// added via different spellings (managed join vs. native Open dialog, casing, `\` vs
+/// `/`, trailing slash) is treated as one entry (issue 13). Kept for de-dup only — the
+/// original spelling is preserved in the stored list.
+fn recent_key(p: &str) -> String {
+    p.replace('\\', "/").to_lowercase().trim_end_matches('/').to_string()
+}
+
+/// MRU list of project file paths (most recent first), pruned of vanished files and of
+/// duplicate spellings of the same path (keeping the most recent occurrence).
 #[tauri::command]
 pub fn recent_projects(app: tauri::AppHandle) -> Result<Vec<String>, String> {
     let list: Vec<String> = std::fs::read_to_string(recent_file(&app)?)
         .ok()
         .and_then(|s| serde_json::from_str(&s).ok())
         .unwrap_or_default();
+    let mut seen = std::collections::HashSet::new();
     Ok(list
         .into_iter()
         .filter(|p| std::path::Path::new(p).exists())
+        .filter(|p| seen.insert(recent_key(p)))
         .collect())
 }
 
-/// Move `path` to the front of the MRU (capped at 10).
+/// Move `path` to the front of the MRU (capped at 10), dropping any prior spelling of
+/// the same file.
 #[tauri::command]
 pub fn add_recent_project(app: tauri::AppHandle, path: String) -> Result<(), String> {
     let mut list = recent_projects(app.clone())?;
-    list.retain(|p| p != &path);
+    let key = recent_key(&path);
+    list.retain(|p| recent_key(p) != key);
     list.insert(0, path);
     list.truncate(10);
     let json = serde_json::to_string_pretty(&list).map_err(|e| e.to_string())?;

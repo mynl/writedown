@@ -1438,7 +1438,9 @@ function replaceKeysTable(text: string, block: string): string {
  *  a display name shared by more than one entry gets its parent folder appended so both are
  *  distinguishable (e.g. "AI — projects" vs "AI — AI"). */
 export function mergedProjects(s: AppState): { name: string; path: string }[] {
-  const norm = (p: string) => p.replace(/\\/g, "/").toLowerCase();
+  // Reuse the module normalizer so this de-dup key agrees with the Rust `recent_key`
+  // and the rest of the store — it also strips a trailing slash (issue 13).
+  const norm = normPath;
   const base = (p: string) => p.replace(/\\/g, "/").split("/").pop()!.replace(/\.wdproj$/i, "");
   const parent = (p: string) => {
     const parts = p.replace(/\\/g, "/").replace(/\/+$/, "").split("/");

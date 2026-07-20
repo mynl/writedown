@@ -20,7 +20,7 @@ For each of these issues, or product enhancements please tell me:  low, medium o
 | 10 |  DROP | Palette: sort sidebar by name (default) or mod date |
 | 11 |  | Ctrl+MouseWheel font size, transient, floor + cap |
 | 12 |  | Palette: reveal project folder / delete project |
-| 13 |  | Dedup duplicate "AI" project in quick-switch |
+| 13 |  | Dedup duplicate "AI" project in quick-switch (1.86.4) |
 
 - [ ] (1) after insert date time cursor needs to be put after insert; currently focus is lost
     **CC: L — one missing line. `insertDateTime` (textOps.ts:101) already leaves the cursor *after* the stamp via `replaceSelection`, so cursor placement is a non-issue — the real symptom is lost focus. The palette command `insert-datetime` (commands.ts:149) dispatches into the CM view but never calls `view.focus()`, then `choose()` unconditionally closes the palette (Palette.tsx:121), so focus falls to `<body>`. Proof it's just that: `insertSnippet` (snippets.ts:34) does the identical palette-invoked edit and *does* call `view.focus()` — and keeps focus fine. Fix: `view.focus()` after the dispatch (or refocus editor-acting commands centrally in `onMarkdownView`, which has the same gap for bold/italic/extract-refs). Zero perf.**

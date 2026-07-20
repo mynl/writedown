@@ -194,6 +194,18 @@ messages point here for detail.
   multi-selection look consistent and stay clearly visible. The colour is an
   overridable CSS variable (`--cm-sel-strong`). Frontend only.
 
+## [1.86.4] - 2026-07-20
+
+### Fixed
+
+- **No more duplicate project in quick-switch** (issue 13). The recent-projects list
+  de-duplicated by exact byte match, so the same `.wdproj` added via two spellings —
+  the managed path vs. the native Open dialog, a differing drive-letter case, `\` vs
+  `/`, or a trailing slash — stacked up as two rows. De-dup now uses a normalized key
+  (case- and separator-insensitive, trailing slash stripped) that mirrors the frontend
+  normalizer, both when adding and when reading, so an existing duplicate collapses on
+  next load. Genuinely distinct project files are unaffected. Requires a backend rebuild.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added
