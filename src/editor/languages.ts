@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
-import { LanguageDescription, StreamLanguage } from "@codemirror/language";
+import { LanguageDescription, LanguageSupport, StreamLanguage } from "@codemirror/language";
 import type { Extension } from "@codemirror/state";
 import { python } from "@codemirror/lang-python";
 import { json } from "@codemirror/lang-json";
@@ -13,13 +13,34 @@ import { toml } from "@codemirror/legacy-modes/mode/toml";
 import { stex } from "@codemirror/legacy-modes/mode/stex";
 import { declDescription } from "./decl";
 
+// Statically-imported languages, wrapped as PRE-LOADED descriptions so a fenced ```{python}
+// (or json/yaml/toml/latex) cell nests SYNCHRONOUSLY. Resolving these through the async
+// language-data registry left the live editor's incremental, viewport-bounded highlight pass
+// with a partial nested tree — some lines tagged, some not, shifting on every edit (the
+// "striped/unstable colouring" in {python} cells). declDescription is already eager.
+const STATIC_CODE_LANGS: LanguageDescription[] = [
+  declDescription,
+  LanguageDescription.of({ name: "python", alias: ["py"], support: python() }),
+  LanguageDescription.of({ name: "json", support: json() }),
+  LanguageDescription.of({ name: "yaml", alias: ["yml"], support: yaml() }),
+  LanguageDescription.of({ name: "toml", support: new LanguageSupport(StreamLanguage.define(toml)) }),
+  LanguageDescription.of({
+    name: "latex",
+    alias: ["tex", "stex"],
+    support: new LanguageSupport(StreamLanguage.define(stex)),
+  }),
+];
+
 // Quarto / RMarkdown code cells use ```{python}, ```{r, echo=FALSE}, ```{=html} — strip
 // the braces/options so the nested language still highlights (spec §16). Exported so the
 // markdown preview resolves fence languages identically to the editor.
 export function codeLanguages(info: string): LanguageDescription | null {
   const name = info.replace(/^\{=?/, "").replace(/\}$/, "").trim().split(/[\s,]/)[0];
-  // Custom languages (decl/agg) are checked first, then the stock language-data registry.
-  return name ? LanguageDescription.matchLanguageName([declDescription, ...languages], name, true) : null;
+  // Match statically-loaded languages first (synchronous nested parse — no unstable
+  // colouring), then fall back to the lazy language-data registry for r/julia/js/etc.
+  return name
+    ? LanguageDescription.matchLanguageName([...STATIC_CODE_LANGS, ...languages], name, true)
+    : null;
 }
 
 // Markdown with real YAML front matter parsing (spec §17), so `---` keys/values get

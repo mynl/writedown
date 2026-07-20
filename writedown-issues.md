@@ -28,6 +28,7 @@ Create a table (see Friday 7/17 for example) with Item and Description filled in
 | 11 |  | Ctrl+MouseWheel font size; config bounds font_size_min/max (1.90.0, 1.92.0) |
 | 12 | AIx2? | Palette: delete project (recycle .wdproj, confirm) (1.88.0) |
 | 13 |  | Dedup duplicate "AI" project in quick-switch (1.86.4) |
+| +  |  | {python} cell colouring stable (static nested lang) (1.93.1) |
 
 
 

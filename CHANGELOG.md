@@ -325,6 +325,20 @@ messages point here for detail.
   Config `[editor] tab_complete_min_len` (default 5) still sets the shortest word offered.
   Runs only on an explicit Tab (zero baseline cost). Frontend only.
 
+## [1.93.1] - 2026-07-20
+
+### Fixed
+
+- **`{python}` (and other) code-cell highlighting is stable** (colorization side-find). A
+  ```{python} cell resolved its language through the asynchronous language-data registry
+  rather than the statically-imported `python()` that `.py` files use, so the live editor's
+  incremental, viewport-bounded highlight pass captured only a partial nested tree — lines
+  flipped between colored and white depending on parse timing, and the pattern shifted with
+  every keystroke (the "striped colouring" that changed as the cell grew). Fenced blocks of
+  the statically-imported languages (python, json, yaml, toml, latex) now nest synchronously
+  via pre-loaded descriptions, so highlighting is deterministic; other languages still
+  lazy-load. Frontend only.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added
