@@ -252,6 +252,17 @@ messages point here for detail.
   spot" behavior is preserved — it now survives a Preview↔Rendered switch instead of
   replaying the stale build position. Frontend only.
 
+## [1.90.0] - 2026-07-20
+
+### Added
+
+- **Ctrl+MouseWheel font-size zoom** (issue 11). Hold Ctrl and spin the wheel over the
+  editor to grow/shrink the font, like Sublime. It is transient (the same session-only,
+  never-config `editorZoom` that Ctrl+= / Ctrl+- / Ctrl+0 use) and bounded by a hard px
+  floor and cap (6–40) so it can't shrink to nothing or blow up — unlike editors that
+  leave it unbounded. Wheel deltas are accumulated so one physical notch steps once on any
+  device, and WebView2's page-zoom is suppressed. Frontend only.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added

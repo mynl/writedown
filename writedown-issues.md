@@ -18,7 +18,7 @@ For each of these issues, or product enhancements please tell me:  low, medium o
 | 8  |  | Tab switch syncs preview at once (not only after scroll) (1.89.1) |
 | 9  |  | Per-doc Python kernel via YAML `wd-python:` (absolute only) (1.89.0) |
 | 10 |  DROP | Palette: sort sidebar by name (default) or mod date |
-| 11 |  | Ctrl+MouseWheel font size, transient, floor + cap |
+| 11 |  | Ctrl+MouseWheel font size, transient, floor + cap (1.90.0) |
 | 12 |  | Palette: delete project (recycle .wdproj, confirm) (1.88.0) |
 | 13 |  | Dedup duplicate "AI" project in quick-switch (1.86.4) |
 

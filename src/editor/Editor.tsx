@@ -75,8 +75,12 @@ export function Editor({ path, content }: { path: string; content: string }) {
 
   // Effective size = configured size (or 14 default) + zoom. Stay undefined only when
   // neither is set, so the imported Sublime font size still wins in that case.
+  // Clamp the effective size to a sane floor/cap (issue 11) so wheel/key zoom can't shrink
+  // it to nothing or blow it up — unlike editors that leave it unbounded.
   const fontSize =
-    settings?.font_size != null || zoom !== 0 ? (settings?.font_size ?? 14) + zoom : undefined;
+    settings?.font_size != null || zoom !== 0
+      ? Math.max(6, Math.min(40, (settings?.font_size ?? 14) + zoom))
+      : undefined;
   const fontFamily = settings?.font_family ?? undefined;
   const fontWeight = cssFontWeight(settings?.font_weight);
   const tabSize = settings?.tab_size ?? 4; // [editor] tab_size — indent width in spaces
@@ -234,6 +238,33 @@ export function Editor({ path, content }: { path: string; content: string }) {
     }
   }, [userKeys]);
 
+  // Ctrl+wheel font-size zoom (issue 11): attached to the CM scroller as a NON-passive
+  // listener so we can preventDefault WebView2's page-zoom (the default domEventHandlers
+  // path can't). Deltas accumulate so one physical notch steps once on any device; it
+  // drives the transient, clamped editorZoom (session-only, never written to config).
+  const onCreateEditor = (view: EditorView) => {
+    setActiveView(view);
+    let acc = 0;
+    view.scrollDOM.addEventListener(
+      "wheel",
+      (e) => {
+        if (!e.ctrlKey) return;
+        e.preventDefault();
+        acc += e.deltaY;
+        while (Math.abs(acc) >= 100) {
+          if (acc < 0) {
+            useStore.getState().setEditorZoom(1);
+            acc += 100;
+          } else {
+            useStore.getState().setEditorZoom(-1);
+            acc -= 100;
+          }
+        }
+      },
+      { passive: false },
+    );
+  };
+
   return (
     <CodeMirror
       className="cm-host"
@@ -242,7 +273,7 @@ export function Editor({ path, content }: { path: string; content: string }) {
       theme={built ? built.theme : editorTheme}
       extensions={extensions}
       onChange={onChange}
-      onCreateEditor={setActiveView}
+      onCreateEditor={onCreateEditor}
       onUpdate={onUpdate}
       basicSetup={BASIC_SETUP}
     />
