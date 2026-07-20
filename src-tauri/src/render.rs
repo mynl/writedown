@@ -370,6 +370,9 @@ fn run_cells(
 pub(crate) struct FrontMatter {
     pub(crate) title: Option<String>,
     pub(crate) bibliography: Option<String>,
+    /// `wd-python:` — a document-level Python interpreter override (issue 9). Absolute
+    /// paths only; enforced where it is applied (see `render_impl`).
+    pub(crate) wd_python: Option<String>,
 }
 
 /// Quarto `#|` cell options. All flags default true; unknown keys are ignored.
@@ -457,6 +460,13 @@ fn parse_front_matter(lines: &[&str], fm: &mut FrontMatter) {
                         break;
                     }
                 }
+            }
+        } else if let Some(v) = line.strip_prefix("wd-python:") {
+            // Document-level interpreter override (issue 9). Stored verbatim; the
+            // absolute-path requirement is enforced where it is applied (render_impl).
+            let v = unquote(v);
+            if !v.is_empty() {
+                fm.wd_python = Some(v);
             }
         }
     }
@@ -1212,7 +1222,17 @@ fn render_impl(app: &tauri::AppHandle, text: &str, path: Option<&str>) -> Render
     // Execute python cells first (namespace-fresh, top-to-bottom); everything else
     // degrades gracefully when no interpreter is configured or the spawn fails.
     let n_python = segments.iter().filter(|s| matches!(s, Segment::PythonCell { .. })).count();
-    let cfg = render_cfg(app);
+    let mut cfg = render_cfg(app);
+    // Document-level interpreter override (issue 9): absolute paths only. A relative value
+    // is ignored (not resolved against the doc folder), falling through to the configured
+    // [render] python; a bad absolute path still surfaces below via Kernel::spawn.
+    if let Some(wp) = fm.wd_python.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        if Path::new(wp).is_absolute() {
+            cfg.python = wp.to_string();
+        } else {
+            pre_warnings.push(format!("wd-python ignored (must be an absolute path): {wp}"));
+        }
+    }
     let mut exec: HashMap<usize, CellOutput> = HashMap::new();
     let mut errors = 0usize;
     let python = if n_python == 0 {
@@ -1355,6 +1375,13 @@ mod tests {
         assert_eq!(fm.title.as_deref(), Some("Doc"));
         assert_eq!(fm.bibliography.as_deref(), Some("a.bib"));
         assert_eq!(segs.len(), 1);
+    }
+
+    #[test]
+    fn front_matter_reads_wd_python() {
+        let doc = "---\ntitle: Doc\nwd-python: \"C:/py/python.exe\"\n---\nbody\n";
+        let (fm, _) = split_document(doc);
+        assert_eq!(fm.wd_python.as_deref(), Some("C:/py/python.exe"));
     }
 
     #[test]

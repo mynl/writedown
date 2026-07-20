@@ -227,6 +227,17 @@ messages point here for detail.
   touched (spec §2). The recent-projects list self-prunes the vanished entry. Requires a
   backend rebuild.
 
+## [1.89.0] - 2026-07-20
+
+### Added
+
+- **Per-document Python interpreter via `wd-python:`** (issue 9). A document's YAML front
+  matter can name the interpreter for its `{python}` cells — `wd-python: C:/env/python.exe`
+  — overriding the `[render] python` config for that document. Absolute paths only: a
+  relative value is ignored (with a render-summary warning) rather than guessed at, and a
+  bad absolute path surfaces the usual "python failed to start" warning. Requires a backend
+  rebuild.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added
