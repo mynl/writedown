@@ -1,6 +1,13 @@
 # Feature Ideas and Bugs 
 ## Rubric for all runs
-For each of these issues, or product enhancements please tell me:  low, medium or high effort, any gotchas or hidden surprises, whether the feature would have any impact on baseline performance of the app in its core functions, and any other issues or concerns you may have. Create a table (see Friday 7/17 for example) with Item and Description filled in and check blank - for subsequent monitoring. 
+For each of these issues, or product enhancements please tell me:  
+
+* low, medium or high effort, 
+* human-understandable one- or two-line summary of problem and diagnosis (existing examples are too detailed and too complicated for me to understand!), 
+* any other issues or concerns you may have, again brief, human-understandable
+* whether the feature would have any impact on baseline performance of the app in its core functions, 
+
+Create a table (see Friday 7/17 for example) with Item and Description filled in and check blank - for subsequent monitoring. 
 
 ***
 ## Saturday 2026-07-18 to Monday 2026-07-20
@@ -8,19 +15,21 @@ For each of these issues, or product enhancements please tell me:  low, medium o
 | Item | Check | Description | 
 |--:|:---:|:-------------------------|
 | Fr 2  | ❌ | Open Files preview row no longer balloons (1.81.2) **not solved** |
-| 1  |  | Insert Date-Time: return focus + cursor after the stamp (1.86.1) |
+| 1  | ✅  | Insert Date-Time: return focus + cursor after the stamp (1.86.1) |
 | 2  | DROP  | Windows emoji picker (Win+.) inserts into the editor |
-| 3  |  | MRU projects only (not folders) quick-switch dropdown in panel footer (1.87.0) |
-| 4  |  | Ctrl+D: bold, clearly-visible selection highlight (1.86.3) |
-| 5  |  | Sublime Tab word-completion (nearby long words) (1.91.0) |
-| 6  |  | Preview↔Rendered switch syncs to editor location (1.89.1) |
-| 7  |  | @ citation works in an indented footnote definition (1.86.2) |
-| 8  |  | Tab switch syncs preview at once (not only after scroll) (1.89.1) |
+| 3  | ✅(bg color) | MRU projects only (not folders) quick-switch dropdown in panel footer (1.87.0) |
+| 4  | ✅ | Ctrl+D: bold, bold bold clearly-visible selection highlight (1.86.3) |
+| 5  | !! | Sublime Tab word-completion (complete compete) (nearby long words) (1.91.0) |
+| 6  | ✅ | Preview↔Rendered switch syncs to editor location (1.89.1) |
+| 7  | ✅ | @ citation works in an indented footnote definition (1.86.2) |
+| 8  |  | Tab switch syncs preview; editor stays anchored (1.89.1, 1.91.1) |
 | 9  |  | Per-doc Python kernel via YAML `wd-python:` (absolute only) (1.89.0) |
 | 10 |  DROP | Palette: sort sidebar by name (default) or mod date |
-| 11 |  | Ctrl+MouseWheel font size, transient, floor + cap (1.90.0) |
-| 12 |  | Palette: delete project (recycle .wdproj, confirm) (1.88.0) |
+| 11 |  | Ctrl+MouseWheel font size, transient, floor + cap (1.90.0) (cap/cup?) |
+| 12 | AIx2? | Palette: delete project (recycle .wdproj, confirm) (1.88.0) |
 | 13 |  | Dedup duplicate "AI" project in quick-switch (1.86.4) |
+
+
 
 - [ ] (1) after insert date time cursor needs to be put after insert; currently focus is lost
     **CC: L — one missing line. `insertDateTime` (textOps.ts:101) already leaves the cursor *after* the stamp via `replaceSelection`, so cursor placement is a non-issue — the real symptom is lost focus. The palette command `insert-datetime` (commands.ts:149) dispatches into the CM view but never calls `view.focus()`, then `choose()` unconditionally closes the palette (Palette.tsx:121), so focus falls to `<body>`. Proof it's just that: `insertSnippet` (snippets.ts:34) does the identical palette-invoked edit and *does* call `view.focus()` — and keeps focus fine. Fix: `view.focus()` after the dispatch (or refocus editor-acting commands centrally in `onMarkdownView`, which has the same gap for bold/italic/extract-refs). Zero perf.**

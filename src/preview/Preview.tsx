@@ -364,6 +364,12 @@ const SETTLE_FRAMES = 8;
 // run — module-level so a Preview remount (a Preview↔Rendered switch) doesn't replay a
 // stale build position (issue 6). Reset lazily as new build ids arrive.
 let consumedBuildKey: number | null = null;
+// Programmatic preview scrolls (scrollPreviewToLine — outline click, build/tab/mode sync)
+// must NOT echo back into the editor via the preview→editor scroll handler: the editor is
+// the anchor and must not move (issue 8). This timestamp marks how long `fromPreview`
+// should treat incoming scroll events as our own and ignore them; refreshed on every
+// programmatic scroll (including each settle frame, which outlives the stale() window).
+let ignorePreviewScrollUntil = 0;
 
 export function scrollPreviewToLine(line: number) {
   if (!activePreview) return;
@@ -380,21 +386,28 @@ export function scrollPreviewToLine(line: number) {
     // section". offsetTops are relative to the positioned .preview/.preview-scroll.
     return Math.max(0, content.offsetTop + b.offsetTop - el.clientHeight * 0.12);
   };
+  // Suppress the preview→editor echo for the whole settle (see the flag's comment).
+  const mark = () => (ignorePreviewScrollUntil = performance.now() + 200);
   const first = compute();
   if (first == null) {
     // No blocks yet (still rendering) — proportional fallback.
     const total = activePreview.lines();
     const frac = total > 1 ? (Math.min(line, total) - 1) / (total - 1) : 0;
+    mark();
     el.scrollTo({ top: frac * (el.scrollHeight - el.clientHeight) });
     return;
   }
+  mark();
   el.scrollTop = first;
   const id = ++previewSettleSeq;
   let tries = 0;
   const step = () => {
     if (id !== previewSettleSeq || tries++ >= SETTLE_FRAMES) return;
     const y = compute();
-    if (y != null && Math.abs(el.scrollTop - y) > 1) el.scrollTop = y;
+    if (y != null && Math.abs(el.scrollTop - y) > 1) {
+      mark();
+      el.scrollTop = y;
+    }
     requestAnimationFrame(step);
   };
   requestAnimationFrame(step);
@@ -702,6 +715,9 @@ export function Preview({
       const sc = scroller;
       const v = view;
       if (!el || !sc || !v || syncing || stale()) return;
+      // Our own programmatic scroll (sync-to-editor / outline / build): never echo it
+      // back into the editor, which is the anchor and must stay put (issue 8).
+      if (performance.now() < ignorePreviewScrollUntil) return;
       const eMax = sc.scrollHeight - sc.clientHeight;
       if (eMax <= 0) return;
       lock();

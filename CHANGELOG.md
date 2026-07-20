@@ -278,6 +278,18 @@ messages point here for detail.
   runs only on an explicit Tab (zero baseline cost). Requires a backend rebuild (new config
   key).
 
+## [1.91.1] - 2026-07-20
+
+### Fixed
+
+- **The editor no longer drifts on a tab switch** (issue 8 follow-up). The 1.89.1
+  sync-on-switch scrolled the preview to the editor's line, but that programmatic scroll
+  fired the preview's own scroll handler, which echoed back and nudged the editor — the
+  editor is the anchor and must not move. A short guard now marks `scrollPreviewToLine`'s
+  own scrolls (across the whole settle) so the preview→editor half ignores them: the
+  editor stays put, other views sync to it. Also stops the build-time scroll from tugging
+  the editor. Frontend only.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added
