@@ -215,6 +215,18 @@ messages point here for detail.
   first (the same deduped, disambiguated set the palette quick-switch uses); picking one
   switches workspace. Projects only — the Folder panel is unchanged. Frontend only.
 
+## [1.88.0] - 2026-07-20
+
+### Added
+
+- **Delete a project from the palette** (issue 12). "Project: Delete <name>…" entries
+  (one per managed project under `~/.writedown/projects/`) recycle the `.wdproj` file to
+  the Recycle Bin after a confirmation dialog; if it is the open project it is closed
+  afterward (the folder root is adopted into the Folder tab). Guarded end to end — only
+  a managed `.wdproj` can be deleted, and the folders a project references are never
+  touched (spec §2). The recent-projects list self-prunes the vanished entry. Requires a
+  backend rebuild.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added

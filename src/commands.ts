@@ -275,6 +275,8 @@ export function appCommands(): Command[] {
     // Quick switch: every managed project (~/.writedown/projects/, name-sorted), plus any
     // recent project stored elsewhere that isn't already in the managed set.
     ...projectSwitches(),
+    // Delete: managed projects only (the Rust guard refuses anything else).
+    ...projectDeletes(),
   ];
 }
 
@@ -297,5 +299,16 @@ function projectSwitches(): Command[] {
     id: `proj-switch-${i}`,
     title: `Project: Switch to “${proj.name}”`,
     run: () => void useStore.getState().openProject(proj.path),
+  }));
+}
+
+/** Delete entries: managed projects only (~/.writedown/projects/) — the Rust guard refuses
+ *  anything else, and a project file the user saved elsewhere is theirs to remove. Confirmed
+ *  before the .wdproj is recycled; the referenced folders are never touched. */
+function projectDeletes(): Command[] {
+  return useStore.getState().projects.map((proj, i) => ({
+    id: `proj-delete-${i}`,
+    title: `Project: Delete “${proj.name}”…`,
+    run: () => void useStore.getState().deleteProject(proj.path, proj.name),
   }));
 }

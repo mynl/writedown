@@ -125,6 +125,26 @@ pub fn save_managed_project(
     Ok(path.to_string_lossy().to_string())
 }
 
+/// Delete a MANAGED project file (`~/.writedown/projects/<name>.wdproj`), recycled to the
+/// OS Recycle Bin so it stays recoverable. Guarded: refuses anything outside the managed
+/// dir or not ending in `.wdproj` — a `.wdproj` is only folder-path strings, never user
+/// documents, and this must never touch the folders it references (spec §2). The recent
+/// list self-prunes the now-vanished path on its next read.
+#[tauri::command]
+pub fn delete_project(app: tauri::AppHandle, path: String) -> Result<(), String> {
+    let dir = projects_dir(&app)?;
+    let p = std::path::PathBuf::from(&path);
+    let is_managed = p.starts_with(&dir)
+        && p.extension()
+            .and_then(|e| e.to_str())
+            .map(|e| e.eq_ignore_ascii_case("wdproj"))
+            .unwrap_or(false);
+    if !is_managed {
+        return Err(format!("refusing to delete a non-managed project: {path}"));
+    }
+    trash::delete(&p).map_err(|e| format!("delete {path}: {e}"))
+}
+
 /// List every managed project in `~/.writedown/projects/` (name + full path), name-sorted.
 #[tauri::command]
 pub fn list_projects(app: tauri::AppHandle) -> Result<Vec<ProjectInfo>, String> {

@@ -81,6 +81,10 @@ export const recentProjects = () => invoke<string[]>("recent_projects");
 export const addRecentProject = (path: string) =>
   invoke<void>("add_recent_project", { path });
 
+/** Recycle a MANAGED project's `.wdproj` file (guarded Rust-side; never touches docs). */
+export const deleteProject = (path: string) =>
+  invoke<void>("delete_project", { path });
+
 /** Native "Save As" dialog for a document. Returns the chosen path, or null if cancelled. */
 export async function pickSavePath(defaultPath?: string): Promise<string | null> {
   const result = await save({

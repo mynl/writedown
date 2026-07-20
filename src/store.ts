@@ -8,6 +8,7 @@ import {
   createDirectory,
   createFile,
   deletePath,
+  deleteProject as deleteProjectApi,
   listDirectory,
   listProjects,
   loadBibliography,
@@ -320,6 +321,8 @@ type AppState = {
   loadProjects: () => Promise<void>;
   openProject: (path?: string) => Promise<void>;
   closeProject: () => void;
+  /** Recycle a MANAGED project's .wdproj (confirmed); closes it if it's the open one. */
+  deleteProject: (path: string, name: string) => Promise<void>;
   removeProjectFolder: (path: string) => void;
   /** Write the current project's .wdproj (no-op for unsaved projects). */
   persistProject: () => void;
@@ -1381,6 +1384,24 @@ export const useStore = create<AppState>((set, get) => ({
       get().syncExtraWatch();
       void get().setFolderRoot(root); // adopt into the Folder tab so it isn't left empty
     }
+  },
+
+  deleteProject: async (path, name) => {
+    const ok = await confirmDialog(
+      `Delete project "${name}"?\n\nThe .wdproj file goes to the Recycle Bin. The folders it references are NOT touched.`,
+      { title: "Writedown", kind: "warning" },
+    );
+    if (!ok) return;
+    try {
+      await deleteProjectApi(path);
+    } catch (e) {
+      set({ configError: String(e) });
+      return;
+    }
+    // Deleting the open project tidies up: close it (adopts the folder root into the tree).
+    if (samePath(get().projectFile ?? "", path)) get().closeProject();
+    await get().loadProjects();
+    await get().loadRecentProjects();
   },
 
   removeProjectFolder: (path) => {

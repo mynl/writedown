@@ -82,6 +82,7 @@ pub fn run() {
             project::save_project,
             project::save_managed_project,
             project::new_project,
+            project::delete_project,
             project::list_projects,
             project::recent_projects,
             project::add_recent_project,

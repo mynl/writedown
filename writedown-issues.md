@@ -19,7 +19,7 @@ For each of these issues, or product enhancements please tell me:  low, medium o
 | 9  |  | Per-doc Python kernel via YAML `wd-python:` |
 | 10 |  DROP | Palette: sort sidebar by name (default) or mod date |
 | 11 |  | Ctrl+MouseWheel font size, transient, floor + cap |
-| 12 |  | Palette: reveal project folder / delete project |
+| 12 |  | Palette: delete project (recycle .wdproj, confirm) (1.88.0) |
 | 13 |  | Dedup duplicate "AI" project in quick-switch (1.86.4) |
 
 - [ ] (1) after insert date time cursor needs to be put after insert; currently focus is lost
