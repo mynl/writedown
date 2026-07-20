@@ -181,6 +181,19 @@ messages point here for detail.
   prose gate now recognizes an indented-code line that is really a footnote definition
   and treats it as prose. Frontend only.
 
+## [1.86.3] - 2026-07-20
+
+### Fixed
+
+- **Ctrl+D selections are boldly visible** (issue 4). Selecting a word shows a bright
+  green match highlight, but Ctrl+D ("select next occurrence") converts the matches
+  into real selection ranges — at which point CodeMirror drops the green highlight and
+  paints every range with the theme's faint translucent selection colour, so the
+  selection nearly vanished. All real selections now use a bold green in the match
+  highlight's family (still translucent, so the text reads), so single- and
+  multi-selection look consistent and stay clearly visible. The colour is an
+  overridable CSS variable (`--cm-sel-strong`). Frontend only.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added

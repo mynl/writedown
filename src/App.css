@@ -1017,15 +1017,19 @@ body {
   box-shadow: inset 0 -1px 0 rgba(130, 130, 130, 0.22);
 }
 
-/* Selection MUST be visible. Plain global CSS with !important reliably overrides
-   CodeMirror's injected styles; the colour comes from --cm-sel (set to the imported
-   Sublime selection colour, or the fallback below). */
+/* Selection MUST be visible. Ctrl+D "add next occurrence" turns matches into real
+   selection ranges, and CodeMirror then stops drawing the (liked) green match-highlight
+   and paints every range with the theme's translucent selection colour — too faint
+   (issue 4). So all real selections now use a bold green in the same family as the
+   match highlight, with enough translucency that the glyphs still read; single-select
+   and multi-select unify. Plain global CSS with !important reliably overrides
+   CodeMirror's injected styles. */
 .cm-editor .cm-selectionBackground,
 .cm-editor.cm-focused .cm-selectionBackground {
-  background-color: var(--cm-sel, #3a5f8a) !important;
+  background-color: var(--cm-sel-strong, rgba(153, 255, 119, 0.55)) !important;
 }
 .cm-editor .cm-content ::selection {
-  background-color: var(--cm-sel, #3a5f8a) !important;
+  background-color: var(--cm-sel-strong, rgba(153, 255, 119, 0.55)) !important;
 }
 
 .status-mid {
