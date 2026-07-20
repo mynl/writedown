@@ -26,6 +26,15 @@ export function isProsePos(state: EditorState, pos: number): boolean {
       name.includes("html") ||
       name === "url"
     ) {
+      // Indented-code false positive: the markdown grammar has no footnote rule, so a
+      // footnote definition `[^key]: …` indented by a tab (or 4+ spaces) parses as an
+      // indented code block — which would otherwise kill @-citations and spellcheck on
+      // that line. When the disqualifying node is *indented* code (CodeBlock/CodeText,
+      // not fenced/inline) and the line is a footnote definition, treat it as prose.
+      if ((name === "codeblock" || name === "codetext") &&
+          /^\s*\[\^[^\]]+\]:/.test(state.doc.lineAt(pos).text)) {
+        return true;
+      }
       return false;
     }
     node = node.parent;

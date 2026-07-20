@@ -14,7 +14,7 @@ For each of these issues, or product enhancements please tell me:  low, medium o
 | 4  |  | Ctrl+D: bold, clearly-visible selection highlight |
 | 5  |  | Sublime Tab word-completion (nearby long words) — re-scope |
 | 6  |  | Preview↔Rendered switch syncs to editor location |
-| 7  |  | @ citation works in an indented footnote definition |
+| 7  |  | @ citation works in an indented footnote definition (1.86.2) |
 | 8  |  | Tab switch syncs preview at once (not only after scroll) |
 | 9  |  | Per-doc Python kernel via YAML `wd-python:` |
 | 10 |  DROP | Palette: sort sidebar by name (default) or mod date |

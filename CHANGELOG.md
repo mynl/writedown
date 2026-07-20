@@ -168,6 +168,19 @@ messages point here for detail.
   command now refocuses the view after inserting, matching the snippet-insert path.
   Frontend only.
 
+## [1.86.2] - 2026-07-20
+
+### Fixed
+
+- **@-citations (and spellcheck) work in an indented footnote definition** (issue 7).
+  The editor's markdown grammar has no footnote rule, so a footnote definition
+  `[^key]: …` indented by a tab (or 4+ spaces) parsed as an indented code block — and
+  the shared prose gate rejects anything inside code, so the `@` citation popup and
+  spellcheck went silent on that line. Unindented footnotes were unaffected (they
+  parse as a paragraph); the failure appeared only once the key was tabbed in. The
+  prose gate now recognizes an indented-code line that is really a footnote definition
+  and treats it as prose. Frontend only.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added
