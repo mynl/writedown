@@ -157,6 +157,17 @@ messages point here for detail.
   to its cell's line, so scrolling through results tracks the producing cell.
   Requires a backend rebuild.
 
+## [1.86.1] - 2026-07-20
+
+### Fixed
+
+- **Insert Date-Time no longer loses editor focus** (issue 1). The stamp was
+  inserted correctly and the caret already sat after it (`replaceSelection`), but the
+  palette command never returned focus to the editor — when the palette closed, focus
+  fell to the page body, so the caret went inert and you had to click back in. The
+  command now refocuses the view after inserting, matching the snippet-insert path.
+  Frontend only.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added

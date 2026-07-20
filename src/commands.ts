@@ -152,7 +152,11 @@ export function appCommands(): Command[] {
       title: "Insert Date-Time (YYYY-MM-DD HH:MM:SS)",
       run: () => {
         const view = getActiveView();
-        if (view) insertDateTime({ state: view.state, dispatch: (tr) => view.dispatch(tr) });
+        if (!view) return;
+        insertDateTime({ state: view.state, dispatch: (tr) => view.dispatch(tr) });
+        // The palette input held focus; return it to the editor so the caret (already
+        // placed after the stamp by replaceSelection) is live and typing continues.
+        view.focus();
       },
     },
     { id: "spell-toggle", title: "Toggle Spell Check", run: () => s().toggleSpell() },
