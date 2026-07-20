@@ -25,7 +25,7 @@ Create a table (see Friday 7/17 for example) with Item and Description filled in
 | 8  |  | Tab switch syncs preview; editor stays anchored (1.89.1, 1.91.1) |
 | 9  |  | Per-doc Python kernel via YAML `wd-python:` (absolute only) (1.89.0) |
 | 10 |  DROP | Palette: sort sidebar by name (default) or mod date |
-| 11 |  | Ctrl+MouseWheel font size, transient, floor + cap (1.90.0) (cap/cup?) |
+| 11 |  | Ctrl+MouseWheel font size; config bounds font_size_min/max (1.90.0, 1.92.0) |
 | 12 | AIx2? | Palette: delete project (recycle .wdproj, confirm) (1.88.0) |
 | 13 |  | Dedup duplicate "AI" project in quick-switch (1.86.4) |
 

@@ -218,6 +218,9 @@ export type EditorSettings = {
   tab_size: number | null;
   /** `[editor] tab_complete_min_len`: shortest nearby word Tab word-completion offers (default 5). */
   tab_complete_min_len: number | null;
+  /** `[editor] font_size_min` / `font_size_max`: px bounds for wheel/key zoom (default 6 / 24). */
+  font_size_min: number | null;
+  font_size_max: number | null;
   outline_font_family: string | null;
   outline_font_size: number | null;
   outline_font_weight: string | null;

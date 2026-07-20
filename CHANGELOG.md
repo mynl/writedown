@@ -300,6 +300,17 @@ messages point here for detail.
   now uses the theme's `--bg`/`--fg` for both the closed control and the option list, with
   `color-scheme` so the native popup follows the theme. Frontend only.
 
+## [1.92.0] - 2026-07-20
+
+### Changed
+
+- **Font-zoom bounds are configurable** (issue 11 follow-up). The Ctrl+wheel / Ctrl+= zoom
+  floor and cap moved from a hardcoded 6–40 px to `[editor] font_size_min` /
+  `font_size_max` (defaults 6 / 24). Edit them in `config.toml` and save — the bounds apply
+  live (a config save re-reads `[editor]` settings; a current size outside the new range
+  snaps in at once, otherwise the new range takes effect on the next zoom). Requires a
+  backend rebuild (new config keys).
+
 ## [1.80.0] - 2026-07-16
 
 ### Added

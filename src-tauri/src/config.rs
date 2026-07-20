@@ -22,6 +22,9 @@ font_size = 14
 tab_size = 4
 # tab_complete_min_len: shortest nearby word Tab word-completion will offer (default 5).
 # tab_complete_min_len = 5
+# font_size_min / font_size_max: px floor and cap for Ctrl+wheel / Ctrl+= zoom (default 6 / 24).
+# font_size_min = 6
+# font_size_max = 24
 word_wrap = true
 
 [outline]
@@ -181,6 +184,10 @@ pub struct EditorSettings {
     /// Shortest nearby word Tab word-completion will offer ([editor] tab_complete_min_len,
     /// default 5) — shorter words aren't worth a Tab.
     tab_complete_min_len: Option<u32>,
+    /// Font-size px bounds for wheel/key zoom ([editor] font_size_min / font_size_max,
+    /// defaults 6 / 24) — a hard floor and cap so zoom can't shrink to nothing or blow up.
+    font_size_min: Option<u32>,
+    font_size_max: Option<u32>,
     outline_font_family: Option<String>,
     outline_font_size: Option<f64>,
     outline_font_weight: Option<String>,
@@ -246,6 +253,14 @@ pub fn load_editor_settings(app: tauri::AppHandle) -> Result<EditorSettings, Str
             .and_then(|e| e.get("tab_complete_min_len"))
             .and_then(|v| v.as_integer())
             .map(|i| i.clamp(1, 64) as u32),
+        font_size_min: ed
+            .and_then(|e| e.get("font_size_min"))
+            .and_then(|v| v.as_integer())
+            .map(|i| i.clamp(1, 200) as u32),
+        font_size_max: ed
+            .and_then(|e| e.get("font_size_max"))
+            .and_then(|v| v.as_integer())
+            .map(|i| i.clamp(1, 200) as u32),
         outline_font_family: ol.and_then(|o| o.get("font_family")).and_then(string),
         outline_font_size: ol.and_then(|o| o.get("font_size")).and_then(num),
         outline_font_weight: ol.and_then(|o| o.get("font_weight")).and_then(weight),

@@ -76,11 +76,14 @@ export function Editor({ path, content }: { path: string; content: string }) {
 
   // Effective size = configured size (or 14 default) + zoom. Stay undefined only when
   // neither is set, so the imported Sublime font size still wins in that case.
-  // Clamp the effective size to a sane floor/cap (issue 11) so wheel/key zoom can't shrink
-  // it to nothing or blow it up — unlike editors that leave it unbounded.
+  // Clamp the effective size to a config floor/cap (issue 11) so wheel/key zoom can't shrink
+  // it to nothing or blow it up — unlike editors that leave it unbounded. [editor]
+  // font_size_min / font_size_max (defaults 6 / 24) apply live on config save.
+  const fsMin = settings?.font_size_min ?? 6;
+  const fsMax = settings?.font_size_max ?? 24;
   const fontSize =
     settings?.font_size != null || zoom !== 0
-      ? Math.max(6, Math.min(40, (settings?.font_size ?? 14) + zoom))
+      ? Math.max(fsMin, Math.min(fsMax, (settings?.font_size ?? 14) + zoom))
       : undefined;
   const fontFamily = settings?.font_family ?? undefined;
   const fontWeight = cssFontWeight(settings?.font_weight);
