@@ -311,6 +311,20 @@ messages point here for detail.
   snaps in at once, otherwise the new range takes effect on the next zoom). Requires a
   backend rebuild (new config keys).
 
+## [1.93.0] - 2026-07-20
+
+### Changed
+
+- **Tab word-completion now shows a sorted popup list** (issue 5 follow-up). The 1.91.0
+  version inserted the nearest match inline and cycled on repeated Tab; you wanted to see
+  and pick from the candidates. Tab now opens the autocomplete popup with the matching
+  longer words ranked by proximity to the caret (nearest first) — arrows to choose, Enter
+  or Tab to accept, and it narrows as you type more. In markdown it shares the @-citation
+  popup (the word source self-gates to an explicit Tab and declines the @ context); other
+  languages get a word-only popup. Side effect: Tab now also accepts a highlighted citation.
+  Config `[editor] tab_complete_min_len` (default 5) still sets the shortest word offered.
+  Runs only on an explicit Tab (zero baseline cost). Frontend only.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added

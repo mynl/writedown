@@ -14,6 +14,7 @@ import { EditorView, hoverTooltip, keymap } from "@codemirror/view";
 import { Prec } from "@codemirror/state";
 import { linter, type Diagnostic } from "@codemirror/lint";
 import { isProsePos } from "./prose";
+import { wordCompleteSource } from "./wordComplete";
 import {
   checkCitationKeys,
   getCitation,
@@ -200,7 +201,9 @@ const citationLint = linter(
 
 export const citationExtensions = [
   autocompletion({
-    override: [citationSource],
+    // Word-completion (issue 5) shares this popup in markdown docs: it self-gates to an
+    // explicit Tab and declines the @-citation context, so the two sources never fight.
+    override: [citationSource, wordCompleteSource],
     icons: false,
     addToOptions: [{ render: renderLabel, position: 20 }],
   }),

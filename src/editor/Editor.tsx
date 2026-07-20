@@ -18,7 +18,7 @@ import {
   keymapWarnings,
 } from "./keymap";
 import { citationExtensions } from "./citations";
-import { wordCompleteExtensions } from "./wordComplete";
+import { wordCompleteKeymap, wordCompleteAutocomplete } from "./wordComplete";
 import { documentLint } from "./lint";
 import { spellingExtensions } from "./spelling";
 import {
@@ -117,17 +117,21 @@ export function Editor({ path, content }: { path: string; content: string }) {
       // Editing keymap in a Compartment so config [keys] changes reconfigure it live (see the
       // effect below). Non-reactive read, like word wrap, so a reconfigure never rebuilds here.
       keymapCompartment.of(buildEditingKeymap(useStore.getState().editorSettings?.keys)),
-      // Tab word-completion for every language (declines to indent when not after a word).
-      ...wordCompleteExtensions,
+      // Tab word-completion Tab keymap for every language (declines to indent when not after
+      // a word). The completion popup itself is markdown's citation autocompletion (below)
+      // or a word-only autocompletion for other languages.
+      ...wordCompleteKeymap,
       built ? built.highlight : syntaxHighlighting(editorHighlight),
     ];
     // Prec.highest so math colouring wins over list/other syntax marks (e.g. in bullets).
     if (isMarkdownDoc(path)) {
       ext.push(frontmatterBlock); // visual block behind the `---` header
       ext.push(Prec.highest(mathHighlight));
-      ext.push(...citationExtensions); // @-citation autocomplete + hover
+      ext.push(...citationExtensions); // @-citation + word-completion autocomplete + hover
       ext.push(...documentLint); // python cell syntax + duplicate labels
       if (spellEnabled) ext.push(...spellingExtensions); // prose spellcheck
+    } else {
+      ext.push(wordCompleteAutocomplete); // word-completion popup for non-markdown languages
     }
     if (isCsv(path)) ext.push(csvRainbow);
     if (!built && (fontSize || fontWeight)) {

@@ -19,7 +19,7 @@ Create a table (see Friday 7/17 for example) with Item and Description filled in
 | 2  | DROP  | Windows emoji picker (Win+.) inserts into the editor |
 | 3  | ✅ | MRU projects dropdown; theme-aware dark background (1.87.0, 1.91.2) |
 | 4  | ✅ | Ctrl+D: bold, bold bold clearly-visible selection highlight (1.86.3) |
-| 5  | !! | Sublime Tab word-completion (complete compete) (nearby long words) (1.91.0) |
+| 5  |  | Tab word-completion → sorted popup list by proximity (1.91.0, 1.93.0) |
 | 6  | ✅ | Preview↔Rendered switch syncs to editor location (1.89.1) |
 | 7  | ✅ | @ citation works in an indented footnote definition (1.86.2) |
 | 8  |  | Tab switch syncs preview; editor stays anchored (1.89.1, 1.91.1) |
