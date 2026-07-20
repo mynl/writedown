@@ -206,6 +206,15 @@ messages point here for detail.
   normalizer, both when adding and when reading, so an existing duplicate collapses on
   next load. Genuinely distinct project files are unaffected. Requires a backend rebuild.
 
+## [1.87.0] - 2026-07-20
+
+### Added
+
+- **Project quick-switch dropdown in the panel footer** (issue 3). The Project panel
+  now has a select box pinned to its bottom listing your projects most-recently-used
+  first (the same deduped, disambiguated set the palette quick-switch uses); picking one
+  switches workspace. Projects only — the Folder panel is unchanged. Frontend only.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added

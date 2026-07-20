@@ -913,6 +913,23 @@ body {
   flex: 1;
 }
 
+/* Project quick-switch dropdown pinned to the bottom of the Project panel (issue 3). */
+.pane-footer {
+  flex: 0 0 auto;
+  padding: 4px 6px;
+  border-top: 1px solid var(--border);
+}
+.proj-switch {
+  width: 100%;
+  font: inherit;
+  font-size: 11px;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 2px 4px;
+}
+
 /* One-line input prompt (new file / folder) */
 .prompt-box {
   padding-bottom: 6px;

@@ -10,7 +10,7 @@ For each of these issues, or product enhancements please tell me:  low, medium o
 | Fr 2  | ❌ | Open Files preview row no longer balloons (1.81.2) **not solved** |
 | 1  |  | Insert Date-Time: return focus + cursor after the stamp (1.86.1) |
 | 2  | DROP  | Windows emoji picker (Win+.) inserts into the editor |
-| 3  |  | MRU projects only (not folders) quick-switch dropdown in panel footer |
+| 3  |  | MRU projects only (not folders) quick-switch dropdown in panel footer (1.87.0) |
 | 4  |  | Ctrl+D: bold, clearly-visible selection highlight (1.86.3) |
 | 5  |  | Sublime Tab word-completion (nearby long words) — re-scope |
 | 6  |  | Preview↔Rendered switch syncs to editor location |
