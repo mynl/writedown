@@ -290,6 +290,16 @@ messages point here for detail.
   editor stays put, other views sync to it. Also stops the build-time scroll from tugging
   the editor. Frontend only.
 
+## [1.91.2] - 2026-07-20
+
+### Fixed
+
+- **Project quick-switch dropdown is readable in dark mode** (issue 3 follow-up). The
+  `<select>` had a transparent background, so it fell back to the native (light) control
+  background while its text used the theme foreground — light-on-light in dark mode. It
+  now uses the theme's `--bg`/`--fg` for both the closed control and the option list, with
+  `color-scheme` so the native popup follows the theme. Frontend only.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added

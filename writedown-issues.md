@@ -17,7 +17,7 @@ Create a table (see Friday 7/17 for example) with Item and Description filled in
 | Fr 2  | ❌ | Open Files preview row no longer balloons (1.81.2) **not solved** |
 | 1  | ✅  | Insert Date-Time: return focus + cursor after the stamp (1.86.1) |
 | 2  | DROP  | Windows emoji picker (Win+.) inserts into the editor |
-| 3  | ✅(bg color) | MRU projects only (not folders) quick-switch dropdown in panel footer (1.87.0) |
+| 3  | ✅ | MRU projects dropdown; theme-aware dark background (1.87.0, 1.91.2) |
 | 4  | ✅ | Ctrl+D: bold, bold bold clearly-visible selection highlight (1.86.3) |
 | 5  | !! | Sublime Tab word-completion (complete compete) (nearby long words) (1.91.0) |
 | 6  | ✅ | Preview↔Rendered switch syncs to editor location (1.89.1) |

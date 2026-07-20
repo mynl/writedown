@@ -924,10 +924,17 @@ body {
   font: inherit;
   font-size: 11px;
   color: var(--fg);
-  background: transparent;
+  /* Explicit theme background — a bare `transparent` shows the native (light) control
+     background, so light text on a light dropdown was unreadable in dark mode (issue 3). */
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 3px;
   padding: 2px 4px;
+  color-scheme: light dark; /* native option popup follows the theme too */
+}
+.proj-switch option {
+  background: var(--bg);
+  color: var(--fg);
 }
 
 /* One-line input prompt (new file / folder) */
