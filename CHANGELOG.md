@@ -467,6 +467,19 @@ messages point here for detail.
   Config key is read by the Rust backend (dev restart to change it); the trim itself
   is frontend, on by default immediately.
 
+## [1.98.1] - 2026-07-21
+
+### Fixed
+
+- **CSV rainbow respects quoted fields and the file's real delimiter** — the column
+  colorizer used to split every line on every comma AND tab with no quote awareness,
+  so `"Smith, John"` bled across two column colours. Now `.csv` scans RFC-4180 style —
+  a field starting with `"` runs to its closing quote, `""` inside is an escaped
+  quote, an unclosed quote runs to end of line — and `.tsv` splits on tabs only with
+  no quoting (the Sublime RainbowCSV convention), so commas inside TSV fields and
+  tabs inside CSV fields no longer break columns either. Same single pass and
+  5,000-line cap as before — no perf change.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added

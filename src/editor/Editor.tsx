@@ -136,7 +136,7 @@ export function Editor({ path, content }: { path: string; content: string }) {
     } else {
       ext.push(wordCompleteAutocomplete); // word-completion popup for non-markdown languages
     }
-    if (isCsv(path)) ext.push(csvRainbow);
+    if (isCsv(path)) ext.push(csvRainbow(path));
     if (!built && (fontSize || fontWeight)) {
       ext.push(
         EditorView.theme({
