@@ -19,7 +19,7 @@ Fix outstanding issues / punchups. Here is the summary and current status.
 | Fr 2  | ❌ | ST mirror: preview hidden from Open Files, single slot, edit promotes, click-open closes it (1.94.0) |
 | Sa 5  |  | Tab word-completion → sorted popup list by proximity (1.91.0, 1.93.0) |
 | Sa 5a| |  completions adapt to typed case; case-insensitive dedup to nearest (1.95.0) 
-| Sa 5b| |  private dictionary of longer words with frequency weighting 
+| Sa 5b| |  frequency dictionary: background per-file scan, nearby-then-frequent on Tab (1.96.0) 
 | Sa 8  | ❌ disaster | Tab switch: editor anchored (line-snapshot restore), preview syncs once, gesture-gated (1.93.3) |
 | Sa 14  |  | All colorization after a YAML block — root cause: trailing space on closing `---` (1.93.2) |
 | Tu 1 | | Add MIT license |

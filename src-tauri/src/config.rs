@@ -22,6 +22,11 @@ font_size = 14
 tab_size = 4
 # tab_complete_min_len: shortest nearby word Tab word-completion will offer (default 5).
 # tab_complete_min_len = 5
+# tab_complete_dict: also offer your frequently-used words — collected in the background
+# from every doc you open or save — after the nearby matches (default true).
+# tab_complete_dict = true
+# tab_complete_dict_min_len: shortest word the frequency dictionary collects (default 5).
+# tab_complete_dict_min_len = 5
 # font_size_min / font_size_max: px floor and cap for Ctrl+wheel / Ctrl+= zoom (default 6 / 24).
 # font_size_min = 6
 # font_size_max = 24
@@ -184,6 +189,12 @@ pub struct EditorSettings {
     /// Shortest nearby word Tab word-completion will offer ([editor] tab_complete_min_len,
     /// default 5) — shorter words aren't worth a Tab.
     tab_complete_min_len: Option<u32>,
+    /// Offer frequent words from the background dictionary after nearby matches
+    /// ([editor] tab_complete_dict, default true).
+    tab_complete_dict: Option<bool>,
+    /// Shortest word the frequency dictionary collects ([editor] tab_complete_dict_min_len,
+    /// default 5).
+    tab_complete_dict_min_len: Option<u32>,
     /// Font-size px bounds for wheel/key zoom ([editor] font_size_min / font_size_max,
     /// defaults 6 / 24) — a hard floor and cap so zoom can't shrink to nothing or blow up.
     font_size_min: Option<u32>,
@@ -253,6 +264,13 @@ pub fn load_editor_settings(app: tauri::AppHandle) -> Result<EditorSettings, Str
             .and_then(|e| e.get("tab_complete_min_len"))
             .and_then(|v| v.as_integer())
             .map(|i| i.clamp(1, 64) as u32),
+        tab_complete_dict: ed
+            .and_then(|e| e.get("tab_complete_dict"))
+            .and_then(|v| v.as_bool()),
+        tab_complete_dict_min_len: ed
+            .and_then(|e| e.get("tab_complete_dict_min_len"))
+            .and_then(|v| v.as_integer())
+            .map(|i| i.clamp(3, 32) as u32),
         font_size_min: ed
             .and_then(|e| e.get("font_size_min"))
             .and_then(|v| v.as_integer())

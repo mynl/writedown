@@ -20,6 +20,7 @@ import {
   type CompletionResult,
 } from "@codemirror/autocomplete";
 import { useStore } from "../store";
+import { freqMatches } from "./wordFreq";
 
 const WINDOW = 40_000; // chars scanned each side of the caret (bounds cost on huge docs)
 const WORD_RE = /[\p{L}\p{N}_]+/gu;
@@ -93,8 +94,21 @@ export function wordCompleteSource(context: CompletionContext): CompletionResult
   if (!context.explicit) return null;
   const s = stemBefore(context.state, context.pos);
   if (!s || isCitationStem(context.state, s.from)) return null;
-  const minLen = useStore.getState().editorSettings?.tab_complete_min_len ?? 5;
+  const es = useStore.getState().editorSettings;
+  const minLen = es?.tab_complete_min_len ?? 5;
   const cands = harvest(context.state, context.pos, s.from, s.stem, minLen);
+  // Frequency dictionary (Sa 5b): your frequently-used words follow the nearby ones —
+  // the "combo nearby + used frequently" algo, and the only source when the word you
+  // want isn't in the current doc at all.
+  if (es?.tab_complete_dict ?? true) {
+    const exclude = new Set(cands.map((w) => w.toLowerCase()));
+    const dictMin = Math.max(es?.tab_complete_dict_min_len ?? 5, s.stem.length + 1);
+    cands.push(
+      ...freqMatches(s.stem.toLowerCase(), dictMin, exclude, 8).map((w) =>
+        adaptCase(w, s.stem),
+      ),
+    );
+  }
   if (cands.length === 0) return null;
   return {
     from: s.from,
@@ -113,8 +127,18 @@ function tabOpenComplete(view: EditorView): boolean {
   const pos = state.selection.main.head;
   const s = stemBefore(state, pos);
   if (!s || isCitationStem(state, s.from)) return false;
-  const minLen = useStore.getState().editorSettings?.tab_complete_min_len ?? 5;
-  if (harvest(state, pos, s.from, s.stem, minLen).length === 0) return false; // nothing → indent
+  const es = useStore.getState().editorSettings;
+  const minLen = es?.tab_complete_min_len ?? 5;
+  if (harvest(state, pos, s.from, s.stem, minLen).length === 0) {
+    // No nearby match — the frequency dictionary may still have one (Sa 5b).
+    const dictMin = Math.max(es?.tab_complete_dict_min_len ?? 5, s.stem.length + 1);
+    if (
+      !(es?.tab_complete_dict ?? true) ||
+      freqMatches(s.stem.toLowerCase(), dictMin, new Set(), 1).length === 0
+    ) {
+      return false; // nothing anywhere → indent
+    }
+  }
   startCompletion(view);
   return true;
 }

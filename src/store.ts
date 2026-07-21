@@ -48,6 +48,7 @@ import {
   snapshotDocPositions,
 } from "./editor/editorView";
 import { isExternalDoc, isMarkdownDoc } from "./editor/languages";
+import { scheduleScan } from "./editor/wordFreq";
 import { cssFontWeight } from "./fontWeight";
 
 /** Untitled scratch buffers live only in memory until "Save As" gives them a real path.
@@ -82,6 +83,16 @@ function setTitle(project: string | null) {
 // Paths Writedown just saved — used to ignore the watcher event our own write triggers.
 const justSaved = new Set<string>();
 let fsRefreshTimer: ReturnType<typeof setTimeout> | undefined;
+
+// Background word-frequency scan (issue Sa 5b) — feeds Tab completion's dictionary.
+// The tab's content is read at fire time, so a closed tab simply skips its scan.
+function scheduleWordScan(path: string): void {
+  const es = useStore.getState().editorSettings;
+  if (!(es?.tab_complete_dict ?? true)) return;
+  scheduleScan(path, es?.tab_complete_dict_min_len ?? 5, () =>
+    useStore.getState().tabs.find((t) => t.path === path)?.content,
+  );
+}
 
 const MIN_PANE = 140;
 const MAX_PANE = 600;
@@ -712,6 +723,7 @@ export const useStore = create<AppState>((set, get) => ({
       return { tabs: [...s.tabs, doc], activePath: path };
     });
     get().syncExtraWatch(); // an out-of-root file gets its own watch
+    scheduleWordScan(path); // background: feed Tab completion's frequency dictionary
   },
 
   setActive: (path) => {
@@ -937,6 +949,7 @@ export const useStore = create<AppState>((set, get) => ({
       // flagged without a restart (issue 3 — the config.toml branch's missing twin).
       const dict = get().personalDictFile;
       if (dict && samePath(path, dict)) void get().reloadPersonalDictionary();
+      scheduleWordScan(path); // refresh this file's frequency-dictionary entry
     } catch (e) {
       set((s) => ({
         tabs: s.tabs.map((t) => (t.path === path ? { ...t, saving: false, error: String(e) } : t)),

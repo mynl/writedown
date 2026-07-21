@@ -10,6 +10,7 @@ mod session;
 mod spelling;
 mod sublime;
 mod watch;
+mod wordfreq;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -86,6 +87,8 @@ pub fn run() {
             project::list_projects,
             project::recent_projects,
             project::add_recent_project,
+            wordfreq::word_freq_load,
+            wordfreq::word_freq_save,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

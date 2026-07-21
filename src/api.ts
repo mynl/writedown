@@ -218,6 +218,10 @@ export type EditorSettings = {
   tab_size: number | null;
   /** `[editor] tab_complete_min_len`: shortest nearby word Tab word-completion offers (default 5). */
   tab_complete_min_len: number | null;
+  /** `[editor] tab_complete_dict`: offer frequent words from the background dictionary (default true). */
+  tab_complete_dict: boolean | null;
+  /** `[editor] tab_complete_dict_min_len`: shortest word the frequency dictionary collects (default 5). */
+  tab_complete_dict_min_len: number | null;
   /** `[editor] font_size_min` / `font_size_max`: px bounds for wheel/key zoom (default 6 / 24). */
   font_size_min: number | null;
   font_size_max: number | null;
@@ -247,6 +251,11 @@ export type EditorSettings = {
 };
 
 export const loadEditorSettings = () => invoke<EditorSettings>("load_editor_settings");
+
+/** Raw JSON of the Tab-completion frequency dictionary ("" when absent) — the format
+ *  is owned by src/editor/wordFreq.ts; the file is derived, disposable app state. */
+export const wordFreqLoad = () => invoke<string>("word_freq_load");
+export const wordFreqSave = (json: string) => invoke<void>("word_freq_save", { json });
 
 export const configPath = () => invoke<string>("config_path");
 

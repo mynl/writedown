@@ -418,6 +418,26 @@ messages point here for detail.
   cased at popup-open time. Runs only on an explicit Tab — zero baseline cost.
   Frontend only.
 
+## [1.96.0] - 2026-07-21
+
+### Added
+
+- **Tab completion learns your vocabulary** (issue Sa 5b — the "killer" half). Every
+  document you open or save is scanned in the background (~1 s after the event, off
+  the keystroke path) for words of 5+ letters (config `[editor]
+  tab_complete_dict_min_len`); counts are kept PER FILE in
+  `~/.writedown/word-frequency.json` — re-opening a file replaces its entry, so
+  nothing is ever double-counted — capped at the top 250 words per file across the 50
+  most-recent files, all derived/disposable app state. Tab completion then offers
+  nearby-in-buffer words first (exactly as before) followed by your most frequent
+  words, both adapted to your typed case — and the popup now opens even when the word
+  you want is NOT nearby, which is the point: type "hete", Tab, "heteroscedasticity".
+  `[editor] tab_complete_dict = false` turns the dictionary off. A missing or corrupt
+  dictionary file just starts empty (logged, never an error). Zero baseline editing
+  cost: scans are debounced background work, the lookup runs only on an explicit Tab.
+  Rust (two new load/store commands + two config keys) + frontend; needs a dev-app
+  restart to pick up the new backend commands.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added
