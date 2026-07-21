@@ -27,7 +27,7 @@ Fix outstanding issues / punchups. Here is the summary and current status.
 | READ | | README 5Cs: Typora row corrected, Install section added, License filled (docs commit) | 
 | Tu 3 | | palette: Write All Shortcuts → scratch file, never config.toml (1.97.0) |
 | Tu 4 | | `[editor] trim_trailing_whitespace` on save, default true; hard breaks + CSV safe (1.98.0) |
-| Tu 5 | | F11 full screen + Shift+F11 distraction-free (no sidebars) — proposed, unbuilt |
+| Tu 5 | | F11 full screen; Shift+F11 distraction-free (no sidebars), layout restored on exit (1.99.0) |
 | Tu 6 | | CSV rainbow: RFC-4180 quotes honored; delimiter keyed to csv/tsv (1.98.1) |
 | Tu 7 | | Replace group refs are `$1`/`$&` (JS style), not `\1` — answered |
 
@@ -55,7 +55,7 @@ Fix outstanding issues / punchups. Here is the summary and current status.
 - [ ] **READ** Edit README for 5Cs  -  esp. double check claims about Typora.  
     **CC: L. 5Cs pass with the Typora row corrected — Typora DOES keep files as plain Markdown on disk, so that claim softens; the honest distinctions are WYSIWYG-fused editing (vs our raw text + separate preview), closed-source paid (vs free MIT), and no Quarto/{python}/BibTeX machinery. Plus: "LiveMarkdown" typo, License section filled in (Tu 1), and a short Install section for the public audience. Claims re-verified before committing. (docs commit)**
 - [ ] **Tu 5** FEATURE: F10 or F11 full screen mode? (no sidebars)
-    **CC: L–M, and F11 (F10 is the Windows menu-bar key — best left alone). Recommend the ST pair: F11 = full screen (real window fullscreen; the API is one call plus one capability line, so it needs a dev-app restart, not just HMR), Shift+F11 = distraction-free (fullscreen + sidebar and outline hidden, previous layout restored on exit). The sidebar/outline toggles and the keymap/palette machinery all exist — this is wiring, not construction; palette gets explicit Enter/Exit verbs, and the keys stay rebindable in [keys]. No perf impact. Unbuilt — say go.**
+    **CC: L–M, and F11 (F10 is the Windows menu-bar key — best left alone). Recommend the ST pair: F11 = full screen (real window fullscreen; the API is one call plus one capability line, so it needs a dev-app restart, not just HMR), Shift+F11 = distraction-free (fullscreen + sidebar and outline hidden, previous layout restored on exit). The sidebar/outline toggles and the keymap/palette machinery all exist — this is wiring, not construction; palette gets explicit Enter/Exit verbs, and the keys stay rebindable in [keys]. No perf impact. Built as recommended. (1.99.0)**
 - [ ] **Tu 6** BUG: csv colorizer does not respect quoted strings with commas
     **CC: L–M, confirmed in the code — two defects, one small fix. The rainbow pass splits every line on EVERY comma and tab with no quote state, so "Smith, John" bleeds across two column colors — and a comma inside a TSV field (or a tab inside a CSV field) also miscolors, because the delimiter isn't keyed to the file type. Fix: pick the delimiter from the extension and scan RFC-4180 style (quotes toggle, "" is an escaped quote); same single pass and 5000-line cap as today, so no perf change. Note the csv-grid preview pane is separate code — if you see the same there, that's csv-grid's parser, not this. Built as described. (1.98.1)**
 - [ ] **Tu 7** Qu: Does code mirror regex not allow \1 etc. ST style replacements?

@@ -17,6 +17,7 @@ import {
   loadProject,
   loadSession,
   loadSublimeTheme,
+  logError,
   newProject as newProjectApi,
   pickFolder,
   pickProjectOpenPath,
@@ -79,6 +80,9 @@ function setTitle(project: string | null) {
     .setTitle(project ? `${project} — Writedown` : "Writedown")
     .catch(() => {});
 }
+
+// Sidebar/outline visibility remembered on entering distraction-free, restored on exit.
+let dfRestore: { sidebar: boolean; outline: boolean } | null = null;
 
 // Paths Writedown just saved — used to ignore the watcher event our own write triggers.
 const justSaved = new Set<string>();
@@ -200,6 +204,8 @@ type AppState = {
    *  project-level when a project is open, else per folder (author's rider on items 4/5). */
   sidebarVisible: boolean;
   outlineVisible: boolean;
+  /** Distraction-free (Shift+F11) is active; transient — never session-persisted. */
+  distractionFree: boolean;
 
   treeVersion: number;
   /** Expanded folder paths in the tree, kept in the store so a treeVersion remount (after a
@@ -378,6 +384,14 @@ type AppState = {
   setOutlineWidth: (w: number) => void;
   setSidebarVisible: (v: boolean) => void;
   setOutlineVisible: (v: boolean) => void;
+  /** Window fullscreen (palette Enter/Exit Full Screen; F11 toggles). */
+  setWindowFullscreen: (v: boolean) => void;
+  toggleFullscreen: () => void;
+  /** Distraction-free (Shift+F11): fullscreen + both side panels hidden; exit restores
+   *  the remembered layout. Independent of plain F11 fullscreen. */
+  enterDistractionFree: () => void;
+  exitDistractionFree: () => void;
+  toggleDistractionFree: () => void;
   setSplitRatio: (r: number) => void;
 };
 
@@ -429,6 +443,7 @@ export const useStore = create<AppState>((set, get) => ({
   splitRatio: 0.5,
   sidebarVisible: true,
   outlineVisible: true,
+  distractionFree: false,
 
   // Restore the last session on startup (spec §24), keyed by workspace. Missing
   // folders/files are skipped silently — a stale session must never block launch.
@@ -1148,6 +1163,48 @@ export const useStore = create<AppState>((set, get) => ({
   setOutlineWidth: (w) => set({ outlineWidth: clamp(w) }),
   setSidebarVisible: (v) => set({ sidebarVisible: v }),
   setOutlineVisible: (v) => set({ outlineVisible: v }),
+
+  // F11 / Shift+F11. Fullscreen state is queried live (never cached) so the toggle is
+  // right even if tauri-plugin-window-state restored a fullscreen window at startup.
+  setWindowFullscreen: (v) => {
+    void getCurrentWindow()
+      .setFullscreen(v)
+      .catch((e) => {
+        void logError("set fullscreen failed: " + String(e));
+        get().showStatusMessage("full screen unavailable — restart Writedown");
+      });
+  },
+  toggleFullscreen: () => {
+    const w = getCurrentWindow();
+    void w
+      .isFullscreen()
+      .then((fs) => w.setFullscreen(!fs))
+      .catch((e) => {
+        void logError("toggle fullscreen failed: " + String(e));
+        get().showStatusMessage("full screen unavailable — restart Writedown");
+      });
+  },
+  enterDistractionFree: () => {
+    if (get().distractionFree) return;
+    dfRestore = { sidebar: get().sidebarVisible, outline: get().outlineVisible };
+    set({ distractionFree: true, sidebarVisible: false, outlineVisible: false });
+    get().setWindowFullscreen(true);
+  },
+  exitDistractionFree: () => {
+    if (!get().distractionFree) return;
+    set({
+      distractionFree: false,
+      sidebarVisible: dfRestore?.sidebar ?? true,
+      outlineVisible: dfRestore?.outline ?? true,
+    });
+    dfRestore = null;
+    get().setWindowFullscreen(false);
+  },
+  toggleDistractionFree: () => {
+    if (get().distractionFree) get().exitDistractionFree();
+    else get().enterDistractionFree();
+  },
+
   setSplitRatio: (r) => set({ splitRatio: clampRatio(r) }),
 
   openPrompt: (title, placeholder, submit, initial) =>

@@ -480,6 +480,22 @@ messages point here for detail.
   tabs inside CSV fields no longer break columns either. Same single pass and
   5,000-line cap as before — no perf change.
 
+## [1.99.0] - 2026-07-21
+
+### Added
+
+- **Full screen and distraction-free modes**, Sublime's pair: **F11** toggles true
+  window fullscreen; **Shift+F11** toggles distraction-free — fullscreen with the
+  sidebar and outline hidden, previous layout restored on exit. The two are
+  independent (leaving fullscreen with F11 does not restore hidden panels). The
+  palette gets explicit verbs — Enter/Exit Full Screen, Enter/Exit Distraction
+  Free — and both keys are rebindable in `[keys]` (actions `toggleFullscreen`,
+  `toggleDistractionFree`), listed in the F1 help. Like all editor keys they fire
+  when the editor has focus; the palette covers the rest. Fullscreen state is
+  queried live from the window, so the toggle stays correct even when
+  window-state restore starts the app fullscreen. Requires the new window
+  permission, so the app (or `tauri dev`) must restart once to pick it up.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added

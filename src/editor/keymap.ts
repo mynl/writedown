@@ -46,6 +46,8 @@ export const DEFAULT_KEYS: { key: string; action: string }[] = [
   { key: "Ctrl+K Ctrl+W", action: "toggleWordWrap" },
   { key: "Ctrl+K Ctrl+B", action: "toggleSidebar" },
   { key: "Ctrl+K Ctrl+O", action: "toggleOutline" },
+  { key: "F11", action: "toggleFullscreen" },
+  { key: "Shift+F11", action: "toggleDistractionFree" },
   { key: "Ctrl+K Ctrl+0", action: "unfoldAll" },
   { key: "Ctrl+K Ctrl+1", action: "foldAll" },
   { key: "Ctrl+F", action: "find" },
