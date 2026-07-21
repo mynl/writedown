@@ -249,12 +249,8 @@ body {
 .openfiles .tree-row.dragging {
   opacity: 0.6;
 }
-.openfiles .tree-row.preview .tree-name {
-  font-style: italic;
-  /* Optical: a synthesized / fallback italic face renders larger than the roman —
-     the same disease the tabs had (.tab.preview .tab-name), same compensation. */
-  font-size: calc(var(--tree-size, 11.5px) - 0.5px);
-}
+/* No .preview styling here: the preview tab is not listed in Open Files at all (ST
+   behaviour, 1.94.0) — which also retires the ballooning-italic-row saga for good. */
 .openfiles .tree-name {
   line-height: 1.4; /* fixed so italic / fallback-font metrics can't inflate the row box */
 }

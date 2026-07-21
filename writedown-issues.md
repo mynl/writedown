@@ -16,7 +16,7 @@ Fix outstanding issues / punchups. Here is the summary and current status.
 
 | Item | Check | Description | 
 |--:|:---:|:-------------------------|
-| Fr 2  | ❌ | Open Files preview row no longer balloons (1.81.2) **not solved** |
+| Fr 2  | ❌ | ST mirror: preview hidden from Open Files, single slot, edit promotes, click-open closes it (1.94.0) |
 | Sa 5  |  | Tab word-completion → sorted popup list by proximity (1.91.0, 1.93.0) |
 | Sa 5a| |  case sensitive completion 
 | Sa 5b| |  private dictionary of longer words with frequency weighting 

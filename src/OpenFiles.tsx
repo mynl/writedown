@@ -4,17 +4,19 @@ import { isDirty, useStore } from "./store";
 const basename = (p: string) => p.split(/[\\/]/).pop() ?? p;
 
 /** ST-style "Open Files" section at the top of the side panel (both Folder and Project
- *  tabs): one row per open tab. Same semantics as the tab strip — click activates,
- *  double-click promotes a preview tab, × saves then closes, and pointer-drag reorders
- *  (rows and tab strip share the array, so both views stay in sync). */
+ *  tabs): one row per open EDITING tab. The transient preview tab is NOT listed (ST
+ *  behaviour, issue Fr 2) — its italic tab is the only clue; it joins this list the
+ *  moment an edit promotes it. Same semantics as the tab strip — click activates,
+ *  × saves then closes, and pointer-drag reorders (rows and tab strip share the
+ *  array, so both views stay in sync). */
 export function OpenFiles() {
   const tabs = useStore((s) => s.tabs);
   const activePath = useStore((s) => s.activePath);
   const setActive = useStore((s) => s.setActive);
-  const promoteTab = useStore((s) => s.promoteTab);
   const closeTab = useStore((s) => s.closeTab);
   const saveDoc = useStore((s) => s.saveDoc);
   const moveTab = useStore((s) => s.moveTab);
+  const rows = tabs.filter((t) => !t.preview);
 
   // Vertical transplant of the tab strip's pointer drag (Tabs.tsx): 5 px threshold
   // separates a drag from a click, then the list reorders live as the pointer crosses
@@ -41,14 +43,21 @@ export function OpenFiles() {
     }
     const list = listRef.current;
     if (!list) return;
-    // Final index = number of OTHER rows whose midpoint lies above the pointer.
+    // Target = number of OTHER rows whose midpoint lies above the pointer…
     let to = 0;
     for (const el of list.querySelectorAll<HTMLElement>(".openfile")) {
       if (el.dataset.path === d.path) continue;
       const r = el.getBoundingClientRect();
       if (e.clientY > r.top + r.height / 2) to++;
     }
-    moveTab(d.path, to);
+    // …but that counts VISIBLE rows, and the hidden preview tab keeps its slot in the
+    // full tabs array — translate to the index with `to` visible rows above it.
+    const rest = useStore.getState().tabs.filter((t) => t.path !== d.path);
+    let full = 0;
+    for (let vis = 0; full < rest.length && vis < to; full++) {
+      if (!rest[full].preview) vis++;
+    }
+    moveTab(d.path, full);
   }
 
   function onPointerEnd() {
@@ -56,26 +65,24 @@ export function OpenFiles() {
     setDraggingPath(null);
   }
 
-  if (tabs.length === 0) return null;
+  if (rows.length === 0) return null;
 
   return (
     <div className="openfiles">
       <div className="pane-header">Open Files</div>
       <div className="tree openfiles-list" role="list" ref={listRef}>
-        {tabs.map((t) => (
+        {rows.map((t) => (
           <div
             key={t.path}
             data-path={t.path}
             className={
               "tree-row openfile" +
               (t.path === activePath ? " active" : "") +
-              (t.preview ? " preview" : "") +
               (t.path === draggingPath ? " dragging" : "")
             }
             title={t.path}
             role="listitem"
             onClick={() => setActive(t.path)}
-            onDoubleClick={() => promoteTab(t.path)}
             onPointerDown={(e) => onPointerDown(e, t.path)}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerEnd}

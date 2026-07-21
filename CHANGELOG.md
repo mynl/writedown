@@ -387,6 +387,22 @@ messages point here for detail.
   editor's settled top line: one close-enough go, no settle fight. Cursor and remembered
   position survive rapid tab cycling. Frontend only; all changes are event-time.
 
+## [1.94.0] - 2026-07-21
+
+### Changed
+
+- **Preview tabs now mirror Sublime Text fully** (issue Fr 2, re-specced). The pieces
+  that already existed: a single preview slot (previewing another file reuses the same
+  tab) and edit-promotes-to-permanent. New: the transient preview no longer appears in
+  the sidebar's Open Files list at all — the italic tab is the only clue, and the file
+  joins Open Files the moment an edit promotes it; and single-clicking a file that
+  already has a real tab focuses that tab and CLOSES the preview slot (a preview exists
+  to peek at files you have NOT got open — and it is always pristine, since any edit
+  promotes it first, so discarding is lossless). Open Files drag-reorder translates its
+  row indices past the hidden preview tab so reordering stays exact. This also retires
+  the ballooning preview-row saga (1.76.1, 1.81.2) for good: the row that ballooned no
+  longer exists, and its italic CSS is deleted. Frontend only.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added

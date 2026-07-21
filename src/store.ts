@@ -661,14 +661,21 @@ export const useStore = create<AppState>((set, get) => ({
     }
     const existing = get().tabs.find((t) => t.path === path);
     if (existing) {
-      // Already open: focus it, and promote if this was a permanent open.
+      // Already open: focus it, and promote if this was a permanent open. A PREVIEW
+      // click on a file that already has a real tab also CLOSES the preview slot (ST,
+      // issue Fr 2): the preview exists to peek at files you have NOT got open, and
+      // it is always pristine (any edit promotes it), so discarding is lossless.
+      const dropPreview = preview && !existing.preview;
       set((s) => ({
         activePath: path,
         tabs:
           !preview && existing.preview
             ? s.tabs.map((t) => (t.path === path ? { ...t, preview: false } : t))
-            : s.tabs,
+            : dropPreview
+              ? s.tabs.filter((t) => !t.preview)
+              : s.tabs,
       }));
+      if (dropPreview) get().syncExtraWatch(); // a dropped preview may hold a watch
       return;
     }
     const raw = await readFile(path);
@@ -688,7 +695,9 @@ export const useStore = create<AppState>((set, get) => ({
           tabs:
             !preview && dup.preview
               ? s.tabs.map((t) => (t.path === path ? { ...t, preview: false } : t))
-              : s.tabs,
+              : preview && !dup.preview
+                ? s.tabs.filter((t) => !t.preview) // ST: see the existing-tab branch
+                : s.tabs,
         };
       }
       // A single preview slot: a new preview replaces the current preview tab.
