@@ -1,9 +1,19 @@
 # Writedown
 
-A fast, local, predictable **Markdown and Quarto editor for Windows**. Joplin-style
-file navigation, Sublime-style editing, live Markdown/Quarto preview with an on-demand Rendered
-view that executes `{python}` code cells, an automatic document outline, and first-class
-BibTeX citation autocomplete over your own library.
+<table>
+  <tr valign='top'>
+    <td width="70%">
+        Writedown is a fast, local, predictable <strong>Markdown and Quarto editor for Windows</strong> providing Joplin-style
+        file navigation, Sublime-style editing, live Markdown/Quarto preview with an on-demand Rendered
+        view that executes `{python}` code cells, an automatic document outline, and first-class
+        BibTeX citation autocomplete and citebibtex expander over your own library.
+    </td>
+    <td>
+      <img src="assets/writedown-logo.png" width="100%">
+    </td>
+  </tr>
+</table>
+
 
 Writedown edits **ordinary files on disk**. There is no vault, no hidden database, and
 no proprietary format. It never renames, moves, or reformats your files unless you ask.
