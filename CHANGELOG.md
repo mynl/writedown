@@ -362,6 +362,31 @@ messages point here for detail.
   in Phase 4), its orphaned CSS, and the Sublime-theme CSS-variable plumbing that fed
   it. Frontend only.
 
+## [1.93.3] - 2026-07-21
+
+### Fixed
+
+- **Switching tabs into a long document no longer sends the panes flying** (issue Sa 8,
+  the "disaster"; third attempt, structural this time). Why the first two failed: on a
+  200 KB doc CodeMirror keeps re-measuring estimated line heights for ~a second after
+  the swap, and the preview streams its blocks across many frames — but every guard was
+  a 40–200 ms timing window stamped at stream START. Once they lapsed, editor
+  measurement drift fed the preview, preview churn wrote back into the editor's
+  scrollTop (the one preview→editor writer), and the panes chased each other; each
+  drift also overwrote the doc's remembered position, so the corruption stuck. Three
+  origin-based changes replace the timers: (1) preview→editor sync now requires a real
+  user gesture on the preview (wheel/pointer/touch/keys, refreshed while that scroll
+  flows) — programmatic churn can never open the gate, so it can never move the editor;
+  editor→preview stays ungated (outline jumps still drag the preview). (2) The editor's
+  restore is line-anchored — a scrollSnapshot captured on switch-away replays exactly
+  and CM's own scroll anchoring holds it through re-measure (raw-px + one-frame
+  re-assert before); the scroll RECORDER arms only on a user gesture or outline jump,
+  so drift can no longer corrupt the memory. (3) The in-sync stamps moved from stream
+  start to stream completion — the staleness guard now covers the whole stream — and
+  the once-per-doc sync fires after the blocks have finished landing, reading the
+  editor's settled top line: one close-enough go, no settle fight. Cursor and remembered
+  position survive rapid tab cycling. Frontend only; all changes are event-time.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added

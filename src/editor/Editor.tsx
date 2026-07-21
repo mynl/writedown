@@ -22,11 +22,14 @@ import { wordCompleteKeymap, wordCompleteAutocomplete } from "./wordComplete";
 import { documentLint } from "./lint";
 import { spellingExtensions } from "./spelling";
 import {
+  captureDocScrollSnapshot,
   docPosition,
+  docScrollSnapshot,
   getActiveView,
   recordDocScroll,
   recordDocSelection,
   setActiveView,
+  userNavAt,
 } from "./editorView";
 import { wrapCompartment, wrapExtension } from "./wrap";
 import { cssFontWeight } from "../fontWeight";
@@ -172,6 +175,15 @@ export function Editor({ path, content }: { path: string; content: string }) {
   // wrapper's own value-sync effect sees value === doc and does nothing — its deferred
   // whole-doc replace (a scroll-to-top) never fires. addToHistory:false keeps undo
   // from ever crossing a document boundary.
+  // Capture the outgoing doc's line-anchored scroll snapshot BEFORE the swap below:
+  // within one commit React runs every layout-effect cleanup before any setup, so this
+  // cleanup (closing over the OLD path) still sees the old document in the view.
+  useLayoutEffect(() => {
+    return () => {
+      const view = getActiveView();
+      if (view && view.dom.isConnected) captureDocScrollSnapshot(path, view);
+    };
+  }, [path]);
   useLayoutEffect(() => {
     const view = getActiveView();
     if (!view || content === lastEmitted.current) return;
@@ -206,34 +218,44 @@ export function Editor({ path, content }: { path: string; content: string }) {
   );
   // Restore this doc's remembered cursor/scroll after the doc swap (the CodeMirror child's
   // effects have already run), and record scrolls while it is active.
+  // The scroll restore is LINE-ANCHORED (issue Sa 8): a raw scrollTop write drifts on
+  // long docs — CM re-measures estimated line heights for ~a second after a swap,
+  // re-anchoring the viewport each frame, and every drift used to feed the preview
+  // sync AND overwrite this doc's remembered position. A same-session scrollSnapshot
+  // replays the spot exactly and CM's own anchoring then holds it; the px fallback
+  // (cold session / doc changed) pins the line at that height to the viewport top.
   useEffect(() => {
     const view = getActiveView();
     if (!view) return;
     const pos = docPosition(path);
-    let raf = 0;
+    const effectStart = performance.now();
     if (pos) {
       const len = view.state.doc.length;
       view.dispatch({
         selection: { anchor: Math.min(pos.anchor, len), head: Math.min(pos.head, len) },
-      });
-      view.scrollDOM.scrollTop = pos.scroll;
-      // Re-assert once after layout — a big doc may not have its height yet.
-      raf = requestAnimationFrame(() => {
-        view.scrollDOM.scrollTop = pos.scroll;
+        effects:
+          docScrollSnapshot(path, len) ??
+          EditorView.scrollIntoView(view.lineBlockAtHeight(pos.scroll).from, { y: "start" }),
       });
     }
+    // Record scrolls only once the user has actually touched this pane (or made an
+    // outline jump) — programmatic churn (restore, re-measure, preview echo) can then
+    // never corrupt the remembered position. Strictly stronger than the old
+    // "ignore scrollTop 0 in the first 300 ms" guard.
     const sc = view.scrollDOM;
-    const mountedAt = performance.now();
+    let armed = false;
+    const arm = () => {
+      armed = true;
+    };
+    const gestures = ["wheel", "pointerdown", "touchstart", "keydown"] as const;
+    for (const g of gestures) view.dom.addEventListener(g, arm, { passive: true });
     const onScroll = () => {
-      // A programmatic reset right after a doc swap reports scrollTop 0; recording it
-      // would overwrite this doc's remembered spot and replay the jump on every
-      // revisit. Real user scrolls to non-zero positions always record.
-      if (sc.scrollTop === 0 && performance.now() - mountedAt < 300) return;
+      if (!armed && userNavAt() < effectStart) return; // programmatic — not the user
       recordDocScroll(path, sc.scrollTop);
     };
     sc.addEventListener("scroll", onScroll, { passive: true });
     return () => {
-      cancelAnimationFrame(raf);
+      for (const g of gestures) view.dom.removeEventListener(g, arm);
       sc.removeEventListener("scroll", onScroll);
     };
   }, [path]);

@@ -264,6 +264,7 @@ function patchBlocks(
   baseDir: string | undefined,
   isStale: () => boolean,
   upgrade: (node: HTMLElement) => void,
+  onDone: () => void,
 ) {
   const kids = container.children as HTMLCollectionOf<HTMLElement>;
   let p = 0;
@@ -294,6 +295,7 @@ function patchBlocks(
       if (performance.now() - start > FRAME_BUDGET_MS) break;
     }
     if (idx <= nEnd) requestAnimationFrame(insertChunk);
+    else onDone(); // fires exactly once — never on a stale abort
   };
   insertChunk();
 }
@@ -449,26 +451,34 @@ export function Preview({
 
   // Render off-thread; accept only the reply to the LATEST request (module-unique seq).
   // The result remembers which document it was rendered FOR, so the patch effect can
-  // ignore a stale doc's blocks after a tab switch instead of painting them.
-  const [result, setResult] = useState<{ docKey: string; blocks: RenderedBlock[] } | null>(null);
+  // ignore a stale doc's blocks after a tab switch instead of painting them — and the
+  // SRC that produced it, so the completion stamp below marks the DOM in sync with the
+  // text these blocks actually came from (not whatever is live by then, issue Sa 8).
+  const [result, setResult] = useState<{
+    docKey: string;
+    blocks: RenderedBlock[];
+    src: string;
+  } | null>(null);
   const lastReqRef = useRef(0);
   useEffect(() => {
     const seq = ++renderSeq;
     lastReqRef.current = seq;
     const dk = docKey ?? "";
+    // seq === lastReqRef.current guarantees the reply belongs to THIS effect run, so
+    // the closure's `src` is exactly the text that was rendered.
     const accept = (bs: RenderedBlock[]) => {
-      if (lastReqRef.current === seq) setResult({ docKey: dk, blocks: bs });
+      if (lastReqRef.current === seq) setResult({ docKey: dk, blocks: bs, src });
     };
     const w = getRenderWorker();
     if (w) {
       w.onmessage = (e: MessageEvent<RenderResult>) => {
         if (e.data.seq === lastReqRef.current) {
-          setResult({ docKey: e.data.docKey, blocks: e.data.blocks });
+          setResult({ docKey: e.data.docKey, blocks: e.data.blocks, src });
         }
       };
       w.onerror = (e) => {
         failRenderWorker(e.message || "unknown worker error");
-        void import("./renderCore").then((m) => accept(m.renderDoc(srcRef.current)));
+        void import("./renderCore").then((m) => accept(m.renderDoc(src)));
       };
       w.postMessage({ seq, docKey: dk, src });
     } else {
@@ -520,6 +530,10 @@ export function Preview({
   const darkRef = useRef(dark);
   darkRef.current = dark;
   const patchGen = useRef(0);
+  // Set when the CURRENT doc's blocks have fully streamed in (patchBlocks completed);
+  // the tick re-runs the one-shot sync effect below at that moment.
+  const patchDoneKey = useRef<string | null>(null);
+  const [patchedTick, setPatchedTick] = useState(0);
   useEffect(() => {
     const container = contentRef.current;
     if (!container) return;
@@ -533,21 +547,35 @@ export function Preview({
       container.dataset.docKey = dk;
       container.replaceChildren();
       renderedSrcRef.current = null; // nothing rendered for this doc yet
+      patchDoneKey.current = null;
     }
     if (!result || result.docKey !== dk) return; // stale render — the new one is in flight
     const gen = ++patchGen.current;
     const isStale = () => gen !== patchGen.current;
-    patchBlocks(container, result.blocks, baseDir, isStale, (node) => {
-      void highlightCodeBlocks(node, styleRef.current, isStale).catch((e) => {
-        void logError("preview code highlight pass: " + String(e));
-      });
-      void upgradeMermaid(node, darkRef.current ? "dark" : "default", isStale);
-    });
-    // Only the latest request's reply is ever accepted, so the result just patched in
-    // was rendered from the current srcRef value. Mark the DOM in-sync and note when —
-    // scroll events raised by the patch's own DOM churn are ignored briefly.
-    renderedSrcRef.current = srcRef.current;
-    patchedAtRef.current = performance.now();
+    patchBlocks(
+      container,
+      result.blocks,
+      baseDir,
+      isStale,
+      (node) => {
+        void highlightCodeBlocks(node, styleRef.current, isStale).catch((e) => {
+          void logError("preview code highlight pass: " + String(e));
+        });
+        void upgradeMermaid(node, darkRef.current ? "dark" : "default", isStale);
+      },
+      () => {
+        // Completion stamps (issue Sa 8). These used to be written when streaming
+        // STARTED, so stale() expired while a big doc's blocks were still landing and
+        // both sync directions re-armed against a half-built DOM. Stamped here, at
+        // completion, stale() covers the entire stream — and with the src that
+        // PRODUCED these blocks, which is not the live src if the user typed
+        // mid-stream.
+        renderedSrcRef.current = result.src;
+        patchedAtRef.current = performance.now();
+        patchDoneKey.current = dk;
+        setPatchedTick((t) => t + 1);
+      },
+    );
   }, [result, baseDir, docKey]);
 
   // Sync the preview to the editor's position when a render lands — not only on scroll
@@ -562,7 +590,8 @@ export function Preview({
   const syncedDocKey = useRef<string | null>(null);
   useEffect(() => {
     const dk = docKey ?? "";
-    if (!result || result.docKey !== dk) return; // this doc's blocks aren't patched yet
+    if (!result || result.docKey !== dk) return; // this doc's render hasn't landed yet
+    if (patchDoneKey.current !== dk) return; // blocks still streaming — the tick re-runs us
     // (a) fresh build → honor the build-time editor position, once per build.
     if (initialKey != null && initialSourceLine != null && consumedBuildKey !== initialKey) {
       consumedBuildKey = initialKey;
@@ -570,14 +599,19 @@ export function Preview({
       scrollPreviewToLine(initialSourceLine); // source→expanded via the map
       return;
     }
-    // (b)/(c) mount / mode-switch / tab-switch → sync to the editor's CURRENT top line.
+    // (b)/(c) mount / mode-switch / tab-switch → sync to the editor's top line, ONE
+    // go. One rAF first: the editor's own line-anchored restore (dispatched in its
+    // switch effect) applies in CM's measure phase — read the top line after it lands.
     if (syncedDocKey.current === dk) return; // already synced this doc since mount
     syncedDocKey.current = dk;
-    const view = getActiveView();
-    if (!view || !view.dom.isConnected) return; // preview-only: no live editor to read
-    const lb = view.lineBlockAtHeight(view.scrollDOM.scrollTop);
-    scrollPreviewToLine(view.state.doc.lineAt(lb.from).number);
-  }, [result, docKey, initialKey, initialSourceLine]);
+    const raf = requestAnimationFrame(() => {
+      const view = getActiveView();
+      if (!view || !view.dom.isConnected) return; // preview-only: no live editor to read
+      const lb = view.lineBlockAtHeight(view.scrollDOM.scrollTop);
+      scrollPreviewToLine(view.state.doc.lineAt(lb.from).number);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [result, docKey, initialKey, initialSourceLine, patchedTick]);
 
   // Theme switch recolors all code blocks in place (cheap via codeHighlight's cache).
   useEffect(() => {
@@ -711,6 +745,19 @@ export function Preview({
       el.scrollTop = Math.max(0, Math.min(y ?? frac(sc) * pMax, pMax));
       if (y != null) settlePreview();
     };
+    // Preview→editor writeback requires a real user gesture ON the preview (issue Sa
+    // 8): wheel / pointer (incl. scrollbar drag) / touch / keys within the last 1.5 s,
+    // refreshed while the resulting scroll keeps flowing (momentum, drag). Programmatic
+    // churn — block streaming, content-visibility anchoring, settle corrections — can
+    // never OPEN the window, so it can never move the editor: the structural guarantee
+    // the timing guards alone couldn't give. The editor→preview direction stays
+    // ungated (outline jumps must keep dragging the preview).
+    let gestureUntil = 0;
+    const gesture = () => {
+      gestureUntil = performance.now() + 1500;
+    };
+    const gestureEvents = ["wheel", "pointerdown", "touchstart", "keydown"] as const;
+    for (const g of gestureEvents) el?.addEventListener(g, gesture, { passive: true });
     const fromPreview = () => {
       const sc = scroller;
       const v = view;
@@ -718,6 +765,8 @@ export function Preview({
       // Our own programmatic scroll (sync-to-editor / outline / build): never echo it
       // back into the editor, which is the anchor and must stay put (issue 8).
       if (performance.now() < ignorePreviewScrollUntil) return;
+      if (performance.now() >= gestureUntil) return; // no recent user gesture here
+      gestureUntil = performance.now() + 1500; // a live user scroll keeps the gate open
       const eMax = sc.scrollHeight - sc.clientHeight;
       if (eMax <= 0) return;
       lock();
@@ -759,6 +808,7 @@ export function Preview({
     return () => {
       off();
       el?.removeEventListener("scroll", fromPreview);
+      for (const g of gestureEvents) el?.removeEventListener(g, gesture);
       scroller?.removeEventListener("scroll", fromEditor);
     };
   }, []);

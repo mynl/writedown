@@ -1,6 +1,7 @@
 // Bridge to the live CodeMirror view so the outline and preview can drive/observe it
 // (jump to a heading, sync scroll). One active editor at a time.
 import { EditorView } from "@codemirror/view";
+import type { StateEffect } from "@codemirror/state";
 
 let activeView: EditorView | null = null;
 const listeners = new Set<() => void>();
@@ -60,6 +61,35 @@ export function seedDocPositions(rec: Record<string, DocPosition>): void {
   }
 }
 
+// ---- Line-anchored scroll snapshots (same-session tab switches, issue Sa 8) -------
+// A raw scrollTop restore drifts on long docs: CodeMirror re-measures estimated line
+// heights for many frames after a doc swap, re-anchoring the viewport each time. A
+// scrollSnapshot() effect is line-anchored — applied in CM's measure phase and then
+// HELD by CM's own scroll anchoring — so the restored spot survives re-measurement.
+// In-memory only; the px in DocPosition stays the persisted (session) fallback.
+type ScrollSnap = { effect: StateEffect<unknown>; docLength: number };
+const docScrollSnaps = new Map<string, ScrollSnap>();
+
+export function captureDocScrollSnapshot(path: string, view: EditorView): void {
+  docScrollSnaps.set(path, {
+    effect: view.scrollSnapshot(),
+    docLength: view.state.doc.length,
+  });
+}
+
+/** The stored snapshot, or null when none exists or the document changed since it was
+ *  taken (length check; byte identity is implied by the content store). */
+export function docScrollSnapshot(path: string, docLength: number): StateEffect<unknown> | null {
+  const s = docScrollSnaps.get(path);
+  return s && s.docLength === docLength ? s.effect : null;
+}
+
+// Stamped when the user navigates deliberately (outline jump). The scroll recorder in
+// Editor.tsx treats it like a gesture, so a jumped-to spot is remembered even though
+// the scroll itself was programmatic.
+let lastUserNavAt = 0;
+export const userNavAt = () => lastUserNavAt;
+
 // Frames the post-jump settle loop may run: lineBlockAt uses ESTIMATED heights for
 // never-drawn lines, so the first computed target y lands short/long; scrolling forces
 // real measurement, and re-deriving the target for a few frames converges on it. This
@@ -75,6 +105,7 @@ let jumpSeq = 0; // supersedes an in-flight settle when a newer jump starts
 export function jumpToLine(line: number) {
   const view = activeView;
   if (!view) return;
+  lastUserNavAt = performance.now();
   const n = Math.min(Math.max(line, 1), view.state.doc.lines);
   const pos = view.state.doc.line(n).from;
   view.dispatch({ selection: { anchor: pos } });
