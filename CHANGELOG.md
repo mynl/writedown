@@ -438,6 +438,18 @@ messages point here for detail.
   Rust (two new load/store commands + two config keys) + frontend; needs a dev-app
   restart to pick up the new backend commands.
 
+## [1.97.0] - 2026-07-21
+
+### Changed
+
+- **"Keybindings: Write All Shortcuts" now writes a scratch file, never config.toml.**
+  The old command surgically rewrote your config's [keys] table in place — safe in
+  implementation, unwise in principle (a palette command silently editing the config
+  file). It now opens a new scratch buffer (TOML-highlighted) containing the complete
+  effective keymap with a one-line header; paste the block into [keys] yourself if you
+  want to customize. The config-rewriting store action and its table-splicing helper
+  are deleted. Frontend only.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added

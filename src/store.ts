@@ -279,9 +279,6 @@ type AppState = {
   /** Bake the current zoomed size into config.toml's [editor] font_size (a deliberate,
    *  surgical edit — the only time we write your config), then reset the zoom to 0. */
   setSizeAsDefault: () => Promise<void>;
-  /** Write the complete effective keymap into config.toml's [keys] block (given the serialized
-   *  block), then open it — so every shortcut is visible and editable in one place. */
-  writeKeymapToConfig: (block: string) => Promise<void>;
   /** Replace an open tab's editor content (e.g. restore a backup) without saving —
    *  leaves it dirty so the user reviews and saves deliberately. */
   loadContent: (path: string, content: string) => void;
@@ -881,27 +878,6 @@ export const useStore = create<AppState>((set, get) => ({
     await get().loadTheme(); // re-read config + re-apply
   },
 
-  writeKeymapToConfig: async (block) => {
-    const { configFile } = get();
-    if (!configFile) return;
-    let text: string;
-    try {
-      text = await loadConfig();
-    } catch {
-      return;
-    }
-    const next = replaceKeysTable(text, block);
-    try {
-      await writeFile(configFile, next); // atomic + auto-backed-up
-    } catch (e) {
-      set({ configError: String(e) });
-      return;
-    }
-    await get().loadTheme(); // re-read (bindings unchanged; keeps state consistent)
-    await get().openFile(configFile, false); // show the populated file…
-    await get().reloadDoc(configFile); // …refreshed to disk if it was already open (stale buffer)
-  },
-
   loadContent: (path, content) =>
     set((s) => ({
       // Push new content into the tab but leave savedContent alone → the tab goes dirty,
@@ -1438,28 +1414,6 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 }));
-
-/** Replace config.toml's active [keys] table body with `block` (preserving every other line and
- *  comment), or append it at EOF when there's no active [keys]. A commented `# [keys]` example is
- *  left untouched (it doesn't match). Returns text ending in a newline. */
-function replaceKeysTable(text: string, block: string): string {
-  const lines = text.split("\n");
-  const start = lines.findIndex((l) => /^[ \t]*\[keys\][ \t]*$/.test(l));
-  let out: string;
-  if (start === -1) {
-    out = text.replace(/\s*$/, "") + "\n\n" + block;
-  } else {
-    let end = lines.length;
-    for (let i = start + 1; i < lines.length; i++) {
-      if (/^[ \t]*\[[^\]#]/.test(lines[i])) {
-        end = i; // next active section header ends the [keys] table
-        break;
-      }
-    }
-    out = [...lines.slice(0, start), block, ...lines.slice(end)].join("\n");
-  }
-  return out.endsWith("\n") ? out : out + "\n";
-}
 
 /** Managed + recent projects as a deduped (by path), name-disambiguated list for the switch UI.
  *  Managed projects (the ~/.writedown/projects scan) come first, then recents from elsewhere;

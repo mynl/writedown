@@ -243,10 +243,18 @@ export function appCommands(): Command[] {
         })(),
     },
     {
-      id: "keys-write-config",
-      title: "Keybindings: Write All Shortcuts to Config",
+      // A scratch buffer, deliberately NOT config.toml: review the full effective
+      // keymap without a command silently rewriting your config file (paste the
+      // block into [keys] yourself if you want to customize).
+      id: "keys-write-scratch",
+      title: "Keybindings: Write All Shortcuts to Scratch File",
       run: () =>
-        void s().writeKeymapToConfig(keymapConfigBlock(useStore.getState().editorSettings?.keys)),
+        s().newScratch({
+          content:
+            "# Effective Writedown shortcuts — paste into config.toml's [keys] to customize.\n" +
+            keymapConfigBlock(useStore.getState().editorSettings?.keys),
+          ext: "toml",
+        }),
     },
     {
       id: "close-tab",
