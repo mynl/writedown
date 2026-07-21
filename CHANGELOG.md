@@ -403,6 +403,21 @@ messages point here for detail.
   the ballooning preview-row saga (1.76.1, 1.81.2) for good: the row that ballooned no
   longer exists, and its italic CSS is deleted. Frontend only.
 
+## [1.95.0] - 2026-07-21
+
+### Changed
+
+- **Tab completions respect the case of the typed stem** (issue Sa 5a). Matching was
+  already case-insensitive, but the popup inserted the candidate exactly as it appears
+  in the buffer — typing "Lognorm" with "lognormal" nearby completed to lowercase
+  "lognormal". Now the inserted word adapts to what YOU typed: log→lognormal,
+  Log→Lognormal, LOG→LOGNORMAL (interior caps like "LaTeX" are preserved when only the
+  first letter changes), the popup shows exactly what will be inserted, and buffer
+  duplicates differing only in case collapse to the nearest single entry. Known limits:
+  a mixed-interior-case stem ("LogN") follows the first-letter rule, and labels are
+  cased at popup-open time. Runs only on an explicit Tab — zero baseline cost.
+  Frontend only.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added

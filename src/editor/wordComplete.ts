@@ -3,8 +3,11 @@
 // by proximity to the caret; arrows to choose, Enter or Tab to accept. It fires only when a
 // word character sits immediately before the caret; at line start / after whitespace Tab
 // falls through to indent (Shift+Tab dedents). Candidates are LONG words (config
-// [editor] tab_complete_min_len, default 5) — short words aren't worth a Tab. Everything
-// here runs only on an explicit Tab, so there is zero baseline editing cost.
+// [editor] tab_complete_min_len, default 5) — short words aren't worth a Tab.
+// Completions respect the case of the typed stem (issue Sa 5a): matching stays
+// case-insensitive, but the INSERTED word adapts — log→lognormal, Log→Lognormal,
+// LOG→LOGNORMAL — and buffer duplicates differing only in case collapse to the nearest
+// occurrence. Everything here runs only on an explicit Tab: zero baseline editing cost.
 import { Prec, type EditorState } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
 import { indentLess, indentMore } from "@codemirror/commands";
@@ -35,8 +38,23 @@ function isCitationStem(state: EditorState, from: number): boolean {
   return from > line.from && line.text[from - line.from - 1] === "@";
 }
 
-/** Nearby words that start with `stem`, are at least `minLen` long AND longer than the
- *  stem, deduped and ranked by distance from the caret. Excludes the word being typed. */
+/** Re-case `candidate` to match the typed stem (Sa 5a): an ALL-CAPS stem (2+ chars)
+ *  uppercases the whole word; a leading capital capitalizes the first letter; a
+ *  lowercase stem lowers the first letter — interior caps are preserved either way. */
+function adaptCase(candidate: string, stem: string): string {
+  if (stem.length >= 2 && stem === stem.toUpperCase() && /\p{L}/u.test(stem)) {
+    return candidate.toUpperCase();
+  }
+  const first = stem[0];
+  return first === first.toLowerCase()
+    ? candidate[0].toLowerCase() + candidate.slice(1)
+    : candidate[0].toUpperCase() + candidate.slice(1);
+}
+
+/** Nearby words that start with `stem` (case-insensitively), are at least `minLen`
+ *  long AND longer than the stem, deduped case-insensitively (nearest occurrence
+ *  wins), ranked by distance from the caret, and re-cased to the stem. Excludes the
+ *  word being typed. */
 function harvest(
   state: EditorState,
   pos: number,
@@ -49,7 +67,7 @@ function harvest(
   const text = state.doc.sliceString(lo, hi);
   const stemLower = stem.toLowerCase();
   const min = Math.max(minLen, stem.length + 1); // must be longer than what's typed
-  const best = new Map<string, number>();
+  const best = new Map<string, { form: string; dist: number }>(); // key = lowercase
   WORD_RE.lastIndex = 0;
   let m: RegExpExecArray | null;
   while ((m = WORD_RE.exec(text))) {
@@ -60,10 +78,12 @@ function harvest(
     const at = lo + m.index;
     if (at === from) continue; // the word currently being typed
     const dist = Math.abs(at - pos);
-    const prev = best.get(w);
-    if (prev === undefined || dist < prev) best.set(w, dist);
+    const prev = best.get(wl);
+    if (prev === undefined || dist < prev.dist) best.set(wl, { form: w, dist });
   }
-  return [...best.entries()].sort((a, b) => a[1] - b[1]).map(([w]) => w);
+  return [...best.values()]
+    .sort((a, b) => a.dist - b.dist)
+    .map((c) => adaptCase(c.form, stem));
 }
 
 /** Completion source: the harvested candidate list, nearest-first (proximity encoded as a
