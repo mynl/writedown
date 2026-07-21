@@ -7,10 +7,55 @@ For each of these issues, or product enhancements please tell me:
 * any other issues or concerns you may have, again brief, human-understandable
 * whether the feature would have any impact on baseline performance of the app in its core functions, 
 
-Create a table (see Friday 7/17 for example) with Item and Description filled in and check blank - for subsequent monitoring. 
+Create and update a summary table as needed with Item and Description filled in and check blank - for subsequent monitoring. 
 
 ***
+## Tuesday 2026-07-21 
+
+Fix outstanding issues / punchups. Here is the summary and current status. 
+
+| Item | Check | Description | 
+|--:|:---:|:-------------------------|
+| Fr 2  | ❌ | Open Files preview row no longer balloons (1.81.2) **not solved** |
+| Sa 5  |  | Tab word-completion → sorted popup list by proximity (1.91.0, 1.93.0) |
+| Sa 5a| |  case sensitive completion 
+| Sa 5b| |  private dictionary of longer words with frequency weighting 
+| Sa 8  | ❌ disaster | Tab switch syncs preview; editor stays anchored (1.89.1, 1.91.1) |
+| Sa 14  |  | Cell coloring stable (static nested lang) (1.93.1) |
+| Tu 1 | | Add MIT license |
+| Tu 2| | Any other prep for public repo release |
+| READ | | Finalize README file for release | 
+
+- [ ] **Fr 2** When a file is opened in preview mode (single click) it's tab is italics. In the sidebar (blue background / italics) it is currently too high. This has been on the list the last three+ goes around. **HOWEVER** it have just realized that ST does NOT put preview files in the list of open files in the project at all! We should do the same - preview files do not appear in the list. They do appear once they are open for editing. Note that can occur because you edit the preview - so there needs to be a file change trigger. ST has at most one preview file - if you preview another one it reuses the same tab. If you click (in the sidebar) onto a file that is already open) then the preview should close. We should try to mirror the ST behavior.  
+    **CC: M — your spec changed this from a styling tweak to the ST mirror, and that's the better fix. Done as specced: preview files no longer appear in Open Files at all (the italic tab is the only clue); at most ONE preview tab exists — previewing another file reuses it; any edit instantly promotes the preview to a real tab (that's when it joins Open Files); sidebar-clicking an already-open file just activates its tab and closes the preview. Double-click promotion still works. Safe because an edited preview always promotes first — a discarded preview is always pristine. The old sidebar preview styling is deleted as dead code, so the balloon cannot exist anymore. No perf impact. (1.94.0)**
+- [ ] **Sa 5** Tab complete basically working well. Would like to add (**Sa 5a**) case sensitive - respect the case of the word being "tabbed" (easy?!). (**Sa5b**) Build and maintain a list of completions - can we (background) on open scan the doc for five (config setting) plus letter words, track their frequency, and use a combo nearby in current doc, used frequently algo for what is offered by the auto complete? It works wonderfully but that would be killer.  
+    **CC (5a): L — easy, as you guessed. Today the popup inserts the word exactly as it appears in the doc ("Lognorm" typed + "lognormal" in the buffer → "lognormal"). Now the completion adapts to YOUR case: log→lognormal, Log→Lognormal, LOG→LOGNORMAL; duplicates differing only in case collapse to the nearest one. Runs only on Tab — no perf impact. (1.95.0)**
+    **CC (5b): M. Built as asked: each opened/saved doc is background-scanned for 5+-letter words (config: tab_complete_dict_min_len); counts are stored per-file in a disposable ~/.writedown/word-frequency.json, so re-opening never double-counts. Tab then offers nearby words first (as now), then your frequent words — and it fires even when the word isn't nearby, which is the killer case (first 2–3 letters, Tab, nail it). Zero cost while typing; scan is once per open/save. One concern: the dictionary is global across projects (simplest; per-project slicing possible later if it bothers you). (1.96.0)**
+- [ ] **Sa 8** Switch tabs to a long doc (C:\S\AI\temp\large-test-doc-dm.md is my test) is a disaster - cursor flies around etc. Point is you remember where the cursor is (left md panel) and move right to match - in one go close-enough is OK and preferred to any flashing and jumping. But cursor cannot move,. 
+    **CC: M — structural fix this time, not another timer. Diagnosis: on a long doc the editor re-measures line heights for ~a second after a switch; every previous guard was a 40–200 ms window that expired first, after which preview scroll events kept writing back into the editor and the two panes chased each other — that's the flying. Now: the preview can only move the editor when YOU actually scroll the preview (wheel/click) — programmatic churn can never touch it; the editor's restore is line-anchored so it holds through re-measure; and the preview does its single close-enough sync only after its content has finished loading. Slight semantics change (preview drives editor only on real preview scrolls) — believed to be exactly what you want. No baseline perf impact. (1.93.3)**
+- [ ] **Sa 14** claimed that Python cell coloring can become messed up. This was perhaps a false-issue. This misdirection may have led to unnecessary code - pls investigate.  
+  It appears linked to having explicit yaml at the top of the file, see C:\S\AI\writedown\features\test.md. In that file the # heading ater the yaml is not correct. So this is really about **all** colorization after a yaml block. In test.md everything is fine if I delete the yaml.   The yaml inquestion is 
+
+    ```yaml
+    ---
+    wd-python: "T:/worktrees/aggregate_REFACTOR/.venv/Scripts/python.exe" 
+    # wd-python: "C:/Users/steve/miniconda3/envs/working313/python.exe"
+    --- 
+    ```
+    **CC: L–M, and you were right on both counts. Real bug (verified against the file's bytes): your closing --- has a trailing space; the editor's front-matter parser demands --- exactly, never sees the close, and silently treats the entire rest of the file as YAML — killing all coloring after the block. (The preview tolerates the space, which is why it looked fine there.) Fix: tolerant front-matter parsing — trailing spaces OK on both delimiters, and a block with no close is treated as no front matter rather than swallowing the document. Misdirection confirmed: 1.93.1's static-lang change couldn't have fixed this — but it does fix a separate real flicker (async language loading), so it stays; the actually-unnecessary code was an older dead front-matter highlighter, now deleted. No perf impact. (1.93.2)**
+- [ ] **Tu 1** Add MIT licence to repo and README section.  Then per parallel chat: "You drop in the LICENSE file(s), wire up the notices-generation, write a real THIRD-PARTY-NOTICES.md, and update the README — and I can fold it into the same commit as the README refresh." 
+    **CC: L. LICENSE (MIT, your copyright) at root; THIRD-PARTY-NOTICES.md generated from the real dependency sets (cargo metadata + node_modules — offline, no new tooling) by scripts/generate-notices.ps1; README License section filled in, and the SCOWL dictionary note moves there. Everything in the tree is permissive (MIT/Apache/BSD-family) — the generator proves it. Folded into the README commit as agreed; docs only, no version bump.**
+- [ ] **Tu 2** Is there any other prep we should do before a public repo release? (ATM the repo is private. I plan to post about this wonderful tool on LinkedIn - w full credit to you!) 
+    **CC: one real blocker: features/ contains personal documents (a diary file, work notes, presentations) that are tracked in git — and history keeps them even after deletion. Recommend: move personal test docs out of the repo, keep sanitized fixtures, and make the public debut a FRESH-history repo (this one stays private as the archive) — cleanest for a LinkedIn launch. Also worth doing first: a README hero screenshot + install section (expect a SmartScreen warning — unsigned exe), a GitHub release with the installer attached, repo description/topics. No secret-leak risk found (the app makes no network calls); I'll run a quick history grep before any flip. Your call: does the issues-file/dev-log charm go public too (it contains personal paths)?**
+- [ ] **READ** Edit README for 5Cs  -  esp. double check claims about Typora.  
+    **CC: L. 5Cs pass with the Typora row corrected — Typora DOES keep files as plain Markdown on disk, so that claim softens; the honest distinctions are WYSIWYG-fused editing (vs our raw text + separate preview), closed-source paid (vs free MIT), and no Quarto/{python}/BibTeX machinery. Plus: "LiveMarkdown" typo, License section filled in (Tu 1), and a short Install section for the public audience. Claims re-verified before committing. (docs commit)**
+
+***
+
 ## Saturday 2026-07-18 to Monday 2026-07-20
+
+auto tab preserve case 
+build library of used words - freq etc. 
 
 | Item | Check | Description | 
 |--:|:---:|:-------------------------|
@@ -22,14 +67,13 @@ Create a table (see Friday 7/17 for example) with Item and Description filled in
 | 5  |  | Tab word-completion → sorted popup list by proximity (1.91.0, 1.93.0) |
 | 6  | ✅ | Preview↔Rendered switch syncs to editor location (1.89.1) |
 | 7  | ✅ | @ citation works in an indented footnote definition (1.86.2) |
-| 8  |  | Tab switch syncs preview; editor stays anchored (1.89.1, 1.91.1) |
-| 9  |  | Per-doc Python kernel via YAML `wd-python:` (absolute only) (1.89.0) |
+| 8  | ❌ disaster | Tab switch syncs preview; editor stays anchored (1.89.1, 1.91.1) |
+| 9  | ✅ | Per-doc Python kernel via YAML `wd-python:` (absolute only) (1.89.0) |
 | 10 |  DROP | Palette: sort sidebar by name (default) or mod date |
-| 11 |  | Ctrl+MouseWheel font size; config bounds font_size_min/max (1.90.0, 1.92.0) |
-| 12 | AIx2? | Palette: delete project (recycle .wdproj, confirm) (1.88.0) |
-| 13 |  | Dedup duplicate "AI" project in quick-switch (1.86.4) |
-| +  |  | {python} cell colouring stable (static nested lang) (1.93.1) |
-
+| 11 | ✅  | Ctrl+MouseWheel font size; config bounds font_size_min/max (1.90.0, 1.92.0) |
+| 12 | ✅ | Palette: delete project (recycle .wdproj, confirm) (1.88.0) |
+| 13 | ✅ | Dedup duplicate "AI" project in quick-switch (one was saved manually) (1.86.4) |
+| 14  |  | {python} cell colouring stable (static nested lang) (1.93.1) |
 
 
 - [ ] (1) after insert date time cursor needs to be put after insert; currently focus is lost
