@@ -29,19 +29,22 @@ pub fn open_external(app: tauri::AppHandle, path: String) -> Result<(), String> 
 }
 
 /// Open the configured shell (`[tools] shell`, default `pwsh`) in its own console
-/// window at `dir`. CREATE_NEW_CONSOLE is required: a console child spawned from a
-/// GUI app has no console to inherit and would otherwise run invisibly.
+/// window at `dir`. On Windows CREATE_NEW_CONSOLE is required: a console child spawned
+/// from a GUI app has no console to inherit and would otherwise run invisibly. Other
+/// platforms (untested) spawn plain — the cfg guard keeps the crate compiling there.
 /// (Known limit: `shell = "wt"` ignores the directory — Windows Terminal uses its own
 /// startingDirectory profile setting, not the spawn cwd.)
 #[tauri::command]
 pub fn open_shell(app: tauri::AppHandle, dir: String) -> Result<(), String> {
-    use std::os::windows::process::CommandExt;
-    const CREATE_NEW_CONSOLE: u32 = 0x0000_0010;
     let exe = tool(&app, "shell").unwrap_or_else(|| "pwsh".to_string());
-    Command::new(&exe)
-        .current_dir(&dir)
-        .creation_flags(CREATE_NEW_CONSOLE)
-        .spawn()
-        .map_err(|e| format!("launch {exe} in {dir}: {e}"))?;
+    let mut cmd = Command::new(&exe);
+    cmd.current_dir(&dir);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NEW_CONSOLE: u32 = 0x0000_0010;
+        cmd.creation_flags(CREATE_NEW_CONSOLE);
+    }
+    cmd.spawn().map_err(|e| format!("launch {exe} in {dir}: {e}"))?;
     Ok(())
 }
