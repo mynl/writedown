@@ -34,8 +34,9 @@ It makes no network requests, keeps no telemetry, needs no account, and works of
 - **CSV files**  — opened with colored columns and CSV-grid sort, search, filter enabled preview.
 - **Projects & sessions** — Sublime-style `.wdproj` projects with multi-root trees, MRU
   quick-switch, and per-workspace session restore.
-- **Autosave** — atomic writes, conservative whitespace cleanup, hard-breaks and YAML
-  preserved exactly, clear conflict handling.
+- **Autosave** — atomic writes; optional trailing-whitespace trim on save (on by
+  default, config-off) that never touches Markdown hard breaks or CSV data; YAML and
+  everything else preserved exactly; clear conflict handling.
 - **Extension aware** — handles a range of text files (bibtex, json, css, html, yaml, py, c, cpp, etc.) gracefully with relevant colorization and outline summary.
 -  **Quick peek**  — look at file contents, with preview without creating permanent tab. 
 

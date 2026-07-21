@@ -450,6 +450,23 @@ messages point here for detail.
   want to customize. The config-rewriting store action and its table-splicing helper
   are deleted. Frontend only.
 
+## [1.98.0] - 2026-07-21
+
+### Added
+
+- **Trailing whitespace is trimmed on save** — `[editor] trim_trailing_whitespace`,
+  default true (the space that caused the Sa 14 front-matter bug would never have
+  survived a save again). Deliberately surgical: it only runs when a save is happening
+  anyway (a clean file is never rewritten just to trim); Markdown hard breaks —
+  two-plus pure spaces after text — are preserved exactly, as promised; CSV/TSV are
+  never trimmed (trailing spaces can be field data). For the document in the live view
+  the trim is applied as a real editor edit — per-line deletions, so the cursor is
+  mapped, undo works, and the incremental parser never sees a whole-document replace —
+  while background saves (tab-switch/blur autosave of inactive tabs) transform the
+  text directly. Set `trim_trailing_whitespace = false` to keep every byte you type.
+  Config key is read by the Rust backend (dev restart to change it); the trim itself
+  is frontend, on by default immediately.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added

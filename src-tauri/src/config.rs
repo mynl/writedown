@@ -31,6 +31,10 @@ tab_size = 4
 # font_size_min = 6
 # font_size_max = 24
 word_wrap = true
+# trim_trailing_whitespace: strip spaces/tabs from line ends when a file is saved.
+# Markdown hard breaks (two-plus trailing spaces after text) and CSV/TSV files are
+# always left untouched. Set false to preserve every byte you type.
+trim_trailing_whitespace = true
 
 [outline]
 # Outline pane side: "left" (between the tree and editor) or "right" (far right, past the preview).
@@ -184,6 +188,9 @@ pub struct EditorSettings {
     font_weight: Option<String>,
     /// Editor word wrap default ([editor] word_wrap). Runtime toggle is session-only.
     word_wrap: Option<bool>,
+    /// Strip trailing spaces/tabs on save ([editor] trim_trailing_whitespace, default
+    /// true). Markdown hard breaks and CSV/TSV are always exempt (store.ts saveDoc).
+    trim_trailing_whitespace: Option<bool>,
     /// Editor indent width in spaces ([editor] tab_size, default 4). Indentation is spaces-only.
     tab_size: Option<u32>,
     /// Shortest nearby word Tab word-completion will offer ([editor] tab_complete_min_len,
@@ -256,6 +263,9 @@ pub fn load_editor_settings(app: tauri::AppHandle) -> Result<EditorSettings, Str
         font_family: ed.and_then(|e| e.get("font_family")).and_then(string),
         font_weight: ed.and_then(|e| e.get("font_weight")).and_then(weight),
         word_wrap: ed.and_then(|e| e.get("word_wrap")).and_then(|v| v.as_bool()),
+        trim_trailing_whitespace: ed
+            .and_then(|e| e.get("trim_trailing_whitespace"))
+            .and_then(|v| v.as_bool()),
         tab_size: ed
             .and_then(|e| e.get("tab_size"))
             .and_then(|v| v.as_integer())
@@ -325,6 +335,7 @@ mod tests {
         let v: toml::Value = DEFAULT_CONFIG.parse().expect("default config parses as TOML");
         // Live keys the tidy must keep (representatives across sections).
         assert!(v.get("editor").and_then(|e| e.get("word_wrap")).is_some());
+        assert!(v.get("editor").and_then(|e| e.get("trim_trailing_whitespace")).is_some());
         assert!(v.get("spelling").and_then(|s| s.get("min_length")).is_some());
         assert!(v.get("spelling").and_then(|s| s.get("skip_proper_nouns")).is_some());
         assert!(v.get("render").and_then(|r| r.get("figure_dpi")).is_some());

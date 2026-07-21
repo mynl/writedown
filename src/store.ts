@@ -47,7 +47,7 @@ import {
   seedDocPositions,
   snapshotDocPositions,
 } from "./editor/editorView";
-import { isExternalDoc, isMarkdownDoc } from "./editor/languages";
+import { isCsv, isExternalDoc, isMarkdownDoc } from "./editor/languages";
 import { scheduleScan } from "./editor/wordFreq";
 import { cssFontWeight } from "./fontWeight";
 
@@ -83,6 +83,40 @@ function setTitle(project: string | null) {
 // Paths Writedown just saved — used to ignore the watcher event our own write triggers.
 const justSaved = new Set<string>();
 let fsRefreshTimer: ReturnType<typeof setTimeout> | undefined;
+
+// ---- Trailing-whitespace trim on save ([editor] trim_trailing_whitespace) ---------
+// The [ \t]+ runs at line ends that a save may delete — EXCEPT, in markdown docs, a
+// run of two-plus pure spaces after content: that is a hard line break, meaningful
+// markdown the save must never destroy. CSV/TSV are never trimmed (trailing spaces
+// can be field data). Offsets are valid for both the \n-normalized string and the CM
+// document, so the same ranges drive a string transform or an editor dispatch.
+function trailingWsRanges(text: string, path: string): { from: number; to: number }[] {
+  if (isCsv(path)) return [];
+  const md = isMarkdownDoc(path);
+  const out: { from: number; to: number }[] = [];
+  let pos = 0;
+  for (const line of text.split("\n")) {
+    const m = /[ \t]+$/.exec(line);
+    if (m) {
+      const hardBreak =
+        md && line.length > m[0].length && m[0].length >= 2 && !m[0].includes("\t");
+      if (!hardBreak) out.push({ from: pos + line.length - m[0].length, to: pos + line.length });
+    }
+    pos += line.length + 1;
+  }
+  return out;
+}
+
+function stripRanges(text: string, ranges: { from: number; to: number }[]): string {
+  if (ranges.length === 0) return text;
+  let out = "";
+  let last = 0;
+  for (const r of ranges) {
+    out += text.slice(last, r.from);
+    last = r.to;
+  }
+  return out + text.slice(last);
+}
 
 // Background word-frequency scan (issue Sa 5b) — feeds Tab completion's dictionary.
 // The tab's content is read at fire time, so a closed tab simply skips its scan.
@@ -896,7 +930,34 @@ export const useStore = create<AppState>((set, get) => ({
     const doc = get().tabs.find((t) => t.path === path);
     if (!doc || !isDirty(doc) || doc.saving) return;
 
-    const snapshot = doc.content;
+    // Trim trailing whitespace at save ([editor] trim_trailing_whitespace, default
+    // on). Only ever runs when a save is happening anyway — a clean file is never
+    // rewritten just to trim. For the doc in the live view it is applied as a real
+    // editor edit (per-line deletions: the cursor is mapped, undo works, and the
+    // incremental parser sees tiny changes, not a whole-doc replace); background
+    // saves transform the string directly. Hard breaks and CSV are protected in
+    // trailingWsRanges.
+    if (get().editorSettings?.trim_trailing_whitespace ?? true) {
+      const ranges = trailingWsRanges(doc.content, path);
+      if (ranges.length > 0) {
+        const view = getActiveView();
+        if (
+          get().activePath === path &&
+          view &&
+          view.state.doc.length === doc.content.length
+        ) {
+          view.dispatch({ changes: ranges }); // onChange → editTab syncs the store
+        } else {
+          const trimmed = stripRanges(doc.content, ranges);
+          set((s) => ({
+            tabs: s.tabs.map((t) => (t.path === path ? { ...t, content: trimmed } : t)),
+          }));
+        }
+      }
+    }
+    const fresh = get().tabs.find((t) => t.path === path);
+    if (!fresh) return;
+    const snapshot = fresh.content;
     set((s) => ({
       tabs: s.tabs.map((t) => (t.path === path ? { ...t, saving: true, error: null } : t)),
     }));

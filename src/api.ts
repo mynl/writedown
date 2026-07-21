@@ -214,6 +214,9 @@ export type EditorSettings = {
   font_family: string | null;
   font_weight: string | null;
   word_wrap: boolean | null;
+  /** `[editor] trim_trailing_whitespace`: strip line-end spaces/tabs on save (default true;
+   *  markdown hard breaks and CSV/TSV always exempt). */
+  trim_trailing_whitespace: boolean | null;
   /** `[editor] tab_size`: editor indent width in spaces (default 4; spaces-only, never a tab). */
   tab_size: number | null;
   /** `[editor] tab_complete_min_len`: shortest nearby word Tab word-completion offers (default 5). */
