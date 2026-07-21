@@ -1,35 +1,78 @@
 # Writedown
 
 A fast, local, predictable **Markdown and Quarto editor for Windows**. Joplin-style
-file navigation, Sublime-style editing, live Markdown/Quarto preview, an automatic
-document outline, and first-class BibTeX citation autocomplete over your own
-authoritative library.
+file navigation, Sublime-style editing, live Markdown/Quarto preview with an on-demand Rendered
+view that executes `{python}` code cells, an automatic document outline, and first-class
+BibTeX citation autocomplete over your own library.
 
 Writedown edits **ordinary files on disk**. There is no vault, no hidden database, and
 no proprietary format. It never renames, moves, or reformats your files unless you ask.
 It makes no network requests, keeps no telemetry, needs no account, and works offline.
 
-> Status: **early development.** Building up from `v1.0.0` per the phased plan in
-> `writedown-spec.md` §30. The current version is shown in the app footer.
+> Status: **actively developed** — the core editor, live preview, outline, BibTeX
+> citations, projects, and a Python-executing Rendered view are all in place. The
+> current version is shown in the app footer.
 
 ## What it gives you
 
 - **Ordinary files as truth** — `.md` / `.qmd` stay plain UTF-8 text, editable by
-  Sublime, Git, Python, or Explorer at any time; Writedown reloads external edits safely.
+  Sublime, Git, Python, etc., at any time; Writedown reloads external edits safely
+  and never rewrites your YAML front matter.
 - **Sublime-style editing** — CodeMirror 6 with multiple cursors, column selection,
-  find/replace, quick-open, and a command palette, wired through a real command layer.
-- **Markdown & Quarto preview** — fast internal renderer; exact rendering on an explicit
-  `quarto render` (never automatic).
-- **Automatic outline** — heading tree on the right, click to jump, tracks the cursor.
-- **BibTeX citations** — type `@` for fzf-style fuzzy autocomplete against your ~7,000-entry
-  library, with matched-letter highlighting; the `.bib` file is read-only and untouched.
-- **Autosave** — atomic, conservative trailing-whitespace cleanup, hard-breaks preserved,
-  YAML front matter preserved exactly, clear conflict handling.
+  find/replace, quick-open, a command palette, and an imported Sublime color scheme;
+  plus live spellcheck and highlighting for Python, JSON, YAML, TOML, and TeX.
+- **Live Markdown & Quarto preview** — a fast internal renderer with KaTeX math,
+  cross-references, an auto-generated References list, and scroll synced to the editor.
+- **A Rendered view that runs your code** — an explicit, quick Build executes `{python}` cells
+  through a persistent Python interpreter and splices text, tables, and matplotlib
+  figures inline; a pure-Rust pipeline, no shell-out to Quarto, your file left untouched.
+- **Automatic outline** — heading tree, click to jump, tracks the cursor.
+- **First-class BibTeX citations** — type `@` for fzf-style fuzzy autocomplete against
+  your config-specified bibtex file library, with matched-letter highlighting; the `.bib` stays read-only.
+- **Live checks** — spelling, `{python}` syntax errors and duplicate Quarto labels flagged inline
+  as you type, with no external tools.
+- **CSV files**  — opened with colored columns and CSV-grid sort, search, filter enabled preview.
+- **Projects & sessions** — Sublime-style `.wdproj` projects with multi-root trees, MRU
+  quick-switch, and per-workspace session restore.
+- **Autosave** — atomic writes, conservative whitespace cleanup, hard-breaks and YAML
+  preserved exactly, clear conflict handling.
+- **Extension aware** — handles a range of text files (bibtex, json, css, html, yaml, py, c, cpp, etc.) gracefully with relevant colorization and outline summary.
+-  **Quick peek**  — look at file contents, with preview without creating permanent tab. 
+
+### How it compares
+
+Writedown is distinguished by two operating principles inspired by the Zen of Python: 
+
+* "Now is better than never." It is fast and prioritizes speed over exact rendering fidelity. A good-enough, covers-the-basics Quarto preview **now** is core design objective.
+* "Explicit is better than implicit." It never touches your files, only does what it is told, and creates no artifacts on your disk outside its `~/.writedown` directory. 
+
+Writedown overlaps with several tools but these principles distinguish it. 
+
+| vs | Writedown's edge |
+|---|---|
+| **Jupyter Lab / Jupytext** | Jupytext round-trips your document through `.ipynb` and rewrites it — normalizing and reordering YAML, injecting metadata. Writedown edits the file in place and never rewrites your front matter. |
+| **`quarto render`** | The real thing is authoritative but slow. Writedown's Rendered view is a fast, ~90%-correct pre-flight — catch citation, cross-reference, and `{python}` errors in a second, *then* run `quarto render` for the publication-exact artifact. |
+| **Sublime Text** | A superb editor (Writedown borrows its keymap and theme) but no real Markdown preview and only basic BibTeX. Writedown adds live preview, KaTeX math, and fuzzy citations over your whole library. |
+| **Obsidian** | Owns a *vault* — a `.obsidian/` folder, its own link conventions, background rewrites. Writedown adds no directories beside your files and rewrites nothing. |
+| **Typora** | Beautiful, and to be fair it also keeps your file as plain Markdown — but you edit *through* the rendered WYSIWYG view rather than seeing the raw text, it's closed-source commercial, and there's no Quarto cell execution, cross-reference, or BibTeX citation machinery. Writedown keeps the raw text in a real editor, rendering in a separate pane, and is free and open source (MIT). |
 
 ## Stack
 
 Tauri 2 · Rust backend (filesystem, atomic saves, watching, config) · TypeScript + React
 frontend · CodeMirror 6 · markdown-it preview.
+
+## Install
+
+Windows only. Download the installer from the GitHub **Releases** page and run it.
+The exe is unsigned, so SmartScreen will warn on first run ("More info" → "Run
+anyway") — the warning reflects the missing code-signing certificate, nothing else;
+Writedown makes no network requests and never phones home. Or build from source
+(needs [Rust](https://rustup.rs) and [Node](https://nodejs.org)):
+
+```
+npm install
+npm run tauri build     # → release writedown.exe + NSIS installer
+```
 
 ## Technical Details
 
@@ -213,10 +256,7 @@ Hard-won notes:
 
 ## License
 
-TBD.
-
-**Bundled data.** The spellchecker embeds the English (US) Hunspell dictionary derived from
-[SCOWL](http://wordlist.sourceforge.net) (Kevin Atkinson) with affix rules by Geoff Kuenning,
-via [wooorm/dictionaries](https://github.com/wooorm/dictionaries) (UTF-8 normalized). It is
-distributed under the permissive SCOWL and BSD licenses; the full text ships alongside the data
-at `src-tauri/assets/dict/LICENSE-en_US.txt`.
+[MIT](LICENSE) © 2026 Stephen J. Mildenhall. The open-source components Writedown
+builds on — and the bundled data, like the SCOWL-derived spell dictionary — are
+listed with their licenses in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)
+(regenerate after a dependency change with `pwsh scripts/generate-notices.ps1`).
