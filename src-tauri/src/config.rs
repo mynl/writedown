@@ -32,8 +32,9 @@ tab_size = 4
 # font_size_max = 24
 word_wrap = true
 # trim_trailing_whitespace: strip spaces/tabs from line ends when a file is saved.
-# Markdown hard breaks (two-plus trailing spaces after text) and CSV/TSV files are
-# always left untouched. Set false to preserve every byte you type.
+# true trims them all (Sublime-style); "keep-hard-breaks" spares markdown two-plus-
+# space line breaks (tip: a trailing backslash is the trim-proof hard break); false
+# disables. CSV/TSV files are never trimmed.
 trim_trailing_whitespace = true
 
 [outline]
@@ -188,9 +189,10 @@ pub struct EditorSettings {
     font_weight: Option<String>,
     /// Editor word wrap default ([editor] word_wrap). Runtime toggle is session-only.
     word_wrap: Option<bool>,
-    /// Strip trailing spaces/tabs on save ([editor] trim_trailing_whitespace, default
-    /// true). Markdown hard breaks and CSV/TSV are always exempt (store.ts saveDoc).
-    trim_trailing_whitespace: Option<bool>,
+    /// Trim trailing spaces/tabs on save ([editor] trim_trailing_whitespace), normalized
+    /// to "all" (true, the default) | "keep-hard-breaks" | "off" (false). CSV/TSV are
+    /// always exempt (store.ts saveDoc).
+    trim_trailing_whitespace: Option<String>,
     /// Editor indent width in spaces ([editor] tab_size, default 4). Indentation is spaces-only.
     tab_size: Option<u32>,
     /// Shortest nearby word Tab word-completion will offer ([editor] tab_complete_min_len,
@@ -265,7 +267,15 @@ pub fn load_editor_settings(app: tauri::AppHandle) -> Result<EditorSettings, Str
         word_wrap: ed.and_then(|e| e.get("word_wrap")).and_then(|v| v.as_bool()),
         trim_trailing_whitespace: ed
             .and_then(|e| e.get("trim_trailing_whitespace"))
-            .and_then(|v| v.as_bool()),
+            .and_then(|v| {
+                if let Some(b) = v.as_bool() {
+                    return Some(if b { "all" } else { "off" }.to_string());
+                }
+                v.as_str().map(|s| match s {
+                    "keep-hard-breaks" | "off" => s.to_string(),
+                    _ => "all".to_string(), // unknown strings fall back to the default
+                })
+            }),
         tab_size: ed
             .and_then(|e| e.get("tab_size"))
             .and_then(|v| v.as_integer())

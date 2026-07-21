@@ -496,6 +496,23 @@ messages point here for detail.
   window-state restore starts the app fullscreen. Requires the new window
   permission, so the app (or `tauri dev`) must restart once to pick it up.
 
+## [2.0.0] - 2026-07-21
+
+### Changed
+
+- **Trailing-whitespace trim now trims everything — the Sublime semantics** (and the
+  contract change behind the round number: 1.98.0 promised hard breaks were safe;
+  2.0.0 retires that promise by author decision). `trim_trailing_whitespace = true`
+  (the default) removes ALL line-end spaces and tabs on save, markdown two-space hard
+  breaks included — exactly what ST's `trim_trailing_white_space_on_save` does. Need
+  a line break that survives trimming? End the line with a backslash — CommonMark's
+  hard break, understood by the preview and by Pandoc/Quarto. Want the old cautious
+  behavior back? `trim_trailing_whitespace = "keep-hard-breaks"` spares two-plus-space
+  breaks; `false` switches trimming off. CSV/TSV files are still never trimmed
+  (trailing spaces can be data). The trim-all default is frontend and live
+  immediately; *reading* the new config values ("keep-hard-breaks"/"off") needs the
+  restarted backend.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added

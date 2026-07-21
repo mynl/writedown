@@ -89,14 +89,19 @@ const justSaved = new Set<string>();
 let fsRefreshTimer: ReturnType<typeof setTimeout> | undefined;
 
 // ---- Trailing-whitespace trim on save ([editor] trim_trailing_whitespace) ---------
-// The [ \t]+ runs at line ends that a save may delete — EXCEPT, in markdown docs, a
-// run of two-plus pure spaces after content: that is a hard line break, meaningful
-// markdown the save must never destroy. CSV/TSV are never trimmed (trailing spaces
-// can be field data). Offsets are valid for both the \n-normalized string and the CM
-// document, so the same ranges drive a string transform or an editor dispatch.
-function trailingWsRanges(text: string, path: string): { from: number; to: number }[] {
+// The [ \t]+ runs at line ends that a save may delete. Default mode trims them ALL
+// (the Sublime semantics); "keep-hard-breaks" mode spares, in markdown docs, a run
+// of two-plus pure spaces after content — the markdown hard line break. CSV/TSV are
+// never trimmed (trailing spaces can be field data). Offsets are valid for both the
+// \n-normalized string and the CM document, so the same ranges drive a string
+// transform or an editor dispatch.
+function trailingWsRanges(
+  text: string,
+  path: string,
+  keepHardBreaks: boolean,
+): { from: number; to: number }[] {
   if (isCsv(path)) return [];
-  const md = isMarkdownDoc(path);
+  const md = keepHardBreaks && isMarkdownDoc(path);
   const out: { from: number; to: number }[] = [];
   let pos = 0;
   for (const line of text.split("\n")) {
@@ -120,6 +125,14 @@ function stripRanges(text: string, ranges: { from: number; to: number }[]): stri
     last = r.to;
   }
   return out + text.slice(last);
+}
+
+/** Normalize the config value: true/"all" → "all" (the default), "keep-hard-breaks",
+ *  false/"off" → "off". A stale backend may still send the pre-2.0 boolean. */
+function trimMode(v: boolean | string | null | undefined): "all" | "keep-hard-breaks" | "off" {
+  if (v === false || v === "off") return "off";
+  if (v === "keep-hard-breaks") return "keep-hard-breaks";
+  return "all";
 }
 
 // Background word-frequency scan (issue Sa 5b) — feeds Tab completion's dictionary.
@@ -946,14 +959,15 @@ export const useStore = create<AppState>((set, get) => ({
     if (!doc || !isDirty(doc) || doc.saving) return;
 
     // Trim trailing whitespace at save ([editor] trim_trailing_whitespace, default
-    // on). Only ever runs when a save is happening anyway — a clean file is never
-    // rewritten just to trim. For the doc in the live view it is applied as a real
-    // editor edit (per-line deletions: the cursor is mapped, undo works, and the
-    // incremental parser sees tiny changes, not a whole-doc replace); background
-    // saves transform the string directly. Hard breaks and CSV are protected in
-    // trailingWsRanges.
-    if (get().editorSettings?.trim_trailing_whitespace ?? true) {
-      const ranges = trailingWsRanges(doc.content, path);
+    // on = trim ALL, Sublime-style). Only ever runs when a save is happening anyway —
+    // a clean file is never rewritten just to trim. For the doc in the live view it
+    // is applied as a real editor edit (per-line deletions: the cursor is mapped,
+    // undo works, and the incremental parser sees tiny changes, not a whole-doc
+    // replace); background saves transform the string directly. CSV is protected in
+    // trailingWsRanges; "keep-hard-breaks" spares markdown two-space line breaks.
+    const trim = trimMode(get().editorSettings?.trim_trailing_whitespace);
+    if (trim !== "off") {
+      const ranges = trailingWsRanges(doc.content, path, trim === "keep-hard-breaks");
       if (ranges.length > 0) {
         const view = getActiveView();
         if (

@@ -44,9 +44,10 @@ It makes no network requests, keeps no telemetry, needs no account, and works of
 - **CSV files**  — opened with colored columns and CSV-grid sort, search, filter enabled preview.
 - **Projects & sessions** — Sublime-style `.wdproj` projects with multi-root trees, MRU
   quick-switch, and per-workspace session restore.
-- **Autosave** — atomic writes; optional trailing-whitespace trim on save (on by
-  default, config-off) that never touches Markdown hard breaks or CSV data; YAML and
-  everything else preserved exactly; clear conflict handling.
+- **Autosave** — atomic writes; trailing-whitespace trim on save, Sublime-style (all
+  line ends, on by default; `"keep-hard-breaks"` spares Markdown two-space breaks,
+  `false` disables, CSV data is never trimmed); YAML and everything else preserved
+  exactly; clear conflict handling.
 - **Extension aware** — handles a range of text files (bibtex, json, css, html, yaml, py, c, cpp, etc.) gracefully with relevant colorization and outline summary.
 -  **Quick peek**  — look at file contents, with preview without creating permanent tab. 
 
@@ -65,7 +66,7 @@ Writedown overlaps with several tools but these principles distinguish it.
 | **`quarto render`** | The real thing is authoritative but slow. Writedown's Rendered view is a fast, ~90%-correct pre-flight — catch citation, cross-reference, and `{python}` errors in a second, *then* run `quarto render` for the publication-exact artifact. |
 | **Sublime Text** | A superb editor (Writedown borrows its keymap and theme) but no real Markdown preview and only basic BibTeX. Writedown adds live preview, KaTeX math, and fuzzy citations over your whole library. |
 | **Obsidian** | Owns a *vault* — a `.obsidian/` folder, its own link conventions, background rewrites. Writedown adds no directories beside your files and rewrites nothing. |
-| **Typora** | Beautiful, and to be fair it also keeps your file as plain Markdown — but you edit *through* the rendered WYSIWYG view rather than seeing the raw text, it's closed-source commercial, and there's no Quarto cell execution, cross-reference, or BibTeX citation machinery. Writedown keeps the raw text in a real editor, rendering in a separate pane, and is free and open source (MIT). |
+| **Typora** | Beautiful, but you edit *through* the rendered WYSIWYG view rather than seeing the raw text, it's closed-source commercial, and there's no Quarto cell execution, cross-reference, or BibTeX citation machinery. Writedown keeps the raw text in a real editor, rendering in a separate pane, and is free and open source (MIT). |
 
 ## Stack
 
