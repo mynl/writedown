@@ -21,7 +21,7 @@ Fix outstanding issues / punchups. Here is the summary and current status.
 | Sa 5a| |  case sensitive completion 
 | Sa 5b| |  private dictionary of longer words with frequency weighting 
 | Sa 8  | ❌ disaster | Tab switch syncs preview; editor stays anchored (1.89.1, 1.91.1) |
-| Sa 14  |  | Cell coloring stable (static nested lang) (1.93.1) |
+| Sa 14  |  | All colorization after a YAML block — root cause: trailing space on closing `---` (1.93.2) |
 | Tu 1 | | Add MIT license |
 | Tu 2| | Any other prep for public repo release |
 | READ | | Finalize README file for release | 

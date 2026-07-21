@@ -955,24 +955,9 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       const st = await loadSublimeTheme();
       const root = document.documentElement.style;
-      // Selection + YAML front-matter colours go through CSS vars (global CSS reliably
-      // overrides CodeMirror). Loudoun → orange keys, green values.
+      // Selection colour goes through a CSS var (global CSS reliably overrides
+      // CodeMirror). Front-matter key/value colours come from the real YAML parser.
       root.setProperty("--cm-sel", st.selection);
-      const pick = (...scopes: string[]) => {
-        for (const s of scopes) {
-          const r =
-            st.rules.find((x) => x.scope === s) ??
-            st.rules.find((x) => x.scope.split(/[ ,]+/).includes(s));
-          if (r?.foreground) return r.foreground;
-        }
-        return undefined;
-      };
-      const key = pick("entity.name.tag.yaml", "keyword");
-      const val = pick("string");
-      const delim = pick("comment");
-      if (key) root.setProperty("--wd-yaml-key", key);
-      if (val) root.setProperty("--wd-yaml-val", val);
-      if (delim) root.setProperty("--wd-yaml-delim", delim);
       set({ sublimeTheme: st });
     } catch {
       /* no Sublime install / unreadable — the built-in theme stays */

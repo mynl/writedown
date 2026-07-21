@@ -339,6 +339,29 @@ messages point here for detail.
   via pre-loaded descriptions, so highlighting is deterministic; other languages still
   lazy-load. Frontend only.
 
+## [1.93.2] - 2026-07-21
+
+### Fixed
+
+- **A YAML front-matter block no longer kills all highlighting below it** (issue Sa 14).
+  Root cause, verified against the repro file's bytes: the closing `---` carried a
+  trailing space, and lang-yaml's front-matter grammar accepts only an exact `---` — so
+  the block never closed and parser error-recovery swallowed the entire rest of the
+  document as YAML (the `#` heading after the block read as a YAML comment; every code
+  fence below went uncolored). The preview's strip regex tolerated the space, which is
+  why the preview looked right while the editor was broken. The yamlFrontmatter wrapper
+  is replaced by an in-repo tolerant parser (same node names, same DashLine styling,
+  same YAML/markdown nesting): trailing blanks are legal on both delimiters, and a
+  block that never closes is treated as NO front matter rather than swallowing the
+  document. The preview's strip is rewritten on the same shared delimiter shapes (also
+  fixing an empty `---`/`---` block, a mid-line `---foo` false close, and its
+  line-offset math), so the two panes can never again disagree about the same document.
+  The 1.93.1 static-language change was chasing this symptom but is an independent,
+  real fix for async-load striping — it stays. Removed as actually-unnecessary: the
+  dead frontmatterHighlight decoration plugin (superseded by the real YAML parser back
+  in Phase 4), its orphaned CSS, and the Sublime-theme CSS-variable plumbing that fed
+  it. Frontend only.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added

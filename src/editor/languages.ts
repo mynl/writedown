@@ -8,7 +8,8 @@ import { LanguageDescription, LanguageSupport, StreamLanguage } from "@codemirro
 import type { Extension } from "@codemirror/state";
 import { python } from "@codemirror/lang-python";
 import { json } from "@codemirror/lang-json";
-import { yaml, yamlFrontmatter } from "@codemirror/lang-yaml";
+import { yaml } from "@codemirror/lang-yaml";
+import { tolerantFrontmatter } from "./tolerantFrontmatter";
 import { toml } from "@codemirror/legacy-modes/mode/toml";
 import { stex } from "@codemirror/legacy-modes/mode/stex";
 import { declDescription } from "./decl";
@@ -45,7 +46,9 @@ export function codeLanguages(info: string): LanguageDescription | null {
 
 // Markdown with real YAML front matter parsing (spec §17), so `---` keys/values get
 // proper scopes coloured by the imported scheme (keys orange, string values green).
-const markdownExt = yamlFrontmatter({
+// tolerantFrontmatter, not lang-yaml's yamlFrontmatter: trailing blanks on a `---`
+// delimiter are legal, and an unclosed block no longer swallows the document (Sa 14).
+const markdownExt = tolerantFrontmatter({
   content: markdown({ base: markdownLanguage, codeLanguages }),
 });
 
