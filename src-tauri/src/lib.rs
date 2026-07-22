@@ -53,6 +53,7 @@ pub fn run() {
             files::delete_path,
             external::open_external,
             external::open_shell,
+            external::run_build,
             backup::list_backups,
             backup::read_backup,
             config::load_config,

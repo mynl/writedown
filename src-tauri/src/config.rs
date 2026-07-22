@@ -121,6 +121,19 @@ skip_proper_nouns = true
 # ${}
 # $$
 # '''
+
+# ── Build commands ─────────────────────────────────────────────────────────────────────────────
+# Run an external script/command against the current file — Sublime's build system. Each entry is
+# a palette "Build: <name>" verb; Ctrl+Shift+B runs the last one used (or the first configured).
+# The buffer is saved first, then the command runs THROUGH PWSH from the file's own folder, so a
+# .bat, a .ps1, an .exe, or a bare command on PATH all behave exactly as in a terminal. Variables
+# (substituted, quoted, so spaces are safe):
+#   $file  (full path)    $file_path  (its folder, = the working directory)
+#   $file_name  (name.ext)    $file_base_name  (name, no ext)    $file_extension
+# Output goes to the status bar; a failed build opens its stdout/stderr in a scratch tab.
+# A program path with spaces needs the pwsh call operator, e.g.  "& 'C:/my tools/build.bat' $file".
+# [build]
+# "pdf" = "my-pandoc-script $file"
 "#;
 
 /// `~/.writedown/`.
@@ -251,6 +264,9 @@ pub struct EditorSettings {
     keys: Option<HashMap<String, String>>,
     /// Palette insert snippets from `[snippets]`: display name → body ("" removes a built-in).
     snippets: Option<HashMap<String, String>>,
+    /// Sublime-style build commands from `[build]`: name → command line (run through pwsh
+    /// against the current file). Each becomes a "Build: <name>" palette verb.
+    build: Option<HashMap<String, String>>,
 }
 
 /// Parse `[editor]`/`[outline]`/`[tree]` font settings from `config.toml` (spec §5).
@@ -341,6 +357,11 @@ pub fn load_editor_settings(app: tauri::AppHandle) -> Result<EditorSettings, Str
                 .collect()
         }),
         snippets: val.get("snippets").and_then(|v| v.as_table()).map(|t| {
+            t.iter()
+                .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
+                .collect()
+        }),
+        build: val.get("build").and_then(|v| v.as_table()).map(|t| {
             t.iter()
                 .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
                 .collect()

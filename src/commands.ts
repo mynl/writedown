@@ -285,6 +285,8 @@ export function appCommands(): Command[] {
     { id: "proj-close", title: "Project: Close Project", run: () => s().closeProject() },
     // ---- Insert snippets (built-ins + config [snippets]) ----
     ...snippetCommands(),
+    // ---- Build commands (config [build]) ----
+    ...buildCommands(),
     // Quick switch: every managed project (~/.writedown/projects/, name-sorted), plus any
     // recent project stored elsewhere that isn't already in the managed set.
     ...projectSwitches(),
@@ -303,6 +305,16 @@ function snippetCommands(): Command[] {
       const view = getActiveView();
       if (view) insertSnippet(view, body);
     },
+  }));
+}
+
+/** "Build: <name>" palette entries from config [build] (Sublime-style build commands). */
+function buildCommands(): Command[] {
+  const builds = useStore.getState().editorSettings?.build ?? {};
+  return Object.keys(builds).map((name, i) => ({
+    id: `build-${i}`,
+    title: `Build: ${name}`,
+    run: () => void useStore.getState().runBuild(name),
   }));
 }
 

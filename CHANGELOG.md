@@ -543,6 +543,30 @@ messages point here for detail.
 - Backend `DirEntry` gained a `supported` flag and `list_directory` no longer drops
   unsupported files. Rust changed — `tauri dev` needs a restart, not just HMR.
 
+## [2.3.0] - 2026-07-22
+
+### Added
+
+- **Build system — run any script or command against the current file, Sublime-style.**
+  Define commands in a new `[build]` config table (name → command line); each becomes a
+  palette **"Build: <name>"** verb, and **Ctrl+Shift+B** runs the last-used (or first)
+  one. The buffer is saved first, then the command runs **through PowerShell** (`pwsh`)
+  from the file's own folder — so a `.bat`, a `.ps1`, an `.exe`, or a bare command on
+  PATH all behave exactly as they would in a terminal (no per-type dispatch). The
+  variables `$file`, `$file_path`, `$file_name`, `$file_base_name`, `$file_extension`
+  are substituted and quoted, so paths with spaces are safe. Timing and exit code show
+  in the status bar; a failed build opens its captured stdout/stderr in a scratch tab.
+  This is the clean way to wire up, e.g., a pandoc-to-PDF script — Writedown is the
+  button, your script owns the toolchain (engine, bibliography, CSL, …).
+
+### Changed
+
+- **The internal Python-cell render is now "Render", on Ctrl+Shift+Enter** (it was
+  "Build" on Ctrl+Shift+B), which frees Ctrl+Shift+B for the new build system — matching
+  Sublime, where "build" means running an external command. Both are rebindable in
+  `[keys]` (actions `render` and `build`), and the palette keeps "Render Document (run
+  code cells)".
+
 ## [2.2.0] - 2026-07-22
 
 ### Added

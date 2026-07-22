@@ -145,6 +145,12 @@ export const openExternal = (path: string) => invoke<void>("open_external", { pa
 /** Open the configured shell ([tools] shell, default pwsh) in a new console at `dir`. */
 export const openShell = (dir: string) => invoke<void>("open_shell", { dir });
 
+/** Result of a [build] command: exit code (null if killed), captured output, elapsed ms. */
+export type BuildResult = { code: number | null; stdout: string; stderr: string; ms: number };
+/** Run a [build] command line against `file` through pwsh, from the file's folder. */
+export const buildFile = (command: string, file: string) =>
+  invoke<BuildResult>("run_build", { command, file });
+
 /** Native folder picker. Returns the chosen absolute path, or null if cancelled. */
 export async function pickFolder(defaultPath?: string): Promise<string | null> {
   const result = await open({ directory: true, multiple: false, defaultPath });
@@ -254,6 +260,8 @@ export type EditorSettings = {
   keys: Record<string, string> | null;
   /** Palette insert snippets from `[snippets]`: display name → body ("" removes a built-in). */
   snippets: Record<string, string> | null;
+  /** Sublime-style build commands from `[build]`: name → command line (run via pwsh). */
+  build: Record<string, string> | null;
 };
 
 export const loadEditorSettings = () => invoke<EditorSettings>("load_editor_settings");

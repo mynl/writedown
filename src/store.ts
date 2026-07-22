@@ -25,6 +25,7 @@ import {
   saveSession,
   pickSavePath,
   openExternal,
+  buildFile,
   helpPath,
   personalDictionaryPath,
   readFile,
@@ -65,6 +66,9 @@ const samePath = (a: string, b: string) =>
 /** Pending auto-clear for the transient status-bar message (one at a time; a new
  *  message supersedes the old timer). */
 let statusMsgTimer: number | undefined;
+
+/** Last-run [build] variant, so Ctrl+Shift+B (no name) re-runs it (session-only). */
+let lastBuildName: string | undefined;
 
 const normPath = (p: string) => p.replace(/\\/g, "/").toLowerCase().replace(/\/+$/, "");
 /** Is `p` inside `root`? Case- and separator-insensitive (Windows). */
@@ -343,6 +347,10 @@ type AppState = {
   saveDoc: (path: string) => Promise<void>;
   saveActive: () => Promise<void>;
   saveAll: () => Promise<void>;
+  /** Run a `[build]` command (Sublime-style) on the active file: save it, spawn the
+   *  command via pwsh from its folder, report exit/timing in the status bar, and open
+   *  captured output in a scratch tab on failure. No name → the last-run or first one. */
+  runBuild: (name?: string) => Promise<void>;
   openPalette: (mode: "files" | "commands" | "projects") => void;
   closePalette: () => void;
   /** Toggle the keyboard-shortcuts help overlay (F1). */
@@ -1044,6 +1052,47 @@ export const useStore = create<AppState>((set, get) => ({
     if (!a) return;
     if (isScratch(a)) await get().saveAs(a); // Ctrl+S on an untitled buffer → Save As
     else await get().saveDoc(a);
+  },
+
+  runBuild: async (name) => {
+    const builds = get().editorSettings?.build ?? {};
+    const names = Object.keys(builds);
+    if (names.length === 0) {
+      get().showStatusMessage("No [build] commands — add one under [build] in config.toml");
+      return;
+    }
+    // Explicit name → last-run → first configured.
+    const pick =
+      (name && names.includes(name) && name) ||
+      (lastBuildName && names.includes(lastBuildName) && lastBuildName) ||
+      names[0];
+    const command = builds[pick];
+    const a = get().activePath;
+    if (!a || isScratch(a)) {
+      get().showStatusMessage("Save the file before building");
+      return;
+    }
+    lastBuildName = pick;
+    await get().saveActive(); // build the bytes on disk, not the live buffer
+    get().showStatusMessage(`Build: ${pick} — running…`);
+    try {
+      const r = await buildFile(command, a);
+      const secs = (r.ms / 1000).toFixed(1);
+      const ok = r.code === 0;
+      get().showStatusMessage(
+        ok
+          ? `Build: ${pick} — done (${secs}s)`
+          : `Build: ${pick} — failed, exit ${r.code ?? "?"} (${secs}s)`,
+      );
+      // Show captured output on failure so the error is readable; a clean build stays quiet.
+      const output = [r.stdout, r.stderr].map((o) => o.trimEnd()).filter(Boolean).join("\n");
+      if (!ok && output) {
+        get().newScratch({ content: `Build "${pick}" — exit ${r.code ?? "?"}\n\n${output}\n`, ext: "txt" });
+      }
+    } catch (e) {
+      get().showStatusMessage(`Build: ${pick} — could not start`);
+      set({ configError: `build "${pick}": ${String(e)}` });
+    }
   },
 
   // Autosave every dirty document (window blur, idle, app close — spec §12).
