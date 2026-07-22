@@ -33,6 +33,7 @@ features/
 tmp/
 playground/
 writedown-issues.md
+writedown-notes.md
 
 # sublime
 *.sublime*

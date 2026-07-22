@@ -5,7 +5,8 @@ import "katex/dist/katex.min.css";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { getActiveView, onActiveViewChange } from "../editor/editorView";
-import { logError } from "../api";
+import { logError, openExternal } from "../api";
+import { isBinaryExt } from "../editor/languages";
 import { useStore } from "../store";
 import type { HighlightStyle } from "@codemirror/language";
 import { highlightStyleFor } from "../editor/sublimeTheme";
@@ -137,6 +138,59 @@ function processImages(html: string, baseDir?: string): string {
   return changed ? doc.body.innerHTML : html;
 }
 
+// Resolve a link href to a local filesystem path so a click can open the file (issue
+// We/2.2.0). Returns the RAW absolute path (not an asset URL — that path is handed to
+// openFile/openExternal, which read/route it), or null for anything that is NOT a local
+// file: real URL schemes (http/https/mailto/…), protocol-relative `//host`, posix-absolute
+// `/path`, and pure `#anchor` links (handled separately in onClick). Mirrors resolveAssetSrc:
+// a bare drive letter (`C:`) looks like a URL scheme, so the Windows-absolute test comes
+// first. Never touches the file itself.
+function resolveLocalPath(href: string, baseDir?: string): string | null {
+  let s = href;
+  try {
+    s = decodeURIComponent(href);
+  } catch {
+    /* malformed %-sequence — fall back to the raw href */
+  }
+  if (!s || s.startsWith("#")) return null; // in-page anchor — onClick scrolls it
+  const isAbsWin = /^[a-zA-Z]:[\\/]/.test(s) || s.startsWith("\\\\");
+  // A real scheme / `//host` / posix-absolute is not a local file — but a drive letter
+  // (`C:`) matches the scheme pattern, so exclude the Windows-absolute case first.
+  if (!isAbsWin && (/^[a-z][a-z0-9+.-]*:/i.test(s) || s.startsWith("//") || s.startsWith("/"))) {
+    return null;
+  }
+  // We open the file, not a sub-location: drop a trailing `#fragment` (e.g. notes.md#sec).
+  const hash = s.indexOf("#");
+  if (hash > 0) s = s.slice(0, hash);
+  if (isAbsWin) return s.replace(/\//g, "\\");
+  if (!baseDir) return null; // relative link with no doc folder (scratch buffer)
+  const out: string[] = [];
+  for (const seg of `${baseDir}/${s}`.replace(/\\/g, "/").split("/")) {
+    if (seg === "" || seg === ".") continue;
+    if (seg === "..") out.pop();
+    else out.push(seg);
+  }
+  return out.join("\\");
+}
+
+// Stash the resolved local-file target of each link in `data-wd-file` so onClick can open
+// it. Runs BEFORE DOMPurify (like processImages) because a bare `C:\…` href reads as an
+// unknown scheme and would be stripped by the sanitizer — but data-* attributes survive it.
+// http(s)/`#`/mailto links are left untouched (onClick already handles the first two).
+function processLinks(html: string, baseDir?: string): string {
+  if (!html.includes("<a")) return html;
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  let changed = false;
+  doc.querySelectorAll("a").forEach((a) => {
+    const local = resolveLocalPath(a.getAttribute("href") ?? "", baseDir);
+    if (local) {
+      a.setAttribute("data-wd-file", local);
+      changed = true;
+    }
+  });
+  return changed ? doc.body.innerHTML : html;
+}
+
 // ---- mermaid (lazy) --------------------------------------------------------------------
 // Mermaid is ~2.8 MB, so it is dynamic-import()ed — it loads only when a document actually
 // contains a diagram, as its own Vite chunk, and never touches app startup. Rendered SVG is
@@ -234,7 +288,7 @@ function makeBlockNode(block: RenderedBlock, baseDir?: string): HTMLElement {
   const ck = (baseDir ?? "") + "\n" + block.key;
   let clean = sanitizedCache.get(ck);
   if (clean === undefined) {
-    clean = DOMPurify.sanitize(processImages(block.html, baseDir));
+    clean = DOMPurify.sanitize(processLinks(processImages(block.html, baseDir), baseDir));
     if (sanitizedCache.size >= SANITIZED_CACHE_MAX) {
       sanitizedCache.delete(sanitizedCache.keys().next().value as string);
     }
@@ -814,7 +868,8 @@ export function Preview({
   }, []);
 
   // External links open in the default browser; `#anchor` links (citations, crossrefs,
-  // footnotes) scroll within the preview; all other navigation is suppressed.
+  // footnotes) scroll within the preview; a link to a local file opens it in Writedown;
+  // all other navigation is suppressed.
   function onClick(e: React.MouseEvent) {
     const a = (e.target as HTMLElement).closest("a");
     if (!a) return;
@@ -834,6 +889,15 @@ export function Preview({
         };
         rescroll();
       }
+    } else if (a.dataset.wdFile) {
+      // A link to a local file (resolved pre-sanitize in processLinks). openFile routes
+      // md/qmd/text/csv → a tab, pdf/djvu → the external viewer, images → the image tab;
+      // binaries (zip/exe/…) go straight to the external opener, mirroring the file tree.
+      const p = a.dataset.wdFile;
+      const act = isBinaryExt(p)
+        ? openExternal(p)
+        : useStore.getState().openFile(p);
+      void act.catch((err) => useStore.setState({ configError: String(err) }));
     }
   }
 

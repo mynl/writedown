@@ -543,6 +543,22 @@ messages point here for detail.
 - Backend `DirEntry` gained a `supported` flag and `list_directory` no longer drops
   unsupported files. Rust changed — `tauri dev` needs a restart, not just HMR.
 
+## [2.2.0] - 2026-07-22
+
+### Added
+
+- **Local-file links open when clicked in the preview.** A Markdown link whose target
+  is a file — `[notes](sub/notes.md)`, `[report](C:/docs/report.pdf)`,
+  `[pic](img/diagram.png)` — now opens that file: Markdown/Quarto/text/CSV in a
+  Writedown tab, PDF/DjVu in the configured external viewer, images in the in-app image
+  viewer. `http(s)://` links still open in the browser and `#anchor` links still scroll
+  the preview, unchanged. Works in both the live and Rendered previews. Relative targets
+  resolve against the document's folder, so an unsaved scratch buffer (which has no
+  folder) leaves its relative links inert, exactly as relative images already do. The
+  target is resolved before sanitizing and stashed in a `data-` attribute, because a
+  bare drive-letter href (`C:\…`) would otherwise be stripped as an unknown URL scheme;
+  no new permissions are needed and there is no cost on the typing path.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added
