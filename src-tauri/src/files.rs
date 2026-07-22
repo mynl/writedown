@@ -13,6 +13,9 @@ const SUPPORT_EXTS: &[&str] = &[
     "agg", "dec", "decl", // aggregate Dec Language programs (colorized via editor/decl.ts)
     "pdf", "djvu", // never opened in a tab — routed to [tools] pdf_viewer
 ];
+/// Images opened in the in-app viewer tab. Keep in sync with `isImageDoc` in
+/// src/editor/languages.ts.
+const IMAGE_EXTS: &[&str] = &["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico", "avif"];
 
 #[derive(Serialize)]
 pub struct DirEntry {
@@ -20,6 +23,9 @@ pub struct DirEntry {
     path: String,
     is_dir: bool,
     ext: Option<String>,
+    /// Writedown can open this in a tab (text whitelist or image viewer). Unsupported
+    /// files are still listed — the tree renders them muted.
+    supported: bool,
 }
 
 /// `[files] show_hidden` from config.toml, default **true** — dot files/dirs (`.writedown`,
@@ -36,8 +42,9 @@ fn show_hidden(app: &tauri::AppHandle) -> bool {
 
 /// List the immediate children of `path` (lazy — the tree expands on demand so it
 /// stays responsive on directories with thousands of files, spec §12). Directories
-/// first, then supported files, each alphabetical (case-insensitive). Unsupported
-/// files are omitted; dot entries are shown unless `[files] show_hidden = false`.
+/// first, then files, each alphabetical (case-insensitive). Every file is listed;
+/// `supported` marks what Writedown opens in a tab and the tree mutes the rest
+/// (issue We 3). Dot entries are shown unless `[files] show_hidden = false`.
 #[tauri::command]
 pub fn list_directory(app: tauri::AppHandle, path: String) -> Result<Vec<DirEntry>, String> {
     let read = std::fs::read_dir(&path).map_err(|e| format!("read_dir {path}: {e}"))?;
@@ -56,21 +63,20 @@ pub fn list_directory(app: tauri::AppHandle, path: String) -> Result<Vec<DirEntr
             .extension()
             .map(|e| e.to_string_lossy().to_lowercase());
 
-        if !is_dir {
-            let keep = ext
+        let supported = is_dir
+            || ext
                 .as_deref()
-                .map(|e| DOC_EXTS.contains(&e) || SUPPORT_EXTS.contains(&e))
+                .map(|e| {
+                    DOC_EXTS.contains(&e) || SUPPORT_EXTS.contains(&e) || IMAGE_EXTS.contains(&e)
+                })
                 .unwrap_or(false);
-            if !keep {
-                continue;
-            }
-        }
 
         entries.push(DirEntry {
             name,
             path: full.to_string_lossy().to_string(),
             is_dir,
             ext,
+            supported,
         });
     }
 

@@ -140,6 +140,12 @@ pub fn ensure_setup(app: &tauri::AppHandle) -> Result<(), String> {
     if !cfg.exists() {
         std::fs::write(&cfg, DEFAULT_CONFIG).map_err(|e| format!("write config.toml: {e}"))?;
     }
+    // The bundled user guide, refreshed every launch so it always matches the running
+    // build (derived/disposable — edits to this copy are expendable; HELP.md in the
+    // repo is canonical).
+    let help = dir.join("help.md");
+    std::fs::write(&help, include_str!("../../HELP.md"))
+        .map_err(|e| format!("write help.md: {e}"))?;
     Ok(())
 }
 
@@ -159,6 +165,12 @@ pub fn load_config(app: tauri::AppHandle) -> Result<String, String> {
 #[tauri::command]
 pub fn config_path(app: tauri::AppHandle) -> Result<String, String> {
     Ok(writedown_dir(&app)?.join("config.toml").to_string_lossy().to_string())
+}
+
+/// Absolute path to the bundled user guide's launch-time copy (for "Open Help").
+#[tauri::command]
+pub fn help_path(app: tauri::AppHandle) -> Result<String, String> {
+    Ok(writedown_dir(&app)?.join("help.md").to_string_lossy().to_string())
 }
 
 /// Append a line to `~/.writedown/logs/writedown.log` (spec §25). Used by the frontend's

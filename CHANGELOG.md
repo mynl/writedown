@@ -513,6 +513,36 @@ messages point here for detail.
   immediately; *reading* the new config values ("keep-hard-breaks"/"off") needs the
   restarted backend.
 
+## [2.1.0] - 2026-07-22
+
+### Added
+
+- **Help system (We 2).** `HELP.md` — a user guide checked into the repo and embedded
+  in the exe — is rewritten to `~/.writedown/help.md` at every launch, so the in-app
+  copy always matches the running build. Three ways in: palette **"Open Help
+  (help.md)"**, the new **?** button to the right of the Split toggle, and a pointer
+  in the footer of the F1 shortcuts overlay. It opens as a normal markdown tab, so
+  the preview renders it. The README links the same file on GitHub.
+- **The file tree lists every file (We 3)**, not just the supported-extension
+  whitelist — previously anything else (even LICENSE, extensionless) was silently
+  omitted. Files Writedown has no syntax for appear muted and still open as plain
+  text; obviously-binary files (exe/dll/msi/zip/archives/fonts/media …) are muted
+  and inert, with right-click → Open Externally. Zips deliberately stay closed
+  (browsing inside archives: juice not worth the squeeze — author decision).
+  Quick-open (Ctrl+Shift+Q) keeps its whitelist so it stays free of noise. Listing
+  is still lazy per level; muting is pure CSS — no baseline cost.
+- **In-app image viewer (We 3).** png/jpg/jpeg/gif/webp/svg/bmp/ico/avif open in a
+  tab (single-click previews, double-click pins, like any file) shown full-pane.
+  The bytes stream through the Tauri asset protocol, never the text pipeline, and
+  save paths refuse image docs outright — an image on disk can never be written by
+  the app (spec §2). External-change auto-refresh of an open image is out of scope
+  this pass (close/reopen refreshes); images stay out of quick-open.
+
+### Changed
+
+- Backend `DirEntry` gained a `supported` flag and `list_directory` no longer drops
+  unsupported files. Rust changed — `tauri dev` needs a restart, not just HMR.
+
 ## [1.80.0] - 2026-07-16
 
 ### Added

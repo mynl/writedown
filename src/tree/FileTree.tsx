@@ -1,6 +1,6 @@
 import { memo, useEffect, useState } from "react";
-import { listDirectory, openShell, type Entry } from "../api";
-import { isExternalDoc } from "../editor/languages";
+import { listDirectory, openExternal, openShell, type Entry } from "../api";
+import { isBinaryExt, isExternalDoc, isImageDoc } from "../editor/languages";
 import { useStore } from "../store";
 
 function icon(entry: Entry, expanded: boolean): string {
@@ -34,6 +34,16 @@ function icon(entry: Entry, expanded: boolean): string {
     case "pdf":
     case "djvu":
       return "📄";
+    case "png":
+    case "jpg":
+    case "jpeg":
+    case "gif":
+    case "webp":
+    case "svg":
+    case "bmp":
+    case "ico":
+    case "avif":
+      return "🖼";
     default:
       return "·";
   }
@@ -100,17 +110,20 @@ function TreeNode({
       setExpanded(next);
       useStore.getState().setPathExpanded(entry.path, next); // remembered across remounts
       // Children load via the lazy effect above.
-    } else if (!isExternalDoc(entry.path)) {
+    } else if (!isExternalDoc(entry.path) && !isBinaryExt(entry.path)) {
       // Single-click = preview (Sublime): opens in the transient preview tab.
       // PDF/DjVu never open in a tab — double-click (or right-click) launches the
       // configured external viewer instead; a single click is deliberately inert.
+      // Known-binary files (exe/dll/zip/…) are fully inert: right-click → Open Externally.
       openFile(entry.path, true).catch((e) => setError(String(e)));
     }
   }
 
   function onDoubleClick() {
-    // Double-click = open permanently (PDF/DjVu: openFile routes to the external viewer).
-    if (!entry.is_dir) openFile(entry.path, false).catch((e) => setError(String(e)));
+    // Double-click = open permanently (PDF/DjVu: openFile routes to the external viewer;
+    // known-binary files stay inert here too).
+    if (!entry.is_dir && !isBinaryExt(entry.path))
+      openFile(entry.path, false).catch((e) => setError(String(e)));
   }
 
   return (
@@ -119,7 +132,8 @@ function TreeNode({
         className={
           "tree-row" +
           (entry.is_dir ? " folder" : " file") +
-          (isActive ? " active" : "")
+          (isActive ? " active" : "") +
+          (!entry.is_dir && !entry.supported ? " unsupported" : "")
         }
         style={{ paddingLeft: 6 + depth * 14 }}
         onClick={onClick}
@@ -173,6 +187,7 @@ export const FileTree = memo(function FileTree() {
           path: folderRoot,
           is_dir: true,
           ext: null,
+          supported: true,
         }}
       />
     </div>
@@ -235,12 +250,21 @@ export function TreeContextMenu() {
         {item("Open Shell Here", () =>
           openShell(dir).catch((e) => useStore.setState({ configError: String(e) })),
         )}
-        {!entry.is_dir && isExternalDoc(entry.path) && (
-          <>
-            <div className="ctx-sep" />
-            {item("Open Externally", () => void useStore.getState().openFile(entry.path, false))}
-          </>
-        )}
+        {!entry.is_dir &&
+          (isExternalDoc(entry.path) || isBinaryExt(entry.path) || isImageDoc(entry.path)) && (
+            <>
+              <div className="ctx-sep" />
+              {item("Open Externally", () =>
+                // PDF/DjVu go through openFile (it routes to [tools] pdf_viewer);
+                // binaries and images hand straight to the OS default app.
+                isExternalDoc(entry.path)
+                  ? void useStore.getState().openFile(entry.path, false)
+                  : void openExternal(entry.path).catch((e) =>
+                      useStore.setState({ configError: String(e) }),
+                    ),
+              )}
+            </>
+          )}
         <div className="ctx-sep" />
         {item("Rename…", () => renameEntry(entry))}
         {item("Delete", () => void deleteEntry(entry))}
@@ -268,6 +292,7 @@ export function ProjectTree() {
             path: f,
             is_dir: true,
             ext: null,
+            supported: true,
           }}
         />
       ))}

@@ -1,0 +1,122 @@
+# Writedown — User Guide
+
+Writedown is a fast, local Markdown and Quarto editor for Windows. Ordinary files on
+disk are the source of truth: no vault, no database, no cloud, no telemetry, and the
+app never renames, moves, or rewrites a file behind your back.
+
+This guide ships with the app: it is written to `~/.writedown/help.md` at every
+launch (so this copy always matches the running build — edits made here are
+overwritten). The canonical copy is `HELP.md` in the repository.
+
+## The three doors
+
+- **Ctrl+Shift+P** — the command palette. Every command lives here; when in doubt,
+  open the palette and type a few letters. With an empty query it lists your
+  most-recently-used commands, so **Ctrl+Shift+P, Enter** repeats the last one.
+- **F1** — the keyboard-shortcuts overlay, generated live from your actual keymap
+  (defaults plus your `[keys]` overrides), so it is never out of date.
+- **?** (top right, next to the Split toggle) — opens this guide.
+
+## Opening things
+
+- **Open Folder** (palette) makes a folder the sidebar's file explorer.
+- **Projects** are Sublime-style `.wdproj` files: a named set of folders. Create,
+  switch (MRU quick-switch), save, and delete them from the palette; the sidebar's
+  Folder/Project tabs and the dropdown at the bottom switch between them. Project
+  files are fully managed — you are never asked where to save one.
+- **Ctrl+Shift+Q** opens your quick file (`[files] quick_file` in config).
+- The file tree lists **every** file. Muted entries are files Writedown has no
+  syntax support for — they still open as plain text. Obviously binary files
+  (exe, dll, zip, media, fonts) are muted and inert: right-click → Open Externally.
+  Images (png/jpg/gif/webp/svg/bmp/ico/avif) open in an in-app viewer tab.
+  PDF/DjVu route to your configured `[tools] pdf_viewer`.
+
+## Tabs, Sublime-style
+
+- **Single-click** a file: opens in the *preview tab* (italic title). There is at
+  most one preview tab; previewing another file reuses it. **Double-click** (or any
+  edit) makes the tab permanent.
+- Drag tabs to reorder. **Ctrl+W** saves and closes; **Ctrl+Shift+T** reopens the
+  last closed tab. **Ctrl+Shift+N** opens a new scratch buffer (in memory until you
+  Save As).
+
+## Editing
+
+The editor is CodeMirror with a Sublime keymap: multiple cursors, **Ctrl+D**
+select-next-occurrence, line manipulation, and the rest — press **F1** for the full,
+truthful list (bold/italic, table reformat **Ctrl+Alt+Shift+T**, title case, and
+more live in its Markdown/Editing sections). Typing a quote, bracket, or `*` over a
+selection wraps the selection.
+
+- **Tab completion**: type the first letters of a long word and press **Tab** — it
+  completes from words near your cursor first, then from a frequency dictionary
+  built in the background from the files you open. Case adapts to what you typed.
+- **Snippets**: palette → "Insert: …" (aligned `$$` environment, `{python}` cell,
+  and any you define under `[snippets]` in config, with tab-through fields).
+- **Trailing whitespace** is trimmed on save by default, Sublime semantics
+  (`[editor] trim_trailing_whitespace`; CSV/TSV are never trimmed).
+- Font size: **Ctrl+wheel** or Ctrl+= / Ctrl+- (session-only zoom, with configured
+  min/max bounds); "Set as Default" bakes it into config.
+
+## Preview and rendering
+
+- The right-hand pane shows a live preview (markdown-it + KaTeX math, footnotes,
+  scroll sync both ways). **Ctrl+Shift+L** cycles editor / split / preview; the
+  Split button top right does the same.
+- Image paths in documents resolve relative to the file; a path containing a raw
+  space needs `%20` or angle brackets (strict CommonMark).
+- CSV/TSV tabs show a data grid instead (search, filters, sort, export).
+- The **Rendered** tab runs your Quarto-style `{python}` cells: palette → "Render
+  Document". The interpreter comes from `[render] python`, overridable per document
+  with `wd-python:` in the YAML front matter. A Stale badge appears when the buffer
+  has changed since the render.
+- Python cell syntax and duplicate Quarto labels are checked automatically (~½ s
+  after you stop typing) and appear as squiggles.
+
+## Citations (BibTeX)
+
+Point `[bibliography]` at your `.bib` file (it is watched, and never modified).
+Then type **@** and a few letters for ranked autocomplete; **Ctrl+Shift+C** opens
+the citation picker; hovering a key shows the title. "Extract refs" collects the
+entries a document cites into a scratch `.bib`. Quarto cross-reference prefixes
+(`@sec-`, `@fig-`, `@tbl-`, …) are left alone.
+
+## Spelling
+
+Offline en-US checking with suggestions. Add words to your personal dictionary from
+the tooltip or palette; saving the dictionary file applies immediately. ALL-CAPS
+words and short words are skipped. Toggle for the session from the status bar.
+
+## Saving and safety
+
+- Saves are **atomic** (temp file + rename) and every save snapshots the previous
+  version first — palette → "Previous Versions" restores byte-perfect.
+- Autosave fires on window blur and tab switch; **Ctrl+S** any time.
+- If a file changes on disk outside Writedown, a clean tab reloads automatically;
+  a tab with unsaved edits shows a conflict notice instead — your edits are never
+  clobbered, in either direction.
+- Writedown never renames or reorganizes files, never touches YAML front matter
+  formatting, and works fully offline.
+
+## View modes
+
+**F11** full screen; **Shift+F11** distraction-free (sidebars hidden, layout
+restored on exit); **Ctrl+K Ctrl+B** sidebar; **Ctrl+K Ctrl+O** outline. The
+outline pane doubles as a click-to-jump table of contents.
+
+## Configuration
+
+Everything lives in `~/.writedown/config.toml` — palette → "Edit Config" opens it,
+and saving applies live (fonts, colors, keymap, spelling, tools). Import a Sublime
+Text color scheme for the editor theme. Remap editor keys under `[keys]`; palette →
+"Keybindings: Write All Shortcuts to Scratch File" gives you the full current map
+to paste from. App state under `~/.writedown/` is disposable — your documents are
+never copied there.
+
+Multiple Writedown windows are fine — sessions are kept per workspace, and the
+files themselves are the single source of truth.
+
+## More
+
+- **About Writedown** (palette): version and components.
+- Issues and source: <https://github.com/mynl/writedown>.

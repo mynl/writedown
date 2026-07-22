@@ -57,6 +57,7 @@ pub fn run() {
             backup::read_backup,
             config::load_config,
             config::config_path,
+            config::help_path,
             config::load_editor_settings,
             config::log_error,
             session::load_session,

@@ -109,5 +109,16 @@ export const isCsv = (path: string): boolean => /\.(csv|tsv)$/i.test(path);
  *  viewer ([tools] pdf_viewer) instead. */
 export const isExternalDoc = (path: string): boolean => /\.(pdf|djvu)$/i.test(path);
 
+/** Images open in the in-app viewer tab: no text is ever read — the asset protocol
+ *  streams the bytes — and saveDoc refuses image paths, so the file cannot be written
+ *  (spec §2). Keep in sync with IMAGE_EXTS in src-tauri/src/files.rs. */
+export const isImageDoc = (path: string): boolean =>
+  /\.(png|jpe?g|gif|webp|svg|bmp|ico|avif)$/i.test(path);
+
+/** Obviously-binary files: listed in the tree (muted) but inert — never opened as
+ *  text; right-click offers Open Externally. Zip stays here by decision (We 3). */
+export const isBinaryExt = (path: string): boolean =>
+  /\.(exe|dll|msi|bin|obj|pdb|pyc|pyd|wasm|zip|7z|rar|gz|tgz|tar|iso|jar|class|lnk|woff2?|ttf|otf|eot|mp3|mp4|mov|avi|mkv)$/i.test(path);
+
 /** Markdown/Quarto docs get the inline `$…$` / `$$…$$` math layer. */
 export const isMarkdownDoc = (path: string): boolean => /\.(md|markdown|qmd)$/i.test(path);

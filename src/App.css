@@ -1289,3 +1289,37 @@ body {
 .versions-item.active .versions-preview {
   color: rgba(255, 255, 255, 0.85);
 }
+
+/* Unsupported files (We 3): listed but muted. Truly-text ones still open as plain
+   text; known-binary rows are inert with right-click Open Externally. */
+.tree-row.unsupported .tree-name {
+  color: var(--muted);
+}
+
+/* In-app image viewer tab (We 3). Fills the pane; the bitmap letterboxes inside. */
+.image-viewer {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  padding: 12px;
+}
+.image-viewer img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+/* Inline link-style button (F1 overlay footer → full user guide). */
+.help-link {
+  font: inherit;
+  color: var(--accent, #4a90d9);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}

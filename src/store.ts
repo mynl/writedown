@@ -25,6 +25,7 @@ import {
   saveSession,
   pickSavePath,
   openExternal,
+  helpPath,
   personalDictionaryPath,
   readFile,
   recentProjects as fetchRecentProjects,
@@ -48,7 +49,7 @@ import {
   seedDocPositions,
   snapshotDocPositions,
 } from "./editor/editorView";
-import { isCsv, isExternalDoc, isMarkdownDoc } from "./editor/languages";
+import { isCsv, isExternalDoc, isImageDoc, isMarkdownDoc } from "./editor/languages";
 import { scheduleScan } from "./editor/wordFreq";
 import { cssFontWeight } from "./fontWeight";
 
@@ -299,6 +300,8 @@ type AppState = {
   openQuickFile: () => Promise<void>;
   /** Open the personal spelling dictionary (created + seeded on first use) in a tab. */
   openPersonalDictionary: () => Promise<void>;
+  /** Open the user guide (`~/.writedown/help.md`, rewritten from HELP.md each launch). */
+  openHelp: () => Promise<void>;
   /** Re-read the personal dictionary from disk and re-lint the active view. */
   reloadPersonalDictionary: () => Promise<void>;
   /** Transient status-bar message (bottom-left, replaces the path); auto-clears ~20 s. */
@@ -568,6 +571,14 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
+  openHelp: async () => {
+    try {
+      await get().openFile(await helpPath(), false);
+    } catch (e) {
+      set({ configError: `help — ${String(e)}` });
+    }
+  },
+
   reloadPersonalDictionary: async () => {
     try {
       await reloadSpelling();
@@ -748,7 +759,10 @@ export const useStore = create<AppState>((set, get) => ({
       if (dropPreview) get().syncExtraWatch(); // a dropped preview may hold a watch
       return;
     }
-    const raw = await readFile(path);
+    // Images: a normal tab, but no text is read — the viewer streams the bytes via the
+    // asset protocol. content stays "" (never dirty) and saveDoc refuses image paths,
+    // so the file on disk can never be written (spec §2).
+    const raw = isImageDoc(path) ? "" : await readFile(path);
     const eol: Doc["eol"] = raw.includes("\r\n") ? "\r\n" : "\n";
     const content = raw.split("\r\n").join("\n");
     const doc: Doc = {
@@ -782,7 +796,7 @@ export const useStore = create<AppState>((set, get) => ({
       return { tabs: [...s.tabs, doc], activePath: path };
     });
     get().syncExtraWatch(); // an out-of-root file gets its own watch
-    scheduleWordScan(path); // background: feed Tab completion's frequency dictionary
+    if (!isImageDoc(path)) scheduleWordScan(path); // background: feed Tab completion's frequency dictionary
   },
 
   setActive: (path) => {
@@ -810,6 +824,7 @@ export const useStore = create<AppState>((set, get) => ({
     }),
 
   reloadDoc: async (path) => {
+    if (isImageDoc(path)) return; // the viewer streams from disk — no text to reload
     if (!get().tabs.some((t) => t.path === path)) return;
     try {
       const raw = await readFile(path);
@@ -955,6 +970,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   saveDoc: async (path) => {
     if (isScratch(path)) return; // untitled buffers have no disk path — use Save As
+    if (isImageDoc(path)) return; // viewer tabs hold no text — never write an image (spec §2)
     const doc = get().tabs.find((t) => t.path === path);
     if (!doc || !isDirty(doc) || doc.saving) return;
 

@@ -214,6 +214,7 @@ export function appCommands(): Command[] {
     { id: "distraction-exit", title: "Exit Distraction Free (Shift+F11 toggles)", run: () => s().exitDistractionFree() },
     { id: "toggle-word-wrap", title: "Toggle Word Wrap", run: () => toggleWordWrap() },
     { id: "toggle-preview", title: "Toggle Preview (editor / split / preview)", run: () => s().cycleView() },
+    { id: "open-help", title: "Open Help (help.md)", run: () => void s().openHelp() },
     { id: "help-shortcuts", title: "Help: Keyboard Shortcuts", run: () => s().toggleHelp() },
     { id: "about", title: "About Writedown", run: () => s().toggleAbout() },
     {

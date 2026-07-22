@@ -8,6 +8,8 @@ export type Entry = {
   path: string;
   is_dir: boolean;
   ext: string | null;
+  /** Openable in a tab (text whitelist or image viewer); the tree mutes the rest. */
+  supported: boolean;
 };
 
 export const logError = (message: string) =>
@@ -262,6 +264,9 @@ export const wordFreqLoad = () => invoke<string>("word_freq_load");
 export const wordFreqSave = (json: string) => invoke<void>("word_freq_save", { json });
 
 export const configPath = () => invoke<string>("config_path");
+
+/** Absolute path of the user guide's launch-time copy (~/.writedown/help.md). */
+export const helpPath = () => invoke<string>("help_path");
 
 /** Verbatim BibTeX blocks for `keys` from the configured .bib (read-only); missing keys
  *  come back as `% NOT FOUND:` comment lines. */

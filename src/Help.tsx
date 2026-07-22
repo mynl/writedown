@@ -12,6 +12,7 @@ type Row = { keys: string; description: string; action?: string };
 export function Help() {
   const open = useStore((s) => s.helpOpen);
   const toggleHelp = useStore((s) => s.toggleHelp);
+  const openHelp = useStore((s) => s.openHelp);
   const userKeys = useStore((s) => s.editorSettings?.keys);
 
   useEffect(() => {
@@ -78,6 +79,19 @@ export function Help() {
               ))}
             </div>
           ))}
+        </div>
+        <div className="help-note">
+          Full user guide:{" "}
+          <button
+            className="help-link"
+            onClick={() => {
+              void openHelp();
+              toggleHelp();
+            }}
+          >
+            Open Help (help.md)
+          </button>{" "}
+          — also on the palette and the <code>?</code> button, top right.
         </div>
       </div>
     </div>
