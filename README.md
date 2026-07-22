@@ -3,7 +3,7 @@
 <table>
   <tr valign='top'>
     <td width="70%">
-        Writedown delivers a natural file-text-preview flow.  
+        Writedown delivers a natural file-text-preview workflow.
         <p>
         It is a fast, local, predictable <strong>Markdown and Quarto editor for Windows</strong> providing Joplin-style
         file navigation, Sublime-style editing, live Markdown/Quarto preview with an on-demand Rendered
@@ -16,6 +16,7 @@
   </tr>
 </table>
 
+![Writedown: sidebar and outline, raw-text editor, and live preview, side by side](assets/writedown-file-text-preview.png)
 
 Writedown edits **ordinary files on disk**. There is no vault, no hidden database[^auto], and
 no proprietary format. It never renames, moves, or reformats your files unless you ask.
@@ -28,6 +29,29 @@ It makes no network requests[^net], keeps no telemetry, needs no account, and wo
 > Status: **actively developed** — the core editor, live preview, outline, BibTeX
 > citations, projects, and a Python-executing Rendered view are all in place. The
 > current version is shown in the app footer.
+
+## Getting started
+
+1. **Open a folder** (or create a project): `Ctrl+Shift+P` → *Open Folder*. The
+   sidebar becomes a file explorer — single-click peeks at a file in a reusable
+   preview tab; double-click (or any edit) opens it for real.
+2. **The palette is the front door.** `Ctrl+Shift+P` lists every command — type a
+   few letters, `Enter`. With an empty query it shows your recent commands, so
+   `Ctrl+Shift+P`, `Enter` repeats the last one.
+3. **See your keys.** `F1` shows every shortcut, generated from the live keymap so
+   it is never out of date. `Ctrl+Shift+L` cycles editor / split / preview; `F11`
+   is full screen, `Shift+F11` distraction-free.
+4. **Write.** Sublime-style editing: multiple cursors, `Ctrl+D` select-next, Tab
+   completion from nearby and frequently-used words, snippets, table reformat.
+   Type `@` for BibTeX citation autocomplete over your own library.
+5. **Saving is safe.** `Ctrl+S`, plus autosave on window blur and tab switch;
+   writes are atomic and every save keeps a restorable previous version
+   (palette → *Previous Versions*).
+6. **Quick file.** `Ctrl+Shift+Q` opens your designated scratch-pad file from
+   anywhere (`[files] quick_file` in config).
+
+The full tour is in **[HELP.md](HELP.md)** — also available inside the app:
+palette → *Open Help*, or the `?` button at the top right.
 
 ## What it gives you
 
