@@ -159,6 +159,11 @@ Standing rules — follow without being re-asked.
 - **One commit per point release.** Commit each point release (x.y.z) as its own commit —
   never batch several version bumps into a single commit, and don't push several releases
   together. So history stays bisectable and any one release can be reverted alone.
+- **Batch items per release (2026-07-22).** Group a batch of issue items (typically a
+  day's approved work) into ONE version bump — one commit, one CHANGELOG section listing
+  all items — instead of a point release per item. One-commit-per-point-release still
+  holds; there are simply fewer, fatter point releases. Refresh the GitHub Release per
+  batch, not per version.
 - **`README.md`** is the stable front page; touch it only when that material changes.
 - **Work proceeds from plan docs** in `dev/`; move a plan to `dev/done/` only when the
   author says it's done.
