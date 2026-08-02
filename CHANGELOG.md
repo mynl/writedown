@@ -543,6 +543,45 @@ messages point here for detail.
 - Backend `DirEntry` gained a `supported` flag and `list_directory` no longer drops
   unsupported files. Rust changed — `tauri dev` needs a restart, not just HMR.
 
+## [2.5.0] - 2026-08-02
+
+Batch A, release 2 of 5: getting things *into* Writedown — clipboard, drag-drop, and
+handing files back out to Windows.
+
+### Added
+
+- **Paste an image straight into a document** (issue A.22), Joplin-style. Ctrl+V with a
+  screenshot on the clipboard writes it to an `img/` folder beside the document — created
+  if it isn't there — and inserts `![](img/<name>.png)`. Temporary buffers have no folder
+  of their own, so theirs go to `~/.writedown/img/` and get a full path. Files are named
+  by **content hash**, so pasting the same screenshot twice reuses the one file, and an
+  existing file is never overwritten (a genuine collision takes the next `-N`). The link
+  is percent-encoded, so a document folder with a space in its name still renders — a raw
+  space makes the preview drop the image silently. The status bar reports what was
+  written; Ctrl+Z removes the link text but not the file. Accepted in Markdown, Quarto and
+  temporary documents only; pasting text, and pasting anything anywhere else, is
+  completely unaffected.
+- **Drag and drop files or folders onto the window** (issue A.04). Files open as tabs
+  (capped at 20 per drop, with a status-bar note when more were dropped); a folder becomes
+  the Folder-tab root, or is added to the current project when the Project tab is showing.
+  The window shows an outline while a drag is over it. Known-binary files are skipped
+  rather than opened as text.
+- **Ctrl+click a file in the sidebar to open it in its Windows default app** (issue A.17)
+  — any file type, and folders open in Explorer. Single-click still previews and
+  double-click still edits, so this adds a gesture without taking one away.
+- **Distinct sidebar icons** for html, css, js/ts, PowerShell/batch/shell scripts, Office
+  documents, archives and executables.
+
+### Fixed
+
+- **"Open Externally" sent everything to the PDF viewer.** The tree's context-menu item
+  called the `[tools] pdf_viewer` command for *every* file type, so asking to open a
+  `.png`, a `.zip` or an `.exe` externally either launched SumatraPDF with it or failed
+  with "no viewer configured". It now uses the Windows shell association like a
+  double-click in Explorer, and is labelled "Open in Default App" (or "Open in Explorer"
+  for a folder). PDF/DjVu still go to `[tools] pdf_viewer`, which is what that setting is
+  for. The item is also no longer restricted to binaries and images — it works on any row.
+
 ## [2.4.0] - 2026-08-02
 
 Batch A, release 1 of 5: the two integrity bugs plus the cheapest daily-use fixes.

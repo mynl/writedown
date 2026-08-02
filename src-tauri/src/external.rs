@@ -28,6 +28,22 @@ pub fn open_external(app: tauri::AppHandle, path: String) -> Result<(), String> 
     Ok(())
 }
 
+/// Open `path` with whatever Windows associates with it — the shell "open" verb, i.e.
+/// what a double-click in Explorer does (issue A.17). This is the general "Open
+/// Externally"; `open_external` above is specifically the configured `[tools] pdf_viewer`
+/// and stays that way for PDF/DjVu. Before this existed the tree's "Open Externally" sent
+/// images, zips and executables to the PDF viewer, which is not what anyone wanted.
+///
+/// Called from our own Rust command, so the opener plugin's webview ACL is not involved.
+/// Directories open in Explorer by the same mechanism.
+#[tauri::command]
+pub fn open_default(app: tauri::AppHandle, path: String) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    app.opener()
+        .open_path(path.clone(), None::<&str>)
+        .map_err(|e| format!("open {path}: {e}"))
+}
+
 /// Open the configured shell (`[tools] shell`, default `pwsh`) in its own console
 /// window at `dir`. On Windows CREATE_NEW_CONSOLE is required: a console child spawned
 /// from a GUI app has no console to inherit and would otherwise run invisibly. Other

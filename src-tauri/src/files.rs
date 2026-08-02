@@ -156,6 +156,80 @@ pub fn list_all_files(app: tauri::AppHandle, root: String) -> Result<Vec<FileIte
     Ok(out)
 }
 
+/// What a dropped path is (issue A.04): the frontend opens directories as a workspace and
+/// files as tabs, and must not guess from the name — an extensionless directory and an
+/// extensionless file look identical.
+#[derive(Serialize)]
+pub struct PathInfo {
+    path: String,
+    exists: bool,
+    is_dir: bool,
+}
+
+/// Classify each path. Missing paths come back `exists: false` rather than erroring, so one
+/// bad entry in a drop can't sink the rest.
+#[tauri::command]
+pub fn stat_paths(paths: Vec<String>) -> Vec<PathInfo> {
+    paths
+        .into_iter()
+        .map(|p| {
+            let meta = std::fs::metadata(&p);
+            PathInfo {
+                exists: meta.is_ok(),
+                is_dir: meta.map(|m| m.is_dir()).unwrap_or(false),
+                path: p,
+            }
+        })
+        .collect()
+}
+
+/// Write a pasted clipboard image next to the document (issue A.22). `dir` is the target
+/// folder, created if absent; `None` means the app's own image folder (`~/.writedown/img`),
+/// used for temp buffers, which have no folder of their own.
+///
+/// Content-addressed and **never overwrites**: if `<stem>.<ext>` already exists with the
+/// SAME bytes the existing file is reused (so pasting one screenshot twice yields one
+/// file); if it exists with different bytes — a hash collision — the next free `-N` suffix
+/// is taken. Returns the full path written or reused.
+#[tauri::command]
+pub fn save_pasted_image(
+    app: tauri::AppHandle,
+    dir: Option<String>,
+    stem: String,
+    ext: String,
+    bytes: Vec<u8>,
+) -> Result<String, String> {
+    let dir = match dir {
+        Some(d) => std::path::PathBuf::from(d),
+        None => crate::config::writedown_dir(&app)?.join("img"),
+    };
+    std::fs::create_dir_all(&dir).map_err(|e| format!("create {}: {e}", dir.display()))?;
+    // Guard the name: this comes from a hash, but never let it escape the target folder.
+    let stem: String = stem
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_')
+        .collect();
+    let ext: String = ext.chars().filter(|c| c.is_ascii_alphanumeric()).collect();
+    if stem.is_empty() || ext.is_empty() {
+        return Err("bad image file name".into());
+    }
+    for n in 1..1000 {
+        let name = if n == 1 { format!("{stem}.{ext}") } else { format!("{stem}-{n}.{ext}") };
+        let candidate = dir.join(&name);
+        match std::fs::read(&candidate) {
+            // Same bytes already on disk — reuse it, write nothing.
+            Ok(existing) if existing == bytes => return Ok(candidate.to_string_lossy().into()),
+            Ok(_) => continue, // occupied by something else; try the next suffix
+            Err(_) => {
+                std::fs::write(&candidate, &bytes)
+                    .map_err(|e| format!("write {}: {e}", candidate.display()))?;
+                return Ok(candidate.to_string_lossy().into());
+            }
+        }
+    }
+    Err("could not find a free image file name".into())
+}
+
 /// Create a new empty file. Refuses to touch an existing file (never overwrite,
 /// spec §2); creates missing parent directories.
 #[tauri::command]

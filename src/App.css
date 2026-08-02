@@ -61,6 +61,13 @@ body {
   height: 100%;
 }
 
+/* Drag files over the window and the target becomes visible (issue A.04). An inset
+   outline rather than a border, so nothing reflows while dragging. */
+.app.drop-active {
+  outline: 2px solid var(--accent, #4a90d9);
+  outline-offset: -2px;
+}
+
 .panes {
   display: flex;
   flex: 1 1 auto;

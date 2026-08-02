@@ -1,6 +1,6 @@
 import { memo, useEffect, useState } from "react";
-import { listDirectory, openExternal, openShell, type Entry } from "../api";
-import { isBinaryExt, isExternalDoc, isImageDoc } from "../editor/languages";
+import { listDirectory, openDefault, openShell, type Entry } from "../api";
+import { isBinaryExt, isExternalDoc } from "../editor/languages";
 import { useStore } from "../store";
 
 function icon(entry: Entry, expanded: boolean): string {
@@ -30,6 +30,44 @@ function icon(entry: Entry, expanded: boolean): string {
     case "dec":
     case "decl":
       return "λ"; // aggregate Dec Language
+    case "html":
+    case "htm":
+      return "🌐";
+    case "css":
+      return "🎨";
+    case "js":
+    case "mjs":
+    case "ts":
+    case "tsx":
+    case "jsx":
+      return "⚡";
+    case "ps1":
+    case "psm1":
+    case "bat":
+    case "cmd":
+    case "sh":
+      return "▶";
+    case "xlsx":
+    case "xls":
+      return "▤";
+    case "docx":
+    case "doc":
+    case "rtf":
+      return "📝";
+    case "pptx":
+    case "ppt":
+      return "📽";
+    case "zip":
+    case "7z":
+    case "rar":
+    case "gz":
+    case "tgz":
+    case "tar":
+      return "🗜";
+    case "exe":
+    case "msi":
+    case "dll":
+      return "⚙";
 
     case "pdf":
     case "djvu":
@@ -104,7 +142,15 @@ function TreeNode({
   const activePath = useStore((s) => s.activePath);
   const isActive = !entry.is_dir && entry.path === activePath;
 
-  function onClick() {
+  function onClick(e: React.MouseEvent) {
+    // Ctrl+click = hand the path to Windows, for EVERY file type (issue A.17). Single
+    // click still previews and double click still edits, so this adds a gesture without
+    // taking one away. A folder opens in Explorer by the same call.
+    if (e.ctrlKey) {
+      e.preventDefault();
+      openDefault(entry.path).catch((err) => setError(String(err)));
+      return;
+    }
     if (entry.is_dir) {
       const next = !expanded;
       setExpanded(next);
@@ -119,11 +165,12 @@ function TreeNode({
     }
   }
 
-  function onDoubleClick() {
+  function onDoubleClick(e: React.MouseEvent) {
+    if (e.ctrlKey) return; // the Ctrl+click above already launched it
     // Double-click = open permanently (PDF/DjVu: openFile routes to the external viewer;
     // known-binary files stay inert here too).
     if (!entry.is_dir && !isBinaryExt(entry.path))
-      openFile(entry.path, false).catch((e) => setError(String(e)));
+      openFile(entry.path, false).catch((err) => setError(String(err)));
   }
 
   return (
@@ -138,11 +185,11 @@ function TreeNode({
         style={{ paddingLeft: 6 + depth * 14 }}
         onClick={onClick}
         onDoubleClick={onDoubleClick}
+        title={entry.path + "\nCtrl+click: open in the default Windows app"}
         onContextMenu={(e) => {
           e.preventDefault();
           openTreeMenu(e.clientX, e.clientY, entry);
         }}
-        title={entry.path}
       >
         <span className="tree-icon">{icon(entry, expanded)}</span>
         <span className="tree-name">{entry.name}</span>
@@ -250,21 +297,20 @@ export function TreeContextMenu() {
         {item("Open Shell Here", () =>
           openShell(dir).catch((e) => useStore.setState({ configError: String(e) })),
         )}
-        {!entry.is_dir &&
-          (isExternalDoc(entry.path) || isBinaryExt(entry.path) || isImageDoc(entry.path)) && (
-            <>
-              <div className="ctx-sep" />
-              {item("Open Externally", () =>
-                // PDF/DjVu go through openFile (it routes to [tools] pdf_viewer);
-                // binaries and images hand straight to the OS default app.
-                isExternalDoc(entry.path)
-                  ? void useStore.getState().openFile(entry.path, false)
-                  : void openExternal(entry.path).catch((e) =>
-                      useStore.setState({ configError: String(e) }),
-                    ),
-              )}
-            </>
-          )}
+        <div className="ctx-sep" />
+        {item(
+          entry.is_dir ? "Open in Explorer" : "Open in Default App",
+          () =>
+            // PDF/DjVu keep going through openFile, which routes to [tools] pdf_viewer —
+            // that setting exists precisely so those land in Sumatra. EVERYTHING else now
+            // goes to Windows. Previously this item called openExternal for every type,
+            // i.e. it handed images, zips and executables to the PDF viewer (issue A.17).
+            isExternalDoc(entry.path)
+              ? void useStore.getState().openFile(entry.path, false)
+              : void openDefault(entry.path).catch((e) =>
+                  useStore.setState({ configError: String(e) }),
+                ),
+        )}
         <div className="ctx-sep" />
         {item("Rename…", () => renameEntry(entry))}
         {item("Delete", () => void deleteEntry(entry))}

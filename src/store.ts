@@ -35,6 +35,7 @@ import {
   renderDocument,
   saveLastWorkspace,
   saveProject,
+  statPaths,
   watchExtraFiles,
   watchWorkspace,
   writeFile,
@@ -51,7 +52,7 @@ import {
   seedDocPositions,
   snapshotDocPositions,
 } from "./editor/editorView";
-import { isCsv, isExternalDoc, isImageDoc, isMarkdownDoc } from "./editor/languages";
+import { isBinaryExt, isCsv, isExternalDoc, isImageDoc, isMarkdownDoc } from "./editor/languages";
 import { scheduleScan } from "./editor/wordFreq";
 import { cssFontWeight } from "./fontWeight";
 
@@ -419,6 +420,8 @@ type AppState = {
   renderActive: () => Promise<void>;
   setCursorPos: (line: number, col: number) => void;
   setSelectionStats: (chars: number, lines: number, ranges: number) => void;
+  /** Open files/folders dropped onto the window (issue A.04). */
+  openDropped: (paths: string[]) => Promise<void>;
   /** Give a scratch buffer a name (issue A.27). Renames its `untitled://` sentinel, which
    *  is the buffer's whole identity — tab label, hot-exit key and Save As default all
    *  follow. Still never written to disk. */
@@ -1272,6 +1275,48 @@ export const useStore = create<AppState>((set, get) => ({
     const s = get();
     if (s.selChars !== chars || s.selLines !== lines || s.selRanges !== ranges) {
       set({ selChars: chars, selLines: lines, selRanges: ranges });
+    }
+  },
+
+  // Files/folders dropped onto the window (issue A.04). A folder becomes the Folder-tab
+  // root (or joins the project when the Project tab is showing); files open as tabs.
+  // Capped, because dropping a directory's worth of files would bury the tab strip.
+  openDropped: async (paths) => {
+    const DROP_CAP = 20;
+    let info;
+    try {
+      info = await statPaths(paths);
+    } catch (e) {
+      set({ configError: `drop — ${String(e)}` });
+      return;
+    }
+    const dirs = info.filter((i) => i.exists && i.is_dir).map((i) => i.path);
+    const files = info.filter((i) => i.exists && !i.is_dir).map((i) => i.path);
+    // A dropped folder is a workspace gesture: take the first, ignore the rest rather
+    // than silently re-rooting several times.
+    if (dirs.length > 0) {
+      if (get().panelTab === "project" && get().projFolders.length > 0) {
+        const folders = [...get().projFolders];
+        for (const d of dirs) if (!folders.some((f) => samePath(f, d))) folders.push(d);
+        set({ projFolders: folders });
+        void watchWorkspace(folders).catch(() => {});
+        get().syncExtraWatch();
+        get().persistProject();
+      } else {
+        set({ panelTab: "folder" });
+        if (!get().root) await get().setRoot(dirs[0]);
+        await get().setFolderRoot(dirs[0]);
+      }
+    }
+    const open = files.slice(0, DROP_CAP);
+    for (const f of open) {
+      // Same guards as a tree click: images get the viewer, PDFs the external one,
+      // known binaries are never read as text.
+      if (isBinaryExt(f)) continue;
+      await get().openFile(f, false).catch((e) => set({ configError: String(e) }));
+    }
+    if (files.length > open.length) {
+      get().showStatusMessage(`opened ${open.length} of ${files.length} dropped files`);
     }
   },
 

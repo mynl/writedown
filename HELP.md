@@ -35,7 +35,12 @@ overwritten). The canonical copy is `HELP.md` in the repository.
 
 - **Single-click** a file: opens in the *preview tab* (italic title). There is at
   most one preview tab; previewing another file reuses it. **Double-click** (or any
-  edit) makes the tab permanent.
+  edit) makes the tab permanent. **Ctrl+click** hands the file to Windows — whatever
+  app owns that type opens it, exactly like a double-click in Explorer. Works on any
+  file, and on folders (they open in Explorer).
+- **Drag and drop** files or folders onto the window: files open as tabs, a folder
+  becomes the Folder-tab root — or is added to the project, if the Project tab is
+  showing.
 - Drag tabs to reorder. **Ctrl+W** saves and closes; **Ctrl+Shift+T** reopens the
   last closed tab. **Ctrl+Shift+N** opens a new scratch buffer (in memory until you
   Save As).
@@ -57,6 +62,13 @@ a selection wraps the selection — press `$` twice for `$$…$$`.
   With no match, Tab does nothing and says so in the status bar; it never indents
   the paragraph. (Tab at the start of a line, or after whitespace, still indents.)
 - **Ctrl+Shift+D** duplicates the selection when there is one, otherwise the line.
+- **Paste an image** (Ctrl+V with a screenshot on the clipboard) into a Markdown,
+  Quarto or temporary document: the image is written to an `img/` folder beside the
+  document — created if needed — and an `![](img/…)` link is inserted. Temporary
+  buffers have no folder, so theirs go to `~/.writedown/img/` and get a full path.
+  Files are named by content, so pasting the same screenshot twice reuses one file and
+  nothing is ever overwritten. The status bar reports what was written. Pasting text is
+  completely unaffected.
 - **Snippets**: palette → "Insert: …" (aligned `$$` environment, `{python}` cell,
   and any you define under `[snippets]` in config, with tab-through fields).
 - **Trailing whitespace** is trimmed on save by default, Sublime semantics

@@ -142,6 +142,24 @@ export const deletePath = (path: string) => invoke<void>("delete_path", { path }
 /** Open a PDF/DjVu in the configured external viewer ([tools] pdf_viewer). */
 export const openExternal = (path: string) => invoke<void>("open_external", { path });
 
+/** Open anything with its Windows default app — what a double-click in Explorer does.
+ *  This is the general "open externally"; openExternal above is the PDF viewer specifically. */
+export const openDefault = (path: string) => invoke<void>("open_default", { path });
+
+/** What each path is, for drag-and-drop: directories open as a workspace, files as tabs. */
+export type PathInfo = { path: string; exists: boolean; is_dir: boolean };
+export const statPaths = (paths: string[]) => invoke<PathInfo[]>("stat_paths", { paths });
+
+/** Save a pasted clipboard image. `dir` null = the app image folder (~/.writedown/img),
+ *  for temp buffers. Never overwrites: identical bytes reuse the file, a collision takes
+ *  the next `-N`. Returns the full path written or reused. */
+export const savePastedImage = (
+  dir: string | null,
+  stem: string,
+  ext: string,
+  bytes: number[],
+) => invoke<string>("save_pasted_image", { dir, stem, ext, bytes });
+
 /** Open the configured shell ([tools] shell, default pwsh) in a new console at `dir`. */
 export const openShell = (dir: string) => invoke<void>("open_shell", { dir });
 

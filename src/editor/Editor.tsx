@@ -20,6 +20,7 @@ import {
 import { citationExtensions } from "./citations";
 import { wordCompleteKeymap, wordCompleteAutocomplete } from "./wordComplete";
 import { documentLint } from "./lint";
+import { pasteImage } from "./pasteImage";
 import { spellingExtensions } from "./spelling";
 import {
   captureDocScrollSnapshot,
@@ -133,6 +134,7 @@ export function Editor({ path, content }: { path: string; content: string }) {
       ext.push(Prec.highest(mathHighlight));
       ext.push(...citationExtensions); // @-citation + word-completion autocomplete + hover
       ext.push(...documentLint); // python cell syntax + duplicate labels
+      ext.push(pasteImage); // Ctrl+V an image → save to img/ and insert a link (A.22)
       if (spellEnabled) ext.push(...spellingExtensions); // prose spellcheck
     } else {
       ext.push(wordCompleteAutocomplete); // word-completion popup for non-markdown languages
