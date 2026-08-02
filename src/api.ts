@@ -142,6 +142,10 @@ export const deletePath = (path: string) => invoke<void>("delete_path", { path }
 /** Open a PDF/DjVu in the configured external viewer ([tools] pdf_viewer). */
 export const openExternal = (path: string) => invoke<void>("open_external", { path });
 
+/** Files/folders Writedown was launched with (double-clicked in Explorer, or passed on the
+ *  command line). Consumed once, after session restore. */
+export const launchFiles = () => invoke<string[]>("launch_files");
+
 /** Open anything with its Windows default app — what a double-click in Explorer does.
  *  This is the general "open externally"; openExternal above is the PDF viewer specifically. */
 export const openDefault = (path: string) => invoke<void>("open_default", { path });
@@ -369,6 +373,11 @@ export type RenderResult = {
  *  front-matter `bibliography:`; pass null for unsaved scratch buffers. */
 export const renderDocument = (text: string, path: string | null) =>
   invoke<RenderResult>("render_document", { text, path });
+
+/** Run ONLY the {python} cell at `line` (1-based), in the kernel's current namespace, and
+ *  get the whole document back re-assembled from the cached cell outputs. */
+export const runCell = (text: string, path: string | null, line: number) =>
+  invoke<RenderResult>("run_cell", { text, path, line });
 
 /** Kill the python kernel now; the next render respawns it (the Windows "interrupt"). */
 export const restartKernel = () => invoke<void>("restart_kernel");

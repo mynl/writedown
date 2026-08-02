@@ -12,6 +12,7 @@ import type { HighlightStyle } from "@codemirror/language";
 import { highlightStyleFor } from "../editor/sublimeTheme";
 import { highlightCodeBlocks } from "./codeHighlight";
 import { useDebouncedValue } from "../useDebounced";
+import { frontMatterFlag } from "../frontmatterShared";
 import type { RenderedBlock, RenderResult } from "./renderCore";
 
 // Markdown→HTML runs OFF the UI thread in a module worker (render.worker.ts →
@@ -927,6 +928,18 @@ export function Preview({
   useEffect(() => {
     contentRef.current?.style.setProperty("--wd-preview-font-size", `${15 + previewZoom}px`);
   }, [previewZoom]);
+
+  // Numbered sections (issue A.18). Quarto's `number-sections: true` is a pandoc feature
+  // and markdown-it knows nothing about it, so the numbering is done with pure CSS
+  // counters — no JS, no render cost, and correct under the incremental DOM patcher
+  // because counters resolve across siblings however the nodes got there. A palette
+  // toggle can force it on for documents whose front matter doesn't ask.
+  const numberOverride = useStore((s) => s.numberSections);
+  const numbered =
+    numberOverride ?? frontMatterFlag(content, "number-sections") ?? false;
+  useEffect(() => {
+    contentRef.current?.classList.toggle("numbered", numbered);
+  }, [numbered]);
 
   // First pass for a document (cold KaTeX + worker-chunk load can take a beat on big
   // docs): show a quiet reassurance instead of a silent empty pane. Steady-state

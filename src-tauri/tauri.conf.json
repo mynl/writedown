@@ -31,6 +31,26 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "fileAssociations": [
+      {
+        "ext": ["md", "markdown", "qmd"],
+        "name": "Markdown / Quarto Document",
+        "description": "Markdown or Quarto document",
+        "role": "Editor"
+      },
+      {
+        "ext": ["agg", "dec", "decl"],
+        "name": "DecL Program",
+        "description": "aggregate Dec Language program",
+        "role": "Editor"
+      },
+      {
+        "ext": ["bib"],
+        "name": "BibTeX Bibliography",
+        "description": "BibTeX bibliography database",
+        "role": "Editor"
+      }
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

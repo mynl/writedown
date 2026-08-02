@@ -250,6 +250,11 @@ export function appCommands(): Command[] {
       },
     },
     { id: "render-doc", title: "Render Document (run code cells)", run: () => void s().renderActive() },
+    { id: "render-cell", title: "Run This Cell (Ctrl+Enter — live kernel state)", run: () => void s().renderCell() },
+    // A view setting, not a YAML edit: front matter is preserved byte-for-byte (spec §2).
+    { id: "number-sections-on", title: "Preview: Number Sections", run: () => s().setNumberSections(true) },
+    { id: "number-sections-off", title: "Preview: Don't Number Sections", run: () => s().setNumberSections(false) },
+    { id: "number-sections-doc", title: "Preview: Number Sections — Follow Document YAML", run: () => s().setNumberSections(null) },
     {
       id: "render-restart-kernel",
       title: "Restart Python Kernel",

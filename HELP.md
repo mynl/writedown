@@ -69,6 +69,13 @@ a selection wraps the selection — press `$` twice for `$$…$$`.
   Files are named by content, so pasting the same screenshot twice reuses one file and
   nothing is ever overwritten. The status bar reports what was written. Pasting text is
   completely unaffected.
+- **Run one cell**: **Ctrl+Enter** runs just the `{python}` cell under the cursor, in the
+  kernel's current state (Jupyter's Shift+Enter). Fast, and the rest of the Rendered view
+  keeps its existing output. **Ctrl+Shift+Enter** is still the real render: fresh
+  namespace, every cell top to bottom — use it when you want a result you can trust.
+- **Numbered sections**: a document with `number-sections: true` in its front matter gets
+  numbered headings in the preview. Palette verbs force it on or off for the view without
+  touching your YAML.
 - **Fonts**: `[editor] font_family` sets the editor face; `[editor.font_by_ext]` overrides
   it per file type (`py = "Cascadia Mono"`). List families in `[editor] font_choices`
   and each becomes a palette "Font: …" verb for a session-only switch.

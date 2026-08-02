@@ -134,6 +134,7 @@ export const COMMAND_REGISTRY: Record<string, RegistryEntry> = {
   openSpellDictionary: { run: act(() => void s().openPersonalDictionary()), label: "Open personal dictionary", category: "View" },
   reloadSpellDictionary: { run: act(() => void s().reloadPersonalDictionary()), label: "Reload personal dictionary", category: "View" },
   render: { run: act(() => void s().renderActive()), label: "Render (run {python} cells)", category: "View" },
+  renderCell: { run: act(() => void s().renderCell()), label: "Run this {python} cell (live namespace)", category: "View" },
   build: { run: act(() => void s().runBuild()), label: "Build (run [build] command)", category: "View" },
   foldCode: { run: foldCode, label: "Fold", category: "View" },
   unfoldCode: { run: unfoldCode, label: "Unfold", category: "View" },

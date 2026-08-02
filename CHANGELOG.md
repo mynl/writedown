@@ -543,6 +543,39 @@ messages point here for detail.
 - Backend `DirEntry` gained a `supported` flag and `list_directory` no longer drops
   unsupported files. Rust changed — `tauri dev` needs a restart, not just HMR.
 
+## [2.8.0] - 2026-08-02
+
+Batch A, release 5 of 5: rendering a single cell, numbered sections, and opening from
+Explorer.
+
+### Added
+
+- **Run just the cell under the cursor — Ctrl+Enter** (issue A.24), plus palette "Run This
+  Cell". It runs in the kernel's **current** namespace, Jupyter's Shift+Enter semantics, so
+  imports and variables from earlier work are still there and the call costs only what the
+  cell itself costs. The Rendered pane comes back complete: every other cell keeps the
+  output it already had, re-assembled around the one you re-ran. **The honest trade:** a
+  document can then work in an execution order a clean full render would not reproduce —
+  Ctrl+Shift+Enter, which always resets the namespace and runs everything top to bottom,
+  remains the source of truth. Each cached output remembers the code that produced it, so
+  editing a cell discards its stale output rather than showing it as current.
+- **Numbered sections in the preview** (issue A.18). A document with Quarto's
+  `number-sections: true` in its front matter gets numbered headings; palette verbs force it
+  on or off, or return to following the document. Implemented as CSS counters, so it costs
+  nothing at render time and survives the incremental preview patcher. Numbering starts at
+  `h2` (the `h1` is the title by convention) and skips `{.unnumbered}` headings, as Quarto
+  does. **The palette toggle changes the view, never your YAML** — front matter is preserved
+  byte-for-byte, and rewriting it for a display preference is a bad trade.
+- **Writedown can be the default app for its file types** (issue A.03). The installer now
+  registers `.md` / `.markdown` / `.qmd`, `.agg` / `.dec` / `.decl`, and `.bib`, and
+  Writedown opens whatever file it was launched with — from a double-click in Explorer or
+  from the command line — after restoring the session, so the launched document lands as
+  the active tab. Two caveats: associations are registered by the **installer**, so a
+  copied `.exe` gets none; and each double-click starts a new instance, consistent with the
+  multi-instance design (sessions are keyed per workspace precisely so that is safe).
+  `.py`, `.json` and `.toml` are deliberately **not** claimed — they belong to your other
+  tools.
+
 ## [2.7.0] - 2026-08-02
 
 Batch A, release 4 of 5: the aggregate DecL language.

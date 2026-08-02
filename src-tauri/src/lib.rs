@@ -12,9 +12,34 @@ mod sublime;
 mod watch;
 mod wordfreq;
 
+/// Files Writedown was launched with — double-clicked in Explorer once the installer has
+/// registered the file types, or passed on the command line (issue A.03). Collected at
+/// startup and handed to the frontend once, AFTER session restore, so a launched file ends
+/// up as the active tab rather than being buried by the restored session.
+#[derive(Default)]
+struct LaunchArgs(std::sync::Mutex<Vec<String>>);
+
+/// Take (and clear) the launch file list. Idempotent: a second call returns nothing, so a
+/// hot reload during development can't reopen the same files again.
+#[tauri::command]
+fn launch_files(state: tauri::State<LaunchArgs>) -> Vec<String> {
+    state.0.lock().map(|mut v| std::mem::take(&mut *v)).unwrap_or_default()
+}
+
+/// Existing file paths among the process arguments. Flags are skipped — WebView2 and Tauri
+/// both pass their own — and so is argv[0].
+fn launch_paths_from_args() -> Vec<String> {
+    std::env::args()
+        .skip(1)
+        .filter(|a| !a.starts_with('-'))
+        .filter(|a| std::path::Path::new(a).is_file())
+        .collect()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(LaunchArgs(std::sync::Mutex::new(launch_paths_from_args())))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         // Remembers window position/size/maximized between launches (~/.writedown-adjacent
@@ -54,6 +79,7 @@ pub fn run() {
             files::delete_path,
             files::stat_paths,
             files::save_pasted_image,
+            launch_files,
             external::open_external,
             external::open_default,
             external::open_shell,
@@ -83,6 +109,7 @@ pub fn run() {
             spelling::spell_reload,
             spelling::personal_dictionary_path,
             render::render_document,
+            render::run_cell,
             render::restart_kernel,
             bib::extract_bib_entries,
             project::load_project,

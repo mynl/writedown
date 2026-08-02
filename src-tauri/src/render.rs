@@ -22,6 +22,17 @@ use tauri::Manager;
 pub struct RenderState {
     doc_bib: Mutex<Option<DocBib>>,
     kernel: Mutex<Option<Kernel>>,
+    /// Last render's cell outputs per document path, so "Run This Cell" can re-assemble the
+    /// whole rendered document with just one cell's output replaced (issue A.24). Each entry
+    /// keeps the code it was produced from: if that cell's source has changed since, the
+    /// cached output is dropped rather than shown — stale output must never look current.
+    cells: Mutex<HashMap<String, HashMap<usize, CachedCell>>>,
+}
+
+#[derive(Clone)]
+struct CachedCell {
+    code: String,
+    out: CellOutput,
 }
 
 struct DocBib {
@@ -131,7 +142,7 @@ struct CellError {
 
 /// One executed cell's result, keyed by segment index for splicing. `skipped` is set for
 /// cells not run because an earlier cell timed out.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub(crate) struct CellOutput {
     stdout: String,
     stderr: String,
@@ -362,6 +373,70 @@ fn run_cells(
         first = false;
     }
     Ok((outputs, errors))
+}
+
+/// Run exactly ONE python cell, in whatever state the kernel is already in — Jupyter's
+/// Shift+Enter (issue A.24). No `reset`, so imports and variables from earlier work are
+/// still there and the call is as fast as the cell itself. The honest trade, stated in the
+/// changelog: a document can then "work" in an execution order a clean full render would
+/// not reproduce; Ctrl+Shift+Enter remains the source of truth.
+fn run_one_cell(
+    app: &tauri::AppHandle,
+    cfg: &RenderCfg,
+    code: &str,
+    doc_dir: Option<&str>,
+) -> Result<CellOutput, String> {
+    let state = app.state::<RenderState>();
+    let mut guard = state.kernel.lock().map_err(|e| e.to_string())?;
+    let respawn = match guard.as_mut() {
+        Some(k) => !k.alive() || k.python_path != cfg.python,
+        None => true,
+    };
+    // A cold kernel has an empty namespace, so `first` must be true here to initialise it;
+    // an already-running one is left exactly as it is.
+    let first = respawn;
+    if respawn {
+        let cache = crate::config::writedown_dir(app)?.join("cache");
+        *guard = Some(Kernel::spawn(&cfg.python, &cache, Duration::from_secs(cfg.timeout_seconds))?);
+    }
+    let kernel = guard.as_mut().expect("kernel present until taken");
+    match kernel.exec(code, first, doc_dir, &cfg.figure_format, cfg.figure_dpi,
+                      Duration::from_secs(cfg.timeout_seconds)) {
+        Ok(rep) => Ok(rep.into()),
+        Err(fail) => {
+            *guard = None; // Drop kills; the next run respawns
+            let msg = match fail {
+                ExecFail::Timeout => {
+                    format!("timed out after {}s — kernel restarted", cfg.timeout_seconds)
+                }
+                ExecFail::Dead => "python kernel exited unexpectedly".to_string(),
+            };
+            Ok(CellOutput {
+                error: Some(CellError { message: msg, traceback: String::new(), line: None }),
+                ..Default::default()
+            })
+        }
+    }
+}
+
+/// The segment index of the `{python}` cell containing 1-based document line `line`, or the
+/// nearest one above it. Resolved HERE rather than in the frontend so `split_document` stays
+/// the single definition of where a cell starts and ends.
+fn cell_at_line(segments: &[Segment], line: usize) -> Option<usize> {
+    let mut best: Option<usize> = None;
+    for (idx, seg) in segments.iter().enumerate() {
+        if let Segment::PythonCell { first_line, code, .. } = seg {
+            let start = *first_line;
+            let end = start + code.lines().count();
+            if line >= start.saturating_sub(1) && line <= end {
+                return Some(idx);
+            }
+            if start <= line {
+                best = Some(idx);
+            }
+        }
+    }
+    best
 }
 
 // ---- document splitter ----------------------------------------------------------------
@@ -1214,7 +1289,14 @@ fn doc_bib(app: &tauri::AppHandle, doc_path: Option<&str>, rel: &str) -> Result<
     Ok(entries)
 }
 
-fn render_impl(app: &tauri::AppHandle, text: &str, path: Option<&str>) -> RenderResult {
+fn render_impl(
+    app: &tauri::AppHandle,
+    text: &str,
+    path: Option<&str>,
+    // Some(line) = "Run This Cell": execute only the cell at that 1-based document line, in
+    // the live namespace, and re-assemble the document from the cached outputs (issue A.24).
+    only_cell_at: Option<usize>,
+) -> RenderResult {
     let t0 = Instant::now();
     let (fm, segments) = split_document(text);
     let mut pre_warnings: Vec<String> = Vec::new();
@@ -1247,8 +1329,65 @@ fn render_impl(app: &tauri::AppHandle, text: &str, path: Option<&str>) -> Render
         let doc_dir = path
             .and_then(|p| Path::new(p).parent())
             .map(|d| d.to_string_lossy().to_string());
+        if let Some(line) = only_cell_at {
+            // ---- Run This Cell ------------------------------------------------------
+            // Start from the previous render's outputs so the rest of the document keeps
+            // its results, dropping any whose source has since changed.
+            let cache_key = path.unwrap_or("").to_string();
+            let mut cached: HashMap<usize, CachedCell> = app
+                .state::<RenderState>()
+                .cells
+                .lock()
+                .ok()
+                .and_then(|c| c.get(&cache_key).cloned())
+                .unwrap_or_default();
+            cached.retain(|idx, c| match segments.get(*idx) {
+                Some(Segment::PythonCell { code, .. }) => *code == c.code,
+                _ => false,
+            });
+            match cell_at_line(&segments, line) {
+                None => pre_warnings.push("no {python} cell at the cursor".to_string()),
+                Some(idx) => {
+                    let Segment::PythonCell { code, opts, .. } = &segments[idx] else {
+                        unreachable!("cell_at_line only returns PythonCell indices")
+                    };
+                    if !opts.eval {
+                        pre_warnings.push("this cell has #| eval: false".to_string());
+                    } else {
+                        match run_one_cell(app, &cfg, code, doc_dir.as_deref()) {
+                            Ok(out) => {
+                                cached.insert(idx, CachedCell { code: code.clone(), out });
+                            }
+                            Err(e) => pre_warnings
+                                .push(format!("python failed to start: {e} — cell not run")),
+                        }
+                    }
+                }
+            }
+            errors = cached.values().filter(|c| c.out.error.is_some()).count();
+            exec = cached.iter().map(|(i, c)| (*i, c.out.clone())).collect();
+            if let Ok(mut store) = app.state::<RenderState>().cells.lock() {
+                store.insert(cache_key, cached);
+            }
+            "ok".to_string()
+        } else {
         match run_cells(app, &cfg, &segments, doc_dir.as_deref()) {
             Ok((map, errs)) => {
+                // Remember this render's outputs so a later "Run This Cell" can rebuild
+                // the document around a single re-executed cell.
+                if let Ok(mut store) = app.state::<RenderState>().cells.lock() {
+                    let cached = map
+                        .iter()
+                        .filter_map(|(idx, out)| match segments.get(*idx) {
+                            Some(Segment::PythonCell { code, .. }) => Some((
+                                *idx,
+                                CachedCell { code: code.clone(), out: out.clone() },
+                            )),
+                            _ => None,
+                        })
+                        .collect();
+                    store.insert(path.unwrap_or("").to_string(), cached);
+                }
                 exec = map;
                 errors = errs;
                 "ok".to_string()
@@ -1257,6 +1396,7 @@ fn render_impl(app: &tauri::AppHandle, text: &str, path: Option<&str>) -> Render
                 pre_warnings.push(format!("python failed to start: {e} — cells shown as source"));
                 e
             }
+        }
         }
     };
 
@@ -1314,9 +1454,27 @@ pub async fn render_document(
     text: String,
     path: Option<String>,
 ) -> Result<RenderResult, String> {
-    tauri::async_runtime::spawn_blocking(move || render_impl(&app, &text, path.as_deref()))
+    tauri::async_runtime::spawn_blocking(move || render_impl(&app, &text, path.as_deref(), None))
         .await
         .map_err(|e| e.to_string())
+}
+
+/// Run only the `{python}` cell at `line` (1-based), in the kernel's CURRENT namespace, and
+/// return the whole document re-assembled from the cached outputs (issue A.24). Re-expanding
+/// everything costs milliseconds — the expensive part is executing the cell, which is exactly
+/// what this avoids doing for the other cells.
+#[tauri::command]
+pub async fn run_cell(
+    app: tauri::AppHandle,
+    text: String,
+    path: Option<String>,
+    line: usize,
+) -> Result<RenderResult, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        render_impl(&app, &text, path.as_deref(), Some(line))
+    })
+    .await
+    .map_err(|e| e.to_string())
 }
 
 // ---- tests -----------------------------------------------------------------------

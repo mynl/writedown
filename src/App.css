@@ -596,8 +596,35 @@ body {
   /* Ctrl+wheel zoom sets this variable directly on the element (issue A.13). Headings,
      code and KaTeX are all sized in em, so they scale with it. */
   font-size: var(--wd-preview-font-size, 15px);
+  counter-reset: wd-h2 wd-h3 wd-h4;
   line-height: 1.6;
   position: relative; /* offsetParent for .wd-block — see .preview-scroll */
+}
+
+/* Numbered sections (issue A.18) — Quarto's `number-sections: true`, or the palette
+   toggle. Pure CSS counters: no JavaScript, no render cost, and correct under the
+   per-block incremental patcher because counters resolve across siblings however the
+   nodes arrived. Numbering starts at h2, since h1 is the document title by convention.
+   A heading marked {.unnumbered} is skipped, as in Quarto. */
+.preview.numbered h2:not(.unnumbered) {
+  counter-increment: wd-h2;
+  counter-reset: wd-h3 wd-h4;
+}
+.preview.numbered h3:not(.unnumbered) {
+  counter-increment: wd-h3;
+  counter-reset: wd-h4;
+}
+.preview.numbered h4:not(.unnumbered) {
+  counter-increment: wd-h4;
+}
+.preview.numbered h2:not(.unnumbered)::before {
+  content: counter(wd-h2) "\00a0\00a0";
+}
+.preview.numbered h3:not(.unnumbered)::before {
+  content: counter(wd-h2) "." counter(wd-h3) "\00a0\00a0";
+}
+.preview.numbered h4:not(.unnumbered)::before {
+  content: counter(wd-h2) "." counter(wd-h3) "." counter(wd-h4) "\00a0\00a0";
 }
 .preview h1,
 .preview h2,

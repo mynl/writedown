@@ -33,6 +33,8 @@ import {
   reloadSpelling,
   renamePath,
   renderDocument,
+  runCell,
+  launchFiles,
   listDirectories,
   saveLastWorkspace,
   saveProject,
@@ -284,6 +286,10 @@ type AppState = {
   fontOverride: string | null;
   /** Preview pane zoom in px steps, like editorZoom (issue A.13). Session-only. */
   previewZoom: number;
+  /** Section numbering in the preview (issue A.18). null = follow the document's
+   *  `number-sections:` front matter; true/false force it. A VIEW setting — the palette
+   *  toggle never rewrites your YAML. */
+  numberSections: boolean | null;
   sublimeTheme: SublimeTheme | null;
   editorSettings: EditorSettings | null;
   /** Session word-wrap state. [editor] word_wrap sets the launch default; toggled live via a
@@ -365,6 +371,7 @@ type AppState = {
   setEditorZoom: (delta: number | "reset") => void;
   setPreviewZoom: (delta: number | "reset") => void;
   setFontOverride: (family: string | null) => void;
+  setNumberSections: (v: boolean | null) => void;
   /** Bake the current zoomed size into config.toml's [editor] font_size (a deliberate,
    *  surgical edit — the only time we write your config), then reset the zoom to 0. */
   setSizeAsDefault: () => Promise<void>;
@@ -432,10 +439,14 @@ type AppState = {
   setPreviewTab: (tab: "live" | "rendered") => void;
   /** Render the active markdown/quarto document (palette: "Render Document"). */
   renderActive: () => Promise<void>;
+  /** Run just the {python} cell under the cursor, in the live kernel namespace (A.24). */
+  renderCell: () => Promise<void>;
   setCursorPos: (line: number, col: number) => void;
   setSelectionStats: (chars: number, lines: number, ranges: number) => void;
   /** Open files/folders dropped onto the window (issue A.04). */
   openDropped: (paths: string[]) => Promise<void>;
+  /** Open the files Writedown was launched with, after session restore (issue A.03). */
+  openLaunchFiles: () => Promise<void>;
   /** Directory listings fetched ahead of a tree mount, keyed by folder path (issue A.25).
    *  TreeNode consults this before scheduling its own lazy fetch, so a restored set of
    *  expanded folders paints in one go instead of filling in one folder at a time. */
@@ -513,6 +524,7 @@ export const useStore = create<AppState>((set, get) => ({
     return Number.isFinite(v) ? v : 0;
   })(),
   fontOverride: null,
+  numberSections: null,
   prefetchedDirs: {},
   scratchCounter: 0,
   scratchRev: 0,
@@ -1009,6 +1021,11 @@ export const useStore = create<AppState>((set, get) => ({
   // Session font override (issue A.05). null clears it, falling back to config.
   setFontOverride: (family) => set({ fontOverride: family }),
 
+  // Section numbering is a VIEW setting, never a YAML rewrite (issue A.18): front matter is
+  // preserved byte-for-byte (spec §2), and rewriting it for a display preference is a bad
+  // trade. null = follow the document.
+  setNumberSections: (v) => set({ numberSections: v }),
+
   setSizeAsDefault: async () => {
     const { editorSettings, editorZoom, configFile } = get();
     if (!configFile || editorZoom === 0) return; // nothing to bake in
@@ -1300,6 +1317,38 @@ export const useStore = create<AppState>((set, get) => ({
         previewTab: "rendered",
         viewMode: s.viewMode === "editor" ? "split" : s.viewMode,
       }));
+    } finally {
+      set({ renderBusy: false });
+    }
+  },
+
+  // Run just the cell under the cursor, in the kernel's live namespace (issue A.24).
+  // Shares renderActive's result shape, so the Rendered pane needs no special case — the
+  // whole document comes back, only this cell's output having been recomputed.
+  renderCell: async () => {
+    const { activePath, tabs, renderBusy } = get();
+    const doc = tabs.find((t) => t.path === activePath);
+    if (!doc || !isMarkdownDoc(doc.path) || renderBusy) return;
+    const view = getActiveView();
+    if (!view) return;
+    const line = view.state.doc.lineAt(view.state.selection.main.head).number;
+    const source = doc.content;
+    set({ renderBusy: true });
+    try {
+      const r = await runCell(source, isScratch(doc.path) ? null : doc.path, line);
+      set((s) => ({
+        rendered: {
+          ...s.rendered,
+          [doc.path]: {
+            markdown: r.markdown, source, at: Date.now(), cells: r.cells, errors: r.errors,
+            elapsedMs: r.elapsed_ms, python: r.python, lineMap: r.line_map, srcLine: line,
+          },
+        },
+        previewTab: "rendered",
+        viewMode: s.viewMode === "editor" ? "split" : s.viewMode,
+      }));
+    } catch (e) {
+      set({ configError: `run cell — ${String(e)}` });
     } finally {
       set({ renderBusy: false });
     }
@@ -1803,6 +1852,22 @@ export const useStore = create<AppState>((set, get) => ({
     void saveProject(projectFile, { name: projectName, folders: projFolders }).catch((e) =>
       set({ configError: `project save failed — ${String(e)}` }),
     );
+  },
+
+  // Files Writedown was launched with — a double-click in Explorer on a registered type,
+  // or a command-line path (issue A.03). Called AFTER the session is restored so the
+  // launched file ends up active rather than buried under the restored tabs.
+  openLaunchFiles: async () => {
+    let paths: string[] = [];
+    try {
+      paths = await launchFiles();
+    } catch {
+      return; // older backend / no args — nothing to do
+    }
+    for (const p of paths) {
+      if (isBinaryExt(p)) continue;
+      await get().openFile(p, false).catch((e) => set({ configError: String(e) }));
+    }
   },
 
   loadRecentProjects: async () => {
