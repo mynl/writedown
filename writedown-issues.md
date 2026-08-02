@@ -20,6 +20,8 @@ For each row in the table add a new row below it for your input, item is ">>CC".
 | **B.01** | | | *item* |
 
 
+
+
 ***
 
 ## Batch A: Thursday 2026-07-23 to Sunday 2026-08-02
@@ -31,7 +33,7 @@ For each row in the table add a new row below it for your input, item is ">>CC".
 | **A.02** | | ✅ | Way to edit a project - esp. to remove folders (?right click) and/or palette -> open project file and then edit it |
 | >>CC | L | None | **The remove-a-folder function already exists in the code — nothing ever calls it.** Wiring it to a right-click on a project root plus a palette verb is small; I'd also add "Open Project File" so you can hand-edit the `.wdproj` when you want to. |
 | **A.03** | | ❓ | Use WD as a windows mapped app -> double click to open py files in WD? |
-| >>CC | M | None | **Two halves, both missing.** The installer has to claim the file types, AND Writedown has to notice the filename it was launched with — today it ignores it completely. Flag: only the *installed* version gets associations, never a copied `.exe`. |
+| >>CC | M | ❓ | **Built, but Writedown does not appear in the Windows "Open with" list — parked at your call (2026-08-02), low value.** Both halves shipped: the installer declares the file types and Writedown opens whatever file it is launched with. What is unproven is Windows actually honouring the registration — likely because associations are written by the **installer**, so they only exist after installing the NSIS package, not for a rebuilt-in-place `.exe`. The launch-with-a-filename half works independently: `writedown.exe some.md` opens it. Revisit only if it starts to matter. |
 | **A.04** | | ✅ | WD as a drag and drop target? |
 | >>CC | L | None | **Windows already delivers dropped files to the window; nothing is listening.** About twenty lines to open them — drop a folder and it opens as a folder, drop files and they open as tabs. |
 | **A.05** | | ✅ | Different font for different file types (eg. more fixed width for python set in config? And/or easy switch font (list switch font to...) list in config from palette |
