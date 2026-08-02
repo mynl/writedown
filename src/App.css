@@ -593,7 +593,9 @@ body {
   max-width: 900px;
   color: var(--fg);
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-  font-size: 15px;
+  /* Ctrl+wheel zoom sets this variable directly on the element (issue A.13). Headings,
+     code and KaTeX are all sized in em, so they scale with it. */
+  font-size: var(--wd-preview-font-size, 15px);
   line-height: 1.6;
   position: relative; /* offsetParent for .wd-block — see .preview-scroll */
 }

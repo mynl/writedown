@@ -543,6 +543,49 @@ messages point here for detail.
 - Backend `DirEntry` gained a `supported` flag and `list_directory` no longer drops
   unsupported files. Rust changed — `tauri dev` needs a restart, not just HMR.
 
+## [2.6.0] - 2026-08-02
+
+Batch A, release 3 of 5: how the workspace looks and moves.
+
+### Added
+
+- **A font per file type** (issue A.05), via a new `[editor.font_by_ext]` table — e.g.
+  `py = "Cascadia Mono"`. It beats `[editor] font_family`, which still covers everything
+  else. Also `[editor] font_choices`, a list of families that become palette **"Font: …"**
+  verbs for a session-only switch (plus "Font: Reset to Config"); like editor zoom, that
+  choice is never written back to your config.
+- **Ctrl+wheel zooms the preview pane** (issue A.13), the same gesture the editor has had
+  since 1.90.0, with palette verbs and rebindable actions (`zoomPreviewIn` / `Out` /
+  `Reset`). Headings, code and KaTeX are all em-sized, so everything scales together.
+- **Plain view — editor only, no sidebars, no outline, no preview** (issue A.16), on
+  **Ctrl+K Ctrl+P** with explicit Enter/Exit palette verbs. Distraction-free (Shift+F11)
+  keeps the preview and goes full screen; this one is windowed and drops the preview too,
+  which is the gap. Exiting restores the layout you had. Bonus: with the outline unmounted
+  its parse stops running altogether.
+- **Project folder management from the palette** (issue A.02): **"Project: Remove
+  Folder …"**, one verb per root, and **"Project: Open Project File (.wdproj)"** to edit
+  it by hand. Removing a folder rewrites the project file only — the folder and everything
+  in it are untouched. The underlying action had existed since projects shipped but nothing
+  ever called it.
+
+### Changed
+
+- **Switching projects no longer fills the sidebar in one folder at a time** (issue A.25).
+  Every remembered-expanded folder used to be fetched in its own round-trip, each answer
+  re-rendering the tree — so you watched it populate. The whole set is now fetched in a
+  single batched call before the tree mounts, so it paints once, complete. Fewer round
+  trips and fewer renders than before; folders you expand later still load lazily as
+  always.
+- **Editor font size and family now travel as CSS variables** rather than being baked into
+  generated style rules. Every distinct value used to build a fresh stylesheet that
+  CodeMirror mounts and never removes, so each Ctrl+wheel zoom notch quietly leaked one —
+  and per-file-type fonts would have added one per tab switch. The theme object is now
+  stable across both, so nothing accumulates and nothing reconfigures.
+- **Distraction-free and plain view share one saved layout** instead of keeping separate
+  restore state. Two independent stacks could interleave into a layout that never came
+  back; now entering either from normal records the layout once, and exiting restores
+  exactly that.
+
 ## [2.5.0] - 2026-08-02
 
 Batch A, release 2 of 5: getting things *into* Writedown — clipboard, drag-drop, and

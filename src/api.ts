@@ -146,6 +146,11 @@ export const openExternal = (path: string) => invoke<void>("open_external", { pa
  *  This is the general "open externally"; openExternal above is the PDF viewer specifically. */
 export const openDefault = (path: string) => invoke<void>("open_default", { path });
 
+/** List several directories in one round-trip (tree prefetch on project switch). Missing
+ *  or unreadable paths are simply absent from the result. */
+export const listDirectories = (paths: string[]) =>
+  invoke<Record<string, Entry[]>>("list_directories", { paths });
+
 /** What each path is, for drag-and-drop: directories open as a workspace, files as tabs. */
 export type PathInfo = { path: string; exists: boolean; is_dir: boolean };
 export const statPaths = (paths: string[]) => invoke<PathInfo[]>("stat_paths", { paths });
@@ -258,6 +263,10 @@ export type EditorSettings = {
   /** `[editor] font_size_min` / `font_size_max`: px bounds for wheel/key zoom (default 6 / 24). */
   font_size_min: number | null;
   font_size_max: number | null;
+  /** `[editor.font_by_ext]`: lowercase extension → font family; beats `font_family`. */
+  font_by_ext: Record<string, string> | null;
+  /** `[editor] font_choices`: families offered as palette "Font: …" verbs (session-only). */
+  font_choices: string[] | null;
   outline_font_family: string | null;
   outline_font_size: number | null;
   outline_font_weight: string | null;

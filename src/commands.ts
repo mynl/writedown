@@ -227,6 +227,11 @@ export function appCommands(): Command[] {
     { id: "fullscreen-exit", title: "Exit Full Screen (F11 toggles)", run: () => s().setWindowFullscreen(false) },
     { id: "distraction-enter", title: "Enter Distraction Free (Shift+F11 toggles)", run: () => s().enterDistractionFree() },
     { id: "distraction-exit", title: "Exit Distraction Free (Shift+F11 toggles)", run: () => s().exitDistractionFree() },
+    { id: "plain-enter", title: "Enter Plain View — editor only (Ctrl+K Ctrl+P toggles)", run: () => s().enterLayoutMode("plain") },
+    { id: "plain-exit", title: "Exit Plain View (Ctrl+K Ctrl+P toggles)", run: () => s().exitLayoutMode() },
+    { id: "preview-zoom-in", title: "Preview: Zoom In", run: () => s().setPreviewZoom(1) },
+    { id: "preview-zoom-out", title: "Preview: Zoom Out", run: () => s().setPreviewZoom(-1) },
+    { id: "preview-zoom-reset", title: "Preview: Reset Zoom", run: () => s().setPreviewZoom("reset") },
     { id: "toggle-word-wrap", title: "Toggle Word Wrap", run: () => toggleWordWrap() },
     { id: "toggle-preview", title: "Toggle Preview (editor / split / preview)", run: () => s().cycleView() },
     { id: "open-help", title: "Open Help (help.md)", run: () => void s().openHelp() },
@@ -298,6 +303,23 @@ export function appCommands(): Command[] {
     { id: "proj-save", title: "Project: Save / Rename Project…", run: () => s().saveRenameProject() },
     { id: "proj-open", title: "Project: Open Project…", run: () => void s().openProject() },
     { id: "proj-close", title: "Project: Close Project", run: () => s().closeProject() },
+    {
+      // Removes a folder from the project — never touches the folder on disk (spec §2).
+      // The store action existed since projects shipped but nothing ever called it (A.02).
+      id: "proj-open-file",
+      title: "Project: Open Project File (.wdproj)",
+      run: () => {
+        const f = s().projectFile;
+        if (!f) {
+          useStore.setState({ configError: "open project file — no project open" });
+          return;
+        }
+        void s().openFile(f, false);
+      },
+    },
+    ...projectFolderRemovals(),
+    // ---- Editor font (config [editor] font_choices) — session-only overrides ----
+    ...fontCommands(),
     // ---- Insert snippets (built-ins + config [snippets]) ----
     ...snippetCommands(),
     // ---- Build commands (config [build]) ----
@@ -340,6 +362,35 @@ function projectSwitches(): Command[] {
     title: `Project: Switch to “${proj.name}”`,
     run: () => void useStore.getState().openProject(proj.path),
   }));
+}
+
+/** "Project: Remove Folder" verbs, one per project root. Removes the folder from the
+ *  project file only — the folder and everything in it stay exactly where they are. */
+function projectFolderRemovals(): Command[] {
+  return useStore.getState().projFolders.map((folder, i) => ({
+    id: `proj-remove-folder-${i}`,
+    title: `Project: Remove Folder “${folder.replace(/[\\/]+$/, "").split(/[\\/]/).pop()}” (${folder})`,
+    run: () => useStore.getState().removeProjectFolder(folder),
+  }));
+}
+
+/** "Font: <name>" verbs from `[editor] font_choices`, plus a reset. Session-only: the
+ *  choice never reaches config.toml (the editorZoom discipline). */
+function fontCommands(): Command[] {
+  const choices = useStore.getState().editorSettings?.font_choices ?? [];
+  if (choices.length === 0) return [];
+  return [
+    ...choices.map((family, i) => ({
+      id: `font-${i}`,
+      title: `Font: ${family}`,
+      run: () => useStore.getState().setFontOverride(family),
+    })),
+    {
+      id: "font-reset",
+      title: "Font: Reset to Config",
+      run: () => useStore.getState().setFontOverride(null),
+    },
+  ];
 }
 
 /** Delete entries: managed projects only (~/.writedown/projects/) — the Rust guard refuses

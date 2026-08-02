@@ -69,6 +69,14 @@ a selection wraps the selection — press `$` twice for `$$…$$`.
   Files are named by content, so pasting the same screenshot twice reuses one file and
   nothing is ever overwritten. The status bar reports what was written. Pasting text is
   completely unaffected.
+- **Fonts**: `[editor] font_family` sets the editor face; `[editor.font_by_ext]` overrides
+  it per file type (`py = "Cascadia Mono"`). List families in `[editor] font_choices`
+  and each becomes a palette "Font: …" verb for a session-only switch.
+- **Zoom**: Ctrl+wheel (or Ctrl+= / Ctrl+-) in the editor, and now in the preview pane
+  too. Both are session-only; "Set Current Editor Size as Default" writes it to config.
+- **Plain view** (**Ctrl+K Ctrl+P**): editor only — no sidebar, no outline, no preview,
+  and not full screen. **Shift+F11** is the full-screen version that keeps the preview.
+  Either way, exiting restores the layout you had.
 - **Snippets**: palette → "Insert: …" (aligned `$$` environment, `{python}` cell,
   and any you define under `[snippets]` in config, with tab-through fields).
 - **Trailing whitespace** is trimmed on save by default, Sublime semantics

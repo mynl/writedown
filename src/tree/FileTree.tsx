@@ -104,7 +104,11 @@ function TreeNode({
   const [expanded, setExpanded] = useState(
     () => useStore.getState().expandedPaths.has(entry.path) || defaultExpanded,
   );
-  const [children, setChildren] = useState<Entry[] | null>(initialChildren ?? null);
+  // Seed from the batched prefetch (issue A.25) when there is one, so a restored set of
+  // expanded folders renders complete on the first paint with no effect and no round-trip.
+  const [children, setChildren] = useState<Entry[] | null>(
+    () => initialChildren ?? useStore.getState().prefetchedDirs[entry.path] ?? null,
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

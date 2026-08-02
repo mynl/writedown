@@ -89,6 +89,25 @@ pub fn list_directory(app: tauri::AppHandle, path: String) -> Result<Vec<DirEntr
     Ok(entries)
 }
 
+/// List several directories in ONE round-trip (issue A.25). Switching projects used to
+/// fetch each remembered-expanded folder separately, each answer re-rendering the tree —
+/// so the sidebar visibly filled in one folder at a time. The frontend now prefetches the
+/// whole set here and mounts the tree already populated. Unreadable directories are simply
+/// absent from the map (one bad path must not sink the batch).
+#[tauri::command]
+pub fn list_directories(
+    app: tauri::AppHandle,
+    paths: Vec<String>,
+) -> std::collections::HashMap<String, Vec<DirEntry>> {
+    let mut out = std::collections::HashMap::new();
+    for p in paths {
+        if let Ok(entries) = list_directory(app.clone(), p.clone()) {
+            out.insert(p, entries);
+        }
+    }
+    out
+}
+
 #[derive(Serialize)]
 pub struct FileItem {
     name: String,

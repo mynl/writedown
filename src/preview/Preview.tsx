@@ -901,6 +901,33 @@ export function Preview({
     }
   }
 
+  // Ctrl+wheel zoom for the preview (issue A.13), mirroring the editor's gesture. The
+  // listener MUST be non-passive: WebView2's default Ctrl+wheel is page zoom, and only
+  // preventDefault stops the whole app chrome scaling. Deltas accumulate so one physical
+  // notch is one step on any device. The size is applied as a CSS variable directly on
+  // the element — no React state — so the incremental DOM patcher is never disturbed.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    let acc = 0;
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      acc += e.deltaY;
+      while (Math.abs(acc) >= 100) {
+        useStore.getState().setPreviewZoom(acc < 0 ? 1 : -1);
+        acc += acc < 0 ? 100 : -100;
+      }
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+
+  const previewZoom = useStore((s) => s.previewZoom);
+  useEffect(() => {
+    contentRef.current?.style.setProperty("--wd-preview-font-size", `${15 + previewZoom}px`);
+  }, [previewZoom]);
+
   // First pass for a document (cold KaTeX + worker-chunk load can take a beat on big
   // docs): show a quiet reassurance instead of a silent empty pane. Steady-state
   // re-renders of the same doc keep the current content — no flicker.

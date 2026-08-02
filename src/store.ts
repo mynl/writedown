@@ -33,6 +33,7 @@ import {
   reloadSpelling,
   renamePath,
   renderDocument,
+  listDirectories,
   saveLastWorkspace,
   saveProject,
   statPaths,
@@ -88,8 +89,11 @@ function setTitle(project: string | null) {
     .catch(() => {});
 }
 
-// Sidebar/outline visibility remembered on entering distraction-free, restored on exit.
-let dfRestore: { sidebar: boolean; outline: boolean } | null = null;
+// Layout remembered on entering a composite mode (plain / distraction-free), restored on
+// exit. ONE saved state for both modes, not one per mode: two independent restore stacks
+// can interleave into a layout that never comes back (issue A.16).
+type ViewMode = "editor" | "split" | "preview";
+let layoutRestore: { sidebar: boolean; outline: boolean; view: ViewMode } | null = null;
 
 // Paths Writedown just saved — used to ignore the watcher event our own write triggers.
 // Keyed by normPath: the watcher reports a path spelled from the WATCHED ROOT, which need
@@ -231,8 +235,11 @@ type AppState = {
    *  project-level when a project is open, else per folder (author's rider on items 4/5). */
   sidebarVisible: boolean;
   outlineVisible: boolean;
-  /** Distraction-free (Shift+F11) is active; transient — never session-persisted. */
-  distractionFree: boolean;
+  /** Composite layout mode; transient — never session-persisted. "distraction" is
+   *  Shift+F11 (full screen, no sidebars); "plain" is Ctrl+K Ctrl+P (editor only, no
+   *  sidebars, no preview, windowed). One field rather than two booleans so the layout
+   *  saved on entry is unambiguous (issue A.16). */
+  layoutMode: "normal" | "plain" | "distraction";
 
   treeVersion: number;
   /** Expanded folder paths in the tree, kept in the store so a treeVersion remount (after a
@@ -258,7 +265,7 @@ type AppState = {
   } | null;
   /** Right-click file-tree context menu (null = closed). */
   treeMenu: { x: number; y: number; entry: Entry } | null;
-  viewMode: "editor" | "split" | "preview";
+  viewMode: ViewMode;
   /** Which pane the preview column shows: the live preview or the last render snapshot. */
   previewTab: "live" | "rendered";
   /** Completed renders by document path (in-memory only). */
@@ -272,6 +279,11 @@ type AppState = {
   selChars: number;
   selLines: number;
   selRanges: number;
+  /** Session font override from the palette's "Font: …" verbs (issue A.05). Beats both
+   *  `[editor.font_by_ext]` and `[editor] font_family`; never written to config. */
+  fontOverride: string | null;
+  /** Preview pane zoom in px steps, like editorZoom (issue A.13). Session-only. */
+  previewZoom: number;
   sublimeTheme: SublimeTheme | null;
   editorSettings: EditorSettings | null;
   /** Session word-wrap state. [editor] word_wrap sets the launch default; toggled live via a
@@ -351,6 +363,8 @@ type AppState = {
   editTab: (path: string, content: string) => void;
   /** Adjust the editor font zoom: +1 / -1 points, or "reset" to the configured size. */
   setEditorZoom: (delta: number | "reset") => void;
+  setPreviewZoom: (delta: number | "reset") => void;
+  setFontOverride: (family: string | null) => void;
   /** Bake the current zoomed size into config.toml's [editor] font_size (a deliberate,
    *  surgical edit — the only time we write your config), then reset the zoom to 0. */
   setSizeAsDefault: () => Promise<void>;
@@ -422,6 +436,12 @@ type AppState = {
   setSelectionStats: (chars: number, lines: number, ranges: number) => void;
   /** Open files/folders dropped onto the window (issue A.04). */
   openDropped: (paths: string[]) => Promise<void>;
+  /** Directory listings fetched ahead of a tree mount, keyed by folder path (issue A.25).
+   *  TreeNode consults this before scheduling its own lazy fetch, so a restored set of
+   *  expanded folders paints in one go instead of filling in one folder at a time. */
+  prefetchedDirs: Record<string, Entry[]>;
+  /** Batch-fetch `roots` plus every remembered-expanded folder beneath them. */
+  prefetchTree: (roots: string[]) => Promise<void>;
   /** Give a scratch buffer a name (issue A.27). Renames its `untitled://` sentinel, which
    *  is the buffer's whole identity — tab label, hot-exit key and Save As default all
    *  follow. Still never written to disk. */
@@ -435,9 +455,12 @@ type AppState = {
   toggleFullscreen: () => void;
   /** Distraction-free (Shift+F11): fullscreen + both side panels hidden; exit restores
    *  the remembered layout. Independent of plain F11 fullscreen. */
+  enterLayoutMode: (mode: "plain" | "distraction") => void;
+  exitLayoutMode: () => void;
   enterDistractionFree: () => void;
   exitDistractionFree: () => void;
   toggleDistractionFree: () => void;
+  togglePlainView: () => void;
   setSplitRatio: (r: number) => void;
 };
 
@@ -485,6 +508,12 @@ export const useStore = create<AppState>((set, get) => ({
     const v = Number(localStorage.getItem("wd.editorZoom"));
     return Number.isFinite(v) ? v : 0;
   })(),
+  previewZoom: (() => {
+    const v = Number(localStorage.getItem("wd.previewZoom"));
+    return Number.isFinite(v) ? v : 0;
+  })(),
+  fontOverride: null,
+  prefetchedDirs: {},
   scratchCounter: 0,
   scratchRev: 0,
   treeWidth: 240,
@@ -492,7 +521,7 @@ export const useStore = create<AppState>((set, get) => ({
   splitRatio: 0.5,
   sidebarVisible: true,
   outlineVisible: true,
-  distractionFree: false,
+  layoutMode: "normal",
 
   // Restore the last session on startup (spec §24), keyed by workspace. Missing
   // folders/files are skipped silently — a stale session must never block launch.
@@ -968,6 +997,18 @@ export const useStore = create<AppState>((set, get) => ({
       return { editorZoom: next };
     }),
 
+  // Preview zoom (issue A.13) — the editor's gesture, one pane over. Same transient
+  // discipline: localStorage, never config.
+  setPreviewZoom: (delta) =>
+    set((s) => {
+      const next = delta === "reset" ? 0 : Math.max(-8, Math.min(24, s.previewZoom + delta));
+      localStorage.setItem("wd.previewZoom", String(next));
+      return { previewZoom: next };
+    }),
+
+  // Session font override (issue A.05). null clears it, falling back to config.
+  setFontOverride: (family) => set({ fontOverride: family }),
+
   setSizeAsDefault: async () => {
     const { editorSettings, editorZoom, configFile } = get();
     if (!configFile || editorZoom === 0) return; // nothing to bake in
@@ -1278,6 +1319,27 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
+  // One batched listing for the whole visible tree (issue A.25), instead of one IPC call
+  // and one re-render per expanded folder. Capped: a session with hundreds of remembered
+  // folders falls back to the lazy path for the rest, which is still correct, just visible.
+  prefetchTree: async (roots) => {
+    const PREFETCH_CAP = 60;
+    const expanded = [...get().expandedPaths];
+    const wanted = [
+      ...roots,
+      ...expanded.filter((p) => roots.some((r) => underRoot(p, r) || samePath(p, r))),
+    ];
+    const unique = [...new Set(wanted)].slice(0, PREFETCH_CAP);
+    if (unique.length === 0) return;
+    try {
+      const dirs = await listDirectories(unique);
+      // Merge, don't replace: a second project root's prefetch must not drop the first's.
+      set((s) => ({ prefetchedDirs: { ...s.prefetchedDirs, ...dirs } }));
+    } catch {
+      /* fine — every node still has its own lazy fetch */
+    }
+  },
+
   // Files/folders dropped onto the window (issue A.04). A folder becomes the Folder-tab
   // root (or joins the project when the Project tab is showing); files open as tabs.
   // Capped, because dropping a directory's worth of files would bury the tab strip.
@@ -1372,25 +1434,54 @@ export const useStore = create<AppState>((set, get) => ({
         get().showStatusMessage("full screen unavailable — restart Writedown");
       });
   },
-  enterDistractionFree: () => {
-    if (get().distractionFree) return;
-    dfRestore = { sidebar: get().sidebarVisible, outline: get().outlineVisible };
-    set({ distractionFree: true, sidebarVisible: false, outlineVisible: false });
-    get().setWindowFullscreen(true);
-  },
-  exitDistractionFree: () => {
-    if (!get().distractionFree) return;
+  // Composite layout modes. `distraction` = full screen with no sidebars (Shift+F11);
+  // `plain` = editor only, no sidebars, NO preview, and NOT full screen (issue A.16 —
+  // distraction-free always kept the preview, which was the gap). Both save the same
+  // single snapshot, so switching between them or exiting either always restores the
+  // layout you actually started from.
+  enterLayoutMode: (mode) => {
+    const cur = get().layoutMode;
+    if (cur === mode) return;
+    // Only snapshot when coming from the normal layout — going plain → distraction must
+    // not record the plain layout as "what to restore".
+    if (cur === "normal") {
+      layoutRestore = {
+        sidebar: get().sidebarVisible,
+        outline: get().outlineVisible,
+        view: get().viewMode,
+      };
+    }
     set({
-      distractionFree: false,
-      sidebarVisible: dfRestore?.sidebar ?? true,
-      outlineVisible: dfRestore?.outline ?? true,
+      layoutMode: mode,
+      sidebarVisible: false,
+      outlineVisible: false,
+      ...(mode === "plain" ? { viewMode: "editor" as ViewMode } : {}),
     });
-    dfRestore = null;
-    get().setWindowFullscreen(false);
+    get().setWindowFullscreen(mode === "distraction");
+  },
+  exitLayoutMode: () => {
+    if (get().layoutMode === "normal") return;
+    const wasDistraction = get().layoutMode === "distraction";
+    set({
+      layoutMode: "normal",
+      sidebarVisible: layoutRestore?.sidebar ?? true,
+      outlineVisible: layoutRestore?.outline ?? true,
+      viewMode: layoutRestore?.view ?? "split",
+    });
+    layoutRestore = null;
+    if (wasDistraction) get().setWindowFullscreen(false);
+  },
+  enterDistractionFree: () => get().enterLayoutMode("distraction"),
+  exitDistractionFree: () => {
+    if (get().layoutMode === "distraction") get().exitLayoutMode();
   },
   toggleDistractionFree: () => {
-    if (get().distractionFree) get().exitDistractionFree();
-    else get().enterDistractionFree();
+    if (get().layoutMode === "distraction") get().exitLayoutMode();
+    else get().enterLayoutMode("distraction");
+  },
+  togglePlainView: () => {
+    if (get().layoutMode === "plain") get().exitLayoutMode();
+    else get().enterLayoutMode("plain");
   },
 
   setSplitRatio: (r) => set({ splitRatio: clampRatio(r) }),
@@ -1652,6 +1743,9 @@ export const useStore = create<AppState>((set, get) => ({
     });
     // An empty managed project is valid (folders added later) — guard the folder-only steps.
     if (proj.folders.length > 0) {
+      // Fetch every root plus each remembered-expanded folder in ONE call BEFORE the tree
+      // mounts, so it paints populated instead of filling in folder by folder (issue A.25).
+      await get().prefetchTree(proj.folders);
       await get().setRoot(proj.folders[0]);
       void watchWorkspace(proj.folders).catch(() => {});
       get().syncExtraWatch();

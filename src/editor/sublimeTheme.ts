@@ -34,16 +34,23 @@ export function buildSublimeTheme(
   const fontSize = overrides?.fontSize ?? st.font_size;
   const fontFamily = overrides?.fontFamily ?? st.font_face;
   const fontWeight = overrides?.fontWeight;
+  // Size and family go through CSS VARIABLES rather than being baked into the generated
+  // rules (issues A.05, A.13). Every distinct value handed to EditorView.theme() builds a
+  // fresh StyleModule that CodeMirror mounts and never unmounts, so per-file-type fonts
+  // (and, already today, every Ctrl+wheel zoom notch) would quietly accumulate style
+  // sheets for the life of the session. With variables the theme object stays identical
+  // and Editor.tsx just re-points the variable — no reconfigure, nothing to accumulate.
+  // The values below are the fallbacks, used until the variables are set.
   const theme = EditorView.theme(
     {
       "&": {
         color: st.foreground,
         backgroundColor: st.background,
         height: "100%",
-        fontSize: `${fontSize}px`,
+        fontSize: `var(--wd-editor-font-size, ${fontSize}px)`,
       },
       ".cm-content": {
-        fontFamily: `"${fontFamily}", "Cascadia Mono", "Consolas", monospace`,
+        fontFamily: `var(--wd-editor-font-family, "${fontFamily}"), "Cascadia Mono", "Consolas", monospace`,
         caretColor: st.caret,
         ...(fontWeight ? { fontWeight } : {}),
       },

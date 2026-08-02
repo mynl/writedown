@@ -97,10 +97,33 @@ export function Editor({ path, content }: { path: string; content: string }) {
 
 
 
+  // Per-file-type font ([editor.font_by_ext], issue A.05): the extension's font wins over
+  // the global one, which wins over the imported Sublime face. A session override from the
+  // palette's "Font: …" verbs beats both and is never written to config.
+  const fontOverride = useStore((s) => s.fontOverride);
+  const ext = path.split(".").pop()?.toLowerCase() ?? "";
+  const effectiveFamily = fontOverride ?? settings?.font_by_ext?.[ext] ?? fontFamily;
+
+  // Deliberately NOT keyed on fontSize/effectiveFamily: those now travel as CSS variables
+  // (see sublimeTheme.ts), so the theme object is stable across zoom notches and tab
+  // switches and CodeMirror never reconfigures for them.
   const built = useMemo(
     () => (st ? buildSublimeTheme(st, { fontSize, fontFamily, fontWeight }) : null),
-    [st, fontSize, fontFamily, fontWeight],
+    [st, fontWeight],
   );
+
+  // Point the variables at the current values. Set on :root, NOT on a wrapper element —
+  // `.cm-host` relies on `height: 100%` resolving against the pane, and an extra div in
+  // between collapses it (the "editor renders at full content height" hazard documented
+  // in App.css). There is only ever one editor, so :root is unambiguous. A plain style
+  // write: no React state, no CodeMirror transaction — a wheel-zoom is one property set.
+  useLayoutEffect(() => {
+    const root = document.documentElement.style;
+    if (fontSize) root.setProperty("--wd-editor-font-size", `${fontSize}px`);
+    else root.removeProperty("--wd-editor-font-size");
+    if (effectiveFamily) root.setProperty("--wd-editor-font-family", `"${effectiveFamily}"`);
+    else root.removeProperty("--wd-editor-font-family");
+  }, [fontSize, effectiveFamily]);
 
   const lang = useLanguageFor(path);
 
@@ -149,6 +172,7 @@ export function Editor({ path, content }: { path: string; content: string }) {
       );
     }
     return ext;
+    // fontSize is still a dep of the NON-Sublime fallback theme below, but not of `built`.
   }, [path, lang, built, fontSize, fontWeight, spellEnabled, tabSize]);
 
   // Live-apply keybinding changes when config.toml is saved (loadTheme replaces editorSettings,

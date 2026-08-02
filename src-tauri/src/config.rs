@@ -35,6 +35,9 @@ tab_size = 4
 # font_size_min = 6
 # font_size_max = 24
 word_wrap = true
+# font_choices: families offered as palette "Font: <name>" verbs. Choosing one applies for
+# this session only — it is never written back here.
+# font_choices = ["Source Code Pro", "Cascadia Mono", "Consolas"]
 # trim_trailing_whitespace: strip spaces/tabs from line ends when a file is saved.
 # true trims them all (Sublime-style); "keep-hard-breaks" spares markdown two-plus-
 # space line breaks (tip: a trailing backslash is the trim-proof hard break); false
@@ -102,6 +105,14 @@ skip_proper_nouns = true
 # %APPDATA%\com.mynl.writedown\personal-dictionary.txt. Point it at a synced folder to
 # carry your added words across machines.
 # personal_dictionary = "C:/Users/steve/Documents/CloudStation/writedown-personal.dic"
+
+# ── Per-file-type editor fonts ───────────────────────────────────────────────────────────────
+# Extension (lowercase, no dot) → font family. Overrides [editor] font_family for those files;
+# every other type keeps font_family. NOTE this is a TOML sub-table, so it must stay BELOW all
+# the plain [editor] keys — anything written after it belongs to it, not to [editor].
+# [editor.font_by_ext]
+# py = "Cascadia Mono"
+# md = "Source Code Pro"
 
 # ── Custom keybindings ───────────────────────────────────────────────────────────────────────
 # Remap or add EDITOR keys without a rebuild — edit here, save, and they apply live. Format:
@@ -220,6 +231,12 @@ pub struct EditorSettings {
     font_size: Option<u32>,
     font_family: Option<String>,
     font_weight: Option<String>,
+    /// Per-file-type editor font from `[editor.font_by_ext]` — lowercase extension → family
+    /// (issue A.05). Beats `font_family`; the imported Sublime face is the final fallback.
+    font_by_ext: Option<HashMap<String, String>>,
+    /// `[editor] font_choices`: families offered as palette "Font: <name>" verbs. The choice
+    /// is a session override only — never written back to config.
+    font_choices: Option<Vec<String>>,
     /// Editor word wrap default ([editor] word_wrap). Runtime toggle is session-only.
     word_wrap: Option<bool>,
     /// Trim trailing spaces/tabs on save ([editor] trim_trailing_whitespace), normalized
@@ -309,6 +326,17 @@ pub fn load_editor_settings(app: tauri::AppHandle) -> Result<EditorSettings, Str
             .map(|i| i as u32),
         font_family: ed.and_then(|e| e.get("font_family")).and_then(string),
         font_weight: ed.and_then(|e| e.get("font_weight")).and_then(weight),
+        font_by_ext: ed
+            .and_then(|e| e.get("font_by_ext"))
+            .and_then(|v| v.as_table())
+            .map(|t| {
+                t.iter()
+                    .filter_map(|(k, v)| v.as_str().map(|s| (k.to_lowercase(), s.to_string())))
+                    .collect()
+            }),
+        font_choices: ed.and_then(|e| e.get("font_choices")).and_then(|v| v.as_array()).map(|a| {
+            a.iter().filter_map(|v| v.as_str().map(str::to_string)).collect()
+        }),
         word_wrap: ed.and_then(|e| e.get("word_wrap")).and_then(|v| v.as_bool()),
         trim_trailing_whitespace: ed
             .and_then(|e| e.get("trim_trailing_whitespace"))
