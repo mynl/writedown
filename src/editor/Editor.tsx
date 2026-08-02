@@ -128,6 +128,19 @@ export function Editor({ path, content }: { path: string; content: string }) {
 
   const lang = useLanguageFor(path);
 
+  // The extension set depends on the document's SHAPE, not its path (issue A.29). Keying
+  // the memo below on `path` meant switching between two markdown files produced a new
+  // array identity — and therefore a full CodeMirror `reconfigure` — to install an
+  // extension set identical to the one already running. That reconfigure destroys and
+  // rebuilds every ViewPlugin, and two of them scan the whole document synchronously in
+  // their constructors, which is the tab-switch stall on a large file.
+  const isMd = isMarkdownDoc(path);
+  const csvDialect: "csv" | "tsv" | null = isCsv(path)
+    ? /\.tsv$/i.test(path)
+      ? "tsv"
+      : "csv"
+    : null;
+
   const extensions = useMemo(() => {
     const ext = [
       cmExceptionLogger,
@@ -153,7 +166,7 @@ export function Editor({ path, content }: { path: string; content: string }) {
       built ? built.highlight : syntaxHighlighting(editorHighlight),
     ];
     // Prec.highest so math colouring wins over list/other syntax marks (e.g. in bullets).
-    if (isMarkdownDoc(path)) {
+    if (isMd) {
       ext.push(frontmatterBlock); // visual block behind the `---` header
       ext.push(Prec.highest(mathHighlight));
       ext.push(...citationExtensions); // @-citation + word-completion autocomplete + hover
@@ -163,15 +176,18 @@ export function Editor({ path, content }: { path: string; content: string }) {
     } else {
       ext.push(wordCompleteAutocomplete); // word-completion popup for non-markdown languages
     }
-    if (isCsv(path)) ext.push(csvRainbow(path));
+    if (csvDialect) ext.push(csvRainbow(csvDialect));
     // Font size/family reach the fallback theme through the same CSS variables, so only
     // weight needs a rule here (it is not on the per-keystroke/zoom path).
     if (!built && fontWeight) {
       ext.push(EditorView.theme({ ".cm-content": { fontWeight } }));
     }
     return ext;
-    // fontSize is still a dep of the NON-Sublime fallback theme below, but not of `built`.
-  }, [path, lang, built, fontSize, fontWeight, spellEnabled, tabSize]);
+    // NO `path` here, deliberately (issue A.29) — only the shape the extensions actually
+    // branch on. Two markdown files now yield the SAME array identity, so a tab switch
+    // dispatches no reconfigure at all. `lang` is likewise a per-language singleton
+    // (languages.ts), so two .py files are stable too.
+  }, [isMd, csvDialect, lang, built, fontWeight, spellEnabled, tabSize]);
 
   // Live-apply keybinding changes when config.toml is saved (loadTheme replaces editorSettings,
   // so `userKeys` gets a new identity). Reconfigure the Compartment in place — no rebuild — and

@@ -17,8 +17,15 @@ export const FM_CLOSE_RE = /^---[ \t]*\r?$/;
  *  `parse_front_matter`: no YAML dependency, and the block is never rewritten — only read.
  *  Only top-level keys count, so a `number-sections:` nested under `format:` is ignored. */
 export function frontMatterFlag(src: string, key: string): boolean | undefined {
-  const lines = src.split("\n");
+  // Scan only the HEAD of the document. `src.split("\n")` over a whole file allocates one
+  // string per line — thousands on a large document — and this runs on every preview
+  // render, including every keystroke (issue A.29). Front matter is by definition at the
+  // top, so a bounded slice is not just cheaper, it is the correct scope.
+  const HEAD = 8192;
+  const lines = src.slice(0, HEAD).split("\n");
   if (lines.length === 0 || !FM_OPEN_RE.test(lines[0])) return undefined;
+  // The last element may be a partial line if the block runs past HEAD; a truncated key
+  // simply won't match, which is the same answer as "absent".
   for (let i = 1; i < lines.length; i++) {
     if (FM_CLOSE_RE.test(lines[i])) return undefined; // end of block, key absent
     const m = /^([A-Za-z0-9_-]+)\s*:\s*(.*?)\s*$/.exec(lines[i]);

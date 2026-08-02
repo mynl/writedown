@@ -543,6 +543,31 @@ messages point here for detail.
 - Backend `DirEntry` gained a `supported` flag and `list_directory` no longer drops
   unsupported files. Rust changed — `tauri dev` needs a restart, not just HMR.
 
+## [2.10.0] - 2026-08-02
+
+### Fixed
+
+- **Switching tabs no longer freezes the editor** (issue A.29 — "the mouse wheel does
+  nothing for a moment", worst on large files). Every tab switch was dispatching a full
+  CodeMirror `reconfigure`: the extension list was memoised on the document's *path*, so
+  moving between two Markdown files built a new array — and thus reinstalled the entire
+  extension stack — to produce a set identical to the one already running. That teardown
+  reconstructs every view plugin, two of which scan the whole document synchronously, and
+  invalidates the syntax tree, forcing a full re-parse. The list is now keyed on the
+  document's **shape** (is it Markdown, is it CSV, which delimiter) — the only things the
+  extensions actually branch on — so two files of the same kind reconfigure nothing at all.
+  Related: `languageForPath` was constructing a *fresh* language support on every call
+  (`python()`, `StreamLanguage.define(toml)`, …), so two `.py` files reconfigured for the
+  same reason; these are now per-language singletons, as Markdown already was.
+  It surfaced as a dead scroll wheel rather than mild jank because the Ctrl+wheel zoom
+  listener is necessarily non-passive, which makes the browser wait for the main thread
+  before scrolling at all.
+- **The section-numbering check no longer splits the whole document on every preview
+  render** (a cost introduced with 2.8.0's numbered sections). It read the front-matter flag
+  by splitting the entire file into lines — thousands of allocations per render, including
+  per keystroke — where front matter is by definition in the first few lines. It now scans a
+  bounded head.
+
 ## [2.9.0] - 2026-08-02
 
 ### Changed

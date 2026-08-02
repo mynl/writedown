@@ -13,68 +13,81 @@ For each row in the table add a new row below it for your input, item is ">>CC".
 
 ***
 
- as asd $d$
-
-## Batch A: Thursday2026-07-23 to
+## Batch B: Monday 2026-08-03
 
 | Item | Effort HML | Status/Impact | Description |
 |--:|:---:|:---:|:-------------------------|
-| A.01 | | | Selection -> $ should add $ around selection (mirrors *, ( etc. behavior) |
+| **B.01** | | | *item* |
+
+
+***
+
+## Batch A: Thursday 2026-07-23 to Sunday 2026-08-02
+
+| Item | Effort HML | Status/Impact | Description |
+|--:|:---:|:---:|:-------------------------|
+| **A.01** | | ✅ | Selection -> $ should add $ around selection (mirrors *, ( etc. behavior) |
 | >>CC | L | None | **One character missing from a list.** The wrap-on-type table already holds quote, apostrophe, backtick, star and the three bracket pairs — the dollar sign was simply never added. One-line fix; the only decision is whether it should wrap in code files too, or only in md/qmd. |
-| A.02 | | | Way to edit a project - esp. to remove folders (?right click) and/or palette -> open project file and then edit it |
+| **A.02** | | ✅ | Way to edit a project - esp. to remove folders (?right click) and/or palette -> open project file and then edit it |
 | >>CC | L | None | **The remove-a-folder function already exists in the code — nothing ever calls it.** Wiring it to a right-click on a project root plus a palette verb is small; I'd also add "Open Project File" so you can hand-edit the `.wdproj` when you want to. |
-| A.03 | | | Use WD as a windows mapped app -> double click to open py files in WD? |
+| **A.03** | | ❓ | Use WD as a windows mapped app -> double click to open py files in WD? |
 | >>CC | M | None | **Two halves, both missing.** The installer has to claim the file types, AND Writedown has to notice the filename it was launched with — today it ignores it completely. Flag: only the *installed* version gets associations, never a copied `.exe`. |
-| A.04 | | | WD as a drag and drop target? |
+| **A.04** | | ✅ | WD as a drag and drop target? |
 | >>CC | L | None | **Windows already delivers dropped files to the window; nothing is listening.** About twenty lines to open them — drop a folder and it opens as a folder, drop files and they open as tabs. |
-| A.05 | | | Different font for different file types (eg. more fixed width for python set in config? And/or easy switch font (list switch font to...) list in config from palette |
+| **A.05** | | ✅ | Different font for different file types (eg. more fixed width for python set in config? And/or easy switch font (list switch font to...) list in config from palette |
 | >>CC | M | None | **CORRECTION (2026-08-02): I over-called this. "Slow" was wrong.** Two things I got wrong: the syntax colors are cached by theme, not by font, so a font change doesn't rebuild them; and a full editor rebuild *already* happens on every tab switch today, so per-type fonts add none. The only real cost is a small style sheet built per switch that never gets cleaned up — a slow drip over a long session, not a stall. Still worth doing the tidy way, which also fixes the same drip in Ctrl+wheel zoom. |
-| A.06 | | | selection  + Ctrl+D should duplicate just the selection - not the whole line |
+| **A.06** | | ✅ | selection  + Ctrl+D should duplicate just the selection - not the whole line |
 | >>CC | L | None | **Small correction first:** in Writedown Ctrl+D is select-next-occurrence (your favorite); *duplicate* is Ctrl+Shift+D, and it always copies whole lines. Making it copy the selection when there is one is a small, self-contained change. |
-| A.07 | | | Split screen - look at two files at the same time? Edit mode only. |
+| **A.07** | | ❌ | Split screen - look at two files at the same time? Edit mode only. |
 | >>CC | H | ❌ | **DROPPED 2026-08-02. YELL — this is by far the biggest structural item on the list.** Writedown has exactly one editor, one "current file" and one layout mode; a second pane breaks all three. Weeks, not days, and two live editors on big docs cost real memory and CPU. |
-| A.08 | | | ctrl + shift + f -> ripgrep find?! needs a dialog/input box for the query, -g args etc. |
+| **A.08** | | ❌ | ctrl + shift + f -> ripgrep find?! needs a dialog/input box for the query, -g args etc. |
 | >>CC | H | ❌ | **DROPPED 2026-08-02. The full thing (results panel, click a hit to jump there) is a genuinely big feature — but you can have 80% of it today.** A `[build]` entry running `rg` already dumps its output into a scratch tab. Worth living with that for a week before I build the panel. |
-| A.09 | | | Ctrl+Shft+Enter -> all cells or just current cell? partial Python renders? |
-| >>CC | L | ✅ | **Answered 2026-08-02, no code needed: ALL cells, top to bottom, in a fresh namespace every single time.** There are no partial renders today — that is exactly what A.24 adds. |
-| A.10 | | | "header" Python code somehow, eg import sys, sys.path.append...; import xxx; |
+| **A.09** | | ✅ | Ctrl+Shft+Enter -> all cells or just current cell? partial Python renders? |
+| >>CC | L | ✅ | **Answered 2026-08-02, no code needed: ALL cells, top to bottom, in a fresh namespace every single time.** There are no partial renders today — that is exactly what **A.24** adds. |
+| **A.10** | | ❌ | "header" Python code somehow, eg import sys, sys.path.append...; import xxx; |
 | >>CC | L | ❌ | **DROPPED 2026-08-02 — you already had the better solution.** Put the imports in the first cell with `#\| echo: false` — it runs but never shows. What's genuinely missing is a preamble that lives *outside* the document; I'd add `wd-python-init: setup.py` in the YAML, matching your existing `wd-python:`. |
-| A.11 | | | TOC in py should include \tdef xx for class members; optional _ and __ members, from config |
+| **A.11** | | ✅ | TOC in py should include \tdef xx for class members; optional _ and __ members, from config |
 | >>CC | L | None | **Found it, and it's a real bug.** Methods ARE parsed — but any class with more than 30 of them has its *entire* member list silently thrown away by a cap in the outline code. Your classes are exactly the ones that trip it. Raise the cap for Python, add the `_` / `__` config switch. |
-| A.12 | | | Python autocomplete and general LPS implementation? |
+| **A.12** | | ❌ | Python autocomplete and general LPS implementation? |
 | >>CC | DROP | ❌ | **Dropped at your call (2026-08-02)** — Tab word-completion covers it. For the record: the cheap option was completions from the already-running Python kernel; the full one was an LSP client, easily the largest thing ever added to Writedown. |
-| A.13 | | | Mouse scroll in preview/render window to resize like edit tab? |
+| **A.13** | | ✅ | Mouse scroll in preview/render window to resize like edit tab? |
 | >>CC | L | None | **Ctrl+wheel zoom exists on the editor only — the preview has no zoom at all.** Same trick, one more pane. |
-| A.14 | | | Tab to get completions for long words currently indents the para when there is no match. that is confusing. It should do nothing / drop down "no matches". |
+| **A.14** | | ❓ | Tab to get completions for long words currently indents the para when there is no match. that is confusing. It should do nothing / drop down "no matches". |
 | >>CC | L | None | **Confirmed exactly as you describe.** When nothing matches, Tab is handed on to CodeMirror's indent — which indents the whole logical line, i.e. your paragraph. Fix: after a long-enough word, swallow the Tab and flash "no matches" instead. |
-| A.15 | | | Text hard wrap and reflow? Like Emacs esc-Q? (Bad for git diffs?) |
+| **A.15** | | ❌ | Text hard wrap and reflow? Like Emacs esc-Q? (Bad for git diffs?) |
 | >>CC | M | ❌ | **DROPPED 2026-08-02. The wrapping is trivial; not wrecking lists, quotes, tables, code fences and YAML is the work.** Command-only, never automatic. On diffs: noise only bites if you reflow *old* text — text wrapped as you write it diffs fine. |
-| A.16 | | | Easy way to go "edit window only" view = no toc, outline, no preview (perhaps Ctrl K + ctrl P (plain), palette, or ALT+F11) |
+| **A.16** | | ✅ | Easy way to go "edit window only" view = no toc, outline, no preview (perhaps Ctrl K + ctrl P (plain), palette, or ALT+F11) |
 | >>CC | L | Tiny | **Shift+F11 already gets you fullscreen with no sidebars — but it keeps the preview.** This is a second, non-fullscreen composite: editor only, no outline, no preview, previous layout restored on exit. Small, and actually a tiny speed-up (outline parsing stops). |
-| A.17 | | | double click from folder/project opens the file in default app (ii's it in PS speak). Eg html files etc. Can tree view easily use app-specific icons for those files? (like we do for python files?) |
+| **A.17** | | ✅ | double click from folder/project opens the file in default app (ii's it in PS speak). Eg html files etc. Can tree view easily use app-specific icons for those files? (like we do for python files?) |
 | >>CC | L | None | **Your scheme (single = preview, double = edit, Ctrl+click = default app, all types) is clean and I'd build exactly that.** Bug found on the way: today "Open Externally" on an image or a zip launches your *PDF viewer*, because it's wired to the pdf_viewer setting rather than to Windows. Icons for html/css/js are one line each; real per-app Windows icons are a different, much harder thing. |
-| A.18 | | | Can we auto-number sections in a md render? Is that just a yaml setting? if so, palette toggle number-sections to adjust yaml |
+| **A.18** | | ✅ | Can we auto-number sections in a md render? Is that just a yaml setting? if so, palette toggle number-sections to adjust yaml |
 | >>CC | L–M | None | **Yes it's a Quarto YAML setting (`number-sections: true`) — but our preview is markdown-it, which ignores it.** Cheapest good answer: pure CSS numbering, switched on by reading that key. For the palette toggle I'd flip a *view* setting rather than rewrite your YAML — safer, instantly reversible, and it never touches your file. |
-| A.19 | | | Can we add a joplin style [TOC] element? |
+| **A.19** | | ❌ | Can we add a joplin style [TOC] element? |
 | >>CC | M | ❌ | **DROPPED 2026-08-02. Needs a list of every heading, but the preview deliberately renders and caches one block at a time.** So the `[TOC]` block has to be rebuilt whenever *any* heading anywhere changes — that bookkeeping is the whole cost of the feature. |
-| A.20 | | | update decl pygments: aggregate rebuilt its pygments colorizer - can we pick the new version up? |
+| **A.20** | | ✅ | update decl pygments: aggregate rebuilt its pygments colorizer - can we pick the new version up? |
 | >>CC | M | None | **Yes — and it has moved on a long way; I diffed the two.** New since our snapshot: `//` comments, `doc{{{…}}}` blocks, `tags{}`, quoted `"labels"` (we have *no* string rule at all today), `port.` / `dist.` / `distortion.` names, and new keywords (peel, dwait, wait, year/years, splice). This is a re-port, not a patch. |
-| A.21 | | | Use Decl mode and pygments colorizer for .agg files: add outline via match ^(agg\|port\|x?pnl\|bv\|dist) etc, fold up, comments |
+| **A.21** | | ✅ | Use Decl mode and pygments colorizer for .agg files: add outline via match ^(agg\|port\|x?pnl\|bv\|dist) etc, fold up, comments |
 | >>CC | M | None | **`.agg` files already colorize, and Ctrl+/ already comments them.** What's missing is the outline (there is no `.agg` case at all) and folding (the colorizer style we use gets none for free). Both are new, both are small. |
-| A.22 | | | Ctrl + V with an image on clipboard -> act like Joplin = save file as parent_dir/hash.<ext from clipboard> and insert ![]() link |
+| **A.22** | | ✅ | Ctrl + V with an image on clipboard -> act like Joplin = save file as parent_dir/hash.<ext from clipboard> and insert ![]() link |
 | >>CC | M | None | **Rules settled 2026-08-02: image goes to `img/` beside the document, created if it isn't there; a temp file's images go to `~/.writedown/img/`. Accepted in md, qmd and temp files only — Ctrl+V is untouched everywhere else.** Named by content hash, so pasting the same screenshot twice reuses one file and nothing is ever overwritten. One unknown that decides whether this is small or medium: whether the webview hands us the screenshot already PNG-encoded (likely) or we have to encode it ourselves in Rust. |
-| A.23 | | | Render strings: percent (%) leads to funny coloring for the rest of the line in qmd render |
+| **A.23** | | ❓ | Render strings: percent (%) leads to funny coloring for the rest of the line in qmd render |
 | >>CC | PEND | ??? | **Parked 2026-08-02 — neither of us can reproduce it.** Next time it bites, note whether it's the left editor or the right rendered pane and paste the offending line; with a sample I'll have it in minutes. |
-| A.24 | | | ability for incremental render of python blocks or "just this block" |
+| **A.24** | | ✅ | ability for incremental render of python blocks or "just this block" |
 | >>CC | M | None | **Per your call: run the cell in whatever state the kernel is already in — Jupyter's Shift+Enter.** The running-it half is nearly free (the kernel already persists between renders). The work is remembering each cell's output so the Rendered pane can be rebuilt with just one cell changed. |
-| A.25 | | | After switch projects -> files "appear" one by one; freeze window and render all at once would be smoother |
+| **A.25** | | ✅ | After switch projects -> files "appear" one by one; freeze window and render all at once would be smoother |
 | >>CC | M | Tiny | **Diagnosed: every remembered-open folder is fetched in its own separate round-trip, and each answer redraws the tree** — so you literally watch it fill in. Fix is one batched fetch, then draw once. |
-| A.26 | | | On select, show in lower right, count of number of rows selected, like ST |
+| **A.26** | | ✅ | On select, show in lower right, count of number of rows selected, like ST |
 | >>CC | L | None | **The status bar already updates on every cursor move, so this hooks straight in:** "N lines / M chars selected", plus a count of cursors when you're multi-selecting, like ST. |
-| A.27 | | | Ability to NAME temporary files. I really like those - associated with a project, open with the project, but I don't have to decide where to save. (Where ARE they saved?) Palette -> name temporary file. |
+| **A.27** | | ✅ | Ability to NAME temporary files. I really like those - associated with a project, open with the project, but I don't have to decide where to save. (Where ARE they saved?) Palette -> name temporary file. |
 | >>CC | L | None | **Answering the question: they are not files at all.** Their text lives inside the project's session file, `~/.writedown/sessions/<hash>.json` — which is why they follow the project around. (That folder is disposable, so they get no backups and no Synology sync — risk noted and accepted by you, no behavior change.) **Scope confirmed: name only.** Palette "Name Temporary File…" and the tab shows the name instead of Untitled-3. Turns out to be smaller than I first thought — renaming the buffer's internal id does the whole job, no new plumbing. |
-| A.28 | | | BTW writedown-issues.md did not appear to reload after CC's external edits (2026-08-02) |
+| **A.28** | | ✅ | BTW writedown-issues.md did not appear to reload after CC's external edits (2026-08-02) |
 | >>CC | L | None | **Real bug, found it.** The reload check compares file paths as raw strings, so a tab opened by a path spelled differently from the watched folder (different capitals or slashes — e.g. your Ctrl+Shift+Q quick-file, typed by hand into config.toml) never matches, and the change is dropped **silently**. Same family as the duplicate-projects bug; the correct comparison already exists elsewhere in the code. Second possibility, by design: if the tab had unsaved edits it deliberately won't reload — it shows "Modified externally" in the footer instead. |
+| **A.29** | | ✅ | Switching back and forth between tabs freezes briefly — mouse wheel won't scroll. Worse on larger files (writedown-issues.md). Fine once the freeze passes. |
+| >>CC | M | None | **Fixed (2.10.0).** Every tab switch was throwing away and rebuilding the *entire* editor — even between two markdown files, where the result is identical. Rebuilding re-scanned the whole document for math, re-parsed it, and re-ran every checker: on a 140 KB file, a visible stall. **Why the wheel specifically died:** the Ctrl+wheel zoom listener forces the browser to ask JavaScript before scrolling, so a busy moment means *no* scrolling rather than jerky scrolling. Now the editor is only rebuilt when the document's *kind* changes (markdown → csv, say), so switching between two markdown files rebuilds nothing at all. **Caveat, and your instinct was right:** the incoming document still has to be re-read into the one shared editor, so a really big file may still show a shorter pause — the only way to make a return to an unchanged file completely free is to keep a separate editor state per tab, which is a bigger change. Tell me if you can still feel it. |
+
+**Legend:** ✅ done · ❌ dropped by decision · ❓ unresolved, needs work or a repro.
+Shipped but not yet confirmed in daily use: **A.04**, **A.05**, **A.24**, **A.25**
+(A.03 needs an installer build before it can be tested at all).
 
 ### Considered and DROPped ideas
 
@@ -83,12 +96,12 @@ the main table too — dropped is history worth seeing.
 
 | Item | Effort HML | Status/Impact | Idea, and why it was dropped |
 |--:|:---:|:---:|:-------------------------|
-| A.07 | H | ❌ | **Split screen — two files at once.** The one genuinely structural item: Writedown has a single editor, a single "current file" and a single layout mode, and a second pane breaks all three. Weeks not days, plus real memory/CPU for two live editors on big docs. Dropped once sized. |
-| A.08 | H | ❌ | **Ctrl+Shift+F ripgrep find-in-files.** The full version (query dialog, results panel, click a hit to jump) is a big feature; 80% of the value is already available today via a `[build]` entry running `rg` into a scratch tab. Dropped in favor of that. |
-| A.10 | L | ❌ | **"Header" Python code (imports, sys.path).** Already solved better by what you were doing: a first cell with `#\| echo: false` runs but never shows. Nothing to build. |
-| A.12 | DROP | ❌ | **Python autocomplete / LSP.** Tab word-completion covers it. Cheap option would have been completions from the live Python kernel; the full one an LSP client — easily the largest thing ever added to Writedown. |
-| A.15 | M | ❌ | **Hard wrap / reflow (Emacs `M-q`).** Wrapping is trivial; not wrecking lists, quotes, tables, fences and YAML is the actual work. Dropped as not worth that care. |
-| A.19 | M | ❌ | **Joplin-style `[TOC]`.** Needs every heading, but the preview deliberately renders and caches one block at a time — so the TOC must be rebuilt whenever any heading anywhere changes. The Outline pane already does this job live. |
+| **A.07** | H | ❌ | **Split screen — two files at once.** The one genuinely structural item: Writedown has a single editor, a single "current file" and a single layout mode, and a second pane breaks all three. Weeks not days, plus real memory/CPU for two live editors on big docs. Dropped once sized. |
+| **A.08** | H | ❌ | **Ctrl+Shift+F ripgrep find-in-files.** The full version (query dialog, results panel, click a hit to jump) is a big feature; 80% of the value is already available today via a `[build]` entry running `rg` into a scratch tab. Dropped in favor of that. |
+| **A.10** | L | ❌ | **"Header" Python code (imports, sys.path).** Already solved better by what you were doing: a first cell with `#\| echo: false` runs but never shows. Nothing to build. |
+| **A.12** | DROP | ❌ | **Python autocomplete / LSP.** Tab word-completion covers it. Cheap option would have been completions from the live Python kernel; the full one an LSP client — easily the largest thing ever added to Writedown. |
+| **A.15** | M | ❌ | **Hard wrap / reflow (Emacs `M-q`).** Wrapping is trivial; not wrecking lists, quotes, tables, fences and YAML is the actual work. Dropped as not worth that care. |
+| **A.19** | M | ❌ | **Joplin-style `[TOC]`.** Needs every heading, but the preview deliberately renders and caches one block at a time — so the TOC must be rebuilt whenever any heading anywhere changes. The Outline pane already does this job live. |
 
 ### Cross-cutting notes on this batch
 
@@ -517,6 +530,32 @@ This is the same defect class as issue 13 (`add_recent_project`'s exact-byte ded
 4. Consider a `logError` line when an `fs-change` path matches no open tab **but** normalizes to one — a one-line canary that would have caught this immediately.
 
 **Second, independent cause worth ruling out when it recurs:** if the tab has unsaved edits, `isDirty(doc)` is true and the design deliberately does **not** reload — it sets `conflict: true` (`store.ts:871-874`), surfaced as "Modified externally — click to reload" in the footer (`App.tsx:336-340`). That behavior is correct (never clobber your edits) but the footer text is small and easy to miss. Worth making a conflicted tab visibly obvious in the **tab strip**, not only the status bar — a separate, tiny UI item if you want it.
+
+### A.29 — Tab-switch freeze (wheel dead for a moment)
+
+**Root cause: every tab switch does a full CodeMirror `reconfigure`, even when the extension set is byte-for-byte identical.**
+
+`extensions` is a `useMemo` keyed on `[path, lang, built, fontSize, fontWeight, spellEnabled, tabSize]` (`Editor.tsx:174`). Switching between two `.md` files changes **only `path`** — `lang` is the same module-level `markdownExt` object for every markdown document (`languages.ts:51`), and since 2.6.0 `built` no longer moves with font size either. So the array is rebuilt, gets a new identity, and `@uiw/react-codemirror` dispatches `StateEffect.reconfigure` over the whole stack — to install an extension set that is exactly what was already there. `path` is in the deps only to drive `isMarkdownDoc(path)` / `isCsv(path)` branches, which produce the same answer for both files.
+
+**What that reconfigure actually costs on a large document** (writedown-issues.md is now ~140 KB):
+
+* Every `ViewPlugin` is destroyed and reconstructed, and two of them do whole-document work **synchronously in the constructor**: `mathHighlight` (`math.ts:121-123` → `doc.toString()` on the full 140 KB, then `mathRegions` regex-scans it and tokenizes every `$…$`) and `frontmatterBlock` (`frontmatter.ts:46-48`). The 200 ms debounce in `math.ts` protects the *edit* path — it does nothing for construction.
+* Reconfiguring the language invalidates the syntax tree, so markdown + every nested `{python}`/`decl` block re-parses from scratch.
+* The three linters (spell, `documentLint`, `citationLint`) all re-arm and re-scan; `citationLint` additionally calls `isProsePos` per hit, which forces syntax-tree access.
+
+**Why it shows up as "the wheel does nothing" rather than "it's a bit slow".** The Ctrl+wheel zoom handler is registered `{ passive: false }` on the editor's scroller (`Editor.tsx:355`). A non-passive wheel listener means the browser **must** wait for the main thread to run the handler before it can scroll, because the handler might call `preventDefault`. Normally scrolling happens off the main thread and survives a busy moment; here it cannot. So the same stall that would otherwise be mild jank becomes a hard freeze of exactly the gesture you were using. (The preview pane got a second such listener in 2.6.0 — same property.)
+
+**FIXED in 2.10.0.** Three changes, all small:
+
+1. **The extensions memo is keyed on the document's SHAPE, not its path** (`Editor.tsx`). `path` was only ever used to evaluate `isMarkdownDoc(path)`, `isCsv(path)` and the csv dialect — so those derived values are the deps now, and `path` is gone. Two markdown files produce the *same array identity*, React's dep comparison sees no change, and the switch dispatches no reconfigure whatsoever. `csvRainbow(path)` became `csvRainbow(dialect)` so nothing inside the memo needs the path either.
+2. **Language supports are per-language singletons** (`languages.ts`). `languageForPath` was calling `python()` / `json()` / `yaml()` / `StreamLanguage.define(toml)` / `…(stex)` **on every invocation**, handing back a brand-new extension object each time — so switching between two `.py` files reconfigured for the same reason. Only `markdownExt` had been hoisted. Now all of them are.
+3. **`frontMatterFlag` scans a bounded head** (`frontmatterShared.ts`), not `src.split("\n")` over the whole file. This one was mine, added with A.18, and ran in the `Preview` body on every render — including every keystroke. Front matter is at the top by definition, so 8 KB is both cheaper and the correct scope.
+
+**What is deliberately NOT changed, and the honest limit.** There is still ONE CodeMirror view shared by every tab, so a switch still replaces its document wholesale and the incoming text still has to be parsed. That is inherent to the shared-view design (which exists, and is carefully guarded, because of the issue-12 cross-tab overwrite). Your instinct — "the file usually hasn't changed while I was away, so why redo the work?" — points at the real remaining answer: **keep an `EditorState` per tab** and `setState` on switch, which preserves each document's parsed tree, decorations and history, making a return to an unchanged file essentially free. That is the canonical CodeMirror multi-document pattern and it would also give per-document undo. It is also a real refactor through the most safety-critical code in the app, so it is a deliberate follow-up, not a drive-by.
+
+**Two plugin constructors are still whole-document** — `mathHighlight` (`math.ts:121`) and `frontmatterBlock` (`frontmatter.ts:46`). They now run far less often (only on a genuine kind-change or config save), so making them viewport-bounded is deferred: `mathHighlight` needs whole-document scope to find a `$$…$$` that opens above the viewport, so a viewport-only build is a behaviour change, not just an optimisation. Revisit only if a residue remains.
+
+**Not a regression from Batch A** — the reconfigure-per-switch predates it (2.6.0 made it slightly *less* likely by stabilising `built`). Item 3 was new, and was mine.
 
 ---
 

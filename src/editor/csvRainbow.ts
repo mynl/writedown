@@ -56,9 +56,10 @@ function buildInner(view: EditorView, delim: string, quoted: boolean): Decoratio
   return b.finish();
 }
 
-/** Rainbow extension for `path` — delimiter and quote handling picked by extension. */
-export function csvRainbow(path: string) {
-  const tsv = /\.tsv$/i.test(path);
+/** `dialect` is "tsv" or "csv" — the DIALECT, not the path, so the caller can key its
+ *  memo on something stable and two `.csv` files don't rebuild the editor (issue A.29). */
+export function csvRainbow(dialect: "csv" | "tsv") {
+  const tsv = dialect === "tsv";
   const delim = tsv ? "\t" : ",";
   const quoted = !tsv;
   return ViewPlugin.fromClass(

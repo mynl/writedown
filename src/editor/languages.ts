@@ -52,6 +52,17 @@ const markdownExt = tolerantFrontmatter({
   content: markdown({ base: markdownLanguage, codeLanguages }),
 });
 
+// One instance per language, built once. These used to be constructed on every call —
+// `python()`, `StreamLanguage.define(toml)` — which handed the editor a NEW extension
+// object on every tab switch, forcing a full CodeMirror reconfigure between two files of
+// the same type (issue A.29). Language supports are designed to be shared extensions;
+// markdownExt above has always been a singleton for exactly this reason.
+const pythonExt = python();
+const jsonExt = json();
+const yamlExt = yaml();
+const tomlExt = StreamLanguage.define(toml);
+const stexExt = StreamLanguage.define(stex);
+
 export function languageForPath(path: string): Extension | null {
   const ext = path.split(".").pop()?.toLowerCase() ?? "";
   switch (ext) {
@@ -60,18 +71,18 @@ export function languageForPath(path: string): Extension | null {
     case "qmd":
       return markdownExt;
     case "py":
-      return python();
+      return pythonExt;
     case "json":
-      return json();
+      return jsonExt;
     case "yaml":
     case "yml":
-      return yaml();
+      return yamlExt;
     case "toml":
-      return StreamLanguage.define(toml);
+      return tomlExt;
     case "tex":
     case "latex":
     case "sty":
-      return StreamLanguage.define(stex);
+      return stexExt;
     case "agg":
     case "dec":
     case "decl":
