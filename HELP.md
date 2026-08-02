@@ -81,9 +81,10 @@ a selection wraps the selection — press `$` twice for `$$…$$`.
   and each becomes a palette "Font: …" verb for a session-only switch.
 - **Zoom**: Ctrl+wheel (or Ctrl+= / Ctrl+-) in the editor, and now in the preview pane
   too. Both are session-only; "Set Current Editor Size as Default" writes it to config.
-- **Plain view** (**Ctrl+K Ctrl+P**): editor only — no sidebar, no outline, no preview,
-  and not full screen. **Shift+F11** is the full-screen version that keeps the preview.
-  Either way, exiting restores the layout you had.
+- **Panels**: **F10** toggles the Folder/Project sidebar, **F11** toggles the Outline.
+  **Ctrl+F11** is full screen; **Ctrl+Shift+F11** is distraction-free (full screen, no
+  sidebars). Palette "Enter Plain View" is editor-only — no sidebar, outline or preview,
+  and not full screen. Exiting any of them restores the layout you had.
 - **Snippets**: palette → "Insert: …" (aligned `$$` environment, `{python}` cell,
   and any you define under `[snippets]` in config, with tab-through fields).
 - **Trailing whitespace** is trimmed on save by default, Sublime semantics

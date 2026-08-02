@@ -44,6 +44,33 @@ export function docPosition(path: string): DocPosition | undefined {
   return docPositions.get(path);
 }
 
+/** Where the viewport was, in LINE terms, so a spot survives the document being replaced
+ *  wholesale by an external-change reload (issue A.28b). Character offsets are useless here
+ *  — an edit above the viewport shifts every one of them — and the scroll snapshot is
+ *  deliberately invalidated when the document length changes, which a reload guarantees. */
+export type ReloadAnchor = { topLine: number; cursorLine: number; cursorCol: number };
+const reloadAnchors = new Map<string, ReloadAnchor>();
+
+/** Capture the anchor just BEFORE a reload replaces the document. */
+export function captureReloadAnchor(path: string, view: EditorView): void {
+  const { state } = view;
+  const head = state.selection.main.head;
+  const cur = state.doc.lineAt(head);
+  const top = state.doc.lineAt(view.lineBlockAtHeight(view.scrollDOM.scrollTop).from);
+  reloadAnchors.set(path, {
+    topLine: top.number,
+    cursorLine: cur.number,
+    cursorCol: head - cur.from,
+  });
+}
+
+/** Take (and clear) the anchor stored for `path`. One-shot: it describes one reload. */
+export function takeReloadAnchor(path: string): ReloadAnchor | undefined {
+  const a = reloadAnchors.get(path);
+  reloadAnchors.delete(path);
+  return a;
+}
+
 /** Move a document's remembered position (and scroll snapshot) to a new path — for a
  *  scratch buffer renamed in place (issue A.27), where the path changes but the buffer,
  *  and therefore the spot the user was at, does not. */

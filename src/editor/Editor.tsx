@@ -30,6 +30,7 @@ import {
   recordDocScroll,
   recordDocSelection,
   setActiveView,
+  takeReloadAnchor,
   userNavAt,
 } from "./editorView";
 import { wrapCompartment, wrapExtension } from "./wrap";
@@ -214,11 +215,34 @@ export function Editor({ path, content }: { path: string; content: string }) {
     lastEmitted.current = content; // mark synced — repeat renders skip in O(1)
     const cur = view.state.doc;
     if (cur.length === content.length && cur.toString() === content) return;
+    // An external-change reload left a line-based anchor (store reloadDoc). Restore the
+    // caret to the same LINE and put that line back where it was on screen, rather than
+    // keeping a character offset that every edit above the viewport invalidates.
+    const anchor = takeReloadAnchor(path);
     view.dispatch({
       changes: { from: 0, to: cur.length, insert: content },
       selection: { anchor: Math.min(view.state.selection.main.head, content.length) },
       annotations: [docSwap.of(path), Transaction.addToHistory.of(false)],
     });
+    if (!anchor) return;
+    const doc = view.state.doc;
+    const line = doc.line(Math.min(anchor.cursorLine, doc.lines));
+    view.dispatch({
+      selection: { anchor: Math.min(line.from + anchor.cursorCol, line.to) },
+      annotations: [docSwap.of(path), Transaction.addToHistory.of(false)],
+    });
+    // Scroll AFTER the swap: line heights for the new text are estimates until CodeMirror
+    // measures, so re-assert the target for a few frames the way the outline jump does.
+    const topLine = Math.min(anchor.topLine, doc.lines);
+    const sc = view.scrollDOM;
+    let frames = 8;
+    const settle = () => {
+      if (--frames < 0 || !view.dom.isConnected) return;
+      const target = view.lineBlockAt(view.state.doc.line(topLine).from).top;
+      if (Math.abs(sc.scrollTop - target) > 1) sc.scrollTo({ top: Math.max(0, target) });
+      requestAnimationFrame(settle);
+    };
+    requestAnimationFrame(settle);
   }, [path, content]);
   const onUpdate = useCallback(
     (vu: ViewUpdate) => {

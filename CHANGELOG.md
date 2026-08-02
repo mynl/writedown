@@ -543,6 +543,36 @@ messages point here for detail.
 - Backend `DirEntry` gained a `supported` flag and `list_directory` no longer drops
   unsupported files. Rust changed — `tauri dev` needs a restart, not just HMR.
 
+## [2.9.0] - 2026-08-02
+
+### Changed
+
+- **F10 toggles the Folder/Project panel, F11 toggles the Outline** (Joplin muscle memory).
+  Full screen moves to **Ctrl+F11** and distraction-free to **Ctrl+Shift+F11**. All four stay
+  rebindable in `[keys]`. Note F10 is Windows' menu-bar activation key — there is no menu bar
+  here so it reaches us, but rebind it if your setup ever swallows it.
+- **Ctrl+K Ctrl+P is unbound again**, reserved for goto-file muscle memory. Plain view keeps
+  its Enter/Exit palette verbs; F10/F11 cover the everyday panel toggling.
+- Palette "Project: Open Project File" is now **"Project: Edit Project File"**.
+
+### Fixed
+
+- **A pasted image never appeared in a temporary buffer's preview.** The preview's image
+  rewriter was gated on the document's folder, so a buffer with no folder — every temporary
+  one — skipped it entirely and the raw `C:\…` path reached the DOM, which the webview
+  cannot load. The absolute-path branch it needed was already written, just unreachable. The
+  folder requirement now sits on the *relative* branch where it belongs, matching how the
+  link resolver has always done it. (Any absolute-path image in a temp buffer was affected,
+  not only pasted ones; pasting simply made it the normal case.)
+- **The editor no longer loses your place when a file reloads after an external change.** A
+  reload replaces the document wholesale, and nothing restored the viewport: character
+  offsets shift with any edit above the cursor, and the line-anchored scroll snapshot is
+  deliberately discarded when the document length changes — which a reload guarantees. The
+  spot is now captured as a LINE before the swap and re-asserted after, with the same
+  settle loop the outline jump uses (line heights are estimates until CodeMirror measures).
+  This gap was always there; it only became visible in 2.4.0, when external changes started
+  reloading at all.
+
 ## [2.8.0] - 2026-08-02
 
 Batch A, release 5 of 5: rendering a single cell, numbered sections, and opening from

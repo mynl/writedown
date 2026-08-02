@@ -56,7 +56,7 @@ let renderSeq = 0;
 // folder and hand it to Tauri's asset protocol so the webview can load it off disk.
 // Returns null for anything already loadable — absolute URLs, `data:`/`blob:`, an
 // absolute path, or a `scheme:` — which is left untouched. Never touches the file itself.
-function resolveAssetSrc(src: string, baseDir: string): string | null {
+function resolveAssetSrc(src: string, baseDir: string | undefined): string | null {
   // markdown-it percent-encodes the parts of a path it doesn't keep literal — notably `\`
   // → `%5C` (and spaces → `%20`). Decode so the tests below see the real path.
   let s = src;
@@ -77,7 +77,10 @@ function resolveAssetSrc(src: string, baseDir: string): string | null {
   if (/^[a-z][a-z0-9+.-]*:/i.test(s) || s.startsWith("//") || s.startsWith("/")) {
     return null;
   }
-  // Document-relative: join against the doc folder and collapse `.`/`..` (asset won't).
+  // Document-relative from here on — which needs a document folder. A temp buffer has
+  // none, so a relative image simply can't resolve (mirrors resolveLocalPath below).
+  if (!baseDir) return null;
+  // Join against the doc folder and collapse `.`/`..` (the asset protocol won't).
   const out: string[] = [];
   for (const seg of `${baseDir}/${s}`.replace(/\\/g, "/").split("/")) {
     if (seg === "" || seg === ".") continue;
@@ -128,12 +131,15 @@ function processImages(html: string, baseDir?: string): string {
   let changed = false;
   doc.querySelectorAll("img").forEach((img) => {
     if (applyTrailingAttrs(img)) changed = true;
-    if (baseDir) {
-      const rewritten = resolveAssetSrc(img.getAttribute("src") ?? "", baseDir);
-      if (rewritten) {
-        img.setAttribute("src", rewritten);
-        changed = true;
-      }
+    // NOT gated on baseDir: an ABSOLUTE path still needs converting to an asset URL, and
+    // gating the whole call here meant temp buffers — whose pasted images are always
+    // absolute, having no document folder — showed a broken image every time. The
+    // baseDir requirement belongs to the relative branch, inside resolveAssetSrc, which
+    // is where the link resolver has always had it.
+    const rewritten = resolveAssetSrc(img.getAttribute("src") ?? "", baseDir);
+    if (rewritten) {
+      img.setAttribute("src", rewritten);
+      changed = true;
     }
   });
   return changed ? doc.body.innerHTML : html;

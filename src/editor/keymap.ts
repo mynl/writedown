@@ -48,9 +48,16 @@ export const DEFAULT_KEYS: { key: string; action: string }[] = [
   { key: "Ctrl+K Ctrl+W", action: "toggleWordWrap" },
   { key: "Ctrl+K Ctrl+B", action: "toggleSidebar" },
   { key: "Ctrl+K Ctrl+O", action: "toggleOutline" },
-  { key: "Ctrl+K Ctrl+P", action: "plainView" },
-  { key: "F11", action: "toggleFullscreen" },
-  { key: "Shift+F11", action: "toggleDistractionFree" },
+  // Ctrl+K Ctrl+P is deliberately NOT bound — reserved for goto-file muscle memory.
+  // Plain view is a palette verb only; F10/F11 cover the day-to-day panel toggling.
+  // Joplin muscle memory: the bare function keys toggle the two side panels, which is what
+  // they get used for constantly; the window-level modes move onto modifiers.
+  // (F10 is Windows' menu-bar activation key. There is no menu bar here so it reaches us,
+  // but if WebView2 ever swallows it, rebind in config [keys].)
+  { key: "F10", action: "toggleSidebar" },
+  { key: "F11", action: "toggleOutline" },
+  { key: "Ctrl+F11", action: "toggleFullscreen" },
+  { key: "Ctrl+Shift+F11", action: "toggleDistractionFree" },
   { key: "Ctrl+K Ctrl+0", action: "unfoldAll" },
   { key: "Ctrl+K Ctrl+1", action: "foldAll" },
   { key: "Ctrl+F", action: "find" },

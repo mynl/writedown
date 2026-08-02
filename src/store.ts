@@ -50,6 +50,7 @@ import {
 } from "./api";
 import { forceLinting } from "@codemirror/lint";
 import {
+  captureReloadAnchor,
   getActiveView,
   renameDocPosition,
   seedDocPositions,
@@ -900,6 +901,15 @@ export const useStore = create<AppState>((set, get) => ({
   reloadDoc: async (path) => {
     if (isImageDoc(path)) return; // the viewer streams from disk — no text to reload
     if (!get().tabs.some((t) => t.path === path)) return;
+    // Record where we are BEFORE the document is replaced, in line terms (issue A.28b).
+    // A reload is a whole-document swap: character offsets shift with any edit above the
+    // viewport, and the line-anchored scroll snapshot is invalidated by the length change.
+    // Without this the view jumps to the top on every external change — which only became
+    // visible once 2.4.0 made external changes actually reload.
+    if (path === get().activePath) {
+      const view = getActiveView();
+      if (view && view.dom.isConnected) captureReloadAnchor(path, view);
+    }
     try {
       const raw = await readFile(path);
       const eol: Doc["eol"] = raw.includes("\r\n") ? "\r\n" : "\n";

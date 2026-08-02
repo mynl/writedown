@@ -219,16 +219,16 @@ export function appCommands(): Command[] {
     },
     { id: "refresh-tree", title: "Refresh File Tree", run: () => void s().refreshTree() },
     // Explicit Show/Hide verbs (no state-flipping labels); Ctrl+K Ctrl+B / Ctrl+K Ctrl+O toggle.
-    { id: "sidebar-show", title: "Show Sidebar (Ctrl+K Ctrl+B toggles)", run: () => s().setSidebarVisible(true) },
-    { id: "sidebar-hide", title: "Hide Sidebar (Ctrl+K Ctrl+B toggles)", run: () => s().setSidebarVisible(false) },
-    { id: "outline-show", title: "Show Outline (Ctrl+K Ctrl+O toggles)", run: () => s().setOutlineVisible(true) },
-    { id: "outline-hide", title: "Hide Outline (Ctrl+K Ctrl+O toggles)", run: () => s().setOutlineVisible(false) },
-    { id: "fullscreen-enter", title: "Enter Full Screen (F11 toggles)", run: () => s().setWindowFullscreen(true) },
-    { id: "fullscreen-exit", title: "Exit Full Screen (F11 toggles)", run: () => s().setWindowFullscreen(false) },
-    { id: "distraction-enter", title: "Enter Distraction Free (Shift+F11 toggles)", run: () => s().enterDistractionFree() },
-    { id: "distraction-exit", title: "Exit Distraction Free (Shift+F11 toggles)", run: () => s().exitDistractionFree() },
-    { id: "plain-enter", title: "Enter Plain View — editor only (Ctrl+K Ctrl+P toggles)", run: () => s().enterLayoutMode("plain") },
-    { id: "plain-exit", title: "Exit Plain View (Ctrl+K Ctrl+P toggles)", run: () => s().exitLayoutMode() },
+    { id: "sidebar-show", title: "Show Sidebar (F10 toggles)", run: () => s().setSidebarVisible(true) },
+    { id: "sidebar-hide", title: "Hide Sidebar (F10 toggles)", run: () => s().setSidebarVisible(false) },
+    { id: "outline-show", title: "Show Outline (F11 toggles)", run: () => s().setOutlineVisible(true) },
+    { id: "outline-hide", title: "Hide Outline (F11 toggles)", run: () => s().setOutlineVisible(false) },
+    { id: "fullscreen-enter", title: "Enter Full Screen (Ctrl+F11 toggles)", run: () => s().setWindowFullscreen(true) },
+    { id: "fullscreen-exit", title: "Exit Full Screen (Ctrl+F11 toggles)", run: () => s().setWindowFullscreen(false) },
+    { id: "distraction-enter", title: "Enter Distraction Free (Ctrl+Shift+F11 toggles)", run: () => s().enterDistractionFree() },
+    { id: "distraction-exit", title: "Exit Distraction Free (Ctrl+Shift+F11 toggles)", run: () => s().exitDistractionFree() },
+    { id: "plain-enter", title: "Enter Plain View — editor only, no sidebars or preview", run: () => s().enterLayoutMode("plain") },
+    { id: "plain-exit", title: "Exit Plain View", run: () => s().exitLayoutMode() },
     { id: "preview-zoom-in", title: "Preview: Zoom In", run: () => s().setPreviewZoom(1) },
     { id: "preview-zoom-out", title: "Preview: Zoom Out", run: () => s().setPreviewZoom(-1) },
     { id: "preview-zoom-reset", title: "Preview: Reset Zoom", run: () => s().setPreviewZoom("reset") },
@@ -312,7 +312,7 @@ export function appCommands(): Command[] {
       // Removes a folder from the project — never touches the folder on disk (spec §2).
       // The store action existed since projects shipped but nothing ever called it (A.02).
       id: "proj-open-file",
-      title: "Project: Open Project File (.wdproj)",
+      title: "Project: Edit Project File (.wdproj)",
       run: () => {
         const f = s().projectFile;
         if (!f) {
