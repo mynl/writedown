@@ -47,6 +47,7 @@ import {
 import { forceLinting } from "@codemirror/lint";
 import {
   getActiveView,
+  renameDocPosition,
   seedDocPositions,
   snapshotDocPositions,
 } from "./editor/editorView";
@@ -90,7 +91,14 @@ function setTitle(project: string | null) {
 let dfRestore: { sidebar: boolean; outline: boolean } | null = null;
 
 // Paths Writedown just saved — used to ignore the watcher event our own write triggers.
+// Keyed by normPath: the watcher reports a path spelled from the WATCHED ROOT, which need
+// not match the spelling we saved under (see onFsChange).
 const justSaved = new Set<string>();
+const markJustSaved = (path: string) => {
+  const key = normPath(path);
+  justSaved.add(key);
+  setTimeout(() => justSaved.delete(key), 1500);
+};
 let fsRefreshTimer: ReturnType<typeof setTimeout> | undefined;
 
 // ---- Trailing-whitespace trim on save ([editor] trim_trailing_whitespace) ---------
@@ -257,6 +265,12 @@ type AppState = {
   renderBusy: boolean;
   cursorLine: number;
   cursorCol: number;
+  /** Selection stats for the status bar (ST-style), all 0 with a single empty caret:
+   *  characters selected, lines touched by non-empty ranges, and how many ranges
+   *  (cursors) there are — `selRanges` > 1 means multi-cursor. */
+  selChars: number;
+  selLines: number;
+  selRanges: number;
   sublimeTheme: SublimeTheme | null;
   editorSettings: EditorSettings | null;
   /** Session word-wrap state. [editor] word_wrap sets the launch default; toggled live via a
@@ -404,6 +418,11 @@ type AppState = {
   /** Render the active markdown/quarto document (palette: "Render Document"). */
   renderActive: () => Promise<void>;
   setCursorPos: (line: number, col: number) => void;
+  setSelectionStats: (chars: number, lines: number, ranges: number) => void;
+  /** Give a scratch buffer a name (issue A.27). Renames its `untitled://` sentinel, which
+   *  is the buffer's whole identity — tab label, hot-exit key and Save As default all
+   *  follow. Still never written to disk. */
+  renameScratch: (path: string, name: string) => void;
   setTreeWidth: (w: number) => void;
   setOutlineWidth: (w: number) => void;
   setSidebarVisible: (v: boolean) => void;
@@ -447,6 +466,9 @@ export const useStore = create<AppState>((set, get) => ({
   renderBusy: false,
   cursorLine: 1,
   cursorCol: 1,
+  selChars: 0,
+  selLines: 0,
+  selRanges: 1,
   sublimeTheme: null,
   editorSettings: null,
   wordWrap: true,
@@ -863,17 +885,24 @@ export const useStore = create<AppState>((set, get) => ({
           .catch(() => {});
       }, 400);
     }
-    const open = new Map(get().tabs.map((t) => [t.path, t]));
+    // Key by normPath, NOT by the raw string. The watcher reports each path spelled from
+    // the root it was handed (watch.rs), which need not match the spelling the tab was
+    // opened under — a quick-opened `[files] quick_file`, typed by hand into config.toml,
+    // is the standout case. An exact compare silently dropped those events: no reload, no
+    // conflict flag, no message, just a stale buffer claiming to be current (issue A.28).
+    // The tab's OWN spelling is kept as the map value so reloadDoc still gets its path.
+    const open = new Map(get().tabs.map((t) => [normPath(t.path), t]));
     for (const p of paths) {
-      if (justSaved.has(p)) continue;
-      const doc = open.get(p);
+      const key = normPath(p);
+      if (justSaved.has(key)) continue;
+      const doc = open.get(key);
       if (!doc) continue;
       if (isDirty(doc)) {
         set((s) => ({
-          tabs: s.tabs.map((t) => (t.path === p ? { ...t, conflict: true } : t)),
+          tabs: s.tabs.map((t) => (t.path === doc.path ? { ...t, conflict: true } : t)),
         }));
       } else {
-        void get().reloadDoc(p);
+        void get().reloadDoc(doc.path);
       }
     }
   },
@@ -1018,8 +1047,7 @@ export const useStore = create<AppState>((set, get) => ({
     const out = doc.eol === "\r\n" ? snapshot.split("\n").join("\r\n") : snapshot;
     try {
       await writeFile(path, out);
-      justSaved.add(path); // ignore the watcher event our own write will trigger
-      setTimeout(() => justSaved.delete(path), 1500);
+      markJustSaved(path); // ignore the watcher event our own write will trigger
       set((s) => ({
         tabs: s.tabs.map((t) =>
           t.path === path
@@ -1238,6 +1266,42 @@ export const useStore = create<AppState>((set, get) => ({
     if (s.cursorLine !== line || s.cursorCol !== col) set({ cursorLine: line, cursorCol: col });
   },
 
+  // Skip-if-unchanged, like setCursorPos: this fires on every selection change, so it must
+  // never cause a render when the numbers are the same (e.g. plain caret movement).
+  setSelectionStats: (chars, lines, ranges) => {
+    const s = get();
+    if (s.selChars !== chars || s.selLines !== lines || s.selRanges !== ranges) {
+      set({ selChars: chars, selLines: lines, selRanges: ranges });
+    }
+  },
+
+  renameScratch: (path, name) => {
+    if (!isScratch(path)) return;
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    // Carry the old extension when none is typed, so an Extract-Citations `.bib` scratch
+    // stays `.bib` (and the default `.md` keeps markdown highlighting, preview, spellcheck
+    // and image paste working — they all key off the extension).
+    const oldExt = path.split(".").pop();
+    const hasExt = /\.[A-Za-z0-9]+$/.test(trimmed);
+    const base = hasExt ? trimmed : `${trimmed}.${oldExt && oldExt !== path ? oldExt : "md"}`;
+    // The sentinel IS the tab's identity, so a duplicate would alias two buffers.
+    let next = SCRATCH_PREFIX + base;
+    if (next !== path) {
+      const taken = new Set(get().tabs.map((t) => t.path));
+      for (let n = 2; taken.has(next); n++) {
+        next = `${SCRATCH_PREFIX}${base.replace(/(\.[^.]*)?$/, `-${n}$1`)}`;
+      }
+    }
+    if (next === path) return;
+    renameDocPosition(path, next); // keep the remembered cursor/scroll with the buffer
+    set((s) => ({
+      tabs: s.tabs.map((t) => (t.path === path ? { ...t, path: next } : t)),
+      activePath: s.activePath === path ? next : s.activePath,
+      scratchRev: s.scratchRev + 1, // hot-exit key changed — force a session write
+    }));
+  },
+
   setTreeWidth: (w) => set({ treeWidth: clamp(w) }),
   setOutlineWidth: (w) => set({ outlineWidth: clamp(w) }),
   setSidebarVisible: (v) => set({ sidebarVisible: v }),
@@ -1335,8 +1399,7 @@ export const useStore = create<AppState>((set, get) => ({
       }));
       return;
     }
-    justSaved.add(picked);
-    setTimeout(() => justSaved.delete(picked), 1500);
+    markJustSaved(picked);
     // Rebind the tab from its old (scratch or real) path to the chosen path, now saved-clean.
     set((s) => ({
       tabs: s.tabs.map((t) =>

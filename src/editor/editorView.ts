@@ -44,6 +44,22 @@ export function docPosition(path: string): DocPosition | undefined {
   return docPositions.get(path);
 }
 
+/** Move a document's remembered position (and scroll snapshot) to a new path — for a
+ *  scratch buffer renamed in place (issue A.27), where the path changes but the buffer,
+ *  and therefore the spot the user was at, does not. */
+export function renameDocPosition(from: string, to: string): void {
+  const pos = docPositions.get(from);
+  if (pos) {
+    docPositions.set(to, pos);
+    docPositions.delete(from);
+  }
+  const snap = docScrollSnaps.get(from);
+  if (snap) {
+    docScrollSnaps.set(to, snap);
+    docScrollSnaps.delete(from);
+  }
+}
+
 /** Positions for session persistence, restricted to the given (open-tab) paths. */
 export function snapshotDocPositions(paths: string[]): Record<string, DocPosition> {
   const out: Record<string, DocPosition> = {};

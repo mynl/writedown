@@ -73,6 +73,7 @@ const BASIC_SETUP = {
 export function Editor({ path, content }: { path: string; content: string }) {
   const editTab = useStore((s) => s.editTab);
   const setCursorPos = useStore((s) => s.setCursorPos);
+  const setSelectionStats = useStore((s) => s.setSelectionStats);
   const st = useStore((s) => s.sublimeTheme);
   const settings = useStore((s) => s.editorSettings);
   const zoom = useStore((s) => s.editorZoom);
@@ -202,6 +203,17 @@ export function Editor({ path, content }: { path: string; content: string }) {
         const head = vu.state.selection.main.head;
         const line = vu.state.doc.lineAt(head);
         setCursorPos(line.number, head - line.from + 1);
+        // Selection stats for the status bar (issue A.26). O(#ranges) with an O(log n)
+        // lineAt per non-empty range — negligible even with a screenful of Ctrl+D cursors.
+        const { ranges } = vu.state.selection;
+        let chars = 0;
+        let lines = 0;
+        for (const r of ranges) {
+          if (r.empty) continue;
+          chars += r.to - r.from;
+          lines += vu.state.doc.lineAt(r.to).number - vu.state.doc.lineAt(r.from).number + 1;
+        }
+        setSelectionStats(chars, lines, ranges.length);
       }
       // Per-doc cursor memory. Skip our own doc-swap dispatch (it sets a placeholder
       // selection) — recording it would clobber the incoming doc's remembered spot
@@ -214,7 +226,7 @@ export function Editor({ path, content }: { path: string; content: string }) {
         recordDocSelection(path, m.anchor, m.head);
       }
     },
-    [setCursorPos, path],
+    [setCursorPos, setSelectionStats, path],
   );
   // Restore this doc's remembered cursor/scroll after the doc swap (the CodeMirror child's
   // effects have already run), and record scrolls while it is active.

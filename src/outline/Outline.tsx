@@ -23,9 +23,19 @@ export function Outline() {
   // keystroke (the Outline is mounted in every layout, even with the preview hidden). The
   // path resetKey keeps tab switches instant.
   const src = useDebouncedValue(doc?.content ?? "", 300, doc?.path);
+  // Python member filters from config [outline]; read reactively so a config save reflows
+  // the outline without a restart, like the font settings do.
+  const showPrivate = useStore((s) => s.editorSettings?.outline_python_show_private);
+  const showDunder = useStore((s) => s.editorSettings?.outline_python_show_dunder);
   const headings = useMemo(
-    () => (doc ? parseOutline(src, doc.path) : []),
-    [src, doc?.path],
+    () =>
+      doc
+        ? parseOutline(src, doc.path, {
+            pythonShowPrivate: showPrivate ?? undefined,
+            pythonShowDunder: showDunder ?? undefined,
+          })
+        : [],
+    [src, doc?.path, showPrivate, showDunder],
   );
 
   // Active heading = the last one at or before the cursor line (spec §18).

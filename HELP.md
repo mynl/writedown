@@ -39,18 +39,24 @@ overwritten). The canonical copy is `HELP.md` in the repository.
 - Drag tabs to reorder. **Ctrl+W** saves and closes; **Ctrl+Shift+T** reopens the
   last closed tab. **Ctrl+Shift+N** opens a new scratch buffer (in memory until you
   Save As).
+- Scratch buffers belong to the workspace you opened them in and come back with it.
+  Palette → **"Name Temporary File…"** replaces `Untitled-3` with a name of your own;
+  the buffer is still unsaved — Save As is what puts it on disk.
 
 ## Editing
 
 The editor is CodeMirror with a Sublime keymap: multiple cursors, **Ctrl+D**
 select-next-occurrence, line manipulation, and the rest — press **F1** for the full,
 truthful list (bold/italic, table reformat **Ctrl+Alt+Shift+T**, title case, and
-more live in its Markdown/Editing sections). Typing a quote, bracket, or `*` over a
-selection wraps the selection.
+more live in its Markdown/Editing sections). Typing a quote, bracket, `*` or `$` over
+a selection wraps the selection — press `$` twice for `$$…$$`.
 
 - **Tab completion**: type the first letters of a long word and press **Tab** — it
   completes from words near your cursor first, then from a frequency dictionary
   built in the background from the files you open. Case adapts to what you typed.
+  With no match, Tab does nothing and says so in the status bar; it never indents
+  the paragraph. (Tab at the start of a line, or after whitespace, still indents.)
+- **Ctrl+Shift+D** duplicates the selection when there is one, otherwise the line.
 - **Snippets**: palette → "Insert: …" (aligned `$$` environment, `{python}` cell,
   and any you define under `[snippets]` in config, with tab-through fields).
 - **Trailing whitespace** is trimmed on save by default, Sublime semantics

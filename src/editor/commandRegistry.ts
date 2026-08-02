@@ -24,6 +24,7 @@ import { joinLines, listEnterTight, renumberOrderedList } from "./lists";
 import { reformatTables } from "./tables";
 import { toggleBold, toggleItalic } from "./markdownFormat";
 import {
+  duplicateSelection,
   insertDateTime,
   insertLineAfter,
   insertLineBefore,
@@ -83,6 +84,13 @@ export const COMMAND_REGISTRY: Record<string, RegistryEntry> = {
   lineEnd: { run: cursorLineEnd, label: "Move to line end", category: "Selection & cursors" },
 
   // Editing
+  // Default for Ctrl+Shift+D: selection if there is one, else the line. `duplicateLine`
+  // stays registered so `[keys]` can restore the pure line-only behaviour.
+  duplicateSelection: {
+    run: (v) => duplicateSelection(v) || copyLineDown(v),
+    label: "Duplicate selection (or line)",
+    category: "Editing",
+  },
   duplicateLine: { run: copyLineDown, label: "Duplicate line down", category: "Editing" },
   moveLineUp: { run: moveLineUp, label: "Move line up", category: "Editing" },
   moveLineDown: { run: moveLineDown, label: "Move line down", category: "Editing" },

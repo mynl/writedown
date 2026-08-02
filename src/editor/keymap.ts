@@ -20,7 +20,7 @@ export const keymapCompartment = new Compartment();
 export const DEFAULT_KEYS: { key: string; action: string }[] = [
   { key: "Ctrl+D", action: "selectNextOccurrence" },
   { key: "Ctrl+L", action: "selectLine" },
-  { key: "Ctrl+Shift+D", action: "duplicateLine" },
+  { key: "Ctrl+Shift+D", action: "duplicateSelection" },
   { key: "Ctrl+Shift+Up", action: "moveLineUp" },
   { key: "Ctrl+Shift+Down", action: "moveLineDown" },
   { key: "Ctrl+/", action: "toggleComment" },

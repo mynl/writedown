@@ -234,6 +234,9 @@ export type EditorSettings = {
   tab_complete_dict: boolean | null;
   /** `[editor] tab_complete_dict_min_len`: shortest word the frequency dictionary collects (default 5). */
   tab_complete_dict_min_len: number | null;
+  /** `[editor] tab_complete_stem_min`: after a word this long, an unmatched Tab is swallowed
+   *  (status-bar note) instead of indenting the line (default 2). */
+  tab_complete_stem_min: number | null;
   /** `[editor] font_size_min` / `font_size_max`: px bounds for wheel/key zoom (default 6 / 24). */
   font_size_min: number | null;
   font_size_max: number | null;
@@ -241,6 +244,10 @@ export type EditorSettings = {
   outline_font_size: number | null;
   outline_font_weight: string | null;
   outline_position: string | null;
+  /** `[outline] python_show_private` / `python_show_dunder`: which Python class members the
+   *  outline lists (defaults true / false; `__init__` is always listed). */
+  outline_python_show_private: boolean | null;
+  outline_python_show_dunder: boolean | null;
   tree_font_family: string | null;
   tree_font_size: number | null;
   tree_font_weight: string | null;

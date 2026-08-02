@@ -11,6 +11,10 @@ const PAIRS: Record<string, string> = {
   "'": "'",
   "`": "`",
   "*": "*",
+  // `$` wraps a selection in math delimiters; typing it twice nests to `$$…$$` because the
+  // text stays selected after each wrap (issue A.01). Applies in every language, like the
+  // rest of this table — `$` over a selection in code is a rare intent.
+  $: "$",
   "(": ")",
   "[": "]",
   "{": "}",

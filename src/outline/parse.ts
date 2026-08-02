@@ -5,14 +5,28 @@
 
 export type Heading = { level: number; text: string; line: number };
 
-/** Max direct children per outline node before we drop its descendants entirely. */
-const MAX_CHILDREN = 30;
+/** Options for the structural (non-Markdown) outlines, from config `[outline]`. */
+export type OutlineOpts = {
+  /** Show `_private` members in the Python outline (default true). */
+  pythonShowPrivate?: boolean;
+  /** Show `__dunder__` members in the Python outline (default false). `__init__` is
+   *  always kept — it is the one dunder worth navigating to. */
+  pythonShowDunder?: boolean;
+};
 
-export function parseOutline(src: string, path?: string): Heading[] {
+/** Max direct children per outline node before we drop its descendants entirely. Guards
+ *  against pathological documents where the outline would mirror rather than summarise. */
+const MAX_CHILDREN = 30;
+/** Python is different: a class with 200 methods is exactly when the outline matters most.
+ *  The old blanket cap of 30 silently discarded EVERY member of any class with more than
+ *  30 methods, which read as "methods aren't in the outline at all" (issue A.11). */
+const MAX_CHILDREN_PY = 500;
+
+export function parseOutline(src: string, path?: string, opts?: OutlineOpts): Heading[] {
   const ext = path?.split(".").pop()?.toLowerCase() ?? "";
   switch (ext) {
     case "py":
-      return capChildren(parsePython(src));
+      return capChildren(parsePython(src, opts), MAX_CHILDREN_PY);
     case "toml":
       return capChildren(parseToml(src));
     case "yaml":
@@ -23,8 +37,8 @@ export function parseOutline(src: string, path?: string): Heading[] {
   }
 }
 
-/** Drop all descendants of any node with more than MAX_CHILDREN direct children. */
-function capChildren(items: Heading[]): Heading[] {
+/** Drop all descendants of any node with more than `max` direct children. */
+function capChildren(items: Heading[], max = MAX_CHILDREN): Heading[] {
   const drop = new Set<number>();
   for (let i = 0; i < items.length; i++) {
     const lvl = items[i].level;
@@ -34,7 +48,7 @@ function capChildren(items: Heading[]): Heading[] {
       desc.push(j);
       if (items[j].level === lvl + 1) direct++;
     }
-    if (direct > MAX_CHILDREN) desc.forEach((j) => drop.add(j));
+    if (direct > max) desc.forEach((j) => drop.add(j));
   }
   return items.filter((_, i) => !drop.has(i));
 }
@@ -99,10 +113,18 @@ function parseMarkdown(src: string): Heading[] {
 
 // Python: classes and defs. Top-level class/def = level 1; one level of nesting
 // (methods, inner defs) = level 2; anything deeper is noise, not summary — skipped.
-function parsePython(src: string): Heading[] {
+function parsePython(src: string, opts?: OutlineOpts): Heading[] {
   const lines = src.split("\n");
   const out: Heading[] = [];
   let classIndent = -1; // indent of the innermost class we're inside, -1 if none
+  const showPrivate = opts?.pythonShowPrivate ?? true;
+  const showDunder = opts?.pythonShowDunder ?? false;
+
+  // `__init__` survives a dunder filter — it is the one dunder worth navigating to.
+  const hidden = (name: string): boolean => {
+    if (/^__.*__$/.test(name)) return !showDunder && name !== "__init__";
+    return !showPrivate && name.startsWith("_");
+  };
 
   for (let i = 0; i < lines.length; i++) {
     const m = /^(\s*)(?:async\s+)?(def|class)\s+([A-Za-z_]\w*)/.exec(lines[i]);
@@ -110,13 +132,16 @@ function parsePython(src: string): Heading[] {
     const indent = m[1].replace(/\t/g, "    ").length;
     const kind = m[2];
     const name = m[3];
+    // A hidden top-level class still updates classIndent below, so its members are
+    // scoped correctly; only the row itself is suppressed.
+    const skip = hidden(name);
 
     if (indent === 0) {
       classIndent = kind === "class" ? 0 : -1;
-      out.push({ level: 1, text: kind === "class" ? name : `${name}()`, line: i + 1 });
+      if (!skip) out.push({ level: 1, text: kind === "class" ? name : `${name}()`, line: i + 1 });
     } else if (classIndent >= 0 && indent > classIndent && indent <= classIndent + 8) {
       // Direct members of the current class (methods / nested classes).
-      out.push({ level: 2, text: kind === "class" ? name : `${name}()`, line: i + 1 });
+      if (!skip) out.push({ level: 2, text: kind === "class" ? name : `${name}()`, line: i + 1 });
     }
     // Deeper nesting (defs inside defs inside methods…) intentionally omitted.
   }

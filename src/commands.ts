@@ -4,7 +4,7 @@ import { type StateCommand } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { forceLinting } from "@codemirror/lint";
 import { addToDictionary, configPath, extractBibEntries, logError, openShell, restartKernel } from "./api";
-import { isScratch, mergedProjects, useStore } from "./store";
+import { SCRATCH_PREFIX, isScratch, mergedProjects, useStore } from "./store";
 import { getActiveView } from "./editor/editorView";
 import { isMarkdownDoc } from "./editor/languages";
 import { CITE_RE, CROSSREF_PREFIX } from "./editor/citations";
@@ -71,6 +71,21 @@ export function appCommands(): Command[] {
       id: "new-scratch",
       title: "New Scratch File (unsaved) (Ctrl+Shift+N)",
       run: () => s().newScratch(),
+    },
+    {
+      // Names the buffer only — it stays unsaved and lives with the project, exactly as
+      // before (issue A.27). Save As is still how one becomes a file on disk.
+      id: "name-scratch",
+      title: "Name Temporary File…",
+      run: () => {
+        const a = s().activePath;
+        if (!a || !isScratch(a)) {
+          useStore.setState({ configError: "name temporary file — no temporary file active" });
+          return;
+        }
+        const current = a.slice(SCRATCH_PREFIX.length);
+        s().openPrompt("Name for this temporary file", "notes.md", (v) => s().renameScratch(a, v), current);
+      },
     },
     {
       id: "open-quick-file",

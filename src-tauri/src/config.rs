@@ -27,6 +27,10 @@ tab_size = 4
 # tab_complete_dict = true
 # tab_complete_dict_min_len: shortest word the frequency dictionary collects (default 5).
 # tab_complete_dict_min_len = 5
+# tab_complete_stem_min: after a word at least this long, a Tab that finds no completion is
+# swallowed (with a status-bar note) instead of indenting the line (default 2). Tab at line
+# start or after whitespace always indents.
+# tab_complete_stem_min = 2
 # font_size_min / font_size_max: px floor and cap for Ctrl+wheel / Ctrl+= zoom (default 6 / 24).
 # font_size_min = 6
 # font_size_max = 24
@@ -40,6 +44,10 @@ trim_trailing_whitespace = true
 [outline]
 # Outline pane side: "left" (between the tree and editor) or "right" (far right, past the preview).
 position = "right"
+# Python outlines list every class member. python_show_private = false hides _private ones;
+# python_show_dunder = true adds __dunder__ ones (__init__ is always listed).
+# python_show_private = true
+# python_show_dunder = false
 font_family = "Arial Narrow"
 font_size = 10
 # font_weight = "normal"
@@ -229,10 +237,19 @@ pub struct EditorSettings {
     /// Shortest word the frequency dictionary collects ([editor] tab_complete_dict_min_len,
     /// default 5).
     tab_complete_dict_min_len: Option<u32>,
+    /// Shortest stem after which Tab is CONSUMED rather than indenting when no completion
+    /// matches ([editor] tab_complete_stem_min, default 2). Deliberately low: the workflow
+    /// is 1-3 letters then Tab, and those short stems are the ones that miss.
+    tab_complete_stem_min: Option<u32>,
     /// Font-size px bounds for wheel/key zoom ([editor] font_size_min / font_size_max,
     /// defaults 6 / 24) — a hard floor and cap so zoom can't shrink to nothing or blow up.
     font_size_min: Option<u32>,
     font_size_max: Option<u32>,
+    /// Python outline: show `_private` members ([outline] python_show_private, default
+    /// true) and `__dunder__` members ([outline] python_show_dunder, default false;
+    /// `__init__` is always shown).
+    outline_python_show_private: Option<bool>,
+    outline_python_show_dunder: Option<bool>,
     outline_font_family: Option<String>,
     outline_font_size: Option<f64>,
     outline_font_weight: Option<String>,
@@ -327,6 +344,16 @@ pub fn load_editor_settings(app: tauri::AppHandle) -> Result<EditorSettings, Str
             .and_then(|e| e.get("font_size_max"))
             .and_then(|v| v.as_integer())
             .map(|i| i.clamp(1, 200) as u32),
+        tab_complete_stem_min: ed
+            .and_then(|e| e.get("tab_complete_stem_min"))
+            .and_then(|v| v.as_integer())
+            .map(|i| i.clamp(1, 32) as u32),
+        outline_python_show_private: ol
+            .and_then(|o| o.get("python_show_private"))
+            .and_then(|v| v.as_bool()),
+        outline_python_show_dunder: ol
+            .and_then(|o| o.get("python_show_dunder"))
+            .and_then(|v| v.as_bool()),
         outline_font_family: ol.and_then(|o| o.get("font_family")).and_then(string),
         outline_font_size: ol.and_then(|o| o.get("font_size")).and_then(num),
         outline_font_weight: ol.and_then(|o| o.get("font_weight")).and_then(weight),

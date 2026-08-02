@@ -543,6 +543,60 @@ messages point here for detail.
 - Backend `DirEntry` gained a `supported` flag and `list_directory` no longer drops
   unsupported files. Rust changed — `tauri dev` needs a restart, not just HMR.
 
+## [2.4.0] - 2026-08-02
+
+Batch A, release 1 of 5: the two integrity bugs plus the cheapest daily-use fixes.
+
+### Fixed
+
+- **A tab could show stale content while claiming to be current** (issue A.28 — "this
+  file did not appear to reload after external edits"). External-change events name each
+  file with the spelling of the *watched root*, but the reload check compared them to the
+  open tab's path as a raw string. Any tab opened under a different spelling — different
+  capitals or slashes, the standout case being a `[files] quick_file` typed by hand into
+  config.toml and opened with Ctrl+Shift+Q — never matched, so the event was dropped
+  **silently**: no reload, no "Modified externally" flag, no message. Both sides of the
+  comparison (and the just-saved suppression set) now normalize case and separators, using
+  the helper the rest of the store already uses. The same mismatch also ran backwards, so
+  a save under one spelling could fail to suppress its own echo and trigger a spurious
+  reload; that is fixed by the same change.
+- **Python outlines silently dropped every member of a large class** (issue A.11). Methods
+  were parsed correctly, but a summarisation guard discarded *all* descendants of any node
+  with more than 30 direct children — so a class with 31+ methods showed none of them,
+  which read as "the outline doesn't list methods". The guard now allows up to 500 for
+  Python, where a long member list is exactly when the outline earns its keep; Markdown
+  and YAML keep the old limit.
+- **Tab after a word no longer indents the paragraph when nothing matches** (issue A.14).
+  A failed completion used to fall through to CodeMirror's indent command, which indents
+  every line the selection touches — and with word wrap on, a visually-wrapped paragraph
+  is one logical line, so the whole paragraph shifted. Tab after a word is now consumed
+  and reported ("no completions for …") in the status bar. Tab at the start of a line or
+  after whitespace still indents, Shift+Tab still dedents, and Tab over an open completion
+  popup still accepts. Threshold configurable: `[editor] tab_complete_stem_min` (default 2
+  — deliberately low, since short stems are the ones that miss).
+
+### Added
+
+- **`$` wraps a selection**, joining the quote/bracket/`*` family (issue A.01). Select an
+  expression, press `$` for `$…$`; press it again for `$$…$$` (the text stays selected
+  after each wrap).
+- **Ctrl+Shift+D duplicates the selection** when there is one, instead of always copying
+  whole lines (issue A.06). With no selection it duplicates the line exactly as before.
+  The old line-only command is still registered as `duplicateLine`, so `[keys]` can put it
+  back.
+- **Selection size in the status bar**, Sublime-style (issue A.26): `Ln 42, Col 7 · 3
+  lines, 128 chars`, plus `· N selections` when multiple cursors are active. Nothing extra
+  is shown for a plain caret.
+- **Palette "Name Temporary File…"** (issue A.27): give a scratch buffer a real name
+  instead of `Untitled-3`. It remains exactly what it was — unsaved, held in the
+  workspace's session, returning when you reopen that project — the name is the only
+  change. A typed name without an extension keeps the buffer's current one (so an extracted
+  `.bib` scratch stays `.bib`, and the `.md` default keeps highlighting, preview,
+  spellcheck and citations working). The remembered cursor position follows the rename.
+- **`[outline] python_show_private` / `python_show_dunder`** control which Python class
+  members the outline lists (defaults: private shown, dunder hidden). `__init__` is always
+  listed.
+
 ## [2.3.0] - 2026-07-22
 
 ### Added

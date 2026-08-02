@@ -24,6 +24,28 @@ export const titleCase = transformCase((s) =>
   s.replace(/[\p{L}\p{N}][\p{L}\p{N}']*/gu, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase()),
 );
 
+/** Sublime's Ctrl+Shift+D: duplicate the SELECTION when there is one, else the whole line
+ *  (issue A.06). CodeMirror's `copyLineDown` is line-only; this returns false when every
+ *  range is empty so the caller falls back to it — the no-selection behaviour is exactly
+ *  what it always was. The inserted copy is left selected, so pressing again keeps going. */
+export const duplicateSelection: StateCommand = ({ state, dispatch }) => {
+  if (state.selection.ranges.every((r) => r.empty)) return false;
+  dispatch(
+    state.update(
+      state.changeByRange((range) => {
+        if (range.empty) return { range };
+        const text = state.sliceDoc(range.from, range.to);
+        return {
+          changes: { from: range.to, insert: text },
+          range: EditorSelection.range(range.to, range.to + text.length),
+        };
+      }),
+      { userEvent: "input.duplicate", scrollIntoView: true },
+    ),
+  );
+  return true;
+};
+
 // Word chars for transpose: letters/digits/underscore with internal apostrophes ("don't").
 const WORD_RE = /[\p{L}\p{N}_]+(?:'[\p{L}\p{N}_]+)*/gu;
 // How far around the caret to look for the two words (crosses newlines, like emacs).

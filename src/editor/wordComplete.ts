@@ -144,7 +144,13 @@ function tabOpenComplete(view: EditorView): boolean {
 }
 
 /** Tab keymap for every document: open the popup, else indent. Shift+Tab dedents. When a
- *  completion popup is open, Tab accepts the highlighted option (word or citation). */
+ *  completion popup is open, Tab accepts the highlighted option (word or citation).
+ *
+ *  Tab AFTER A WORD never indents (issue A.14). Previously, when nothing matched,
+ *  `tabOpenComplete` declined and this handler ran `indentMore` — which indents every line
+ *  the selection touches, and with word_wrap on a visually-wrapped paragraph is ONE logical
+ *  line, so the whole paragraph shifted. Now a failed completion attempt is swallowed and
+ *  reported in the status bar instead; Tab at line start / after whitespace still indents. */
 export const wordCompleteKeymap = [
   Prec.high(keymap.of([{ key: "Tab", run: tabOpenComplete }])),
   keymap.of([
@@ -154,6 +160,21 @@ export const wordCompleteKeymap = [
         if (completionStatus(v.state) === "active") {
           acceptCompletion(v);
           return true; // consume even if nothing was selected — never indent over a popup
+        }
+        const { state } = v;
+        if (state.selection.ranges.length === 1 && state.selection.main.empty) {
+          const s = stemBefore(state, state.selection.main.head);
+          const es = useStore.getState().editorSettings;
+          // Deliberately low (default 2): the workflow is 1-3 letters then Tab, so the
+          // gate has to admit short stems — they are exactly the ones that miss.
+          const stemMin = es?.tab_complete_stem_min ?? 2;
+          // Citation stems (`@Mild`) get the same treatment: the `@` picker's own Tab
+          // handler runs at higher precedence and returns true when it has something to
+          // offer, so reaching here means there was no match there either.
+          if (s && s.stem.length >= stemMin) {
+            useStore.getState().showStatusMessage(`no completions for “${s.stem}”`);
+            return true; // consumed — do NOT indent the paragraph
+          }
         }
         return indentMore(v);
       },
