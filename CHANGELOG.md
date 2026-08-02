@@ -543,6 +543,40 @@ messages point here for detail.
 - Backend `DirEntry` gained a `supported` flag and `list_directory` no longer drops
   unsupported files. Rust changed — `tauri dev` needs a restart, not just HMR.
 
+## [2.7.0] - 2026-08-02
+
+Batch A, release 4 of 5: the aggregate DecL language.
+
+### Changed
+
+- **The DecL colorizer is re-synced with aggregate's rebuilt pygments lexer** (issue A.20),
+  read from `decl_pygments.py` on 2026-08-02. Upstream had moved well past our snapshot, so
+  this is a re-port rather than a keyword top-up. Newly understood: `//` comments,
+  `doc{{{…}}}` blocks, `tags{…}`, **quoted `"display labels"`** (there was no string rule at
+  all before), `port.` / `dist.` / `distortion.` builtin references, structured `hints{…}`
+  bodies (`key=value;`, booleans, numbers — previously the whole body read as one comment),
+  the `**` / `^` / `@` operators, `sichel.gamma` / `sichel.ig` after `mixed`, and the
+  keywords `peel`, `dwait`, `wait`, `year`, `years`. Reclassified to match upstream: `and`
+  and `splice` are ordinary keywords (not structural headings), `wts` is a keyword,
+  `dfreq` joins `dsev`/`dbvsev`/`dwait` as a declaration keyword rather than a distribution
+  name, and `dhistogram`/`chistogram` join the one-parameter severity family. Comma and
+  pipe are now neutral, matching the grammar, which treats them as whitespace. Three
+  deliberate divergences from upstream are documented in the file so a future sync doesn't
+  undo them.
+
+### Added
+
+- **An outline for `.agg` / `.dec` / `.decl` files** (issue A.21). Every top-level
+  declaration — `agg`, `port`, `sev`, `distortion`, `dist`, `pnl`, `xpnl`, `bv`,
+  `bivariate`, `tower`, `dfreq`, `dsev`, `dbvsev` — becomes an entry showing its keyword
+  and name. Previously these files fell through to the Markdown outline parser and produced
+  nothing.
+- **Code folding in DecL files.** A declaration folds down to the line before the next one,
+  so `Ctrl+Shift+[`, `Ctrl+Shift+]` and Fold/Unfold All now work in `.agg` files — the
+  colorizer style we use supplies no fold ranges of its own, so there were none. The fold
+  ranges and the outline share one definition of "top-level declaration", so they can never
+  disagree.
+
 ## [2.6.0] - 2026-08-02
 
 Batch A, release 3 of 5: how the workspace looks and moves.

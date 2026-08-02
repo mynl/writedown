@@ -12,7 +12,7 @@ import { yaml } from "@codemirror/lang-yaml";
 import { tolerantFrontmatter } from "./tolerantFrontmatter";
 import { toml } from "@codemirror/legacy-modes/mode/toml";
 import { stex } from "@codemirror/legacy-modes/mode/stex";
-import { declDescription } from "./decl";
+import { declDescription, declSupport } from "./decl";
 
 // Statically-imported languages, wrapped as PRE-LOADED descriptions so a fenced ```{python}
 // (or json/yaml/toml/latex) cell nests SYNCHRONOUSLY. Resolving these through the async
@@ -75,7 +75,7 @@ export function languageForPath(path: string): Extension | null {
     case "agg":
     case "dec":
     case "decl":
-      return declDescription.support!; // built eagerly in decl.ts — never null
+      return declSupport; // colorizer + fold service, built eagerly in decl.ts
     default:
       return null; // csv/tsv/txt etc. — plain text (csv also gets the rainbow layer)
   }

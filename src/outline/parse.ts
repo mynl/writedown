@@ -1,3 +1,5 @@
+import { AGG_DECL_RE } from "../editor/decl";
+
 // Document outlines (spec §18). Markdown ATX headings (skipping YAML front matter,
 // fences, comments); plus structural outlines for Python (class/def), TOML ([section]),
 // and YAML (mapping keys). A parent with an absurd number of children has them dropped —
@@ -27,6 +29,12 @@ export function parseOutline(src: string, path?: string, opts?: OutlineOpts): He
   switch (ext) {
     case "py":
       return capChildren(parsePython(src, opts), MAX_CHILDREN_PY);
+    case "agg":
+    case "dec":
+    case "decl":
+      // Flat list of top-level declarations — same cap rationale as Python: a program
+      // with 200 aggregates is exactly when you need to navigate it.
+      return capChildren(parseAgg(src), MAX_CHILDREN_PY);
     case "toml":
       return capChildren(parseToml(src));
     case "yaml":
@@ -144,6 +152,19 @@ function parsePython(src: string, opts?: OutlineOpts): Heading[] {
       if (!skip) out.push({ level: 2, text: kind === "class" ? name : `${name}()`, line: i + 1 });
     }
     // Deeper nesting (defs inside defs inside methods…) intentionally omitted.
+  }
+  return out;
+}
+
+// DecL (.agg/.dec/.decl): one entry per top-level declaration, "keyword name" (issue
+// A.21). AGG_DECL_RE is shared with the fold service in editor/decl.ts, so the outline and
+// the fold ranges always agree on what a top-level statement is.
+function parseAgg(src: string): Heading[] {
+  const lines = src.split("\n");
+  const out: Heading[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const m = AGG_DECL_RE.exec(lines[i]);
+    if (m) out.push({ level: 1, text: `${m[1]} ${m[2]}`, line: i + 1 });
   }
   return out;
 }
