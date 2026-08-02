@@ -934,9 +934,13 @@ export function Preview({
   // counters — no JS, no render cost, and correct under the incremental DOM patcher
   // because counters resolve across siblings however the nodes got there. A palette
   // toggle can force it on for documents whose front matter doesn't ask.
+  // Read the flag from the DOCUMENT's source, not from `content`: the Rendered pane is fed
+  // expanded markdown that has no front matter, so reading `content` would silently switch
+  // numbering off there.
   const numberOverride = useStore((s) => s.numberSections);
+  const docSource = useStore((s) => s.tabs.find((t) => t.path === docKey)?.content ?? "");
   const numbered =
-    numberOverride ?? frontMatterFlag(content, "number-sections") ?? false;
+    numberOverride ?? frontMatterFlag(docSource, "number-sections") ?? false;
   useEffect(() => {
     contentRef.current?.classList.toggle("numbered", numbered);
   }, [numbered]);

@@ -25,9 +25,17 @@ const p = isDark
 
 export const editorTheme = EditorView.theme(
   {
-    "&": { color: p.fg, backgroundColor: p.bg, height: "100%", fontSize: "14px" },
+    // Same CSS variables the Sublime-derived theme uses (issues A.05, A.13), so zoom and
+    // per-file-type fonts work identically with or without an imported colour scheme.
+    "&": {
+      color: p.fg,
+      backgroundColor: p.bg,
+      height: "100%",
+      fontSize: "var(--wd-editor-font-size, 14px)",
+    },
     ".cm-content": {
-      fontFamily: '"Cascadia Mono","Consolas",ui-monospace,monospace',
+      fontFamily:
+        'var(--wd-editor-font-family, "Cascadia Mono"),"Consolas",ui-monospace,monospace',
       caretColor: p.caret,
     },
     ".cm-cursor, .cm-dropCursor": { borderLeftColor: p.caret },

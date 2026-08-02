@@ -163,13 +163,10 @@ export function Editor({ path, content }: { path: string; content: string }) {
       ext.push(wordCompleteAutocomplete); // word-completion popup for non-markdown languages
     }
     if (isCsv(path)) ext.push(csvRainbow(path));
-    if (!built && (fontSize || fontWeight)) {
-      ext.push(
-        EditorView.theme({
-          "&": fontSize ? { fontSize: `${fontSize}px` } : {},
-          ".cm-content": fontWeight ? { fontWeight } : {},
-        }),
-      );
+    // Font size/family reach the fallback theme through the same CSS variables, so only
+    // weight needs a rule here (it is not on the per-keystroke/zoom path).
+    if (!built && fontWeight) {
+      ext.push(EditorView.theme({ ".cm-content": { fontWeight } }));
     }
     return ext;
     // fontSize is still a dep of the NON-Sublime fallback theme below, but not of `built`.
