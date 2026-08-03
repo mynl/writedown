@@ -150,7 +150,14 @@ function tabOpenComplete(view: EditorView): boolean {
  *  `tabOpenComplete` declined and this handler ran `indentMore` — which indents every line
  *  the selection touches, and with word_wrap on a visually-wrapped paragraph is ONE logical
  *  line, so the whole paragraph shifted. Now a failed completion attempt is swallowed and
- *  reported in the status bar instead; Tab at line start / after whitespace still indents. */
+ *  reported in the status bar instead; Tab at line start / after whitespace still indents.
+ *
+ *  REACHABILITY (2.10.1): the fallback below runs only because Editor.tsx passes
+ *  indentWithTab={false} — react-codemirror otherwise injects its own Tab→indentMore
+ *  keymap ahead of ALL app extensions at equal precedence. Key dispatch is ordered
+ *  lexicographically by (precedence, tree position); that binding sat at (default, first)
+ *  and this one at (default, last), so from 2.4.0 to 2.10.0 the fallback was dead code:
+ *  a no-match Tab indented the line, no message showed, and Tab never accepted a popup. */
 export const wordCompleteKeymap = [
   Prec.high(keymap.of([{ key: "Tab", run: tabOpenComplete }])),
   keymap.of([

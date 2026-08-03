@@ -543,6 +543,26 @@ messages point here for detail.
 - Backend `DirEntry` gained a `supported` flag and `list_directory` no longer drops
   unsupported files. Rust changed — `tauri dev` needs a restart, not just HMR.
 
+## [2.10.1] - 2026-08-03
+
+### Fixed
+
+- **Tab with no completion match no longer indents the line, and Tab now accepts the
+  highlighted completion** (the rest of issue A.14). The 2.4.0 fallback — swallow a failed
+  completion attempt, report "no completions for …" in the status bar, accept the popup's
+  selection on Tab — was correct but unreachable: `@uiw/react-codemirror` has a top-level
+  `indentWithTab` prop (not a `basicSetup` option) that defaults to **true** and injects
+  the library's own `Tab → indentMore / Shift+Tab → indentLess` keymap *ahead of every
+  extension the app passes*, at equal precedence. CodeMirror dispatches a key through
+  bindings in lexicographic (precedence, position) order, so any plain Tab the
+  `Prec.high` handlers declined was consumed by the library binding before the app's
+  fallback could run — the line indented (a whole wrapped paragraph under word wrap),
+  no status message ever appeared, and accepting a completion required Enter. Fix:
+  `indentWithTab={false}` on the `<CodeMirror>` element; the app's own fallback now
+  handles the full matrix — popup open → Tab accepts; stem with no match → Tab swallowed
+  + status-bar message; line start / whitespace / selection → indent; Shift+Tab → dedent.
+  Frontend only. Post-mortem in `dev/done/plan-2.10.1-tab-shadowed-by-indentwithtab.md`.
+
 ## [2.10.0] - 2026-08-02
 
 ### Fixed

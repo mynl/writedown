@@ -372,6 +372,11 @@ export function Editor({ path, content }: { path: string; content: string }) {
     );
   };
 
+  // indentWithTab={false} is load-bearing: it is a TOP-LEVEL wrapper prop (not a
+  // basicSetup option) defaulting to TRUE, and when on, react-codemirror injects its own
+  // Tab→indentMore keymap AHEAD of everything in `extensions` at equal precedence — which
+  // swallowed plain Tab before wordComplete's fallback (Tab-accepts-completion, no-match
+  // status message) could ever run. See wordComplete.ts.
   return (
     <CodeMirror
       className="cm-host"
@@ -383,6 +388,7 @@ export function Editor({ path, content }: { path: string; content: string }) {
       onCreateEditor={onCreateEditor}
       onUpdate={onUpdate}
       basicSetup={BASIC_SETUP}
+      indentWithTab={false}
     />
   );
 }
