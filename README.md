@@ -48,7 +48,7 @@ It makes no network requests[^net], keeps no telemetry, needs no account, and wo
    writes are atomic and every save keeps a restorable previous version
    (palette → *Previous Versions*).
 6. **Quick file.** `Ctrl+Shift+Q` opens your designated scratch-pad file from
-   anywhere (`[files] quick_file` in config).
+   anywhere (`[files] quick_file` in config); `Ctrl+O` opens anything else on disk.
 
 The full tour is in **[HELP.md](HELP.md)** — also available inside the app:
 palette → *Open Help*, or the `?` button at the top right.

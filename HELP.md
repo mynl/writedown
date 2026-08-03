@@ -19,6 +19,8 @@ overwritten). The canonical copy is `HELP.md` in the repository.
 
 ## Opening things
 
+- **Ctrl+O** (or palette **Open File…**) opens any file on disk, in or out of the
+  workspace — pick several at once if you like.
 - **Open Folder** (palette) makes a folder the sidebar's file explorer.
 - **Projects** are Sublime-style `.wdproj` files: a named set of folders. Create,
   switch (MRU quick-switch), save, and delete them from the palette; the sidebar's
@@ -127,8 +129,13 @@ words and short words are skipped. Toggle for the session from the status bar.
   version first — palette → "Previous Versions" restores byte-perfect.
 - Autosave fires on window blur and tab switch; **Ctrl+S** any time.
 - If a file changes on disk outside Writedown, a clean tab reloads automatically;
-  a tab with unsaved edits shows a conflict notice instead — your edits are never
-  clobbered, in either direction.
+  a tab with unsaved edits is flagged instead — a bold `!` on the tab and a footer
+  notice. Autosave will not write that tab while it is flagged, and every save is
+  checked against the disk anyway, so neither version can be lost by accident.
+  Resolve it with the palette: **Reload from Disk (discard my edits)** or
+  **Overwrite Disk with My Version** (the replaced version goes to Previous
+  Versions either way). Quitting saves your buffer — losing your typing would be
+  the worse failure, and the disk version is still recoverable.
 - Writedown never renames or reorganizes files, never touches YAML front matter
   formatting, and works fully offline.
 

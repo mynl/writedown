@@ -7,7 +7,8 @@ export type FuzzyResult = { score: number; positions: number[] };
 
 const BOUNDARY = /[/\\ _\-.]/;
 
-export function fuzzyMatch(query: string, text: string): FuzzyResult | null {
+/** One whitespace-free term: an ORDERED subsequence match, scored fzf-style. */
+function matchTerm(query: string, text: string): FuzzyResult | null {
   if (!query) return { score: 0, positions: [] };
   const q = query.toLowerCase();
   const t = text.toLowerCase();
@@ -33,6 +34,30 @@ export function fuzzyMatch(query: string, text: string): FuzzyResult | null {
   if (qi < q.length) return null; // not all query chars matched, in order
   score -= text.length * 0.03; // prefer shorter, tighter matches
   return { score, positions };
+}
+
+/** fzf's extended-search rule (issue B.02): a space splits the query into terms, each of
+ *  which must match as an ordered subsequence — but the terms themselves are order-free,
+ *  so "edit config" and "config edit" both find "Edit Config (config.toml)". A query with
+ *  no space takes the single-term path and ranks EXACTLY as it always has.
+ *
+ *  Terms may overlap ("con config" can hit the same run twice): harmless, since positions
+ *  are unioned for the highlight and a doubled score only moves ties. The length penalty
+ *  lives inside matchTerm, so a k-term match pays it k times — a uniform tilt toward
+ *  shorter titles, same direction for every candidate. */
+export function fuzzyMatch(query: string, text: string): FuzzyResult | null {
+  const terms = query.trim().split(/\s+/).filter(Boolean);
+  if (terms.length === 0) return { score: 0, positions: [] };
+  if (terms.length === 1) return matchTerm(terms[0], text);
+  let score = 0;
+  const pos = new Set<number>();
+  for (const term of terms) {
+    const m = matchTerm(term, text);
+    if (!m) return null; // AND: every term must appear somewhere
+    score += m.score;
+    for (const p of m.positions) pos.add(p);
+  }
+  return { score, positions: [...pos].sort((a, b) => a - b) };
 }
 
 export type Ranked<T> = { item: T; positions: number[]; score: number };

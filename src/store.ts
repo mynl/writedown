@@ -19,7 +19,9 @@ import {
   loadSublimeTheme,
   logError,
   newProject as newProjectApi,
+  fileStamp,
   pickFolder,
+  pickOpenPaths,
   pickProjectOpenPath,
   saveManagedProject,
   saveSession,
@@ -44,6 +46,7 @@ import {
   writeFile,
   type EditorSettings,
   type Entry,
+  type FileStamp,
   type ProjectInfo,
   type Session,
   type SublimeTheme,
@@ -79,6 +82,24 @@ let lastBuildName: string | undefined;
 const normPath = (p: string) => p.replace(/\\/g, "/").toLowerCase().replace(/\/+$/, "");
 /** Is `p` inside `root`? Case- and separator-insensitive (Windows). */
 const underRoot = (p: string, root: string) => normPath(p).startsWith(normPath(root) + "/");
+
+/** Marker in the error from Rust's refused check-and-set write — must match
+ *  `CHANGED_ON_DISK` in files.rs. */
+const CHANGED_ON_DISK = "changed-on-disk";
+
+/** The roots the recursive watcher is ACTUALLY covering right now — the single source of
+ *  truth for `syncExtraWatch` (issue B.03). It used to reason from projFolders +
+ *  folderRoot, but the Folder tab's root is only ever listed and drawn, never watched
+ *  (setFolderRoot does no watching, and openFolder skips setRoot while a project is
+ *  open). So a file opened from inside the Folder root was excluded from per-file
+ *  watching by a root that watched nothing, and ended up covered by NOBODY: no reload, no
+ *  conflict flag, no message. Deriving the exclusion list from what was actually armed
+ *  makes that state unrepresentable. */
+let watchedRoots: string[] = [];
+const applyWatch = (roots: string[]) => {
+  watchedRoots = roots;
+  void watchWorkspace(roots).catch(() => {});
+};
 
 /** Focus the live editor once it has mounted for a just-opened/created document. */
 function focusEditorSoon() {
@@ -187,6 +208,10 @@ export type Doc = {
   error: string | null;
   /** Changed on disk externally while this tab had unsaved edits (spec §14). */
   conflict: boolean;
+  /** What the file looked like on disk when we last read or wrote it. Every save is a
+   *  check-and-set against this, so an external change can never be overwritten silently
+   *  even if the watcher missed it (issue B.04). null = unknown → no check. */
+  stamp: FileStamp | null;
 };
 
 export const isDirty = (d: Doc) => d.content !== d.savedContent;
@@ -381,9 +406,23 @@ type AppState = {
   loadContent: (path: string, content: string) => void;
   openVersions: () => void;
   closeVersions: () => void;
-  saveDoc: (path: string) => Promise<void>;
+  /** `explicit` = the user asked (Ctrl+S / palette), so a flagged conflict is attempted
+   *  rather than skipped; `force` also skips the disk check, overwriting deliberately.
+   *  Plain autosave passes neither (issue B.04). */
+  saveDoc: (path: string, opts?: { explicit?: boolean; force?: boolean }) => Promise<void>;
   saveActive: () => Promise<void>;
-  saveAll: () => Promise<void>;
+  saveAll: (opts?: { explicit?: boolean; force?: boolean }) => Promise<void>;
+  /** Conflict resolution, as two explicit verbs rather than one ambiguous button. */
+  reloadFromDisk: (path?: string) => Promise<void>;
+  overwriteWithMine: (path?: string) => Promise<void>;
+  /** Re-stamp the active document and reload/flag it if disk has moved on. Insurance for
+   *  a filesystem event we never got (issue B.03); runs on window focus. */
+  recheckActive: () => Promise<void>;
+  /** Which roots are watched, which files hold their own watch, and whether each open tab
+   *  is covered — the report that would have made B.03 obvious. */
+  showWatchStatus: () => void;
+  /** Native Open File dialog → tabs (issue B.01). */
+  openFilesDialog: () => Promise<void>;
   /** Run a `[build]` command (Sublime-style) on the active file: save it, spawn the
    *  command via pwsh from its folder, report exit/timing in the status bar, and open
    *  captured output in a scratch tab on failure. No name → the last-run or first one. */
@@ -599,7 +638,7 @@ export const useStore = create<AppState>((set, get) => ({
         if (!get().tabs.some((t) => t.path === p)) {
           const doc: Doc = {
             path: p, content: s.scratch_contents?.[p] ?? "", savedContent: "", eol: "\n",
-            preview: false, saving: false, error: null, conflict: false,
+            preview: false, saving: false, error: null, conflict: false, stamp: null,
           };
           set((st) => ({ tabs: [...st.tabs, doc] }));
         }
@@ -723,12 +762,13 @@ export const useStore = create<AppState>((set, get) => ({
     requestAnimationFrame(tick);
   },
 
+  // Give an individual watcher to every open file the recursive watcher does NOT cover.
+  // Exclude only paths under `watchedRoots` — what was actually armed — never the Folder
+  // tab's display root (issue B.03).
   syncExtraWatch: () => {
-    const { tabs, folderRoot, projFolders } = get();
-    const roots = [...projFolders, ...(folderRoot ? [folderRoot] : [])];
-    const extras = tabs
-      .map((t) => t.path)
-      .filter((p) => !isScratch(p) && !roots.some((r) => underRoot(p, r)));
+    const extras = get()
+      .tabs.map((t) => t.path)
+      .filter((p) => !isScratch(p) && !watchedRoots.some((r) => underRoot(p, r)));
     void watchExtraFiles(extras).catch(() => {});
   },
 
@@ -754,7 +794,7 @@ export const useStore = create<AppState>((set, get) => ({
     const { projFolders, projectFile } = get();
     if (!projectFile && projFolders.length === 0) {
       void saveLastWorkspace(path); // remember for the next cold start
-      void watchWorkspace([path]).catch(() => {}); // watch for external changes (spec §14)
+      applyWatch([path]); // watch for external changes (spec §14)
       get().syncExtraWatch();
     }
   },
@@ -837,12 +877,16 @@ export const useStore = create<AppState>((set, get) => ({
     // Images: a normal tab, but no text is read — the viewer streams the bytes via the
     // asset protocol. content stays "" (never dirty) and saveDoc refuses image paths,
     // so the file on disk can never be written (spec §2).
-    const raw = isImageDoc(path) ? "" : await readFile(path);
+    // Read the text and stamp the file in one round trip (the stamp is metadata only) —
+    // every later save checks against it (issue B.04).
+    const [raw, stamp] = isImageDoc(path)
+      ? ["", null as FileStamp | null]
+      : await Promise.all([readFile(path), fileStamp(path).catch(() => null)]);
     const eol: Doc["eol"] = raw.includes("\r\n") ? "\r\n" : "\n";
     const content = raw.split("\r\n").join("\n");
     const doc: Doc = {
       path, content, savedContent: content, eol, preview, saving: false, error: null,
-      conflict: false,
+      conflict: false, stamp,
     };
     set((s) => {
       // A concurrent openFile (e.g. double-click firing click twice) may have added
@@ -911,13 +955,13 @@ export const useStore = create<AppState>((set, get) => ({
       if (view && view.dom.isConnected) captureReloadAnchor(path, view);
     }
     try {
-      const raw = await readFile(path);
+      const [raw, stamp] = await Promise.all([readFile(path), fileStamp(path).catch(() => null)]);
       const eol: Doc["eol"] = raw.includes("\r\n") ? "\r\n" : "\n";
       const content = raw.split("\r\n").join("\n");
       set((s) => ({
         tabs: s.tabs.map((t) =>
           t.path === path
-            ? { ...t, content, savedContent: content, eol, conflict: false, error: null }
+            ? { ...t, content, savedContent: content, eol, conflict: false, error: null, stamp }
             : t,
         ),
       }));
@@ -1076,11 +1120,21 @@ export const useStore = create<AppState>((set, get) => ({
   },
   closeVersions: () => set({ versionsFor: null }),
 
-  saveDoc: async (path) => {
+  saveDoc: async (path, opts) => {
     if (isScratch(path)) return; // untitled buffers have no disk path — use Save As
     if (isImageDoc(path)) return; // viewer tabs hold no text — never write an image (spec §2)
     const doc = get().tabs.find((t) => t.path === path);
     if (!doc || !isDirty(doc) || doc.saving) return;
+    // A known conflict is never resolved by an AUTOsave. Clicking away, switching tabs or
+    // closing the editor must not silently overwrite somebody else's change (issue B.04):
+    // the tab stays dirty and flagged until you choose Reload or Overwrite. An explicit
+    // Ctrl+S still gets as far as the check-and-set below, which reports what happened.
+    // Quitting is the one exception (force): at that point NOT writing loses your typing
+    // for good, whereas writing keeps both versions — theirs goes to the backup store.
+    if (doc.conflict && !opts?.explicit && !opts?.force) {
+      get().showStatusMessage(`not autosaved — ${path.split(/[\\/]/).pop()} changed on disk`);
+      return;
+    }
 
     // Trim trailing whitespace at save ([editor] trim_trailing_whitespace, default
     // on = trim ALL, Sublime-style). Only ever runs when a save is happening anyway —
@@ -1117,12 +1171,39 @@ export const useStore = create<AppState>((set, get) => ({
 
     const out = doc.eol === "\r\n" ? snapshot.split("\n").join("\r\n") : snapshot;
     try {
-      await writeFile(path, out);
+      // Check-and-set: refuse the write if the file moved on since we read it. This does
+      // NOT depend on the watcher having noticed (issue B.03 showed it may not), and it
+      // covers a second Writedown instance on the same file too (We 4).
+      let stamp: FileStamp;
+      try {
+        stamp = await writeFile(path, out, opts?.force ? null : fresh.stamp);
+      } catch (e) {
+        if (!String(e).includes(CHANGED_ON_DISK)) throw e;
+        // The stamp moved — but a touched mtime is not by itself a changed file (a sync
+        // client can rewrite identical bytes). Read once and decide on content, so a
+        // false alarm never costs the user a save.
+        const disk = await readFile(path).catch(() => null);
+        const same = disk !== null && disk.split("\r\n").join("\n") === fresh.savedContent;
+        if (!same) {
+          set((s) => ({
+            tabs: s.tabs.map((t) =>
+              t.path === path
+                ? { ...t, saving: false, conflict: true, error: "changed on disk" }
+                : t,
+            ),
+          }));
+          get().showStatusMessage(
+            `${path.split(/[\\/]/).pop()} changed on disk — not saved. Palette: Reload from Disk, or Overwrite Disk with My Version`,
+          );
+          return;
+        }
+        stamp = await writeFile(path, out, null); // same bytes after all — carry on
+      }
       markJustSaved(path); // ignore the watcher event our own write will trigger
       set((s) => ({
         tabs: s.tabs.map((t) =>
           t.path === path
-            ? { ...t, saving: false, savedContent: snapshot, conflict: false }
+            ? { ...t, saving: false, savedContent: snapshot, conflict: false, stamp }
             : t,
         ),
       }));
@@ -1150,7 +1231,7 @@ export const useStore = create<AppState>((set, get) => ({
     const a = get().activePath;
     if (!a) return;
     if (isScratch(a)) await get().saveAs(a); // Ctrl+S on an untitled buffer → Save As
-    else await get().saveDoc(a);
+    else await get().saveDoc(a, { explicit: true });
   },
 
   runBuild: async (name) => {
@@ -1195,10 +1276,89 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   // Autosave every dirty document (window blur, idle, app close — spec §12).
-  saveAll: async () => {
+  saveAll: async (opts) => {
     for (const t of get().tabs) {
-      if (isDirty(t)) await get().saveDoc(t.path);
+      if (isDirty(t)) await get().saveDoc(t.path, opts);
     }
+  },
+
+  // Take the disk version and discard my edits. Deliberate, named, and undoable only in
+  // the sense that the previous disk version is in the backup store.
+  reloadFromDisk: async (path) => {
+    const p = path ?? get().activePath;
+    if (!p || isScratch(p)) return;
+    await get().reloadDoc(p);
+    get().showStatusMessage(`reloaded ${p.split(/[\\/]/).pop()} from disk`);
+  },
+
+  // Keep my version and overwrite theirs. The file being replaced is snapshotted first by
+  // Rust write_file, so their version stays recoverable via Previous Versions.
+  overwriteWithMine: async (path) => {
+    const p = path ?? get().activePath;
+    if (!p || isScratch(p)) return;
+    await get().saveDoc(p, { explicit: true, force: true });
+    get().showStatusMessage(`overwrote ${p.split(/[\\/]/).pop()} with this buffer`);
+  },
+
+  // Insurance against a missed filesystem event: on window focus, compare the active
+  // document's stamp with disk. Only the active tab — every OTHER tab is protected on the
+  // way out by the check-and-set in saveDoc, so this is about what you are looking at.
+  recheckActive: async () => {
+    const p = get().activePath;
+    if (!p || isScratch(p) || isImageDoc(p)) return;
+    const doc = get().tabs.find((t) => t.path === p);
+    if (!doc || !doc.stamp || doc.saving) return;
+    const now = await fileStamp(p).catch(() => null);
+    if (!now || (now.mtime_ms === doc.stamp.mtime_ms && now.len === doc.stamp.len)) return;
+    if (isDirty(doc)) {
+      set((s) => ({ tabs: s.tabs.map((t) => (t.path === p ? { ...t, conflict: true } : t)) }));
+    } else {
+      await get().reloadDoc(p);
+    }
+  },
+
+  showWatchStatus: () => {
+    const { tabs, projFolders, folderRoot, root } = get();
+    const covered = (p: string) => watchedRoots.find((r) => underRoot(p, r));
+    const lines = [
+      "# File watch status",
+      "",
+      "Recursively watched roots (the only paths that suppress a per-file watch):",
+      ...(watchedRoots.length ? watchedRoots.map((r) => `  - ${r}`) : ["  (none)"]),
+      "",
+      `Workspace anchor: ${root ?? "(none)"}`,
+      `Project folders:  ${projFolders.length ? projFolders.join(", ") : "(none)"}`,
+      `Folder-tab root:  ${folderRoot ?? "(none)"}${
+        folderRoot && !watchedRoots.some((r) => normPath(r) === normPath(folderRoot))
+          ? "   [displayed, NOT watched — files under it get their own watch]"
+          : ""
+      }`,
+      "",
+      "Open documents:",
+      ...tabs.map((t) => {
+        if (isScratch(t.path)) return `  - ${t.path}  [temporary buffer — nothing on disk]`;
+        const r = covered(t.path);
+        return `  - ${t.path}\n      ${r ? `covered by root ${r}` : "own individual watch"}`;
+      }),
+      "",
+      "Every open file must show one or the other. Anything else is issue B.03 returning.",
+    ];
+    get().newScratch({ content: lines.join("\n") });
+  },
+
+  openFilesDialog: async () => {
+    const { activePath, root } = get();
+    const near =
+      activePath && !isScratch(activePath)
+        ? activePath.replace(/[\\/][^\\/]*$/, "")
+        : root ?? undefined;
+    const picked = await pickOpenPaths(near ?? undefined).catch((e) => {
+      set({ configError: `open file — ${String(e)}` });
+      return null;
+    });
+    if (!picked || picked.length === 0) return;
+    // Same route as a drop: image/PDF/binary guards, the 20-file cap, the overflow message.
+    await get().openDropped(picked);
   },
 
   // Load appearance: Sublime colour scheme (spec §11) + config editor settings. On any
@@ -1420,7 +1580,7 @@ export const useStore = create<AppState>((set, get) => ({
         const folders = [...get().projFolders];
         for (const d of dirs) if (!folders.some((f) => samePath(f, d))) folders.push(d);
         set({ projFolders: folders });
-        void watchWorkspace(folders).catch(() => {});
+        applyWatch(folders);
         get().syncExtraWatch();
         get().persistProject();
       } else {
@@ -1437,7 +1597,8 @@ export const useStore = create<AppState>((set, get) => ({
       await get().openFile(f, false).catch((e) => set({ configError: String(e) }));
     }
     if (files.length > open.length) {
-      get().showStatusMessage(`opened ${open.length} of ${files.length} dropped files`);
+      // Neutral wording: the Open File dialog reuses this path too (issue B.01).
+      get().showStatusMessage(`opened ${open.length} of ${files.length} files`);
     }
   },
 
@@ -1567,7 +1728,7 @@ export const useStore = create<AppState>((set, get) => ({
     // so the buffer is born dirty — the tab shows there's something unsaved in it.
     const doc: Doc = {
       path, content: opts?.content ?? "", savedContent: "", eol: "\n", preview: false,
-      saving: false, error: null, conflict: false,
+      saving: false, error: null, conflict: false, stamp: null,
     };
     set((s) => ({ tabs: [...s.tabs, doc], activePath: path, scratchCounter: n }));
     focusEditorSoon();
@@ -1586,8 +1747,11 @@ export const useStore = create<AppState>((set, get) => ({
     if (!picked) return;
     const snapshot = doc.content;
     const out = doc.eol === "\r\n" ? snapshot.split("\n").join("\r\n") : snapshot;
+    let stamp: FileStamp | null = null;
     try {
-      await writeFile(picked, out); // backs up any file it overwrites (Rust write_file)
+      // No `expect`: Save As deliberately writes wherever you chose (the picker already
+      // asked about replacing), and Rust backs up anything it overwrites.
+      stamp = await writeFile(picked, out);
     } catch (e) {
       set((s) => ({
         tabs: s.tabs.map((t) => (t.path === doc.path ? { ...t, error: String(e) } : t)),
@@ -1599,7 +1763,7 @@ export const useStore = create<AppState>((set, get) => ({
     set((s) => ({
       tabs: s.tabs.map((t) =>
         t.path === doc.path
-          ? { ...t, path: picked, savedContent: snapshot, conflict: false, error: null }
+          ? { ...t, path: picked, savedContent: snapshot, conflict: false, error: null, stamp }
           : t,
       ),
       activePath: s.activePath === doc.path ? picked : s.activePath,
@@ -1719,7 +1883,7 @@ export const useStore = create<AppState>((set, get) => ({
     const folders = [...projFolders, picked];
     set({ projFolders: folders, panelTab: "project" });
     if (!get().root) await get().setRoot(picked);
-    void watchWorkspace(folders).catch(() => {});
+    applyWatch(folders);
     get().syncExtraWatch();
     setTitle(get().projectName || "unsaved project");
     get().persistProject();
@@ -1763,7 +1927,7 @@ export const useStore = create<AppState>((set, get) => ({
       set({ projFolders: seed, projectFile: path, projectName: trimmed, panelTab: "project" });
       if (seed.length > 0) {
         if (!get().root) await get().setRoot(seed[0]);
-        void watchWorkspace(seed).catch(() => {});
+        applyWatch(seed);
         get().syncExtraWatch();
       }
       void addRecentProject(path).then(() => get().loadRecentProjects());
@@ -1806,7 +1970,7 @@ export const useStore = create<AppState>((set, get) => ({
       // mounts, so it paints populated instead of filling in folder by folder (issue A.25).
       await get().prefetchTree(proj.folders);
       await get().setRoot(proj.folders[0]);
-      void watchWorkspace(proj.folders).catch(() => {});
+      applyWatch(proj.folders);
       get().syncExtraWatch();
     }
     void addRecentProject(file).then(() => get().loadRecentProjects());
@@ -1821,7 +1985,7 @@ export const useStore = create<AppState>((set, get) => ({
     setTitle(null);
     if (root) {
       void saveLastWorkspace(root);
-      void watchWorkspace([root]).catch(() => {});
+      applyWatch([root]);
       get().syncExtraWatch();
       void get().setFolderRoot(root); // adopt into the Folder tab so it isn't left empty
     }
@@ -1848,7 +2012,9 @@ export const useStore = create<AppState>((set, get) => ({
   removeProjectFolder: (path) => {
     const folders = get().projFolders.filter((f) => f !== path);
     set({ projFolders: folders });
-    if (folders.length > 0) void watchWorkspace(folders).catch(() => {});
+    // Emptying a project leaves the previous watcher live (there is nothing to re-arm),
+    // so watchedRoots deliberately keeps describing what is still being watched.
+    if (folders.length > 0) applyWatch(folders);
     get().syncExtraWatch();
     get().persistProject();
   },

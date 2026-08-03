@@ -394,6 +394,19 @@ body {
   color: var(--fg);
 }
 
+/* Changed on disk while you were editing it (issue B.04). Loud on purpose — this is the
+   one tab state that can cost you content, and the footer line alone is easy to miss. */
+.tab.conflict .tab-name {
+  color: var(--warn, #d08770);
+}
+
+.tab-conflict {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--warn, #d08770);
+}
+
 .tab-close {
   flex: 0 0 auto;
   width: 16px;

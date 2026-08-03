@@ -1,15 +1,12 @@
 # Feature Ideas and Bugs
-## Rubric for all runs2026-08-02 update
-
-One time: insert column "HML" before Status.
+## Claude Rubric
 
 For each row in the table add a new row below it for your input, item is ">>CC".
 
 * Enter low, medium or high effort
-* Skip Status for now
-* Under description add a **human-understandable** **short one- or two-line** summary and diagnosis (existing examples are too detailed and too complicated for me to understand!). Flag any issues here. This level of summary has been lacking prior to Wed 2026-07-22 iteration.
+* Enter None, ... as impact on "speed" = user feel for speed of application. MUST remain sprightly.  This is assessment of whether the feature would have any impact on baseline performance of the app in its core functions.
+* Under description add a **human-understandable** **short one- or two-line** summary and diagnosis (existing examples were too detailed and too complicated for me to understand!). Flag any issues.
 * **BELOW** the table and with title the Item number, add your developer issues and implementation plan - this is "notes for Claude". Here lies comments more like the ones you have been producing.
-* In your row, under status put None|!!!|???|<other> as a one word (<5 letters) assessment of whether the feature would have any impact on baseline performance of the app in its core functions.
 
 ***
 
@@ -17,9 +14,289 @@ For each row in the table add a new row below it for your input, item is ">>CC".
 
 | Item | Effort HML | Status/Impact | Description |
 |--:|:---:|:---:|:-------------------------|
-| **B.01** | | | *item* |
+| **B.01** | | ✅ | Stunningly, we have no file->open. Add to palette file open and bind to ctrl+O |
+| >>CC | L | None | **Confirmed — there is no way to open a file that is not already in the workspace: the palette has Open Folder and Open Project, and Ctrl+P quick-open searches only the current roots.** Ctrl+O is unbound and every piece of plumbing (native picker, multi-file open, out-of-root watching) already exists — this is wiring, not new machinery. |
+| **B.02** | | ✅ | The fuzzy matching in the palette is too order specific. Both edit config or config edit should work. Pls relax the ordering rule on the fuzzy matcher |
+| >>CC | L | None | **Confirmed: the matcher demands your letters in order, so "config edit" can never match "Edit Config" — no ranking involved, it simply returns no match.** Fix is fzf's own rule: a space splits the query into words, each word must appear somewhere, and the order between words stops mattering. A single word ranks exactly as it does today. |
+| **B.03** | | ✅ | This file still did not auto-reload after CC's external edits — A.28 was supposed to have fixed that |
+| >>CC | L | None | **Found it, and it is NOT A.28 returning: nothing is watching this file at all, so no event is ever sent.** Your Folder tab is pointed at `C:\S`, and a file inside the Folder-tab root is treated as "already covered" — but that root is never actually watched while a project is open, and your current project (AGG_REFACTOR) does not contain this folder. The file falls straight through the gap, in total silence. **Prediction: this very edit will not reload either** — see the dev note for the two-minute test that proves it. |
+| **B.04** | | ✅ | External change to a file I have unsaved edits in must not be lost. ST does "file changed on disk, reload" — do the same? |
+| >>CC | M | None | **Yes for the clean case — we already do exactly what ST does, a silent reload — but ST's dialog is not the fix for the dirty case, because our hole is on SAVE, not on notification.** Saving never checks the conflict flag, and autosave fires when you click away, so a flagged conflict is silently overwritten the moment you switch apps. Recommend: no modal; a loud badge on the tab, two explicit verbs, autosave refuses a conflicted tab, and the save itself checks the disk first. (Recoverable today via Previous Versions, so this is confusing rather than catastrophic.) |
 
+**Shipped in 2.11.0 (2026-08-03), none yet confirmed in daily use.** Note the ordering trap while
+you test: your three running `writedown.exe` instances are older builds, and there is no `tauri dev`
+running, so **nothing below is live until you rebuild** — B.03 in particular cannot be tested by
+watching the current window. Rebuild, reopen this file, and then the two-minute test in the B.03
+note applies (it should now reload; "Diagnostics: File Watch Status" says which watcher is doing it).
 
+---
+
+## Batch B — developer notes and implementation plans
+
+### B.01 — File → Open (palette verb + Ctrl+O)
+
+**The gap is real and complete.** `appCommands()` (`commands.ts:50+`) has `open-folder`, `proj-open`,
+`open-quick-file`, `new-file`, `save-as` — and no verb that opens an existing file. Ctrl+P quick-open
+ranks `listAllFiles(root)` over the workspace roots only (`Palette.tsx:96`), so a file outside them is
+reachable today by exactly three routes: drag-and-drop (A.04), launch args (A.03), or `[files]
+quick_file`. `Ctrl+O` appears nowhere in the codebase; `Ctrl+K Ctrl+O` (`keymap.ts:50`, toggleOutline)
+is a chord and does not collide.
+
+Plan, four small pieces:
+
+1. **`api.ts`** — `pickOpenPaths(defaultPath?)` beside `pickProjectOpenPath` (`api.ts:102-109`):
+   `open({ multiple: true, defaultPath, filters: [Markdown/Quarto (md, qmd, markdown), All Files] })`.
+   `open` is already imported (`api.ts:4`) and the dialog capability that `pickFolder` /
+   `pickProjectOpenPath` rely on already covers files — **no new capability line**.
+2. **`store.ts`** — `openFilesDialog()`: pick, then hand the paths to the existing
+   `openDropped` (`store.ts:1405-1442`), which already stats them, skips `isBinaryExt`, routes images
+   and PDFs through `openFile`'s guards, caps at 20 and reports the overflow in the status bar. Every
+   pick from a file dialog *is* a file, so the folder branch is dead code on this path and the reuse is
+   exact; only the message noun ("dropped files") wants parameterizing. Out-of-root watching is free —
+   `openFile` already calls `syncExtraWatch()` (`store.ts:873`). `defaultPath` = the active document's
+   folder, else `root`, else nothing (a scratch has no folder).
+3. **`commands.ts`** — `{ id: "open-file", title: "Open File… (Ctrl+O)" }` immediately above
+   `open-folder` (`commands.ts:53`). Palette MRU then floats it for free.
+4. **The key.** Put it in the app-level `window` keydown (`App.tsx:275-342`), beside Ctrl+Shift+Q, not
+   in `DEFAULT_KEYS` — so it fires with tree or preview focus, exactly like Ctrl+P / Ctrl+W / Ctrl+S.
+   Stated consequence: app-level keys are deliberately **not** rebindable via `[keys]` and do not show
+   in the F1 editor list, so add a row to `APP_SHORTCUTS` (`shortcuts.ts:12-18`) where Ctrl+S and
+   Ctrl+Shift+Q already live. `preventDefault()` is not optional: `tauri.conf.json` does not set
+   `browserAcceleratorKeys: false`, so Ctrl+O is still WebView2's own open-file accelerator —
+   suppressing it is the same thing Ctrl+P already does to the print dialog.
+
+Deliberately **not** included, say if you want any of them: no sidebar change (an opened file becomes a
+tab and nothing else — "Locate File in Sidebar" already exists if you want to see it); no adding the
+file's folder to the workspace; no recent-files list. Docs: one line each in `HELP.md:22-27` and the
+README getting-started. Effort L, zero perf, no new dependency.
+
+**BUILT in 2.11.0**, exactly as above: `pickOpenPaths` (`api.ts`, multi-select, no new capability),
+`openFilesDialog` (`store.ts`) handing the picks straight to `openDropped` so the guards, the 20-file
+cap and the overflow message are shared, palette verb `open-file`, the Ctrl+O branch in `App.tsx`'s
+window keydown, and a row in `APP_SHORTCUTS`. One incidental change: `openDropped`'s overflow message
+lost the word "dropped", since both routes now use it.
+
+### B.02 — Relax the ordering rule in the fuzzy matcher
+
+**Mechanism, exactly.** `fuzzyMatch` (`fuzzy.ts:10-36`) is one left-to-right scan with a single query
+cursor `qi`, and `if (qi < q.length) return null` (`fuzzy.ts:33`) is the whole behavior you are hitting:
+the query must be an in-order subsequence of the title. Trace `"config edit"` against
+`"Edit Config (config.toml)"` — `c-o-n-f-i-g` matches inside `Config`, the space matches the space
+before `(`, then `e` never occurs again, so it returns `null`. Not a ranking problem: no match at all.
+
+**Fix — fzf's extended-search rule.** A space splits the query into terms; every term must match as an
+ordered subsequence, but the terms are order-free between themselves:
+
+```ts
+export function fuzzyMatch(query: string, text: string): FuzzyResult | null {
+  const terms = query.trim().split(/\s+/).filter(Boolean);
+  if (terms.length === 0) return { score: 0, positions: [] };
+  if (terms.length === 1) return matchTerm(terms[0], text);   // today's body, verbatim
+  let score = 0;
+  const pos = new Set<number>();
+  for (const t of terms) {
+    const m = matchTerm(t, text);
+    if (!m) return null;                                       // AND: every term must hit
+    score += m.score;
+    for (const p of m.positions) pos.add(p);
+  }
+  return { score, positions: [...pos].sort((a, b) => a - b) };
+}
+```
+
+Points worth deciding rather than discovering later:
+
+* Rename today's body to `matchTerm` and leave it untouched, so the **single-word case — the common one,
+  and your muscle memory — ranks bit-identically to today**. Only queries containing a space change.
+* The length penalty (`fuzzy.ts:34`) sits inside `matchTerm`, so a two-term match pays it twice. It is a
+  uniform extra tilt toward shorter titles, same direction for every candidate; leave it unless the
+  ordering looks off, in which case hoist it to the top and apply once.
+* Terms may overlap (`"con config"` can match one run twice). Harmless: positions are a `Set` for the
+  highlight and the doubled score only moves ties. A "used positions" pass is not worth the code.
+* Free wins that fall out: a trailing or doubled space stops killing the query outright; `store ts`
+  matches `src/store.ts` at all; `project remove` finds "Project: Remove Folder…" either way round.
+* **Found while testing, NOT fixed here — a separate, older ranking quirk.** The scan is
+  first-match greedy, so `store` scores `src/store.ts` on the `s` of `src/` (positions 0,5,6,7,8)
+  instead of the contiguous `store` run, losing the word-boundary and contiguity bonuses — 32.64
+  against `src/editor/Editor.tsx`'s 34.37, so the wrong file ranks first. I verified this is
+  **identical in the committed matcher**, before B.02, by building both and scoring them side by
+  side. The fix is to try each occurrence of the query's first character and keep the best run
+  (fzf does a full DP); it is a scoring change with a real per-keystroke cost over a few thousand
+  paths, so it is your call, not a drive-by. Candidate B.05 if it annoys you.
+* **Scope.** `fuzzy.ts` serves the palette's three modes only (`Palette.tsx:96,108,110`) — commands,
+  quick-open, project switch. The `@` citation popup ranks in Rust with SkimMatcherV2 and is untouched;
+  it has the same order rule, and **your call 2026-08-03 is to leave it alone — citations are fine as
+  they are.**
+* Perf: k passes over each candidate instead of 1, k = words typed (1–2 in practice). Quick-open over a
+  few thousand paths stays well under a millisecond per keystroke. None.
+* Not proposed unless you ask: fzf's `'exact`, `!negation`, `^`/`$` anchors.
+
+There is no frontend test harness in the repo (no `*.test.*` anywhere), so verification is by hand in
+the palette: `edit config`, `config edit`, `config`, `edit `, and a quick-open `store ts`.
+
+**BUILT in 2.11.0** as specced — today's body renamed to `matchTerm`, a term-splitting `fuzzyMatch`
+over it. Verified headlessly (esbuild the module, drive it from node against the real command titles):
+`config edit` and `edit config` both land on "Edit Config (config.toml)"; `folder remove` finds
+"Project: Remove Folder…"; `config zzz` and `zzz qqq` correctly match nothing; an empty query still
+returns everything; and a single-term query returns the *same* score and the same highlight positions
+as before. The ranking quirk above was found by that same harness.
+
+### B.03 — Still no auto-reload: the file has no watcher at all
+
+**A.28's fix is intact and is not the problem.** `onFsChange` does key by `normPath` now
+(`store.ts:942-961`, `normPath` at `store.ts:79`, `justSaved` normalized at `store.ts:104-109`), and it
+correctly reconciles the watcher's `C:\S\AI\writedown\…` spelling with your `quick_file` spelling
+(`config.toml:57` = `C:/s/ai/writedown/writedown-issues.md`). That was a *comparison* bug. **This is a
+coverage bug, one layer earlier: no `fs-change` event is ever emitted for this file, so there is nothing
+to compare.**
+
+**The gap, in three lines of code.**
+
+* `syncExtraWatch` (`store.ts:726-733`) gives an individual watcher only to tabs that are under **no**
+  root, where `roots = [...projFolders, folderRoot]`.
+* But `folderRoot` is **never watched** while a project is open: `setFolderRoot` (`store.ts:764-767`)
+  only lists and redraws, `openFolder` (`store.ts:735-747`) deliberately skips `setRoot` when a project
+  exists, and `hydrate` restores the remembered folder root through `setFolderRoot` alone
+  (`store.ts:570-575`). Every `watchWorkspace` call site passes project folders (or, in plain-folder
+  mode, `root`) — never the Folder-tab root.
+* So the Folder-tab root **suppresses per-file watching without providing any watching**. Any file
+  opened from inside it, while a project is open, is watched by nobody.
+
+**Your live state, checked rather than assumed** (all read from `~/.writedown/`):
+
+* `session.json` → `folder_root: "C:\S"`, `panel_tab: "project"`.
+* The current session file is `sessions/859f37e59e53b6fa.json` (last written 14:05 today), whose active
+  tab is `C:/s/ai/writedown/writedown-issues.md`. I confirmed that filename is the DefaultHasher
+  (SipHash-1-3) hash of `…\projects\AGG_REFACTOR.wdproj` per `session.rs:62-69` — validating the
+  implementation against KOG-posts, which hashes to `2bf0c02ef11439b0` and is on disk.
+* `AGG_REFACTOR.wdproj` folders: `T:\worktrees\aggregate_REFACTOR` (+`\docs`, +`\docs\cookbook`),
+  `T:\worktrees\aggregate_api`, `C:\S\AI\aggregate-education`, `C:\S\AI\greatest-tables` — **none
+  contains `C:\S\AI\writedown`**.
+* `C:\S` is a junction to `c:\users\steve\Documents\CloudStation`, so `C:\S\AI\writedown` *is* the repo.
+  The junction is incidental — `normPath` handles the spelling; nothing here turns on it.
+
+That state is exactly the failing configuration: this file is outside every project root, inside
+`C:\S`, therefore excluded from extra watching, therefore watched by nothing.
+
+**The falsifiable test, in two minutes.** In that same window, `config.toml` is open and it *does*
+reload on an external change — because it sits outside both `C:\S` and the project roots, so it is the
+one tab that gets an individual watcher. So: (a) this edit will not reload; (b) add `C:\S\AI\writedown`
+to the current project, or open Writedown-Project, and the next external edit reloads instantly. If it
+reloads with neither, the diagnosis is wrong and the next suspect is the dirty-buffer branch
+(`store.ts:954-957`), which sets the conflict flag instead of reloading.
+
+**Also silent: conflicts.** With no watcher, an external change to a file you have unsaved edits in
+raises no "Modified externally" flag either. That is a content-integrity hole (spec §14/§25), not just
+an annoyance.
+
+**Fix — one real change plus one piece of insurance.**
+
+1. **Exclude only what is genuinely watched.** Route every `watchWorkspace` call through one helper that
+   records the roots it just armed in a module-level `watchedRoots`, and have `syncExtraWatch` test
+   against that instead of `[...projFolders, folderRoot]`. An unwatched Folder-tab root then stops
+   suppressing per-file watches, this file gets its own watcher, and the class of bug closes: the
+   suppression list and the watch list become the same list by construction. ~10 lines, no new events,
+   no perf cost. **L.**
+2. **Do NOT simply watch the Folder-tab root as well.** It is the obvious "fix" and it is a trap here:
+   your Folder root is `C:\S`, the whole Synology-synced CloudStation tree. A recursive watch there is a
+   firehose during sync, and every event arms the 400 ms tree re-list (`store.ts:932-941`). If we ever
+   want the Folder tree to refresh live under a project, it should be a deliberate opt-in
+   (`[files] watch_folder_root`, default off), not a side effect of this fix.
+3. **Insurance, and I'd take it: re-check on window focus.** A dropped event is invisible by
+   construction — that is the real lesson from A.28 and from this. On focus-gain, stamp the active
+   document (mtime + size) and reload if it changed and the buffer is clean, conflict-flag it if dirty.
+   One metadata call per focus; covers watcher death, sleep/resume, network drives and anything else we
+   have not thought of. Needs a small Rust `file_stamp(path)` (or one more field on the existing
+   `stat_paths`). **L–M.**
+4. **Optional, cheap: make the silence visible.** A palette verb "Diagnostics: File Watch Status"
+   printing the watched roots, the extra-watch list, and whether the active document is covered by
+   either. This dig would have been one line of output.
+
+**BUILT in 2.11.0 — items 1, 3 and 4; item 2 stands as a deliberate non-action.**
+
+* `watchedRoots` + `applyWatch(roots)` in `store.ts`: every one of the seven `watchWorkspace` call
+  sites now goes through the helper, and `syncExtraWatch` filters against that list alone. The Folder
+  tab's root no longer suppresses anything it does not cover, so this file gets its own watcher.
+  (`removeProjectFolder` emptying a project still leaves the old watcher live — nothing to re-arm —
+  and `watchedRoots` deliberately keeps describing what is actually watched.)
+* Focus insurance: `recheckActive` in the store, wired to `window` focus in `App.tsx` beside the
+  existing blur-save. Active tab only — every other tab is now protected on the way *out* by B.04's
+  check-and-set, so this is about what you are looking at, not about scanning everything.
+* "Diagnostics: File Watch Status" opens a scratch listing the watched roots, the workspace anchor,
+  the project folders, the Folder-tab root (marked when it is displayed but unwatched) and, per open
+  document, whether it is covered by a root or holds its own watch.
+* The folder root is still **not** watched recursively, for the reason given above — yours is the
+  whole synced CloudStation tree.
+
+### B.04 — "Changed on disk" when the buffer is dirty: what ST does, and why the fix is elsewhere
+
+**What ST actually does.** Clean buffer → it reloads silently, no prompt (`always_prompt_for_file_reload`
+defaults off). Dirty buffer → a modal: *"The file has changed on disk. Do you want to reload it?"*
+[Reload] / [Cancel]. **We already match ST exactly on the clean case** — `onFsChange` calls `reloadDoc`
+(`store.ts:958-959`), which is why an external edit to a file you are only reading just appears. So the
+question is only about the dirty case.
+
+**And on the dirty case the notification is not our problem — the save is.** We already detect it and
+set `conflict: true` (`store.ts:954-957`), surfaced as "Modified externally — click to reload"
+(`App.tsx:336-340`). What is missing is any guard on the way out:
+
+* `saveDoc` (`store.ts:1079-1128`) never looks at `doc.conflict`. It writes the buffer and then *clears*
+  the flag (`store.ts:1125`).
+* Saves are not all deliberate. Autosave fires on **editor blur** (`Editor.tsx:53-57`), **window blur**
+  (`App.tsx`), **tab switch** (`setActive`), and **save-then-close** (`Tabs.tsx:60`,
+  `OpenFiles.tsx:99`).
+
+So the loss path is: you have unsaved edits → something else changes the file → we flag it correctly →
+**you click away, and autosave-on-blur overwrites the external version without a word.** ST cannot have
+this bug, because ST has no autosave-on-blur — which is exactly why copying ST's dialog would not fix
+ours. A modal is also the wrong instrument here: it would pop *after* you have switched to another
+application.
+
+**One real mitigation already exists.** `write_file` snapshots the current on-disk bytes before
+replacing them (`files.rs:312` → `backup.rs:58-73`, last `KEEP` per file), and "Previous Versions…"
+reads them back. So even a clobber is recoverable. That makes this confusing rather than catastrophic —
+but "silently wrong, recoverable if you happen to know" is the exact failure mode this app exists to
+avoid (spec §12/§14).
+
+**Recommendation, in order.**
+
+1. **Clean buffer: keep the silent reload.** It is ST's behaviour and it is already right. No change.
+2. **Dirty buffer: no modal.** Make the existing conflict state *loud* instead of adding a dialog: a
+   badge on the **tab** (the tab strip is where the eye already is — the footer is easy to miss), the
+   footer text as now, plus two explicit palette verbs — **"Reload from Disk (discard my edits)"** and
+   **"Overwrite Disk with My Version"**. Two labelled actions, no state-flipping button, nothing that
+   steals focus. **L.**
+3. **The must-fix: autosave must never write a conflicted tab.** Give `saveDoc` an `explicit` flag; the
+   four autosave call sites pass false and return early when `doc.conflict` is set, leaving the tab
+   dirty and flagged. An explicit Ctrl+S on a conflicted tab is the one place a confirm is right — a
+   deliberate keystroke deserves a deliberate answer — or it can simply route to the two verbs above.
+   **L**, and it closes the data-loss path on its own.
+4. **The durable version: check-and-set on write.** Keep the on-disk stamp (mtime + size, or a hash) per
+   tab, taken at open / reload / save, and have `write_file` take an `expect` argument and refuse when
+   the file changed underneath us. Correctness then no longer depends on the watcher firing at all —
+   which is precisely the weakness B.03 just exposed — and it also covers the same file open in two
+   Writedown instances (We 4). **M**: a Rust signature change plus one field per tab.
+5. **Ordering.** B.03 lands first, or none of this ever triggers for a file like this one — an
+   unwatched file is never flagged in the first place.
+
+**BUILT in 2.11.0 — all of 1–4, no modal anywhere.**
+
+* `saveDoc(path, opts?)`. Autosave (no opts) returns early on a conflicted tab and says so in the
+  status bar; `saveActive` passes `explicit`; the two verbs pass `explicit`+`force`.
+* Check-and-set: `Doc` carries a `stamp` (mtime + size) taken at open, reload and save; Rust
+  `write_file` takes an optional `expect` and refuses with `changed-on-disk` when the file moved on,
+  returning the new stamp otherwise. **A refusal is not the end of it:** the frontend reads the file
+  once and compares with `savedContent`, so a stamp that moved without the bytes changing (a sync
+  client rewriting identical content — likely on your tree) resolves itself and the save proceeds.
+  Only a genuine difference flags the tab.
+* Tab strip: a conflicted tab shows a bold `!` in place of the dirty dot, its name in the warning
+  colour, and the two verbs named in the tooltip.
+* Quit: `saveAll({ force: true })` from the close handler only. The reasoning, since it is the one
+  place we deliberately overwrite: refusing at quit loses your typing permanently, whereas writing
+  keeps *both* versions — theirs goes to the backup store and Previous Versions restores it.
+* Not built, and not wanted: a modal. Nothing here can pop a dialog at you.
+
+---
 
 
 ***

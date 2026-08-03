@@ -298,14 +298,63 @@ pub fn read_file(path: String) -> Result<String, String> {
     std::fs::read_to_string(&path).map_err(|e| format!("read {path}: {e}"))
 }
 
+/// What a file looked like on disk when we last read or wrote it — modified time plus
+/// length. Cheap (metadata only, no read) and enough to notice that somebody else has
+/// been here (issue B.04).
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
+pub struct FileStamp {
+    pub mtime_ms: u64,
+    pub len: u64,
+}
+
+/// Error prefix for a refused check-and-set save. The frontend tests for it, so it must
+/// stay in step with `CHANGED_ON_DISK` in store.ts.
+const CHANGED_ON_DISK: &str = "changed-on-disk";
+
+fn stamp_of_path(path: &str) -> Option<FileStamp> {
+    let meta = std::fs::metadata(path).ok()?;
+    let mtime_ms = meta
+        .modified()
+        .ok()?
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()?
+        .as_millis() as u64;
+    Some(FileStamp { mtime_ms, len: meta.len() })
+}
+
+/// Current stamp of a file, or `None` when it does not exist / cannot be read. Never an
+/// error: a missing file is an answer, not a failure.
+#[tauri::command]
+pub fn file_stamp(path: String) -> Option<FileStamp> {
+    stamp_of_path(&path)
+}
+
 /// Atomic save (spec §12): write to a temp file in the SAME directory, flush and
 /// fsync, then rename over the original. On Windows `std::fs::rename` replaces the
 /// destination atomically (MoveFileExW + MOVEFILE_REPLACE_EXISTING). `content` is
 /// written byte-for-byte as UTF-8 — the frontend is responsible for the newline
 /// convention and any whitespace policy, so this never rewrites the user's bytes.
+///
+/// `expect` makes the write a check-and-set (issue B.04): when the caller passes the
+/// stamp the file had when it was read, the save is REFUSED if the file on disk has
+/// moved on since — somebody else wrote it while we were editing. That guarantee does
+/// not depend on the file watcher noticing, which is exactly the weakness B.03 exposed.
+/// `None` means "write regardless" (an explicit overwrite, or a caller with no stamp).
+/// Returns the stamp of what we just wrote, so the caller can keep checking.
 #[tauri::command]
-pub fn write_file(app: tauri::AppHandle, path: String, content: String) -> Result<(), String> {
+pub fn write_file(
+    app: tauri::AppHandle,
+    path: String,
+    content: String,
+    expect: Option<FileStamp>,
+) -> Result<FileStamp, String> {
     use std::io::Write;
+
+    if let Some(expected) = expect {
+        if stamp_of_path(&path) != Some(expected) {
+            return Err(format!("{CHANGED_ON_DISK}: {path}"));
+        }
+    }
 
     // Safety net: stash the version we're about to replace before we touch it (spec §12,
     // "never lose content"). Best-effort — never blocks the save.
@@ -341,5 +390,10 @@ pub fn write_file(app: tauri::AppHandle, path: String, content: String) -> Resul
     std::fs::rename(&tmp, target).map_err(|e| {
         let _ = std::fs::remove_file(&tmp);
         format!("replace {path}: {e}")
-    })
+    })?;
+
+    // The stamp of what we just wrote becomes the caller's new expectation. A file that
+    // vanished between rename and stat is reported as len 0 rather than failing a save
+    // that did in fact succeed.
+    Ok(stamp_of_path(&path).unwrap_or(FileStamp { mtime_ms: 0, len: 0 }))
 }

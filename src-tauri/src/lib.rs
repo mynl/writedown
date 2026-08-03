@@ -73,6 +73,7 @@ pub fn run() {
             files::list_all_files,
             files::read_file,
             files::write_file,
+            files::file_stamp,
             files::create_file,
             files::create_directory,
             files::rename_path,

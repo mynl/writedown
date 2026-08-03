@@ -72,6 +72,7 @@ export function Tabs() {
               "tab" +
               (t.path === activePath ? " active" : "") +
               (t.preview ? " preview" : "") +
+              (t.conflict ? " conflict" : "") +
               (t.path === draggingPath ? " dragging" : "")
             }
             onClick={() => setActive(t.path)}
@@ -80,11 +81,21 @@ export function Tabs() {
             onPointerMove={onPointerMove}
             onPointerUp={onPointerEnd}
             onPointerCancel={onPointerEnd}
-            title={t.path}
+            title={
+              t.conflict
+                ? `${t.path}\nChanged on disk since you started editing — palette: Reload from Disk, or Overwrite Disk with My Version`
+                : t.path
+            }
             role="tab"
             aria-selected={t.path === activePath}
           >
-            {dirty && <span className="tab-dirty">●</span>}
+            {/* Conflict is louder than dirty and takes its place: the tab strip is where
+                the eye already is, and the footer line alone is easy to miss (B.04). */}
+            {t.conflict ? (
+              <span className="tab-conflict">!</span>
+            ) : (
+              dirty && <span className="tab-dirty">●</span>
+            )}
             <span className="tab-name">{basename(t.path)}</span>
             <span className="tab-close" onClick={(e) => onClose(e, t.path)} title="Close tab">
               ×

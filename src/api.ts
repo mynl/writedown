@@ -99,6 +99,22 @@ export async function pickSavePath(defaultPath?: string): Promise<string | null>
   return typeof result === "string" ? result : null;
 }
 
+/** Native "Open File" dialog (issue B.01). Multi-select; returns the chosen absolute
+ *  paths, or null if cancelled. The filter list only orders the dropdown — All Files is
+ *  there because Writedown opens far more than markdown. */
+export async function pickOpenPaths(defaultPath?: string): Promise<string[] | null> {
+  const result = await open({
+    multiple: true,
+    defaultPath,
+    filters: [
+      { name: "Markdown / Quarto", extensions: ["md", "qmd", "markdown"] },
+      { name: "All Files", extensions: ["*"] },
+    ],
+  });
+  if (Array.isArray(result)) return result;
+  return typeof result === "string" ? [result] : null;
+}
+
 /** Native open dialog for a project file. Returns the chosen path, or null. */
 export async function pickProjectOpenPath(): Promise<string | null> {
   const result = await open({
@@ -116,8 +132,17 @@ export const listAllFiles = (root: string) =>
 export const readFile = (path: string) =>
   invoke<string>("read_file", { path });
 
-export const writeFile = (path: string, content: string) =>
-  invoke<void>("write_file", { path, content });
+/** What a file looked like on disk when we last read or wrote it (issue B.04). */
+export type FileStamp = { mtime_ms: number; len: number };
+
+/** Current stamp, or null when the file is missing/unreadable. Metadata only — no read. */
+export const fileStamp = (path: string) => invoke<FileStamp | null>("file_stamp", { path });
+
+/** Atomic save. `expect` makes it a check-and-set: the write is refused (error prefixed
+ *  `changed-on-disk`) if the file moved on since that stamp. Pass null to write anyway.
+ *  Returns the stamp of what was written. */
+export const writeFile = (path: string, content: string, expect?: FileStamp | null) =>
+  invoke<FileStamp>("write_file", { path, content, expect: expect ?? null });
 
 /** One restorable prior version of a file (backup-before-overwrite safety net). */
 export type BackupEntry = { millis: number; size: number; preview: string };

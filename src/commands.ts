@@ -50,6 +50,7 @@ function wordAtCursor(view: EditorView): string | null {
 export function appCommands(): Command[] {
   const s = useStore.getState;
   return [
+    { id: "open-file", title: "Open File… (Ctrl+O)", run: () => void s().openFilesDialog() },
     { id: "open-folder", title: "Open Folder…", run: () => void s().openFolder() },
     {
       id: "new-file",
@@ -100,6 +101,23 @@ export function appCommands(): Command[] {
       run: () => void s().setSizeAsDefault(),
     },
     { id: "previous-versions", title: "Previous Versions…", run: () => s().openVersions() },
+    // Conflict resolution: two explicitly labelled verbs, never one button that changes
+    // meaning with state (issue B.04).
+    {
+      id: "reload-from-disk",
+      title: "Reload from Disk (discard my edits)",
+      run: () => void s().reloadFromDisk(),
+    },
+    {
+      id: "overwrite-disk",
+      title: "Overwrite Disk with My Version",
+      run: () => void s().overwriteWithMine(),
+    },
+    {
+      id: "watch-status",
+      title: "Diagnostics: File Watch Status",
+      run: () => s().showWatchStatus(),
+    },
     { id: "locate-file", title: "Locate File in Sidebar", run: () => s().revealActive() },
     {
       id: "copy-file-path",

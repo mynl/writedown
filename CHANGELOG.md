@@ -543,6 +543,75 @@ messages point here for detail.
 - Backend `DirEntry` gained a `supported` flag and `list_directory` no longer drops
   unsupported files. Rust changed — `tauri dev` needs a restart, not just HMR.
 
+## [2.11.0] - 2026-08-03
+
+Batch B: File → Open, order-free palette matching, and the two halves of "an external
+change must never be missed or silently overwritten".
+
+### Added
+
+- **File → Open (issue B.01).** A native open dialog on **Ctrl+O** and the palette verb
+  "Open File…" — until now the only ways to open a file outside the workspace were
+  drag-and-drop, `[files] quick_file`, or launching the exe with a path. Multi-select;
+  the picks go through the same route as a drop, so image/PDF/binary guards, the 20-file
+  cap and its overflow message all apply unchanged. Defaults to the active document's
+  folder. App-level binding (works with tree or preview focus, like Ctrl+P) and therefore
+  listed in the F1 help rather than remappable via `[keys]`.
+- **Two explicit conflict verbs (issue B.04):** "Reload from Disk (discard my edits)" and
+  "Overwrite Disk with My Version". Two labelled actions rather than one button whose
+  meaning depends on state, and no modal — a dialog would pop *after* you had already
+  switched to another application.
+- **A conflicted tab now says so in the tab strip** — a bold `!` in place of the dirty
+  dot, the name in the warning colour, and the explanation in the tab's tooltip. The
+  footer line stays, but it is easy to miss.
+- **Palette: "Diagnostics: File Watch Status"** — opens a scratch listing the watched
+  roots, which open files are covered by which, and which hold their own individual
+  watch. Every open file must show one or the other; this is the report that would have
+  turned B.03 from a dig into one line.
+
+### Fixed
+
+- **Palette matching is no longer order-sensitive (issue B.02).** The matcher required
+  your letters as an in-order subsequence, so `config edit` could never match
+  "Edit Config (config.toml)" — not a ranking quirk, simply no match. Now fzf's
+  extended-search rule: a space splits the query into terms, each term must match, but
+  the order *between* terms no longer matters. A query with no space takes the old path
+  and ranks exactly as before. Trailing or doubled spaces stop killing a query, and a
+  quick-open `store ts` now matches `src/store.ts` at all (a space previously had to be
+  matched literally in the path). Note what this does *not* change: the greedy scan still
+  takes the first occurrence of each character, so `store` scores `src/store.ts` on the
+  `s` of `src/` rather than on the `store` run — a pre-existing ranking quirk, verified
+  identical before and after this change.
+- **A file opened from the Folder tab while a project is open is watched again
+  (issue B.03).** `syncExtraWatch` skipped per-file watching for anything under the
+  Folder-tab root — but that root is only ever listed and drawn, never watched
+  (`setFolderRoot` does no watching, and `openFolder` skips `setRoot` while a project is
+  open). So such a file was excluded by a root that watched nothing and ended up covered
+  by nobody: no reload, no conflict flag, no message. The exclusion list is now derived
+  from the roots actually armed (`applyWatch` records them), which makes that state
+  unrepresentable. This is *not* a regression of A.28 — that fixed the path-spelling
+  comparison; no event was reaching it at all.
+- **An external change can no longer be silently overwritten (issue B.04).** Saving never
+  looked at the conflict flag, and autosave fires on editor blur, window blur, tab switch
+  and close — so a correctly-flagged conflict was overwritten the moment you clicked
+  away. Now: autosave refuses a conflicted tab (and says so in the status bar), and
+  **every save is a check-and-set** — Rust `write_file` takes the stamp (mtime + size)
+  the file had when we read it and refuses the write if disk has moved on since. That
+  guarantee does not depend on the watcher noticing, which is exactly the weakness B.03
+  exposed, and it covers two Writedown instances on one file (We 4). A stamp that moved
+  without the content changing (a sync client rewriting identical bytes) is resolved by
+  one read and the save proceeds, so a false alarm never costs a save. Quitting still
+  force-saves: at that point refusing would lose your typing for good, while writing
+  keeps both versions — theirs goes to the backup store.
+- **Insurance for an event that never arrives:** on window focus the active document is
+  re-stamped against disk and reloaded (clean) or flagged (dirty). Covers sleep/resume,
+  network shares and any watcher gap we have not thought of.
+
+### Changed
+
+- Rust changed (`file_stamp` added, `write_file` now takes an optional expected stamp and
+  returns the new one) — a `tauri dev` restart or a rebuild is required, not just HMR.
+
 ## [2.10.1] - 2026-08-03
 
 ### Fixed
