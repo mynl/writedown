@@ -2,6 +2,7 @@ import { memo, useEffect, useState } from "react";
 import { openDefault, openShell, type Entry } from "../api";
 import { isBinaryExt, isExternalDoc } from "../editor/languages";
 import { rootEntry, useStore } from "../store";
+import { revealTreeRow, selectedTreeRow } from "./scrollRow";
 
 function icon(entry: Entry, expanded: boolean): string {
   // Folders get a clearly-distinct folder glyph (open/closed), not a small chevron.
@@ -95,23 +96,26 @@ function TreeNode({ entry, depth }: { entry: Entry; depth: number }) {
   // changed listing re-renders that node, not the tree.
   const expanded = useStore((s) => s.expandedPaths.has(entry.path));
   const children = useStore((s) => s.dirCache[entry.path] ?? null);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // DERIVED, not a `loading` state flag: an open folder with no listing yet is, by
+  // definition, still loading. A flag cleared in the fetch's `.finally` got stuck on —
+  // a Zustand store write flushes React in a MICROTASK (useSyncExternalStore is sync
+  // lane), which lands before the promise chain's continuation, so the effect cleanup had
+  // already set `cancelled` and the flag never cleared. It left a permanent "…" row above
+  // the children of every folder you expanded — a glyph with no name, gone on F5 (a remount
+  // starts the flag at false). This cannot get stuck.
+  const loading = entry.is_dir && expanded && children === null && !error;
 
   // Lazy load: this folder is open but its listing isn't in the cache yet — a click to
   // expand, or a restored expansion the project-open prefetch didn't cover.
   useEffect(() => {
     if (!entry.is_dir || !expanded || children !== null) return;
     let cancelled = false;
-    setLoading(true);
     useStore
       .getState()
       .ensureDir(entry.path)
       .catch((e) => {
         if (!cancelled) setError(String(e));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
@@ -180,10 +184,10 @@ function TreeNode({ entry, depth }: { entry: Entry; depth: number }) {
         <span className="tree-icon">{icon(entry, expanded)}</span>
         <span className="tree-name">{entry.name}</span>
       </div>
-      {error && <div className="tree-error" style={{ paddingLeft: 6 + depth * 14 }}>{error}</div>}
-      {expanded && loading && (
-        <div className="tree-loading" style={{ paddingLeft: 20 + depth * 14 }}>…</div>
+      {error && !children && (
+        <div className="tree-error" style={{ paddingLeft: 6 + depth * 14 }}>{error}</div>
       )}
+      {loading && <div className="tree-loading" style={{ paddingLeft: 20 + depth * 14 }}>…</div>}
       {expanded && children && (
         <div className="tree-children">
           {children.length === 0 && (
@@ -236,10 +240,9 @@ export function onTreeKeyDown(e: React.KeyboardEvent) {
     const row = rows[Math.max(0, Math.min(i, rows.length - 1))];
     if (!row) return;
     s.setTreeSelected(row);
-    // The row may be mounting this frame (a folder that just expanded).
-    requestAnimationFrame(() =>
-      document.querySelector(".tree-body .tree-row.selected")?.scrollIntoView({ block: "nearest" }),
-    );
+    // The row may be mounting this frame (a folder that just expanded). revealTreeRow, not
+    // scrollIntoView — see scrollRow.ts for why that one moved the whole window.
+    requestAnimationFrame(() => revealTreeRow(selectedTreeRow()));
   };
 
   e.preventDefault();

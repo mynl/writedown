@@ -296,12 +296,14 @@ body {
 
 /* Keyboard target (issue C.03) — deliberately quieter than .active (the open document), and
    only fully lit while the tree actually has focus, so it is never mistaken for a selection
-   that Delete would act on when the caret is somewhere else. */
+   that Delete would act on when the caret is somewhere else. Neutral greys (the same idiom
+   as --tree-line) rather than a tint of --accent: they read correctly on every imported
+   Sublime scheme, light or dark, without depending on what the theme set the accent to. */
 .tree-row.selected {
-  background: color-mix(in srgb, var(--accent, #4a90d9) 18%, transparent);
+  background: rgba(127, 127, 127, 0.16);
 }
 .tree-body:focus-within .tree-row.selected {
-  background: color-mix(in srgb, var(--accent, #4a90d9) 34%, transparent);
+  background: rgba(127, 127, 127, 0.3);
   outline: 1px solid var(--accent, #4a90d9);
   outline-offset: -1px;
 }

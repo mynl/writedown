@@ -61,6 +61,7 @@ import {
 } from "./editor/editorView";
 import { isBinaryExt, isCsv, isExternalDoc, isImageDoc, isMarkdownDoc } from "./editor/languages";
 import { scheduleScan } from "./editor/wordFreq";
+import { revealTreeRow } from "./tree/scrollRow";
 import { cssFontWeight } from "./fontWeight";
 
 /** Untitled scratch buffers live only in memory until "Save As" gives them a real path.
@@ -852,7 +853,9 @@ export const useStore = create<AppState>((set, get) => ({
     const tick = () => {
       const row = document.querySelector<HTMLElement>(".tree-body .tree-row.active");
       if (row) {
-        row.scrollIntoView({ block: "center" });
+        // Scrolls the tree pane only. scrollIntoView also scrolls every `overflow: hidden`
+        // ancestor, which silently drags the whole window off-centre (see scrollRow.ts).
+        revealTreeRow(row, "center");
         if (--extra > 0) requestAnimationFrame(tick);
       } else if (performance.now() - t0 < 2000) {
         requestAnimationFrame(tick);

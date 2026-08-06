@@ -543,6 +543,30 @@ messages point here for detail.
 - Backend `DirEntry` gained a `supported` flag and `list_directory` no longer drops
   unsupported files. Rust changed — `tauri dev` needs a restart, not just HMR.
 
+## [2.12.1] - 2026-08-06
+
+Two regressions from 2.12.0's tree work, both reported within the hour.
+
+### Fixed
+
+- **The nameless "…" row under every folder you expanded.** The loading indicator was a
+  React state flag cleared in the fetch's `.finally`, and it got stuck on: a Zustand write
+  flushes React in a *microtask* (`useSyncExternalStore` is sync lane), which lands before
+  the promise chain's continuation, so the effect cleanup had already marked the fetch
+  cancelled and the flag was never cleared. The old code got away with the same shape
+  because a plain `setState` is default lane and flushes a macrotask later. The indicator is
+  now derived — an open folder with no listing yet *is* loading — so it cannot get stuck.
+- **Arrow keys moved the whole window instead of the selection.** `scrollIntoView` scrolls
+  every scroll container between the element and the root, and `overflow: hidden` does not
+  opt an element out — it means "no scrollbar", not "cannot be scrolled". The layout is a
+  stack of hidden-overflow panes, so each keypress could shift the entire UI a few pixels
+  with no scrollbar to put it back: the "feels like scroll lock" report. Tree rows are now
+  revealed by adjusting the tree pane's own `scrollTop`, and only when the row is actually
+  outside it (`src/tree/scrollRow.ts`). "Locate File in Sidebar" had the same latent bug and
+  is fixed with it.
+- **The selected row is easier to see**, and no longer built on `color-mix` — neutral greys,
+  like the rest of the tree chrome, so it reads on any imported Sublime scheme.
+
 ## [2.12.0] - 2026-08-06
 
 Batch C: the file tree finally tracks the disk, keyboard control of the tree, auto-closing
