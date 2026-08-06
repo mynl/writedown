@@ -1,7 +1,7 @@
 import { memo, useEffect, useState } from "react";
-import { listDirectory, openDefault, openShell, type Entry } from "../api";
+import { openDefault, openShell, type Entry } from "../api";
 import { isBinaryExt, isExternalDoc } from "../editor/languages";
-import { useStore } from "../store";
+import { rootEntry, useStore } from "../store";
 
 function icon(entry: Entry, expanded: boolean): string {
   // Folders get a clearly-distinct folder glyph (open/closed), not a small chevron.
@@ -87,49 +87,26 @@ function icon(entry: Entry, expanded: boolean): string {
   }
 }
 
-function TreeNode({
-  entry,
-  depth,
-  defaultExpanded = false,
-  initialChildren,
-}: {
-  entry: Entry;
-  depth: number;
-  defaultExpanded?: boolean;
-  initialChildren?: Entry[];
-}) {
-  // Seed expansion from the store (non-reactive read) so a treeVersion remount after a file
-  // op restores which folders were open instead of folding everything up. Not subscribed —
-  // reading the Set reactively would re-render every node on any toggle.
-  const [expanded, setExpanded] = useState(
-    () => useStore.getState().expandedPaths.has(entry.path) || defaultExpanded,
-  );
-  // Seed from the batched prefetch (issue A.25) when there is one, so a restored set of
-  // expanded folders renders complete on the first paint with no effect and no round-trip.
-  const [children, setChildren] = useState<Entry[] | null>(
-    () => initialChildren ?? useStore.getState().prefetchedDirs[entry.path] ?? null,
-  );
+function TreeNode({ entry, depth }: { entry: Entry; depth: number }) {
+  // Expansion and children BOTH live in the store now (issues C.01/C.02/C.03): the watcher
+  // has to be able to refresh a folder's listing, and the keyboard has to be able to expand
+  // and collapse a folder, and neither can reach into a component's private state. Each node
+  // subscribes to its own key only — a boolean and one array identity — so a toggle or a
+  // changed listing re-renders that node, not the tree.
+  const expanded = useStore((s) => s.expandedPaths.has(entry.path));
+  const children = useStore((s) => s.dirCache[entry.path] ?? null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // The seeded root node re-syncs when its children change via a SOFT refresh (fs-change,
-  // which doesn't bump treeVersion). Touches only `children`, never `expanded`, so a
-  // collapsed root stays collapsed. Inert for deeper nodes (they get no initialChildren).
-  useEffect(() => {
-    if (initialChildren) setChildren(initialChildren);
-  }, [initialChildren]);
-
-  // Load children lazily whenever this folder is expanded but hasn't loaded — covers both a
-  // click-to-expand and a store-restored expansion on remount (the root gets initialChildren,
-  // so it never re-fetches here).
+  // Lazy load: this folder is open but its listing isn't in the cache yet — a click to
+  // expand, or a restored expansion the project-open prefetch didn't cover.
   useEffect(() => {
     if (!entry.is_dir || !expanded || children !== null) return;
     let cancelled = false;
     setLoading(true);
-    listDirectory(entry.path)
-      .then((c) => {
-        if (!cancelled) setChildren(c);
-      })
+    useStore
+      .getState()
+      .ensureDir(entry.path)
       .catch((e) => {
         if (!cancelled) setError(String(e));
       })
@@ -144,7 +121,9 @@ function TreeNode({
   const openFile = useStore((s) => s.openFile);
   const openTreeMenu = useStore((s) => s.openTreeMenu);
   const activePath = useStore((s) => s.activePath);
+  const selectedPath = useStore((s) => s.treeSelected?.path ?? null);
   const isActive = !entry.is_dir && entry.path === activePath;
+  const isSelected = entry.path === selectedPath;
 
   function onClick(e: React.MouseEvent) {
     // Ctrl+click = hand the path to Windows, for EVERY file type (issue A.17). Single
@@ -155,10 +134,10 @@ function TreeNode({
       openDefault(entry.path).catch((err) => setError(String(err)));
       return;
     }
+    // Clicking a row is also what aims the keyboard at it (issue C.03).
+    useStore.getState().setTreeSelected(entry);
     if (entry.is_dir) {
-      const next = !expanded;
-      setExpanded(next);
-      useStore.getState().setPathExpanded(entry.path, next); // remembered across remounts
+      useStore.getState().setPathExpanded(entry.path, !expanded);
       // Children load via the lazy effect above.
     } else if (!isExternalDoc(entry.path) && !isBinaryExt(entry.path)) {
       // Single-click = preview (Sublime): opens in the transient preview tab.
@@ -184,6 +163,7 @@ function TreeNode({
           "tree-row" +
           (entry.is_dir ? " folder" : " file") +
           (isActive ? " active" : "") +
+          (isSelected ? " selected" : "") +
           (!entry.is_dir && !entry.supported ? " unsupported" : "")
         }
         style={{ paddingLeft: 6 + depth * 14 }}
@@ -192,6 +172,8 @@ function TreeNode({
         title={entry.path + "\nCtrl+click: open in the default Windows app"}
         onContextMenu={(e) => {
           e.preventDefault();
+          // The menu and the Delete/F2 keys must always agree on the target.
+          useStore.getState().setTreeSelected(entry);
           openTreeMenu(e.clientX, e.clientY, entry);
         }}
       >
@@ -220,30 +202,82 @@ function TreeNode({
 // props and reads the store itself, so there is nothing per-keystroke to reconcile here.
 export const FileTree = memo(function FileTree() {
   const folderRoot = useStore((s) => s.folderRoot);
-  const rootEntries = useStore((s) => s.rootEntries);
   const treeVersion = useStore((s) => s.treeVersion);
 
   if (!folderRoot) return null;
-  // The folder itself is the top node — a real explorer "from the root on down". It starts
-  // expanded and seeded from rootEntries (no redundant re-list). Keyed by treeVersion so a
-  // hard refresh remounts and re-fetches all levels.
+  // The folder itself is the top node — a real explorer "from the root on down". Its listing
+  // comes from dirCache like every other level (setFolderRoot fills it and marks the root
+  // expanded). Still keyed by treeVersion so a hard refresh remounts.
   return (
     <div className="tree" key={treeVersion}>
-      <TreeNode
-        depth={0}
-        defaultExpanded
-        initialChildren={rootEntries}
-        entry={{
-          name: folderRoot.replace(/[\\/]+$/, "").split(/[\\/]/).pop() ?? folderRoot,
-          path: folderRoot,
-          is_dir: true,
-          ext: null,
-          supported: true,
-        }}
-      />
+      <TreeNode depth={0} entry={rootEntry(folderRoot)} />
     </div>
   );
 });
+
+/** Keyboard on the tree panel (issue C.03): arrows to move and open/close folders, Enter to
+ *  open, F2 to rename, Delete to Recycle-Bin. Attached to the tree PANE, not to the window —
+ *  so a Delete with the editor focused can never reach a file. Reads the store directly (no
+ *  reactivity needed): the row list is derived from what is expanded and cached, i.e. exactly
+ *  what is on screen. */
+export function onTreeKeyDown(e: React.KeyboardEvent) {
+  const k = e.key;
+  if (!["ArrowDown", "ArrowUp", "ArrowRight", "ArrowLeft", "Enter", "F2", "Delete"].includes(k))
+    return;
+  // Never steal keys from an input inside the panel (the project switcher, a rename prompt).
+  if ((e.target as HTMLElement).closest("input, select, textarea")) return;
+
+  const s = useStore.getState();
+  const rows = s.visibleRows();
+  if (rows.length === 0) return;
+  const cur = s.treeSelected ? rows.findIndex((r) => r.path === s.treeSelected?.path) : -1;
+
+  const select = (i: number) => {
+    const row = rows[Math.max(0, Math.min(i, rows.length - 1))];
+    if (!row) return;
+    s.setTreeSelected(row);
+    // The row may be mounting this frame (a folder that just expanded).
+    requestAnimationFrame(() =>
+      document.querySelector(".tree-body .tree-row.selected")?.scrollIntoView({ block: "nearest" }),
+    );
+  };
+
+  e.preventDefault();
+  const sel = cur >= 0 ? rows[cur] : null;
+  switch (k) {
+    case "ArrowDown":
+      select(cur + 1);
+      break;
+    case "ArrowUp":
+      select(cur <= 0 ? 0 : cur - 1);
+      break;
+    case "ArrowRight":
+      // Open a closed folder; step into an open one.
+      if (sel?.is_dir && !s.expandedPaths.has(sel.path)) s.setPathExpanded(sel.path, true);
+      else if (sel?.is_dir) select(cur + 1);
+      break;
+    case "ArrowLeft":
+      // Close an open folder; otherwise jump to the parent row.
+      if (sel?.is_dir && s.expandedPaths.has(sel.path)) s.setPathExpanded(sel.path, false);
+      else if (sel) {
+        const parent = sel.path.replace(/[\\/][^\\/]*$/, "");
+        const i = rows.findIndex((r) => r.path === parent);
+        if (i >= 0) select(i);
+      }
+      break;
+    case "Enter":
+      if (!sel) break;
+      if (sel.is_dir) s.setPathExpanded(sel.path, !s.expandedPaths.has(sel.path));
+      else if (!isBinaryExt(sel.path)) void s.openFile(sel.path, false); // permanent, like a double-click
+      break;
+    case "F2":
+      if (sel) s.renameEntry(sel);
+      break;
+    case "Delete":
+      if (sel) void s.deleteEntry(sel); // confirms, then Recycle Bin
+      break;
+  }
+}
 
 /** Right-click menu for a file/folder in the tree: New, Rename, Delete (Recycle Bin),
  *  plus Save / Save As on the active document. Mounted once at app root. */
@@ -334,17 +368,7 @@ export function ProjectTree() {
   return (
     <div className="tree" key={treeVersion}>
       {projFolders.map((f) => (
-        <TreeNode
-          key={f}
-          depth={0}
-          entry={{
-            name: f.replace(/[\\/]+$/, "").split(/[\\/]/).pop() ?? f,
-            path: f,
-            is_dir: true,
-            ext: null,
-            supported: true,
-          }}
-        />
+        <TreeNode key={f} depth={0} entry={rootEntry(f)} />
       ))}
     </div>
   );

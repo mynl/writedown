@@ -11,6 +11,10 @@ user import. One JSON object per line in, one per line out:
       "result_html": null, "figures": [{"format": "png", "b64": "..."}],
       "error": null, "ms": 12}
 
+The last expression's value is reported the way Jupyter would: `text/html` from its MIME
+bundle, else `_repr_html_()`, else an `image/png` / `image/svg+xml` from the bundle (as a
+figure), else `text/plain` from the bundle, else `repr()`.
+
 `reset: true` (the first cell of every render) starts a fresh namespace while sys.modules
 survives — imports are paid once, yet each render is a deterministic clean top-to-bottom
 run. On stdin EOF the runner exits 0, so a dead app never leaves an orphan. Internal
@@ -76,6 +80,52 @@ def error_line(exc):
     return line
 
 
+def mime_bundle(obj):
+    """The object's Jupyter MIME bundle, or None (issue C.06).
+
+    Asking only for ``_repr_html_`` misses objects that publish a bundle instead —
+    greater_tables' ``GT`` is the case in point: no ``_repr_html_``, and its ``__repr__``
+    is deliberately the *text* table, so we used to take the text fallback and show a
+    monospace grid where Jupyter and Quarto show HTML.
+    """
+    fn = getattr(obj, "_repr_mimebundle_", None)
+    if not callable(fn):
+        return None
+    try:
+        bundle = fn(include=None, exclude=None)
+    except TypeError:  # implementations that take no keywords
+        try:
+            bundle = fn()
+        except Exception:
+            return None
+    except Exception:
+        return None
+    if isinstance(bundle, tuple) and bundle:
+        bundle = bundle[0]  # (data, metadata)
+    return bundle if isinstance(bundle, dict) else None
+
+
+def as_text(value):
+    """A bundle entry as a string — nbformat allows a list of lines as well as a string."""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (list, tuple)) and all(isinstance(v, str) for v in value):
+        return "".join(value)
+    return None
+
+
+def bundle_figure(bundle):
+    """A bundle's image as a figure dict, or None. PNG/JPEG arrive base64-encoded per the
+    Jupyter convention; SVG arrives as markup, so encode it to match the transport."""
+    png = as_text(bundle.get("image/png"))
+    if png is not None:
+        return {"format": "png", "b64": "".join(png.split())}
+    svg = as_text(bundle.get("image/svg+xml"))
+    if svg is not None:
+        return {"format": "svg", "b64": base64.b64encode(svg.encode("utf-8")).decode("ascii")}
+    return None
+
+
 def collect_figures(fmt, dpi):
     figs = []
     plt = sys.modules.get("matplotlib.pyplot")
@@ -120,21 +170,33 @@ def handle(req):
             "line": error_line(e),
         }
 
-    result_text, result_html = None, None
+    # Richest representation of the last expression's value, in Jupyter's own order:
+    # HTML (bundle first, then _repr_html_ — pandas tables), else an image from the bundle,
+    # else text (the bundle's text/plain, else repr).
+    result_text, result_html, result_figure = None, None, None
     if error is None and result is not None:
-        html = getattr(result, "_repr_html_", None)
-        if callable(html):
-            try:
-                result_html = html()  # pandas tables!
-            except Exception:
-                result_html = None
+        bundle = mime_bundle(result) or {}
+        result_html = as_text(bundle.get("text/html"))
         if result_html is None:
-            result_text = repr(result)
+            fn = getattr(result, "_repr_html_", None)
+            if callable(fn):
+                try:
+                    result_html = as_text(fn())
+                except Exception:
+                    result_html = None
+        if result_html is None:
+            result_figure = bundle_figure(bundle)
+            if result_figure is None:
+                result_text = as_text(bundle.get("text/plain")) or repr(result)
 
     try:
         figures = collect_figures(req.get("fig_format", "png"), req.get("fig_dpi", 150))
     except Exception:
         figures = []
+    # The value's own image comes after any matplotlib figures the cell drew — output order
+    # follows the cell, and the last expression is the last thing in it.
+    if result_figure is not None:
+        figures.append(result_figure)
 
     return {
         "id": req.get("id"),

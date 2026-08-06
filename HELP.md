@@ -32,6 +32,27 @@ overwritten). The canonical copy is `HELP.md` in the repository.
   (exe, dll, zip, media, fonts) are muted and inert: right-click → Open Externally.
   Images (png/jpg/gif/webp/svg/bmp/ico/avif) open in an in-app viewer tab.
   PDF/DjVu route to your configured `[tools] pdf_viewer`.
+- **The tree keeps up with the disk.** Changes inside a watched project folder appear
+  by themselves; the Folder tab (whose root is deliberately never watched — it can be
+  an entire synced tree) refreshes when the window regains focus, when you switch panel
+  tabs, and on **F5**.
+
+## The file tree, from the keyboard
+
+Click a row to select it, then:
+
+| Key | Does |
+|---|---|
+| **Up / Down** | move the selection |
+| **Right** | open a folder, or step into an open one |
+| **Left** | close a folder, or jump to its parent |
+| **Enter** | open the selected file (a folder opens/closes) |
+| **F2** | rename |
+| **Delete** | move to the Recycle Bin (asks first) |
+| **F5** | re-read the tree from disk |
+
+Only when the tree itself has focus — with the caret in the editor, Delete is just
+Delete.
 
 ## Tabs, Sublime-style
 
@@ -64,6 +85,10 @@ a selection wraps the selection — press `$` twice for `$$…$$`.
   With no match, Tab does nothing and says so in the status bar; it never indents
   the paragraph. (Tab at the start of a line, or after whitespace, still indents.)
 - **Ctrl+Shift+D** duplicates the selection when there is one, otherwise the line.
+- **Quotes close themselves in code** — inside `{python}` cells and code spans, and in
+  code files: `"` gives you `""` with the caret between, and a third quote completes a
+  `"""` docstring pair. Same for `'`. Prose is untouched (apostrophes stay apostrophes),
+  and brackets are never auto-closed anywhere. Backspace between a pair removes both.
 - **Paste an image** (Ctrl+V with a screenshot on the clipboard) into a Markdown,
   Quarto or temporary document: the image is written to an `img/` folder beside the
   document — created if needed — and an `![](img/…)` link is inserted. Temporary
@@ -108,6 +133,9 @@ a selection wraps the selection — press `$` twice for `$$…$$`.
   has changed since the render.
 - Python cell syntax and duplicate Quarto labels are checked automatically (~½ s
   after you stop typing) and appear as squiggles.
+- A cell's last value is shown the way Jupyter would: HTML from its MIME bundle or
+  `_repr_html_` (pandas tables, `greater_tables` `GT`, …), else an image from the
+  bundle, else text. No wrapper needed.
 
 ## Citations (BibTeX)
 

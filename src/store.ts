@@ -129,6 +129,61 @@ const markJustSaved = (path: string) => {
   setTimeout(() => justSaved.delete(key), 1500);
 };
 let fsRefreshTimer: ReturnType<typeof setTimeout> | undefined;
+/** Folders a watcher event touched, coalesced behind `fsRefreshTimer` into ONE batched
+ *  re-list (issue C.01). Only folders already in `dirCache` are ever added, so a busy
+ *  watcher can never fan out into listing work for folders nobody can see. */
+const pendingDirRefresh = new Set<string>();
+/** Ceiling on one batched listing call — a session with hundreds of expanded folders falls
+ *  back to the lazy per-folder path for the rest, which is still correct, just visible. */
+const DIR_BATCH_CAP = 60;
+/** Folder listings in flight, so a fast collapse/expand can't fire two fetches. */
+const inflightDirs = new Set<string>();
+let lastVisibleRefresh = 0;
+
+/** Containing folder of a path (no trailing separator) — the folder a file op has to re-list. */
+const parentDir = (p: string) => p.replace(/[\\/][^\\/]*$/, "");
+
+/** A folder root as a tree row: the top node of each tree, and what `visibleRows` walks. */
+export const rootEntry = (path: string): Entry => ({
+  name: path.replace(/[\\/]+$/, "").split(/[\\/]/).pop() ?? path,
+  path,
+  is_dir: true,
+  ext: null,
+  supported: true,
+});
+
+/** Same listing? A cheap field compare, so a re-list that changed nothing keeps the previous
+ *  array identity and no tree node re-renders (see refreshDirs). */
+function sameEntries(a: Entry[] | undefined, b: Entry[]): boolean {
+  if (!a || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i];
+    const y = b[i];
+    if (
+      x.path !== y.path ||
+      x.name !== y.name ||
+      x.is_dir !== y.is_dir ||
+      x.ext !== y.ext ||
+      x.supported !== y.supported
+    )
+      return false;
+  }
+  return true;
+}
+
+/** Drop cache entries no longer reachable from a root — a deleted folder's whole subtree
+ *  goes with it, so a folder that comes back later is re-listed rather than resurrected. */
+function pruneUnreachable(cache: Record<string, Entry[]>, roots: string[]): void {
+  const keep = new Set<string>();
+  const stack = [...roots];
+  while (stack.length > 0) {
+    const p = stack.pop() as string;
+    if (keep.has(p)) continue;
+    keep.add(p);
+    for (const c of cache[p] ?? []) if (c.is_dir && c.path in cache) stack.push(c.path);
+  }
+  for (const k of Object.keys(cache)) if (!keep.has(k)) delete cache[k];
+}
 
 // ---- Trailing-whitespace trim on save ([editor] trim_trailing_whitespace) ---------
 // The [ \t]+ runs at line ends that a save may delete. Default mode trims them ALL
@@ -239,7 +294,13 @@ type AppState = {
   /** The Folder tab's OWN root, independent of any open project — so the Folder tab never
    *  mirrors the project's first folder. Set only when a plain folder is opened/restored. */
   folderRoot: string | null;
-  rootEntries: Entry[];
+  /** Every directory listing the tree is showing, keyed by folder path — the single source
+   *  of truth for both trees (issues C.01/C.02). It used to live in each TreeNode's own
+   *  React state, fetched once when the folder was expanded and unreachable afterwards, plus
+   *  a project-open prefetch snapshot that was never cleared. So an external delete/rename
+   *  below a root was invisible, and even F5 re-seeded the stale snapshot. Owned by the store,
+   *  the watcher / F5 / window-focus can all refresh exactly the folders on screen. */
+  dirCache: Record<string, Entry[]>;
 
   /** Project mode (ST-style): named set of folder roots. Empty = plain folder mode. */
   projFolders: string[];
@@ -274,6 +335,9 @@ type AppState = {
    *  file op) restores expansion instead of folding everything up. Keyed by path, not by
    *  React mount identity. */
   expandedPaths: Set<string>;
+  /** The tree row the keyboard acts on — Delete, F2, Enter, arrows (issue C.03). Distinct
+   *  from `activePath` (the open document), which is what the tree highlights today. */
+  treeSelected: Entry | null;
   /** Last tree-body scroll offset, restored across a remount so New File/Delete don't jump. */
   treeScrollTop: number;
   palette: "files" | "commands" | "projects" | null;
@@ -348,7 +412,24 @@ type AppState = {
   openFolder: () => Promise<void>;
   setRoot: (path: string) => Promise<void>;
   setFolderRoot: (path: string) => Promise<void>;
-  refreshTree: () => Promise<void>;
+  /** Re-list everything on screen (plus `extraDirs`, e.g. the folder a file was just created
+   *  in) in ONE batched call, then remount the tree. F5 / Ctrl+Shift+R and every file op. */
+  refreshTree: (extraDirs?: string[]) => Promise<void>;
+  /** Fetch a folder's listing into `dirCache` if it isn't there yet — the tree's lazy path,
+   *  called when a folder is expanded. */
+  ensureDir: (path: string) => Promise<void>;
+  /** Re-list the given folders in one batched call and merge. A listing that comes back
+   *  unchanged keeps its previous array identity, so nothing re-renders; a folder that no
+   *  longer reads is dropped, along with everything cached beneath it. */
+  refreshDirs: (paths: string[]) => Promise<void>;
+  /** Re-list every folder currently on screen (roots + expanded), throttled to ≥1 s. Wired to
+   *  window focus and panel-tab switch: the Folder tab is deliberately NOT watched (B.03 —
+   *  its root can be the whole synced tree), so this is what keeps it honest. */
+  refreshVisibleDirs: (opts?: { force?: boolean }) => Promise<void>;
+  /** The tree's rows in display order — what the keyboard navigates (issue C.03). */
+  visibleRows: () => Entry[];
+  /** Select a tree row (click, right-click, or arrow keys). */
+  setTreeSelected: (entry: Entry | null) => void;
   /** Record a folder's expanded/collapsed state (survives tree remounts). */
   setPathExpanded: (path: string, on: boolean) => void;
   /** Record the tree-body scroll offset for restore across a remount. */
@@ -487,11 +568,9 @@ type AppState = {
   openDropped: (paths: string[]) => Promise<void>;
   /** Open the files Writedown was launched with, after session restore (issue A.03). */
   openLaunchFiles: () => Promise<void>;
-  /** Directory listings fetched ahead of a tree mount, keyed by folder path (issue A.25).
-   *  TreeNode consults this before scheduling its own lazy fetch, so a restored set of
-   *  expanded folders paints in one go instead of filling in one folder at a time. */
-  prefetchedDirs: Record<string, Entry[]>;
-  /** Batch-fetch `roots` plus every remembered-expanded folder beneath them. */
+  /** Batch-fetch `roots` plus every remembered-expanded folder beneath them, ahead of the
+   *  tree mount (issue A.25) — so a restored set of expanded folders paints in one go
+   *  instead of filling in one folder at a time. Fills `dirCache`, which the tree reads. */
   prefetchTree: (roots: string[]) => Promise<void>;
   /** Give a scratch buffer a name (issue A.27). Renames its `untitled://` sentinel, which
    *  is the buffer's whole identity — tab label, hot-exit key and Save As default all
@@ -515,10 +594,30 @@ type AppState = {
   setSplitRatio: (r: number) => void;
 };
 
+/** The roots of the tree currently on screen — the Project panel's folders, or the Folder
+ *  panel's single root. Both trees start from these. */
+function displayedRootsOf(s: AppState): string[] {
+  if (s.panelTab === "project") return s.projFolders;
+  return s.folderRoot ? [s.folderRoot] : [];
+}
+
+/** Every folder whose listing is on screen: the displayed roots plus each expanded folder
+ *  beneath them, in display order and capped (see DIR_BATCH_CAP). */
+function visibleDirsOf(s: AppState): string[] {
+  const out: string[] = [];
+  const walk = (p: string) => {
+    if (out.length >= DIR_BATCH_CAP) return;
+    out.push(p);
+    for (const c of s.dirCache[p] ?? []) if (c.is_dir && s.expandedPaths.has(c.path)) walk(c.path);
+  };
+  for (const r of displayedRootsOf(s)) walk(r);
+  return out;
+}
+
 export const useStore = create<AppState>((set, get) => ({
   root: null,
   folderRoot: null,
-  rootEntries: [],
+  dirCache: {},
   projFolders: [],
   projectFile: null,
   projectName: "",
@@ -530,6 +629,7 @@ export const useStore = create<AppState>((set, get) => ({
   closedStack: [],
   treeVersion: 0,
   expandedPaths: new Set(),
+  treeSelected: null,
   treeScrollTop: 0,
   palette: null,
   helpOpen: false,
@@ -565,7 +665,6 @@ export const useStore = create<AppState>((set, get) => ({
   })(),
   fontOverride: null,
   numberSections: null,
-  prefetchedDirs: {},
   scratchCounter: 0,
   scratchRev: 0,
   treeWidth: 240,
@@ -800,33 +899,103 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   // The Folder tab's display root: list its children and (re)mount the tree. Called only when
-  // a plain folder is opened/restored — never by project flows.
+  // a plain folder is opened/restored — never by project flows. The root row is recorded as
+  // expanded so `expandedPaths` describes exactly what is on screen (visibleRows walks it).
   setFolderRoot: async (path: string) => {
-    const rootEntries = await listDirectory(path);
-    set((s) => ({ folderRoot: path, rootEntries, treeVersion: s.treeVersion + 1 }));
+    let entries: Entry[] = [];
+    try {
+      entries = await listDirectory(path);
+    } catch {
+      /* unreadable root — mount empty rather than not at all */
+    }
+    set((s) => ({
+      folderRoot: path,
+      dirCache: { ...s.dirCache, [path]: entries },
+      expandedPaths: new Set(s.expandedPaths).add(path),
+      treeVersion: s.treeVersion + 1,
+    }));
   },
 
-  // Re-list the workspace and remount the tree (F5 / Ctrl+Shift+R). External-change
-  // auto-refresh via file watching is Phase 4.
-  refreshTree: async () => {
-    const { folderRoot } = get();
-    // Bump treeVersion even with no Folder root, so the Project tree also remounts (F5 /
-    // after a new file). Re-list the Folder root's children when there is one.
-    if (!folderRoot) {
-      set((s) => ({ treeVersion: s.treeVersion + 1 }));
-      return;
-    }
+  // F5 / Ctrl+Shift+R and every file op. Re-lists everything on screen in ONE batched call
+  // BEFORE the remount — the remount used to re-seed the never-cleared project-open snapshot,
+  // which is why a renamed or deleted folder survived a refresh (issue C.02). `extraDirs`
+  // carries the folder a file was just created/renamed/deleted in, which may be collapsed
+  // (and so not "visible") but still needs re-listing.
+  refreshTree: async (extraDirs) => {
+    // extraDirs FIRST: the batch is capped, and the folder you just changed must never be
+    // the one that falls off the end.
+    await get().refreshDirs([...(extraDirs ?? []), ...visibleDirsOf(get())]);
+    set((s) => ({ treeVersion: s.treeVersion + 1 }));
+  },
+
+  ensureDir: async (path) => {
+    if (get().dirCache[path] || inflightDirs.has(path)) return;
+    inflightDirs.add(path);
     try {
-      const rootEntries = await listDirectory(folderRoot);
-      set((s) => ({ rootEntries, treeVersion: s.treeVersion + 1 }));
-    } catch {
-      set((s) => ({ treeVersion: s.treeVersion + 1 })); // folder gone — still remount
+      const entries = await listDirectory(path);
+      set((s) => ({ dirCache: { ...s.dirCache, [path]: entries } }));
+    } finally {
+      inflightDirs.delete(path);
     }
   },
+
+  refreshDirs: async (paths) => {
+    const want = [...new Set(paths)].slice(0, DIR_BATCH_CAP);
+    if (want.length === 0) return;
+    let got: Record<string, Entry[]>;
+    try {
+      got = await listDirectories(want);
+    } catch {
+      return; // one failed batch must not blank the tree — the cache stays as it was
+    }
+    const s = get();
+    const next = { ...s.dirCache };
+    let changed = false;
+    for (const p of want) {
+      const fresh = got[p];
+      if (!fresh) {
+        // Absent from the reply = unreadable or gone. Drop it; the prune below takes
+        // everything cached beneath it.
+        if (p in next) {
+          delete next[p];
+          changed = true;
+        }
+        continue;
+      }
+      if (sameEntries(next[p], fresh)) continue; // identity kept → nothing re-renders
+      next[p] = fresh;
+      changed = true;
+    }
+    if (!changed) return; // the common case (our own save): no set, no notify, no render
+    pruneUnreachable(next, [...s.projFolders, ...(s.folderRoot ? [s.folderRoot] : [])]);
+    set({ dirCache: next });
+  },
+
+  refreshVisibleDirs: async (opts) => {
+    const now = performance.now();
+    if (!opts?.force && now - lastVisibleRefresh < 1000) return;
+    lastVisibleRefresh = now;
+    await get().refreshDirs(visibleDirsOf(get()));
+  },
+
+  visibleRows: () => {
+    const s = get();
+    const rows: Entry[] = [];
+    const walk = (e: Entry) => {
+      rows.push(e);
+      if (!e.is_dir || !s.expandedPaths.has(e.path)) return;
+      for (const c of s.dirCache[e.path] ?? []) walk(c);
+    };
+    for (const r of displayedRootsOf(s)) walk(rootEntry(r));
+    return rows;
+  },
+
+  setTreeSelected: (entry) => set({ treeSelected: entry }),
 
   setPathExpanded: (path, on) => {
-    // New Set for Zustand identity. Read non-reactively in TreeNode, so this never
-    // re-renders the whole tree — only records state for the next remount.
+    // New Set for Zustand identity. TreeNode subscribes to its OWN membership (a boolean),
+    // so a toggle re-renders that one node — and the keyboard can expand/collapse a folder
+    // from outside the component (issue C.03).
     set((s) => {
       const next = new Set(s.expandedPaths);
       if (on) next.add(path);
@@ -974,13 +1143,26 @@ export const useStore = create<AppState>((set, get) => ({
   // folders stay open), reload unmodified open files, flag conflicts on modified ones.
   // Ignores the events our own saves trigger.
   onFsChange: (paths) => {
-    const folderRoot = get().folderRoot;
-    if (folderRoot) {
+    // Tree: re-list the folders the change actually TOUCHED (issue C.01). This used to
+    // re-list exactly one directory — the Folder tab's root — whose result only ever reached
+    // the root row, so nothing below any root, and nothing in the Project panel, could
+    // update. Candidates are matched against the cache by normPath (the watcher spells each
+    // path from the root it was handed, which need not match how we listed it), and only
+    // folders already cached — i.e. on screen — are ever queued.
+    const cache = get().dirCache;
+    const byNorm = new Map(Object.keys(cache).map((k) => [normPath(k), k]));
+    for (const p of paths) {
+      const parent = byNorm.get(normPath(p.replace(/[\\/][^\\/]*$/, "")));
+      if (parent) pendingDirRefresh.add(parent);
+      const self = byNorm.get(normPath(p)); // a folder event names the folder itself
+      if (self) pendingDirRefresh.add(self);
+    }
+    if (pendingDirRefresh.size > 0) {
       clearTimeout(fsRefreshTimer);
       fsRefreshTimer = setTimeout(() => {
-        listDirectory(folderRoot)
-          .then((rootEntries) => set({ rootEntries }))
-          .catch(() => {});
+        const batch = [...pendingDirRefresh];
+        pendingDirRefresh.clear();
+        void get().refreshDirs(batch);
       }, 400);
     }
     // Key by normPath, NOT by the raw string. The watcher reports each path spelled from
@@ -1542,21 +1724,13 @@ export const useStore = create<AppState>((set, get) => ({
   // and one re-render per expanded folder. Capped: a session with hundreds of remembered
   // folders falls back to the lazy path for the rest, which is still correct, just visible.
   prefetchTree: async (roots) => {
-    const PREFETCH_CAP = 60;
     const expanded = [...get().expandedPaths];
-    const wanted = [
+    // refreshDirs merges (never replaces) and caps the batch, so a second project root's
+    // prefetch cannot drop the first's, and a failed batch leaves every node its lazy fetch.
+    await get().refreshDirs([
       ...roots,
       ...expanded.filter((p) => roots.some((r) => underRoot(p, r) || samePath(p, r))),
-    ];
-    const unique = [...new Set(wanted)].slice(0, PREFETCH_CAP);
-    if (unique.length === 0) return;
-    try {
-      const dirs = await listDirectories(unique);
-      // Merge, don't replace: a second project root's prefetch must not drop the first's.
-      set((s) => ({ prefetchedDirs: { ...s.prefetchedDirs, ...dirs } }));
-    } catch {
-      /* fine — every node still has its own lazy fetch */
-    }
+    ]);
   },
 
   // Files/folders dropped onto the window (issue A.04). A folder becomes the Folder-tab
@@ -1716,7 +1890,7 @@ export const useStore = create<AppState>((set, get) => ({
     if (!root || !rel.trim()) return;
     const path = /^([a-zA-Z]:|\\\\|\/)/.test(rel) ? rel : `${root}\\${rel.replace(/\//g, "\\")}`;
     await createFile(path);
-    await refreshTree();
+    await refreshTree([parentDir(path)]);
     await openFile(path, false);
     focusEditorSoon(); // land the cursor in the editor, not the tree
   },
@@ -1777,7 +1951,7 @@ export const useStore = create<AppState>((set, get) => ({
     if (!root || !rel.trim()) return;
     const path = /^([a-zA-Z]:|\\\\|\/)/.test(rel) ? rel : `${root}\\${rel.replace(/\//g, "\\")}`;
     await createDirectory(path);
-    await refreshTree();
+    await refreshTree([parentDir(path)]);
   },
 
   // ---- File-tree context menu + operations --------------------------------------
@@ -1790,7 +1964,7 @@ export const useStore = create<AppState>((set, get) => ({
       const path = `${dir.replace(/[\\/]+$/, "")}\\${name.replace(/\//g, "\\")}`;
       try {
         await createFile(path);
-        await get().refreshTree();
+        await get().refreshTree([parentDir(path)]);
         await get().openFile(path, false);
         focusEditorSoon();
       } catch (e) {
@@ -1805,7 +1979,7 @@ export const useStore = create<AppState>((set, get) => ({
       const path = `${dir.replace(/[\\/]+$/, "")}\\${name.replace(/\//g, "\\")}`;
       try {
         await createDirectory(path);
-        await get().refreshTree();
+        await get().refreshTree([parentDir(path)]);
       } catch (e) {
         set({ configError: String(e) });
       }
@@ -1834,8 +2008,9 @@ export const useStore = create<AppState>((set, get) => ({
       set((s) => ({
         tabs: s.tabs.map((t) => ({ ...t, path: rebind(t.path) })),
         activePath: s.activePath ? rebind(s.activePath) : s.activePath,
+        treeSelected: null, // the row it named is gone; don't leave Delete aimed at a ghost
       }));
-      await get().refreshTree();
+      await get().refreshTree([parent]);
     });
   },
 
@@ -1863,12 +2038,18 @@ export const useStore = create<AppState>((set, get) => ({
       const activePath = s.activePath && gone(s.activePath)
         ? (tabs.length ? tabs[tabs.length - 1].path : null)
         : s.activePath;
-      return { tabs, activePath };
+      return { tabs, activePath, treeSelected: null };
     });
-    await get().refreshTree();
+    await get().refreshTree([parentDir(entry.path)]);
   },
 
-  setPanelTab: (tab) => set({ panelTab: tab }),
+  // Switching panels re-lists what that panel shows (throttled). The Folder tab is watched
+  // by nobody while a project is open — deliberately, its root can be the whole synced tree
+  // (B.03) — so this, plus the window-focus refresh in App.tsx, is what keeps it current.
+  setPanelTab: (tab) => {
+    set({ panelTab: tab, treeSelected: null });
+    void get().refreshVisibleDirs();
+  },
 
   // ---- Projects (ST-style): a named set of folder roots -------------------------
 

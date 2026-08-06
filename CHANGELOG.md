@@ -543,7 +543,62 @@ messages point here for detail.
 - Backend `DirEntry` gained a `supported` flag and `list_directory` no longer drops
   unsupported files. Rust changed — `tauri dev` needs a restart, not just HMR.
 
-## [2.11.0] - 2026-08-03
+## [2.12.0] - 2026-08-06
+
+Batch C: the file tree finally tracks the disk, keyboard control of the tree, auto-closing
+quotes in code, and rich output for objects that publish a MIME bundle.
+
+### Fixed
+
+- **The tree now follows the disk (issue C.01).** A watcher event used to re-list exactly one
+  directory — the Folder tab's root — and even that result only reached the root row, because
+  every deeper folder kept its listing in its own React state, fetched once when you expanded
+  it and unreachable from anywhere afterwards. The Project panel was outside the refresh path
+  altogether, despite its folders being the ones actually watched. So an external delete,
+  create or rename below a root was simply invisible. Directory listings now live in the
+  store (`dirCache`), which the watcher, F5 and window-focus can all refresh; an event
+  re-lists the folders it actually touched, coalesced into one batched call behind the
+  existing 400 ms debounce, and only for folders that are on screen. A deleted folder takes
+  its cached subtree with it. A listing that comes back unchanged keeps its previous array
+  identity, so the common case — the watcher event our own save just caused — re-renders
+  nothing at all.
+- **Refresh is no longer defeated by a stale snapshot (issue C.02).** The batched listing
+  taken when a project opens (added in 1.26 for a smooth first paint) was never cleared, and
+  F5 works by remounting the tree — which re-seeded every folder from that snapshot. A folder
+  renamed or deleted outside Writedown therefore came back, forever, for any folder that was
+  already expanded when the project opened. F5 now re-lists everything on screen in one
+  batched call *before* remounting, and file operations re-list the folder they touched.
+- **The Folder tab keeps up too**, without watching its root: the folders on screen are
+  re-listed when the window regains focus and when you switch panel tabs (throttled to once
+  a second). The Folder root is still deliberately not watched — it can be an entire synced
+  tree, and a recursive watch there is a firehose (see 2.11.0, issue B.03).
+
+### Added
+
+- **Keyboard control of the file tree (issue C.03).** Up/Down move the selection, Right opens
+  a folder (or steps into an open one), Left closes it (or jumps to its parent), Enter opens
+  the selected file (or toggles a folder), **F2** renames, and **Delete** moves the selection
+  to the Recycle Bin through the same confirmation the right-click menu uses. Clicking a row
+  selects it, so the keys and the context menu always agree on the target. The handler is
+  attached to the tree pane, not to the window: with the caret in the editor, Delete can
+  never reach a file.
+- **Auto-closing quotes, in code only (issue C.05).** Typing `"` or `'` inserts the pair with
+  the caret between them, and the third quote of a docstring gives you the closing three as
+  well. Active inside `{python}` cells and inline code spans in md/qmd, and throughout code
+  files (py, json, toml, yaml, tex, agg); **never in prose**, which is why the stock
+  behaviour was off — it also closed brackets everywhere and doubled apostrophes mid-word.
+  Brackets are still never auto-closed. Backspace between a pair deletes both.
+- **HTML (and images) from a MIME bundle (issue C.06).** The runner asked the last
+  expression's value for `_repr_html_` and fell back to `repr()`. Objects that publish a
+  Jupyter MIME bundle instead — `greater_tables`' `GT` is the case in point, whose `repr()`
+  is deliberately the *text* table — therefore rendered as monospace text, and needed a
+  manual `IPython.display.HTML` wrapper. `_repr_mimebundle_` is now asked first (tolerating
+  the `(data, metadata)` form and implementations that take no keywords), taking `text/html`,
+  then `_repr_html_` as before, then `image/png` / `image/svg+xml` from the bundle as a
+  figure, then the bundle's `text/plain`, then `repr()`. **Requires a rebuild** — the runner
+  is embedded in the binary at compile time.
+
+
 
 Batch B: File → Open, order-free palette matching, and the two halves of "an external
 change must never be missed or silently overwritten".

@@ -10,6 +10,307 @@ For each row in the table add a new row below it for your input, item is ">>CC".
 
 ***
 
+## Batch C: Tuesday 2026-08-04
+
+| Item | Effort HML | Status/Impact | Description |
+|--:|:---:|:---:|:-------------------------|
+| **C.01** | | | Folder/project tree not staying synced with disc, eg deleting file/folder is not picked up. |
+| >>CC | M | None | **Confirmed, and worse than "sometimes": the watcher only ever refreshes ONE folder — the top row of the Folder tab. Everything below it, and the whole Project panel, is never refreshed at all.** Each folder in the tree remembers its own listing privately, fetched once when you expanded it, and nothing can reach in to update it. Fix is to move those listings into one shared place the watcher can update — a real fix, not a patch, and it makes C.02 and C.03 fall out for free. |
+| **C.02** | | | Update glitch on file/project viewer: folder renamed from x to _x was not picked up by refresh; deleted folders are not removed. |
+| >>CC | L | None | **Separate cause from C.01, and this one explains why even F5 didn't help: when a project opens we grab all the visible folder listings in one go for speed, and that snapshot is never thrown away — every refresh re-reads it.** So folders that were already open when the project opened are frozen in time, while ones you expanded later do refresh. Deleting the snapshot at refresh (and re-fetching in one batch) fixes it. |
+| **C.03** | | | Allow DELETE (key) on project/folder to delete file |
+| >>CC | L | None | **The delete itself already exists (right-click → Delete, confirm, Recycle Bin) — what's missing is any notion of a "selected" row for the key to act on.** Adding click-to-select plus a Delete key on the tree is small. The key is deliberately attached to the tree, not to the window, so Delete while typing can never delete a file. |
+| **C.04** | | ❓ | After a render the cursor does not return to where it was. Ideally: single cell render cursor moves between code block and output and scroll to there. Full render, cursor and view end up as close as possible to where it was originally.    |
+| >>CC | ? | ❓ | **PENDED 2026-08-06 at your call — you couldn't reproduce it. One thing does jump out, and it isn't really about render: the command palette never hands focus back to the editor, so ANY palette verb leaves you with no caret.** Test when it next bites: Ctrl+Shift+P → Render Document → try to type without clicking. If that's it, the fix is one small change that improves every palette command. Otherwise I need a repro. |
+| **C.05** | | | Insert matching open close quotes? Enter " becsomes "" with cursor between two. Ditto """ -> """.""" and ' and '''.''' |
+| >>CC | L–M | Tiny | **Yes — and per your call, in code only (Python cells, .py, fenced code); prose is left exactly as it is, because auto-closing an apostrophe in prose is what got this turned off in the first place.** CodeMirror already does all the hard parts (skip over the closing quote, triple quotes, backspace deletes the pair) — the work is confining it to code. Costs a tiny check per keystroke in md/qmd; flagging it rather than have you find it. |
+| **C.06** | | | When the last output of a cell offers a mime-bundle (I think that is the term), if it offers HTML then wrap it to HTML, see EG1 below |
+| >>CC | L | None | **Found it, and I checked both sides. We only ever ask an object for `_repr_html_`; `GT` doesn't have one — it publishes `_repr_mimebundle_`, and its plain `repr()` is deliberately the text table. So we ask the one question it can't answer, then fall back to text.** Asking for the mime bundle first (and taking its HTML) is ~15 lines in the python runner, no Rust change, and your `IPython.display.HTML` wrapper becomes unnecessary. |
+
+
+**EG1** The code below works to leverage greater_tables and produce nice HTML output. It would be nice if it happened automatically without the GT redefinition. The GT() object has html, etc., methods. and i think publishes a mime-bundle. The effect i want happens automatically in Jupyter Lab and Quarto.
+
+```{python}
+# writedown wrapper for GT
+from greater_tables import Fabricator, GT as _GT, __version__ as v
+from IPython.display import HTML
+def GT(df, **kwargs):
+    return HTML(_GT(df).html)
+df = Fabricator().make(10, 'fivd')
+# this wrapped bundle makes nice output
+# want this without the previous step making faux GT
+GT(df, float_cols='estimate', date_cols='output', date_format='%y-%m')
+```
+
+**Shipped in 2.12.0 (2026-08-06): C.01, C.02, C.03, C.05, C.06 — none yet confirmed in daily
+use. C.04 is pended.** Two notes before you test. **(1) You must rebuild**: no `tauri dev` is
+running, so nothing below is live in the instances you have open — and C.06 in particular
+cannot be tested any other way, because `runner.py` is compiled into the binary. **(2) C.03
+gained the arrows, Enter and F2** you asked for on top of Delete, and C.06 gained the
+image/png + image/svg+xml mapping.
+
+---
+
+## Batch C — developer notes and implementation plans
+
+Decisions taken 2026-08-06 before writing these: C.05 = code contexts only; C.03 =
+selection + Delete only; the Folder tab stays unwatched but gets a focus/panel-switch
+re-list; C.04 pended pending a repro. Nothing below is built yet.
+
+### C.01 + C.02 — the tree and the disk (one bug family, two independent causes)
+
+**Cause A — coverage. The soft refresh reaches exactly one folder.** `onFsChange`
+(`store.ts:976-985`) re-lists a single directory on any watcher event: the Folder
+tab's root, into `rootEntries`. `rootEntries` is consumed in exactly one place — as
+`initialChildren` for the **root node** (`FileTree.tsx:236-242`). Every deeper
+`TreeNode` holds its children in *local component state*, fetched once when the
+folder is expanded and never invalidated (`FileTree.tsx:109-142`); no store update
+can reach it. And `ProjectTree` passes no `initialChildren` at all
+(`FileTree.tsx:336-348`), so the Project panel is outside the refresh path entirely —
+even though project folders **are** watched (`applyWatch(proj.folders)`,
+`store.ts:1973`). Net: an external create/delete/rename below any root is invisible.
+
+**Cause B — a stale cache that survives a refresh, which is why F5 didn't save you.**
+`prefetchedDirs` (A.25's one-batch project-open listing, `store.ts:1544-1560`) is
+written once when the project opens and **never cleared**. `TreeNode` seeds its
+children from it on every mount (`FileTree.tsx:110`), and F5 works by bumping
+`treeVersion`, which *remounts* the tree. So a hard refresh re-seeds every project
+root — and every folder that happened to be expanded at project-open time — from a
+snapshot taken when the project opened. That is C.02 exactly: `x` renamed to `_x`
+comes back, deleted folders come back.
+
+**Falsifiable prediction, worth 30 seconds before I build anything:** on F5, a folder
+you expanded *since* the project opened DOES refresh correctly; one that was already
+expanded when the project was restored does NOT. If both refresh, cause B is wrong.
+
+**Fix — hoist the listings into the store so there is one source of truth.**
+
+1. `store.ts`: replace `prefetchedDirs` + `rootEntries` with one
+   `dirCache: Record<string, Entry[]>`, plus `ensureDir(path)` (lazy fetch on expand,
+   the current behaviour) and `refreshDirs(paths)` — one batched `listDirectories`
+   call, which already exists in Rust (`files.rs:98`) and is what A.25 uses. The merge
+   **keeps the previous array identity when a listing is unchanged**, so saving a file
+   inside a watched folder causes zero re-renders.
+2. `FileTree.tsx`: `TreeNode` reads `useStore(s => s.dirCache[entry.path])` instead of
+   keeping local state. One selector per node, so only a folder whose listing actually
+   changed re-renders — not the tree. `initialChildren` and the `prefetchedDirs`
+   seeding both disappear.
+3. `onFsChange`: take the **parent directories** of the changed paths, intersect with
+   what is currently visible (roots + `expandedPaths`), and batch-refresh only those,
+   behind today's 400 ms debounce and capped (~60 dirs) so a sync storm can't turn
+   into a listing storm. Prune cache keys for children that vanished from a refreshed
+   parent.
+4. `refreshTree` (F5): re-list every visible folder in ONE batch **before** the
+   `treeVersion` bump, so the remount re-seeds from fresh data. That is C.02's fix, and
+   it also makes F5 faster than today (one round-trip instead of one per folder).
+5. **Your chosen insurance:** the same `refreshDirs(visible)` on window focus and on
+   panel-tab switch, throttled to ≥1 s. This is what keeps the **Folder** tab honest,
+   because under a project it is watched by nobody — B.03 item 2 stands: no recursive
+   watch on `C:\S`, which is the whole synced CloudStation tree. Deliberate
+   non-action, restated so it doesn't look like an oversight.
+
+Perf: strictly fewer IPC calls than today on refresh, one batched call per event
+burst, and identity-preserving merges mean React does nothing when nothing changed.
+**M**, no measurable cost.
+
+Risk worth stating: `dirCache` becomes the tree's source of truth, so a bug there is a
+blank tree rather than a stale one. Mitigated by keeping the lazy `ensureDir` path —
+a missing key self-heals by fetching.
+
+**BUILT in 2.12.0**, all five points. `dirCache` + `ensureDir` / `refreshDirs` /
+`refreshVisibleDirs` / `visibleRows` in the store; `TreeNode` reads its listing and its
+expanded flag from the store instead of local state; `onFsChange` re-lists the folders an
+event actually touched; `refreshTree(extraDirs?)` re-lists everything on screen before the
+remount and every file op passes the folder it changed; window-focus and panel-switch
+refresh, throttled. The Folder root is still not watched.
+
+**Verified headlessly** (the store driven against an in-memory filesystem, 19 assertions,
+all passing): a created file appears under an expanded folder and a deleted one goes; a
+deleted *folder* takes its cached subtree with it; an event spelled `T:/PROJ/DOCS/...`
+still matches a folder listed as `T:\proj\docs`; an event for a folder nobody is showing
+does no listing work at all; an external rename is picked up by F5; and a re-list that
+changed nothing keeps the same array identity (so nothing re-renders — the case that
+matters, since our own saves fire the watcher constantly).
+
+### C.03 — Delete key on the tree
+
+The delete itself is done and safe: `deleteEntry` (`store.ts:1842-1869`) awaits the
+Tauri confirm dialog (the properly-awaited one from A/1.81.1), moves to the **Recycle
+Bin** (`files.rs:291`, `trash::delete`), closes any tab under the deleted path, and
+refreshes. Nothing there changes.
+
+What is missing is a selected row. The tree highlights only the *open* file
+(`FileTree.tsx:147`, `isActive`) and has no keyboard handling anywhere.
+
+1. `treeSelected: Entry | null` in the store, set on left-click **and** on right-click,
+   so the context menu and the Delete key always agree on the target.
+2. The tree container gets `tabIndex={0}`; a row focuses it on mousedown; `.selected`
+   gets its own row style, distinct from `.active` (open file).
+3. `onKeyDown` on the **tree container** → `Delete` runs `deleteEntry(selected)`.
+   Attaching it to the tree DOM rather than to `window` is the structural guarantee
+   that Delete with editor focus can never delete a file — not a timing guard.
+4. Once C.01 lands, the row vanishes the instant the delete completes.
+
+Consequence, stated: clicking the tree now takes focus off the editor, so the existing
+save-on-blur fires — which it already does today when you click a tree row, so no
+change in behaviour, just no surprise.
+
+Not included (say the word, each is small): arrow-key navigation, Enter to open, F2 to
+rename. **L**, no perf cost.
+
+**BUILT in 2.12.0 — including the arrows, Enter and F2 you asked for.** Up/Down move,
+Right opens a folder or steps into an open one, Left closes it or jumps to the parent,
+Enter opens the file (toggles a folder), F2 renames, Delete recycles. The row list the
+keys walk is derived from what is expanded and cached — i.e. exactly what is drawn — so
+the keyboard and the screen cannot disagree. The handler sits on the tree pane, which is
+the guarantee about editor focus; the selected row is quiet until the tree has focus, then
+it lights up, so it never looks armed when it isn't.
+
+### C.04 — cursor after a render (PENDED, one named suspect)
+
+You couldn't reproduce it on 2026-08-06, so this stays ❓. Here is what reading the
+code turns up, so the next repro is cheap.
+
+**Prime suspect, and it has nothing to do with rendering: the command palette never
+returns focus.** `choose()` runs the command then calls `closePalette()`
+(`Palette.tsx:121-132`); the input unmounts and focus lands on `document.body` — no
+caret, typing and arrow keys go nowhere until you click in the editor. Exactly one
+command works around this by hand, and its comment names the symptom:
+`insert-datetime` calls `view.focus()` — *"The palette input held focus; return it to
+the editor"* (`commands.ts:190-192`). **Every other palette verb** — including "Render
+Document (run code cells)" (`commands.ts:270`) — has the bug.
+
+Two-minute test when it next bites: Ctrl+Shift+P → *Render Document* → try to type
+without clicking. If that's it, the fix is general (restore editor focus when the
+palette closes, unless the command deliberately took focus — Prompt, tree, Versions),
+**L**, and it fixes every palette command at once, not just render.
+
+**Ruled out by reading, so we don't re-chase them:**
+
+- The preview cannot drag the editor: the preview→editor writeback is gated on a real
+  user gesture **on the preview element itself** (`Preview.tsx:816-830`), which a
+  keystroke in the editor cannot open.
+- The "open the Rendered pane where you pressed Ctrl+B" machinery exists and looks
+  correct (`store.ts:1445-1463` captures the top line post-render;
+  `Preview.tsx:652-675` consumes it once per build).
+- One un-checked path, for the record: `srcToExp(m, line) ?? m.length`
+  (`Preview.tsx:443`). A source line that can't be mapped sends the pane to the **end**
+  of the document. If the symptom ever comes back as "the Rendered pane jumps to the
+  bottom", start there.
+
+**On the "ideal" half of your note** (single-cell render should land between the code
+block and its output): today the pane lands at the top of the echoed code block,
+because output blocks are anchored to the cell's first source line, so the mapping
+resolves to the code, not the output — right for a 3-line cell, wrong for a 30-line
+one. Doing it properly means the build reporting the cell's **output** start in
+expanded coordinates; the pieces are already there (`cell_at_line`, `render.rs:425`;
+the line map, `render.rs:1244-1261`). **L–M** when you want it.
+
+### C.05 — auto-closing quotes, in code only
+
+`closeBrackets` is off on purpose (`Editor.tsx:72`: *"no auto-inserted '' / () —
+annoying in prose, and broke @'"*), because CodeMirror's defaults close
+`(`, `[`, `{`, `'` and `"` everywhere. Your call is code contexts only, which is the
+right one — and it can be done **without hand-rolling** the fiddly parts (typing the
+closing quote skips over the auto-inserted one; triple quotes; Backspace deletes the
+pair), by controlling the single input CodeMirror consults:
+
+- Install `closeBrackets()` + its `Backspace` keymap, and add
+  `Prec.highest(EditorState.languageData.of((state, pos) => ...))` returning
+  `{ brackets: ['"', "'", '"""', "'''"], stringPrefixes: [...python's list] }`
+  **inside code** and `{ brackets: [] }` everywhere else. Verified mechanism, not
+  assumed: the handler reads `languageDataAt("closeBrackets", pos)[0]`
+  (`@codemirror/autocomplete` dist line 1840-1841) and `languageDataAt` walks facet
+  providers in precedence order (`@codemirror/state` dist line 2826-2835), so
+  `Prec.highest` beats even the nested Python language's own data. An **empty**
+  brackets array makes the handler decline immediately — prose stays on today's exact
+  code path.
+- "In code" = the whole document for `.py` / `.json` / `.toml` / `.yaml` / `.tex` /
+  `.agg`; for `.md` / `.qmd`, a syntax-tree check for a fenced/inline-code node, which
+  is what makes it work inside `{python}` cells (the real target). Plain text and CSV:
+  off.
+- Triple quotes come free and behave exactly as you wrote it: typing the third quote
+  inserts four more, giving `"""` + cursor + `"""`. Same for `'''`.
+- The old `@'` breakage cannot return — markdown prose is excluded by construction,
+  not by a guard that might miss.
+
+**Speed, flagged rather than discovered:** in md/qmd this adds one small syntax-tree
+lookup per typed character (microseconds — CodeMirror already does far more per
+keystroke for math, lint and spelling). If it ever shows up, the fallback is to enable
+it only in code *files* and give up `{python}` cells, which would defeat the point.
+
+Deliberately **not** included: `(`, `[`, `{` in code. You asked for quotes; adding
+brackets later is one array entry, and I'd rather you decide that separately. **L–M**.
+
+**BUILT in 2.12.0** as specced (`src/editor/autoQuotes.ts`, ~60 lines, wired in
+`Editor.tsx`). **The headless harness earned its keep here:** my first version returned the
+closeBrackets config *bare* from the language-data provider instead of under a
+`closeBrackets:` key, so `languageDataAt` silently ignored it and the Python language's own
+data won — quotes appeared to work (CodeMirror's own guards were doing it) while `(` and `[`
+were quietly auto-closing everywhere in code. Nothing in the UI would have told you which of
+the two was happening. 24 assertions now pass: prose declines in every position I could
+think of (before a space, at end of line, mid-word, right after `@`); cells and code spans
+close `"`, `'`, `"""` and `'''`; `(` and `[` never close; typing the closing quote skips
+over the inserted one; `f"` still closes; and txt/csv/tsv get no extension at all.
+
+### C.06 — HTML from a mime bundle
+
+**Diagnosed, with evidence from both codebases.** Our runner asks the last expression
+for `_repr_html_` and otherwise falls back to `repr()`
+(`src-tauri/runner.py:123-132`). `greater_tables`' `GT`:
+
+- implements **`_repr_mimebundle_(include, exclude)`** (`compat.py:113`) and **no**
+  `_repr_html_`;
+- deliberately makes `__repr__` return the *text* table (`compat.py:105-111`,
+  comment: "usable from a plain script, a REPL, and any consumer that falls back to
+  `repr()`").
+
+Writedown is that consumer. We ask the one question `GT` cannot answer, then take the
+text fallback — which is precisely the output you're seeing, and exactly why wrapping
+in `IPython.display.HTML` (which *does* have `_repr_html_`) fixes it. Outside Quarto
+the bundle publishes `text/html` + `text/plain` as a plain dict
+(`greater_tables/render/notebook.py:76-91`); `in_quarto()` is false under Writedown,
+so HTML is what we'd get.
+
+**Fix — python-side only, ~15 lines, no Rust change**, since `result_html` already
+flows through to the preview (`render.rs:1108`) and DOMPurify keeps the embedded
+`<style>` (proved by your wrapper already rendering nicely):
+
+1. call `_repr_mimebundle_(include=None, exclude=None)`, tolerating both the plain
+   dict and the `(data, metadata)` tuple form, and a `TypeError` from implementations
+   that take no keywords;
+2. `text/html` from the bundle → `result_html`;
+3. else `_repr_html_()`, as today;
+4. else the bundle's `text/plain`, else `repr(result)` as today.
+
+Full render and A.24's single-cell run share this code, so both benefit. **L**, no
+perf cost (one `getattr` on the last expression's value).
+
+**Optional extra — yes or no from you:** also map a bundle's `image/png` /
+`image/svg+xml` onto the existing `figures` channel (~6 more lines), which would make
+`IPython.display.Image` and image-publishing objects render too. Not included unless
+you want it.
+
+**BUILT in 2.12.0, including the image mapping you said yes to.** Order is now bundle
+`text/html` → `_repr_html_` → bundle `image/png` / `image/svg+xml` (as a figure, after any
+matplotlib figures the cell drew) → bundle `text/plain` → `repr()`. PNG arrives base64 per
+the Jupyter convention and is passed through; SVG arrives as markup and is encoded, since
+that is what the figure transport carries. A list-of-lines value (nbformat's other legal
+shape) is joined.
+
+**Verified against the real thing**, not a mock: 13 protocol tests through the actual
+runner (tuple-form bundles, no-kwargs implementations, a bundle that raises, a
+latex-only bundle, errors, stdout), plus **your EG1** run through it with the real
+`greater_tables` — `GT(df, date_cols='output')` on its own now returns 5,858 characters of
+HTML with the stylesheet embedded, where before it returned the text table. The `faux GT`
+wrapper is no longer needed.
+
+**One thing to know: this needs a rebuild, not a reload.** `runner.py` is embedded in the
+binary by `include_str!` and written out at each kernel spawn, so `tauri dev`'s hot reload
+will not pick it up.
+
+---
+
 ## Batch B: Monday 2026-08-03
 
 | Item | Effort HML | Status/Impact | Description |

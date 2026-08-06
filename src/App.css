@@ -294,6 +294,26 @@ body {
   color: #fff;
 }
 
+/* Keyboard target (issue C.03) — deliberately quieter than .active (the open document), and
+   only fully lit while the tree actually has focus, so it is never mistaken for a selection
+   that Delete would act on when the caret is somewhere else. */
+.tree-row.selected {
+  background: color-mix(in srgb, var(--accent, #4a90d9) 18%, transparent);
+}
+.tree-body:focus-within .tree-row.selected {
+  background: color-mix(in srgb, var(--accent, #4a90d9) 34%, transparent);
+  outline: 1px solid var(--accent, #4a90d9);
+  outline-offset: -1px;
+}
+.tree-row.active.selected {
+  background: var(--accent, #4a90d9); /* the open file keeps its own strong highlight */
+}
+/* The pane itself never shows a focus ring — the selected row is the affordance. */
+.tree-body:focus,
+.tree-body:focus-visible {
+  outline: none;
+}
+
 /* Folders read as distinct from files: bold, with an accented disclosure chevron. */
 .tree-row.folder {
   font-weight: 600;

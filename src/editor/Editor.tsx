@@ -17,6 +17,7 @@ import {
   keymapCompartment,
   keymapWarnings,
 } from "./keymap";
+import { autoCloseQuotes } from "./autoQuotes";
 import { citationExtensions } from "./citations";
 import { wordCompleteKeymap, wordCompleteAutocomplete } from "./wordComplete";
 import { documentLint } from "./lint";
@@ -69,7 +70,10 @@ const BASIC_SETUP = {
   highlightActiveLine: true,
   highlightActiveLineGutter: true,
   autocompletion: false,
-  closeBrackets: false, // no auto-inserted '' / () — annoying in prose, and broke @'
+  // Stock closeBrackets stays OFF: it auto-inserts '' / () everywhere, which is wrong in
+  // prose (apostrophes) and broke @'. autoQuotes.ts installs a quotes-only, code-only
+  // version instead (issue C.05) — do not switch this back on.
+  closeBrackets: false,
 };
 
 export function Editor({ path, content }: { path: string; content: string }) {
@@ -173,8 +177,13 @@ export function Editor({ path, content }: { path: string; content: string }) {
       ext.push(...documentLint); // python cell syntax + duplicate labels
       ext.push(pasteImage); // Ctrl+V an image → save to img/ and insert a link (A.22)
       if (spellEnabled) ext.push(...spellingExtensions); // prose spellcheck
+      // Auto-closing quotes inside fenced code / {python} cells only — never in prose
+      // (issue C.05). See autoQuotes.ts for why this is a language-data provider.
+      ext.push(...autoCloseQuotes("markdown"));
     } else {
       ext.push(wordCompleteAutocomplete); // word-completion popup for non-markdown languages
+      // A code FILE is code throughout. `lang` is null for csv/tsv/txt, which stay untouched.
+      if (lang) ext.push(...autoCloseQuotes("code"));
     }
     if (csvDialect) ext.push(csvRainbow(csvDialect));
     // Font size/family reach the fallback theme through the same CSS variables, so only
