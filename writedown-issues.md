@@ -8,6 +8,7 @@ For each row in the table add a new row below it for your input, item is ">>CC".
 * Under description add a **human-understandable** **short one- or two-line** summary and diagnosis (existing examples were too detailed and too complicated for me to understand!). Flag any issues.
 * **BELOW** the table and with title the Item number, add your developer issues and implementation plan - this is "notes for Claude". Here lies comments more like the ones you have been producing.
 
+
 ***
 
 ## Batch C: Tuesday 2026-08-04
@@ -116,6 +117,28 @@ burst, and identity-preserving merges mean React does nothing when nothing chang
 Risk worth stating: `dirCache` becomes the tree's source of truth, so a bug there is a
 blank tree rather than a stale one. Mitigated by keeping the lazy `ensureDir` path —
 a missing key self-heals by fetching.
+
+**Two regressions you found within the hour, both FIXED in 2.12.1 — and both were mine.**
+
+1. **The nameless row with an icon.** That was the "…" loading indicator, stuck on. It was a
+   React state flag cleared in the fetch's `.finally`, and the clear never ran: a Zustand
+   write flushes React in a **microtask** (`useSyncExternalStore` is sync lane), which lands
+   *before* the promise chain's continuation — so the effect cleanup had already marked the
+   fetch cancelled, and the guarded `setLoading(false)` was skipped. The old code had the
+   same shape and got away with it because a plain `setState` is default lane and flushes a
+   macrotask later; moving the listing into the store changed the lane and exposed it. F5
+   cleared it because a remount starts the flag at `false`. Now derived — an open folder
+   with no listing yet *is* loading — so there is no flag to get stuck.
+2. **"Scroll lock": arrows moving the whole tree.** `scrollIntoView` scrolls **every** scroll
+   container between the row and the document root, and `overflow: hidden` does not opt an
+   element out — it means "no scrollbar", not "cannot be scrolled". Our layout is a stack of
+   hidden-overflow panes (`.app`, `.panes`, `.pane-tree`, `body`), so each arrow keypress
+   could shift the entire window a few pixels, with no scrollbar anywhere to put it back.
+   Exactly your description. Rows are now revealed by adjusting the tree pane's own
+   `scrollTop`, and only when the row is genuinely outside it (`src/tree/scrollRow.ts`) — a
+   fully-visible row causes no write at all. **"Locate File in Sidebar" had the same latent
+   bug** (it re-asserted `scrollIntoView` for ten frames) and is fixed with it. The selected
+   row also got easier to see, and no longer depends on `color-mix`.
 
 **BUILT in 2.12.0**, all five points. `dirCache` + `ensureDir` / `refreshDirs` /
 `refreshVisibleDirs` / `visibleRows` in the store; `TreeNode` reads its listing and its
