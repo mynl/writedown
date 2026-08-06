@@ -8,6 +8,17 @@ For each row in the table add a new row below it for your input, item is ">>CC".
 * Under description add a **human-understandable** **short one- or two-line** summary and diagnosis (existing examples were too detailed and too complicated for me to understand!). Flag any issues.
 * **BELOW** the table and with title the Item number, add your developer issues and implementation plan - this is "notes for Claude". Here lies comments more like the ones you have been producing.
 
+***
+
+## Batch D: Thursday 2026-08-06
+
+| Item | Effort HML | Status/Impact | Description |
+|--:|:---:|:---:|:-------------------------|
+| **D.01** | | | Add insert date (as opposed to date time) to palette - I usually delete the time! |
+| **D.02** | | |  |
+| **D.03** | | |  |
+| **D.04** | | |  |
+| **D.05** | | |  |
 
 ***
 
