@@ -89,6 +89,16 @@ figure_dpi = 150
 # with `%xmode verbose` — the one magic Writedown interprets instead of ignoring.
 traceback_mode = "context"
 
+[window]
+# Title bar colour (Windows 11 only — Windows 10 ignores it and keeps the system caption).
+# Defaults to the logo's orange with the logo's navy for the title text, so Writedown is
+# findable in a taskbar full of grey captions. Value is RRGGBB (a leading hash is optional);
+# 'none' leaves that part of the caption to Windows.
+# NOTE single quotes: a double quote immediately followed by a hash would end this very
+# string literal, so the examples below deliberately use TOML literal strings.
+# titlebar_color = '#DD9536'
+# titlebar_text_color = '#15385D'
+
 [tree]
 # Left file/project panel font (like ST's sidebar). font_weight as in [editor].
 font_family = "Segoe UI"

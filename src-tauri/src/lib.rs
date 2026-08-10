@@ -10,6 +10,7 @@ mod render;
 mod session;
 mod spelling;
 mod sublime;
+mod titlebar;
 mod watch;
 mod wordfreq;
 
@@ -182,6 +183,15 @@ pub fn run() {
         .setup(|app| {
             if let Err(e) = config::ensure_setup(&app.handle()) {
                 eprintln!("writedown: setup failed: {e}");
+            }
+            // Brand the title bar (issue E.02) — the default grey caption is impossible to
+            // pick out of a taskbar. Must run after ensure_setup, which is what guarantees
+            // config.toml exists to be read.
+            {
+                use tauri::Manager;
+                if let Some(win) = app.get_webview_window("main") {
+                    titlebar::apply(&win, &app.handle());
+                }
             }
             // Index the BibTeX database off the main thread (7k entries take a moment).
             let handle = app.handle().clone();

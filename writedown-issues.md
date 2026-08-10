@@ -14,12 +14,69 @@ For each row in the table add a new row below it for your input, item is ">>CC".
 
 | Item | Effort HML | Status/Impact | Description |
 |--:|:---:|:---:|:-------------------------|
-| **F.01** | | |   |
-| **F.02** | | |   |
-| **F.03** | | |   |
-| **F.04** | | |   |
-| **F.05** | | |   |
+| **F.01** | | | Unicode inserter: it is not searching first in recent — I can see "heavy white right" there, but the search goes to the full list! It should search MRU first and add other finds below that. |
+| >>CC | L | None | **Fixed. A query went straight to the full 2,322-character table, so a character you could see under Recent a moment earlier vanished into the middle of the results.** Recently-used matches are now listed first under a Recent heading, the rest below. |
+| **F.02** | | | Default Ctrl+Shift+U then Enter should insert the last char again. |
+| >>CC | L | None | **Fixed, and it was a real bug rather than a missing feature: selection index 0 was sitting on the "Recent" HEADING, which is not choosable, so Enter did nothing at all.** The selection now always seats on a real row. I also switched recents from use-count weighting to most-recent-first — my weighting was cleverer and wrong for exactly this gesture. |
+| **F.03** | | | "Open Quick File…" is not doing anything. |
+| >>CC | L | None | **Fixed, and it was three verbs, not one: any palette command that opens ANOTHER picker was being closed by the palette that ran it.** The mode got set, then wiped a tick later. "Quick Files: Open from List…", "Insert: Unicode Character…" and "Project: Quick Switch…" were all affected — the last one since it was added, with Ctrl+Alt+P masking it. |
+| **F.04** | | | Worrying pause before opening the palette. One-time (first time) only, but I don't like it — not speedy and sprightly. Investigate. |
+| >>CC | L | **Was ~39 ms, now 0.03** | **Found, measured, mine. Building the palette re-formatted both date-stamp titles, and each one eagerly constructed four locale formatters — eight per palette open, and the first pays ICU startup: 38.7 ms measured.** Your default date formats need none of them; they are now computed only when the pattern asks. 0.027 ms after. |
+| **F.05** | | | Can the app have its own colour for the top window frame bar? Currently grey — doesn't stand out, too many things that colour. Pick up the orange out of the logo word "down". |
+| >>CC | L | None | **Done — caption in the logo's orange `#DD9536` with the title text in the logo's navy `#15385D`, both sampled from the wordmark rather than guessed.** Windows 11 only (it goes through DWM; Windows 10 keeps the system caption silently). No new dependency. Tunable in config as `[window] titlebar_color` / `titlebar_text_color` so you can adjust the shade without a rebuild. |
 | **F.06** | | |   |
+
+**Shipped: F.01–F.04 in 2.14.2, F.05 in 2.14.3 (2026-08-10) — none yet confirmed in daily
+use.** F.05 changed Rust, so rebuild.
+
+---
+
+## Batch F — developer notes and implementation plans
+
+### F.04 — the palette pause (the one worth reading)
+
+**Diagnosed by measurement, not by reading.** `formatStamp` (added for D.01) built its whole
+substitution table up front, including four `toLocaleDateString` calls — and `appCommands()`
+formats **two** stamp titles on every palette open, because each verb shows a sample of its
+own format. Eight `Intl.DateTimeFormat` constructions per open, and the first one in a fresh
+webview pays ICU initialization.
+
+Measured in Node: **38.7 ms** for the first eager map, ~0.37 ms each thereafter. Your
+configured patterns (`%Y-%m-%d`, `%Y-%m-%d %H:%M:%S`) use **no locale directive at all**, so
+every one of those was pure waste. The directives are now evaluated lazily inside the
+replacement callback: **0 formatters and 0.027 ms** per palette open, verified, with every
+directive re-checked including `%%` and an unknown `%q`.
+
+Worth stating plainly: this was a self-inflicted regression from D.01, on the palette-open
+path, i.e. exactly the path that has to stay sprightly. Sampling a value to put in a menu
+title is a cheap-looking idea with an expensive tail.
+
+### F.03 — one bug, three broken verbs
+
+`choose()` ran the command and then called `closePalette()` unconditionally. A verb whose
+whole job is to open a *different* picker therefore set the mode and had it wiped a tick
+later. It now closes only if the command left the palette where it found it. **This was not
+new**: `Project: Quick Switch…` has had it since it was added — Ctrl+Alt+P was masking it,
+so nobody noticed.
+
+### F.05 — title bar colour
+
+Windows 11 exposes per-window caption colours through DWM (`DWMWA_CAPTION_COLOR` /
+`DWMWA_TEXT_COLOR`, build 22000+). Three things worth noting:
+
+- **The colours are sampled, not guessed.** `#DD9536` is the modal orange of the "down" in
+  `assets/writedown-logo.png`; `#15385D` is the navy of the "write". A test pins both.
+- **No new dependency.** `dwmapi.dll` is declared with a plain `extern "system"`, the same
+  way `AttachConsole` already is; Tauri's `hwnd()` returns the `windows` crate's `HWND`,
+  whose public `.0` field is read without ever naming the type — so it stays out of
+  `Cargo.toml`.
+- **COLORREF is `0x00BBGGRR`, not RGB.** Getting that backwards yields a plausible-looking
+  wrong colour (our orange becomes a mid blue), which is the kind of thing that ships. It
+  has its own test.
+
+Windows 10 lacks the attributes; the call fails and is ignored, leaving the system caption.
+
+---
 
 from last time:
 0.69 ms in release, on your worst document — 204 KB, 118 labels. (The 6 ms I got first was a debug build; quoting that would have been scaremongering.)

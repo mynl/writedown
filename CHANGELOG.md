@@ -543,6 +543,25 @@ messages point here for detail.
 - Backend `DirEntry` gained a `supported` flag and `list_directory` no longer drops
   unsupported files. Rust changed — `tauri dev` needs a restart, not just HMR.
 
+## [2.14.3] - 2026-08-10
+
+### Added
+
+- **The title bar wears the brand colours** (issue E.02). The default caption is the same
+  grey as every other window on the desktop, which makes Writedown hard to pick out of a
+  crowded taskbar or Alt-Tab. The caption is now the logo's orange (`#DD9536`, sampled from
+  the "down" in the wordmark) with the logo's navy (`#15385D`, from the "write") for the
+  title text.
+
+  Windows 11 only — it goes through DWM's caption-colour attributes, which Windows 10 does
+  not have; there the system caption is kept and nothing is reported. No new dependency:
+  `dwmapi.dll` is declared directly, the same way `AttachConsole` already is, and Tauri's
+  `HWND` type is used without ever being named so it stays out of `Cargo.toml`.
+
+  Tunable without a rebuild: `[window] titlebar_color` and `titlebar_text_color` in
+  config.toml take `#RRGGBB`, or `"none"` to hand that part back to Windows. An
+  unparseable value falls back to the brand colour rather than painting the caption black.
+
 ## [2.14.2] - 2026-08-10
 
 ### Fixed
