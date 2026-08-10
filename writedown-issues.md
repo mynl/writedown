@@ -10,17 +10,40 @@ For each row in the table add a new row below it for your input, item is ">>CC".
 
 ***
 
+## Batch F: Monday 2026-08-10 later that day...
+
+| Item | Effort HML | Status/Impact | Description |
+|--:|:---:|:---:|:-------------------------|
+| **F.01** | | |   |
+| **F.02** | | |   |
+| **F.03** | | |   |
+| **F.04** | | |   |
+| **F.05** | | |   |
+| **F.06** | | |   |
+
+from last time:
+0.69 ms in release, on your worst document — 204 KB, 118 labels. (The 6 ms I got first was a debug build; quoting that would have been scaremongering.)
+
+So the whole per-keystroke cost is that scan plus shipping 204 KB over the IPC bridge — call it low single-digit milliseconds, only on your largest file, only while the @- popup is open. That's not a problem. It was never going to be.
+
+Which means the thing to cut is my cache. You're right, and the irony is that I'm the one who broke the rule: I added 12 lines and a 1.5-second staleness window to fix a cost I'd guessed at rather than measured. Stripping it makes the code simpler and strictly more correct — labels always fresh, no line-count heuristic, no "missing for one keystroke" footnote. Want me to take it out?
+
+If it ever does turn out to be slow, the proper fix isn't a cache anyway: check_document already scans labels every ~½s for the duplicate check, so it can just return them and the picker pays nothing at all. Writing that down so neither of us has to re-derive it — not building it.
+
+One loose end: measuring this left an #[ignore]d benchmark in labels.rs (uncommitted). I'd keep it — it's what turned "bit worried" into a number in two minutes, and it'll do the same next time. It never runs in the normal suite; cargo test -- --ignored --nocapture is the invocation.
+
+✻ Cooked for 9m 24s
+
+※ recap: We shipped Batch D plus the new @- crossref label completion (v2.14.0, committed). I measured the label scan at 0.69ms, so the cache I added isn't needed. Waiting on your yes to strip it.
+
+
 ## Batch E: Monday 2026-08-10
 
 | Item | Effort HML | Status/Impact | Description |
 |--:|:---:|:---:|:-------------------------|
 | **E.01** | | | In a qmd, typing `@` then `tbl-`/`thm-`/… (any Quarto crossref family) should switch from the BibTeX lookup to a lookup of the LABELS IN THE DOC. Better still: `@-` triggers qmd tag mode, since the fuzzy match is not order sensitive. No caption needed, just autocomplete the tag. Share one label extractor. |
 | >>CC | L–M | None | **Built. Two triggers, both unambiguous: `@-` opens the whole label list, and `@fig-`/`@tbl-`/… (family WITH its hyphen) does too — `@Author2024` is untouched.** Your `@-` idea is the better one and it costs nothing: a citation key must start alphanumeric, so `@-` could never have been a citation. Typing `@fig-` used to run "fig-" through the bibliography and return noise, so this removes an annoyance as well as adding a feature. |
-| **E.02** | | |   |
-| **E.03** | | |   |
-| **E.04** | | |   |
-| **E.05** | | |   |
-| **E.06** | | |   |
+
 
 **Shipped in 2.14.0 (2026-08-10): E.01 — not yet confirmed in daily use.** Needs a rebuild
 (Rust changed). Try: `@-` in a .qmd with a few labels, then `@-flood` and `@-flood tbl` (the
@@ -88,28 +111,17 @@ label and reference it *on the same line* within 1.5 s and it is missing for one
 
 
 ## Batch D: Thursday 2026-08-06
-
-    cmd prompt> writedown . needs to open just . in a new project - not add . to the existing project. ditto if you pass a dir by name.
-
-    what's the toml syntax for the *list* of quick files?
-
-    where is large work report? not seeing on palette
-
-    not seeing %xmode in a code block working? this does nothing:
-
-    ```{python}
-    %xmode Verbose
-    import missing_mod
-    ```
-
-
-
+```{python}
+# Plain Context Verbose Minimal Docs
+%xmode Minimal
+import missing_mod
+```
 
 | Item | Effort HML | Status/Impact | Description |
 |--:|:---:|:---:|:-------------------------|
 | **D.01** |✅| | Add insert date (as opposed to date time) to palette - I usually delete the time! |
 | >>CC | L | None | **Trivial — there is exactly one stamp verb, "Insert Date-Time", and nothing that inserts the date alone.** Adding the sibling verb is six lines. While I'm there I'd make both formats configurable, so you never have to delete anything again. |
-| **D.02** | | | Call writedown from the command line: writedown <file/dir> etc. like ST (if a file open it; if a dir open a temp project with that dir as its only folder); --version, --help, etc.  |
+| **D.02** |✅| | Call writedown from the command line: writedown <file/dir> etc. like ST (if a file open it; if a dir open a temp project with that dir as its only folder); --version, --help, etc.  |
 | >>CC | M | None | **`writedown file.md` already works today — it is the rest that doesn't: a *directory* argument is silently thrown away, and `--version` / `--help` just open the window, because a GUI-subsystem exe has no console to print to.** One real decision for you: should a second `writedown` reuse the running window like ST does? That would end your habit of running three instances. Flagging it, not deciding it. ==>NO IT OPENS A NEW INSTANCE - THAT IS A FEATURE FOR ME, NOT A BUG |
 | **D.03** |✅| | File tree ignores links (eg c:\s where i keep everything is missing!) Needs to follow dir symlinks like they are dirs. |
 | >>CC | L–M | None | **Confirmed and pinned down: Rust classifies a Windows junction as a *link*, not a folder, and `C:\S` is a junction — so it draws as a dim, unexpandable file row, which reads as missing.** One extra check per link entry fixes the tree. The recursive quick-open walk needs a loop guard as well, or `C:\` lists everything under CloudStation twice. |
@@ -119,11 +131,11 @@ label and reference it *on the same line* within 1.5 s and it is missing for one
 | >>CC | M | None* | **Detection is easy; the trap is that indent width currently rebuilds the whole editor when it changes — which is precisely the tab-switch stall we killed in 2.10.0.** Done right (indent in a compartment, same trick as word wrap) it costs nothing; done naively it is a visible regression. Also needs a decision: we always insert spaces, so what should a tab-indented file do? ==>DROP |
 | **D.06** |✅| | Open file list (top left in project/folder bar) movethe (x) to close on left (aligned) rather than right, this is what ST does too. Makes it easy to close several tabs.  |
 | >>CC | L | None | **Pure layout — the × is simply last in the row today; moving it first is about ten lines of JSX and CSS.** One question: the left column currently holds the dirty ●, so either that moves to the right end, or the × only appears on hover (ST's way, but a control that changes with pointer state). |
-| **D.07** | | | Palette -> Large word report: write a python code block at the cursor that loads the large word usage file into a pandas dataframe and shows the top 10 most used words - then I can take analysis from there. Word + whatever stats you track about it. This is from the auto completer. (Pure sugar.)    |
+| **D.07** |✅| | Palette -> Large word report: write a python code block at the cursor that loads the large word usage file into a pandas dataframe and shows the top 10 most used words - then I can take analysis from there. Word + whatever stats you track about it. This is from the auto completer. (Pure sugar.)    |
 | >>CC | L | None | **Easy and self-contained. The file is `~/.writedown/word-frequency.json`: per file, word → count, capped at the 50 most recent files × 250 words each — so word, count and which file are the only stats there are.** A new insert-snippet verb, no backend work at all. |
 | **D.08** |✅| | I need a quick way to go to "Edit screen only" (no TOC/Files/Preview), palette plus Ctrl+K Ctrl+F if that is not taken (focus)  |
 | >>CC | L | None | **You already have this: palette → "Enter Plain View — editor only, no sidebars or preview". The toggle is even registered in the keybinding system; it has simply never been given a key.** Ctrl+K Ctrl+F is free, and binding it is one line. ==> :-); BIND IT AS A TOGGLE ON/OFF |
-| **D.09** | | | get_ipython returns None. Why? Is it possible for it to work? Is it a matter of what kernel we are using? I want this so I can use %xmode Docs and other magics. Etc.  |
+| **D.09** |✅| | get_ipython returns None. Why? Is it possible for it to work? Is it a matter of what kernel we are using? I want this so I can use %xmode Docs and other magics. Etc.  |
 | >>CC | M–H | None | **Because there is no IPython in the loop at all: our "kernel" is plain `python.exe` running a 240-line script that `exec`s your cells — and it *blanks every `%magic` line* before parsing.** So `get_ipython()` has nothing to return; it isn't a choice of kernel, there is no kernel in the Jupyter sense. Making magics real means running cells through an actual IPython shell — possible, and it would also buy you `display()`, but it is a rework of the runner, not a switch. A cheap middle ground exists. |
 | **D.10** |✅| | What is the cwd per project? How can we change it? (Ie what Path.cwd() returns). Where are the screen layout and open files stored per project? Do we need a ST "workspace" or should/could that info be bundled into the project file? Discuss!  |
 | >>CC | L + discuss | None | **cwd is the folder of the document you rendered, set once per full render — not per project, and stale after a Run-This-Cell against a document from elsewhere (a small real bug). Layout and open files already live apart from the project, in `~/.writedown/sessions/<hash>.json`, keyed by the `.wdproj` path.** So you already have ST's workspace, automatic and invisible. I'd argue against folding it into the project file — that would have Writedown rewriting one of your files every few seconds. ==> Agree; nothing to do here. ==> parent of file is the expected answer. |

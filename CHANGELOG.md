@@ -543,6 +543,29 @@ messages point here for detail.
 - Backend `DirEntry` gained a `supported` flag and `list_directory` no longer drops
   unsupported files. Rust changed — `tauri dev` needs a restart, not just HMR.
 
+## [2.14.1] - 2026-08-10
+
+### Fixed
+
+- **The quick-files picker looked like it did not exist.** It shipped as "Open Quick File…",
+  directly alongside "Open Quick File (Ctrl+Shift+Q)" — two near-identical titles, both
+  scoring for a "quick file" query, with the MRU floating whichever had been used before. It
+  is now **"Quick Files: Open from List…"**, and the single-file verb says so explicitly.
+  Naming, not plumbing: the config parsing and the picker were working the whole time.
+
+### Changed
+
+- **Removed the label cache added in 2.14.0.** It was written against a *guessed* cost.
+  Measured: **0.69 ms** to scan a 204 KB, 118-label document in a release build — so the
+  cache bought nothing worth its 1.5 s staleness window, and labels are now always current.
+  The measurement is kept as an `#[ignore]`d benchmark in `labels.rs`
+  (`cargo test -- --ignored --nocapture scan_speed`) so the question can be settled with a
+  number rather than an opinion next time.
+
+  Noted for the day it does bite: the fix is not a cache either — `check_document` already
+  scans labels every ~½ s for the duplicate check and can simply return them, making the
+  extra call free.
+
 ## [2.14.0] - 2026-08-10
 
 ### Added

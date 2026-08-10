@@ -57,32 +57,14 @@ export function labelQuery(typed: string): string | null {
   return CROSSREF_PREFIX.test(typed) ? typed : null;
 }
 
-/** Short-lived label cache.
+/** Completions drawn from the document's own Quarto labels.
  *
- *  The scan itself is a line walk and costs nothing, but the CALL ships the whole document
- *  to Rust — and a completion source re-runs on every keystroke while the popup is open.
- *  On a 200 KB document that is 200 KB of IPC per letter typed, which is exactly the kind
- *  of cost this project does not pay. (The bibliography source has no such problem: it
- *  sends the query, not the corpus.)
- *
- *  Labels cannot change while you are typing a reference, so one snapshot serves the whole
- *  session. Invalidated by a change in line count — adding a label adds a line — and by a
- *  1.5 s timer. Stated failure mode: define a label and reference it *on the same line*
- *  within 1.5 s and the new one is missing for one keystroke. */
-let labelCache: { labels: DocLabel[]; lines: number; at: number } | null = null;
-const LABEL_CACHE_MS = 1500;
-
-async function cachedLabels(doc: { toString(): string; lines: number }): Promise<DocLabel[]> {
-  const now = Date.now();
-  if (labelCache && labelCache.lines === doc.lines && now - labelCache.at < LABEL_CACHE_MS) {
-    return labelCache.labels;
-  }
-  const labels = await documentLabels(doc.toString());
-  labelCache = { labels, lines: doc.lines, at: Date.now() };
-  return labels;
-}
-
-/** Completions drawn from the document's own Quarto labels. */
+ *  Re-scanned on every keystroke while the popup is open, deliberately: MEASURED at 0.69 ms
+ *  for a 204 KB / 118-label document in a release build (`labels.rs`, the `#[ignore]`d
+ *  `scan_speed_on_the_large_doc` bench), plus shipping the text over IPC. A cache was here
+ *  briefly and bought nothing worth a staleness window — labels are always current instead.
+ *  If this ever DOES bite, the fix is not a cache either: `check_document` already scans
+ *  labels every ~½ s for the duplicate check and can simply return them. */
 async function labelCompletions(
   context: CompletionContext,
   from: number,
@@ -90,7 +72,7 @@ async function labelCompletions(
 ): Promise<CompletionResult | null> {
   let labels: DocLabel[];
   try {
-    labels = await cachedLabels(context.state.doc);
+    labels = await documentLabels(context.state.doc.toString());
   } catch {
     return null;
   }

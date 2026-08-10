@@ -26,9 +26,9 @@ overwritten). The canonical copy is `HELP.md` in the repository.
   switch (MRU quick-switch), save, and delete them from the palette; the sidebar's
   Folder/Project tabs and the dropdown at the bottom switch between them. Project
   files are fully managed — you are never asked where to save one.
-- **Ctrl+Shift+Q** opens your quick file (`[files] quick_file` in config), and palette
-  **Open Quick File…** searches the `[files] quick_files` list — the handful of files you
-  come back to constantly, matched on name or folder.
+- **Ctrl+Shift+Q** opens your quick file (`[files] quick_file` in config). Palette
+  **Quick Files: Open from List…** searches the `[files] quick_files` list — the handful of
+  files you come back to constantly, matched on name or folder, in the order you list them.
 - **From a terminal**: `writedown notes.md`, `writedown .` or `writedown C:\docs`,
   `writedown --version`, `writedown --help`. A folder argument opens as **its own
   project**, replacing the restored workspace rather than joining it — and its tabs and

@@ -117,14 +117,19 @@ export function appCommands(): Command[] {
     },
     {
       id: "open-quick-file",
-      title: "Open Quick File (Ctrl+Shift+Q)",
+      title: "Open Quick File (Ctrl+Shift+Q) — the single [files] quick_file",
       run: () => void s().openQuickFile(),
     },
     {
       // The `[files] quick_files` pick-list (issue D.04). Ctrl+Shift+Q still opens the
       // single `quick_file`; this is the list, fuzzy-searchable by name or folder.
+      //
+      // Named "Quick Files:" rather than "Open Quick File…" so it cannot be confused with
+      // the verb above it: the two titles were near-identical, the fuzzy matcher scored
+      // both for "quick file(s)", and the MRU floated whichever had been used before — so
+      // the list looked absent. A distinct leading word is the fix.
       id: "quick-files",
-      title: "Open Quick File…",
+      title: "Quick Files: Open from List…",
       run: () => s().openPalette("quickfiles"),
     },
     { id: "save", title: "Save", run: () => void s().saveActive() },

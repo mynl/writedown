@@ -214,3 +214,32 @@ plot()
         assert_eq!(cell_label("x = 1"), None);
     }
 }
+
+#[cfg(test)]
+mod bench {
+    /// Not a correctness test: it answers "is the scan fast enough to run on every
+    /// keystroke?" with a number instead of a guess. `cargo test -- --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn scan_speed_on_the_large_doc() {
+        let path = r"C:\S\AI\features\large-test-doc-dm.md";
+        let Ok(text) = std::fs::read_to_string(path) else {
+            eprintln!("skipped: {path} not present");
+            return;
+        };
+        // Warm, then time 100 scans.
+        let _ = super::scan(&text);
+        let t0 = std::time::Instant::now();
+        let mut n = 0;
+        for _ in 0..100 {
+            n += super::scan(&text).len();
+        }
+        let per = t0.elapsed().as_secs_f64() * 1000.0 / 100.0;
+        eprintln!(
+            "scan: {:.3} ms/call over {} KB ({} labels/call)",
+            per,
+            text.len() / 1024,
+            n / 100
+        );
+    }
+}
