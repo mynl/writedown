@@ -543,6 +543,38 @@ messages point here for detail.
 - Backend `DirEntry` gained a `supported` flag and `list_directory` no longer drops
   unsupported files. Rust changed — `tauri dev` needs a restart, not just HMR.
 
+## [2.14.2] - 2026-08-10
+
+### Fixed
+
+- **The one-time stall before the palette opened.** `formatStamp` built its whole
+  substitution table up front, including four `toLocaleDateString` calls — and the palette
+  builds *two* date-stamp titles (each verb shows a sample of its own format) on **every**
+  open. That is eight `Intl.DateTimeFormat` constructions per open, and the first one in a
+  fresh webview pays ICU initialization: **38.7 ms measured**. The directives are now
+  evaluated lazily, so the default patterns — which use no locale directive at all — build
+  **zero** formatters. Measured after: **0.027 ms** per palette open, down from ~39 ms on
+  the first. `%A`/`%B` still work; they just pay only when asked for.
+- **Palette verbs that open another picker did nothing.** "Quick Files: Open from List…",
+  "Insert: Unicode Character…" and "Project: Quick Switch…" all set a new palette mode, and
+  the palette that ran them then unconditionally closed itself — wiping the mode one tick
+  after it was set. It now closes only if the command left the palette where it found it.
+  (`Project: Quick Switch…` had this since it was added; Ctrl+Alt+P was masking it.)
+- **Ctrl+Shift+U then Enter did nothing**, because selection index 0 sat on the "Recent"
+  heading and a heading is not choosable. The selection now always seats on a real row, so
+  Ctrl+Shift+U, Enter re-inserts the character you last used.
+
+### Changed
+
+- **The Unicode picker searches your recents first.** A query used to go straight to the
+  full 2,322-character table, so a character visible under Recent a moment earlier vanished
+  into the middle of the results. Recently-used matches are now listed first, under a
+  Recent heading, with the rest below.
+- **Recents are ordered most-recent-first, not by use count.** Use-count weighting sounds
+  cleverer and is wrong for the gesture that matters — Ctrl+Shift+U, Enter should give back
+  the character you just used, not the one you have used most this month. Existing
+  use-count data migrates (busiest first) rather than being discarded.
+
 ## [2.14.1] - 2026-08-10
 
 ### Fixed

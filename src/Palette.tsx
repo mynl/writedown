@@ -8,9 +8,11 @@ import {
   applyUserSymbols,
   codePointLabel,
   loadSymbols,
+  mruRank,
   recentSymbols,
   recordSymbolUse,
   searchSymbols,
+  symbolMru,
   type SymbolEntry,
 } from "./editor/symbols";
 
@@ -74,11 +76,28 @@ function symbolResults(
   recentChars: number,
 ): Ranked<PaletteItem>[] {
   if (!data) return []; // table still loading — one frame, on first open only
-  if (query.trim() !== "") return searchSymbols(query, data.entries);
   const row = (item: PaletteItem) => ({ item, positions: [], score: 0 });
   const out: Ranked<PaletteItem>[] = [];
-  const recent = recentSymbols(data.entries);
   void recentChars; // recorded uses change this list; the dep is what re-runs the memo
+
+  if (query.trim() !== "") {
+    // Search recents FIRST, then everything else below. The character you want is very
+    // often one you have used before, and burying it 30 rows down in the full table — with
+    // "heavy white right" visible in Recent a moment earlier — is the wrong answer.
+    const mru = symbolMru();
+    const ranked = searchSymbols(query, data.entries);
+    const recent = ranked
+      .filter((r) => mruRank(r.item.char, mru) >= 0)
+      .sort((a, b) => mruRank(a.item.char, mru) - mruRank(b.item.char, mru));
+    const rest = ranked.filter((r) => mruRank(r.item.char, mru) < 0);
+    // Headings only when the split is real — one group alone needs no explaining.
+    if (recent.length && rest.length) {
+      return [row({ heading: "Recent" }), ...recent, row({ heading: "All characters" }), ...rest];
+    }
+    return [...recent, ...rest];
+  }
+
+  const recent = recentSymbols(data.entries);
   if (recent.length) {
     out.push(row({ heading: "Recent" }), ...recent.map(row));
   }
@@ -202,7 +221,18 @@ export function Palette() {
     return [];
   }, [mode, query, commands, files, projectItems, quickFiles, symbols, recentChars]);
 
-  useEffect(() => setSel(0), [query]);
+  // Keep the selection on a CHOOSABLE row. The symbol list starts with a "Recent" heading,
+  // and a heading is not selectable — so selection index 0 sat on it and Enter did nothing
+  // at all. Ctrl+Shift+U then Enter must give back the character you last used.
+  useEffect(() => {
+    const first = results.findIndex((r) => !isHeading(r.item));
+    setSel((s) =>
+      results[s] && !isHeading(results[s].item) && s < results.length
+        ? s
+        : Math.max(first, 0),
+    );
+  }, [results]);
+  useEffect(() => setSel(0), [query]); // a new query re-anchors; the effect above re-seats
   useEffect(() => {
     listRef.current?.querySelector(".palette-item.active")?.scrollIntoView({ block: "nearest" });
   }, [sel, results]);
@@ -242,6 +272,12 @@ export function Palette() {
     } else {
       recordCommandUse((r.item as Command).id);
       (r.item as Command).run();
+      // A verb that opens ANOTHER palette mode — "Quick Files: Open from List…",
+      // "Insert: Unicode Character…", "Project: Quick Switch…" — must not then be closed by
+      // the palette that ran it. The unconditional `closePalette()` here wiped the mode the
+      // command had just set, one tick after setting it, so those verbs appeared to do
+      // nothing at all. Close only if the command left the palette where it found it.
+      if (useStore.getState().palette !== mode) return;
     }
     closePalette();
   }

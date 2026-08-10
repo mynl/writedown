@@ -212,6 +212,8 @@ operators, relations, set & logic, sub/superscripts, dashes & quotes).
 
 - **Enter** inserts the character, **Shift+Enter** inserts its LaTeX command
   (`\odot`) instead, **Alt+Enter** inserts and keeps the picker open for a run.
+  **Ctrl+Shift+U then Enter repeats the character you last inserted** — the recents
+  list is most-recent-first, and a search lists your recents above everything else.
 - Select exactly one character and press **Ctrl+Shift+U** to look it up — name, code
   point and LaTeX name — which is how you find its hollow or filled sibling.
 - Know the code point already? Type **`u+2299`** then **Tab** in the editor: no popup.

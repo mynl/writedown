@@ -124,28 +124,39 @@ export const insertLineAfter: StateCommand = ({ state, dispatch }) => {
  *  German Windows says "August" in German — which is the right answer. */
 export function formatStamp(d: Date, pattern: string): string {
   const p = (n: number) => String(n).padStart(2, "0");
+  // LAZY, per directive — not a lookup table built up front. `toLocaleDateString`
+  // constructs an Intl.DateTimeFormat, and the FIRST one in a fresh webview pays ICU
+  // initialization: ~39 ms measured. This function is called twice while building the
+  // command palette (each stamp verb shows a sample of its own format), so an eager map
+  // meant eight formatter constructions on every palette open and a visible one-time stall
+  // on the first. The default patterns use no locale directive at all, so the common case
+  // now costs nothing.
   const loc = (opt: Intl.DateTimeFormatOptions) => d.toLocaleDateString(undefined, opt);
-  const map: Record<string, string> = {
-    Y: String(d.getFullYear()),
-    y: p(d.getFullYear() % 100),
-    m: p(d.getMonth() + 1),
-    d: p(d.getDate()),
-    e: String(d.getDate()),
-    H: p(d.getHours()),
-    I: p(d.getHours() % 12 || 12),
-    M: p(d.getMinutes()),
-    S: p(d.getSeconds()),
-    p: d.getHours() < 12 ? "AM" : "PM",
-    A: loc({ weekday: "long" }),
-    a: loc({ weekday: "short" }),
-    B: loc({ month: "long" }),
-    b: loc({ month: "short" }),
-    j: String(
-      Math.floor((d.getTime() - new Date(d.getFullYear(), 0, 0).getTime()) / 86_400_000),
-    ).padStart(3, "0"),
-    "%": "%",
-  };
-  return pattern.replace(/%(.)/g, (whole, k: string) => map[k] ?? whole);
+  return pattern.replace(/%(.)/g, (whole, k: string) => {
+    switch (k) {
+      case "Y": return String(d.getFullYear());
+      case "y": return p(d.getFullYear() % 100);
+      case "m": return p(d.getMonth() + 1);
+      case "d": return p(d.getDate());
+      case "e": return String(d.getDate());
+      case "H": return p(d.getHours());
+      case "I": return p(d.getHours() % 12 || 12);
+      case "M": return p(d.getMinutes());
+      case "S": return p(d.getSeconds());
+      case "p": return d.getHours() < 12 ? "AM" : "PM";
+      case "j":
+        return String(
+          Math.floor((d.getTime() - new Date(d.getFullYear(), 0, 0).getTime()) / 86_400_000),
+        ).padStart(3, "0");
+      // Locale-dependent, and the only expensive cases:
+      case "A": return loc({ weekday: "long" });
+      case "a": return loc({ weekday: "short" });
+      case "B": return loc({ month: "long" });
+      case "b": return loc({ month: "short" });
+      case "%": return "%";
+      default: return whole; // unknown %x is left alone, so a literal % survives
+    }
+  });
 }
 
 export const DEFAULT_DATE_FORMAT = "%Y-%m-%d";

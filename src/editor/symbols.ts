@@ -255,37 +255,46 @@ function wholeWord(e: SymbolEntry, word: string): boolean {
 }
 
 // ---- recents (issue D.12: "keep list of recent") --------------------------------------
-// Weighted by USE COUNT, not bare recency — the characters you reach for constantly should
-// stay at the top even after one excursion into box-drawing. localStorage, because this is
-// derived data: it belongs nowhere near config.toml, and losing it costs nothing.
+// Ordered by RECENCY, most recent first. It was use-count weighted, which sounds cleverer
+// and is wrong for the gesture that matters: Ctrl+Shift+U, Enter should give back the
+// character you just used, not the one you have used most this month. It also makes the
+// list mean what its heading says. localStorage, because this is derived data: it belongs
+// nowhere near config.toml and losing it costs nothing.
 const MRU_KEY = "wd.symbolMru";
 const MRU_MAX = 40;
 
-export function symbolMru(): Record<string, number> {
+export function symbolMru(): string[] {
   try {
-    const v = JSON.parse(localStorage.getItem(MRU_KEY) ?? "{}");
-    return v && typeof v === "object" ? (v as Record<string, number>) : {};
+    const v = JSON.parse(localStorage.getItem(MRU_KEY) ?? "[]");
+    if (Array.isArray(v)) return v.filter((x): x is string => typeof x === "string");
+    // Migrate the use-count map this used to store, best-effort: busiest first.
+    if (v && typeof v === "object") {
+      return Object.entries(v as Record<string, number>)
+        .sort((a, b) => b[1] - a[1])
+        .map(([c]) => c);
+    }
+    return [];
   } catch {
-    return {};
+    return [];
   }
 }
 
 export function recordSymbolUse(char: string): void {
-  const m = symbolMru();
-  m[char] = (m[char] ?? 0) + 1;
-  const trimmed = Object.entries(m)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, MRU_MAX);
-  localStorage.setItem(MRU_KEY, JSON.stringify(Object.fromEntries(trimmed)));
+  const next = [char, ...symbolMru().filter((c) => c !== char)].slice(0, MRU_MAX);
+  localStorage.setItem(MRU_KEY, JSON.stringify(next));
 }
 
-/** Most-used first, for the empty query. */
+/** Position in the recents list, or -1. Used to float recently-used characters to the top
+ *  of a SEARCH too, not only the empty-query list. */
+export function mruRank(char: string, mru: readonly string[]): number {
+  return mru.indexOf(char);
+}
+
+/** Most recent first, for the empty query. */
 export function recentSymbols(entries: readonly SymbolEntry[]): SymbolEntry[] {
-  const m = symbolMru();
   const by = new Map(entries.map((e) => [e.char, e]));
-  return Object.entries(m)
-    .sort((a, b) => b[1] - a[1])
-    .map(([c]) => by.get(c))
+  return symbolMru()
+    .map((c) => by.get(c))
     .filter((e): e is SymbolEntry => !!e);
 }
 
