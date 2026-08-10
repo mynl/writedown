@@ -10,25 +10,48 @@ For each row in the table add a new row below it for your input, item is ">>CC".
 
 ***
 
-## Batch D: Thursday 2026-08-06
+## Batch E: Monday 2026-08-10
 
 | Item | Effort HML | Status/Impact | Description |
 |--:|:---:|:---:|:-------------------------|
-| **D.01** | | | Add insert date (as opposed to date time) to palette - I usually delete the time! |
+| **E.01** | | |   |
+| **E.02** | | |   |
+| **E.03** | | |   |
+| **E.04** | | |   |
+| **E.05** | | |   |
+| **E.06** | | |   |
+
+
+
+
+## Batch D: Thursday 2026-08-06
+
+writedown . need to open just . in a new project - not add . to the existing project. ditto if you pass a dir by name.
+
+what's the toml syntax for the *list* of quick files?
+
+where is large work report? not seeing on palette
+
+
+
+
+| Item | Effort HML | Status/Impact | Description |
+|--:|:---:|:---:|:-------------------------|
+| **D.01** |✅| | Add insert date (as opposed to date time) to palette - I usually delete the time! |
 | >>CC | L | None | **Trivial — there is exactly one stamp verb, "Insert Date-Time", and nothing that inserts the date alone.** Adding the sibling verb is six lines. While I'm there I'd make both formats configurable, so you never have to delete anything again. |
 | **D.02** | | | Call writedown from the command line: writedown <file/dir> etc. like ST (if a file open it; if a dir open a temp project with that dir as its only folder); --version, --help, etc.  |
 | >>CC | M | None | **`writedown file.md` already works today — it is the rest that doesn't: a *directory* argument is silently thrown away, and `--version` / `--help` just open the window, because a GUI-subsystem exe has no console to print to.** One real decision for you: should a second `writedown` reuse the running window like ST does? That would end your habit of running three instances. Flagging it, not deciding it. ==>NO IT OPENS A NEW INSTANCE - THAT IS A FEATURE FOR ME, NOT A BUG |
-| **D.03** | | | File tree ignores links (eg c:\s where i keep everything is missing!) Needs to follow dir symlinks like they are dirs. |
+| **D.03** |✅| | File tree ignores links (eg c:\s where i keep everything is missing!) Needs to follow dir symlinks like they are dirs. |
 | >>CC | L–M | None | **Confirmed and pinned down: Rust classifies a Windows junction as a *link*, not a folder, and `C:\S` is a junction — so it draws as a dim, unexpandable file row, which reads as missing.** One extra check per link entry fixes the tree. The recursive quick-open walk needs a loop guard as well, or `C:\` lists everything under CloudStation twice. |
 | **D.04** | | | Extend quick open which opens one default file, to palette->quick open <files> where files are populated from config [files] -> quick_files list (with an s), quick_file is still Ctrl+Shift+Q default. |
 | >>CC | L | None | **Straightforward: `quick_file` is a single string read in exactly one place, and the palette is already a mode switch (Files / Commands / Projects) — a Quick Files mode is a fourth branch of the same shape.** Ctrl+Shift+Q keeps opening `quick_file` untouched. |
-| **D.05** | | | Auto detect tab size by doc on load; report tabsize in lower right corer: Spaces: 4 etc, like ST |
+| **D.05** |dropped| | Auto detect tab size by doc on load; report tabsize in lower right corer: Spaces: 4 etc, like ST |
 | >>CC | M | None* | **Detection is easy; the trap is that indent width currently rebuilds the whole editor when it changes — which is precisely the tab-switch stall we killed in 2.10.0.** Done right (indent in a compartment, same trick as word wrap) it costs nothing; done naively it is a visible regression. Also needs a decision: we always insert spaces, so what should a tab-indented file do? ==>DROP |
-| **D.06** | | | Open file list (top left in project/folder bar) movethe (x) to close on left (aligned) rather than right, this is what ST does too. Makes it easy to close several tabs.  |
+| **D.06** |✅| | Open file list (top left in project/folder bar) movethe (x) to close on left (aligned) rather than right, this is what ST does too. Makes it easy to close several tabs.  |
 | >>CC | L | None | **Pure layout — the × is simply last in the row today; moving it first is about ten lines of JSX and CSS.** One question: the left column currently holds the dirty ●, so either that moves to the right end, or the × only appears on hover (ST's way, but a control that changes with pointer state). |
 | **D.07** | | | Palette -> Large word report: write a python code block at the cursor that loads the large word usage file into a pandas dataframe and shows the top 10 most used words - then I can take analysis from there. Word + whatever stats you track about it. This is from the auto completer. (Pure sugar.)    |
 | >>CC | L | None | **Easy and self-contained. The file is `~/.writedown/word-frequency.json`: per file, word → count, capped at the 50 most recent files × 250 words each — so word, count and which file are the only stats there are.** A new insert-snippet verb, no backend work at all. |
-| **D.08** | | | I need a quick way to go to "Edit screen only" (no TOC/Files/Preview), palette plus Ctrl+K Ctrl+F if that is not taken (focus)  |
+| **D.08** |✅| | I need a quick way to go to "Edit screen only" (no TOC/Files/Preview), palette plus Ctrl+K Ctrl+F if that is not taken (focus)  |
 | >>CC | L | None | **You already have this: palette → "Enter Plain View — editor only, no sidebars or preview". The toggle is even registered in the keybinding system; it has simply never been given a key.** Ctrl+K Ctrl+F is free, and binding it is one line. ==> :-); BIND IT AS A TOGGLE ON/OFF |
 | **D.09** | | | get_ipython returns None. Why? Is it possible for it to work? Is it a matter of what kernel we are using? I want this so I can use %xmode Docs and other magics. Etc.  |
 | >>CC | M–H | None | **Because there is no IPython in the loop at all: our "kernel" is plain `python.exe` running a 240-line script that `exec`s your cells — and it *blanks every `%magic` line* before parsing.** So `get_ipython()` has nothing to return; it isn't a choice of kernel, there is no kernel in the Jupyter sense. Making magics real means running cells through an actual IPython shell — possible, and it would also buy you `display()`, but it is a rework of the runner, not a switch. A cheap middle ground exists. |
@@ -755,6 +778,31 @@ have been invisible in the UI (you would just have thought the search was bad):
 Current top hits, for the record: `check` → ✓ ✔ ☑ ✅ · `tick` → ✓ · `red x` → ❌ ✗ ✘ ·
 `circle` → ◎ ○ ● ◦ · `arrow` → ↑ ← ↓ → · `right arrow` → → · `star` → ★ ☆ ·
 `warning` → ⚠ ❗ · `\alpha` → α · `dash` → – —.
+
+**Your "no green check?" — you were right, and it was my bug, FIXED in 2.13.1.** The glyph
+column named `Segoe UI Symbol` first, and **that font has its own monochrome ✅ and ❌** — so
+it won and the color font never got a look in. Checked against the font files rather than
+guessed: `seguisym.ttf` has no color table and does carry U+2705/U+274C; `seguiemj.ttf` has
+`COLR` and carries them too. Whichever is named first decides.
+
+The general lesson, since it is a trap and not a typo: **no single font order is right for
+every row.** Symbol-first kills the color on ✅/❌; emoji-first would colorize ⚠ and ✓, which
+are monochrome in a document. So the generated table now carries **Emoji_Presentation** per
+character (a real Unicode property, listed explicitly since `unicodedata` does not expose
+it), and the picker chooses per row.
+
+**Your editor and preview were never affected**, and I deliberately did not touch them.
+They declare *neither* font, which lets Chromium's presentation-aware fallback decide — and
+that is smarter than any static list I could write. The font data confirms it: JetBrains
+Mono NL carries ✓, ⊙, α and → itself (so they render in your editor font, in your text
+color) and lacks ✅ and ❌ (so those fall through to the color emoji font). Adding fonts to
+that stack would only take the choice away from the one mechanism that gets it right.
+
+**One thing Unicode cannot do, worth stating plainly:** a character has no color. ✅ is
+green because the emoji font draws it green; ✓ is not green in any font and never will be —
+it takes whatever color the surrounding text has. A green **✓** in a rendered document is a
+styling job (`<span style="color:green">✓</span>`, or CSS), not a different character. If
+you want that as a one-keystroke insert, say so and it becomes a snippet.
 
 ### D.13 — Close All Files
 

@@ -13,7 +13,7 @@ OPERATOR. So each row carries all of them and one query searches the union.
 
 Output format is one tab-separated row per character inside a single template literal:
 
-    char <TAB> unicode name <TAB> latex names <TAB> aliases <TAB> kit
+    char <TAB> unicode name <TAB> latex names <TAB> aliases <TAB> kit <TAB> emoji?
 
 kept as a string (not an object array) because it parses in about a millisecond and keeps
 the file a third of the size. The picker imports it dynamically, so none of it loads until
@@ -256,6 +256,32 @@ EXTRA = [
     0x1F914, 0x1F3AF, 0x1D53C, 0x0024, 0x0023, 0x0026, 0x0040, 0x005E, 0x007E,
 ]
 
+# --- emoji presentation ---------------------------------------------------------------
+# Characters with Emoji_Presentation=Yes: the ones that are COLOR by default. This is a
+# real Unicode property, and `unicodedata` does not expose it, so the ranges are listed.
+# Everything from U+1F300 up is emoji; below that it is a specific, closed list.
+#
+# It matters for exactly one reason, and it is not cosmetic: the picker must draw each
+# character with the font the DOCUMENT will use, or it lies about what you are choosing.
+# ✅ is color (Segoe UI Emoji, which has a COLR table); ✓ is not, in any font — it takes
+# your text color. Both fonts contain U+2705, so whichever is named first wins.
+EMOJI_PRESENTATION = [
+    (0x231A, 0x231B), (0x23E9, 0x23EC), (0x23F0, 0x23F0), (0x23F3, 0x23F3),
+    (0x25FD, 0x25FE), (0x2614, 0x2615), (0x2648, 0x2653), (0x267F, 0x267F),
+    (0x2693, 0x2693), (0x26A1, 0x26A1), (0x26AA, 0x26AB), (0x26BD, 0x26BE),
+    (0x26C4, 0x26C5), (0x26CE, 0x26CE), (0x26D4, 0x26D4), (0x26EA, 0x26EA),
+    (0x26F2, 0x26F3), (0x26F5, 0x26F5), (0x26FA, 0x26FA), (0x26FD, 0x26FD),
+    (0x2705, 0x2705), (0x270A, 0x270B), (0x2728, 0x2728), (0x274C, 0x274C),
+    (0x274E, 0x274E), (0x2753, 0x2755), (0x2757, 0x2757), (0x2795, 0x2797),
+    (0x27B0, 0x27B0), (0x27BF, 0x27BF), (0x2B1B, 0x2B1C), (0x2B50, 0x2B50),
+    (0x2B55, 0x2B55), (0x1F004, 0x1FAFF),
+]
+
+
+def emoji_presentation(cp: int) -> bool:
+    return any(lo <= cp <= hi for lo, hi in EMOJI_PRESENTATION)
+
+
 # --- browsing kits --------------------------------------------------------------------
 # Shown when the query is empty, so you can look rather than name. Order matters: these
 # are listed top to bottom.
@@ -318,10 +344,11 @@ def main() -> int:
         latex = LATEX.get(cp, "")
         alias = ALIASES.get(cp, "")
         kit = kit_of.get(cp, "")
+        emoji = "1" if emoji_presentation(cp) else ""
         # A tab or newline in a field would corrupt the row format; none of these
         # characters can contain one, but assert rather than trust.
         assert not any("\t" in f or "\n" in f for f in (ch, name, latex, alias, kit))
-        rows.append("\t".join((ch, name, latex, alias, kit)))
+        rows.append("\t".join((ch, name, latex, alias, kit, emoji)))
 
     # Backtick and ${ would end the template literal / start an interpolation.
     body = "\n".join(rows).replace("\\", "\\\\").replace("`", "\\`").replace("${", "\\${")
@@ -337,7 +364,10 @@ def main() -> int:
 //
 // The Unicode picker's search table (issue D.12). One tab-separated row per character:
 //
-//     char <TAB> unicode name <TAB> latex names <TAB> aliases <TAB> kit
+//     char <TAB> unicode name <TAB> latex names <TAB> aliases <TAB> kit <TAB> emoji?
+//
+// The last field is "1" when the character has Emoji_Presentation=Yes — i.e. it is COLOR
+// by default and must be drawn with the emoji font, not the symbol font.
 //
 // A string rather than an object array: it is about a third of the size and splits in
 // roughly a millisecond. `symbols.ts` imports this module DYNAMICALLY, so none of it is

@@ -31,6 +31,9 @@ export type SymbolEntry = {
   kit: string;
   /** Code point, used to break ranking ties toward the classic (lower) blocks. */
   cp: number;
+  /** Emoji_Presentation=Yes — this character is COLOR by default and must be drawn with
+   *  the emoji font. ✅ is; ✓ is not, and never will be in any font. */
+  emoji: boolean;
   /** Everything searchable, concatenated once at parse time. */
   haystack: string;
 };
@@ -45,7 +48,7 @@ export function loadSymbols() {
       const byChar = new Map<string, SymbolEntry>();
       for (const row of SYMBOL_ROWS.split("\n")) {
         if (!row) continue;
-        const [char, name, latex, alias, kit] = row.split("\t");
+        const [char, name, latex, alias, kit, emoji] = row.split("\t");
         const e: SymbolEntry = {
           char,
           name,
@@ -53,6 +56,7 @@ export function loadSymbols() {
           alias,
           kit,
           cp: char.codePointAt(0) ?? 0,
+          emoji: emoji === "1",
           // Backslash-prefixed LaTeX so a `\odot` query matches literally, and the raw
           // command too so `odot` does as well.
           haystack: [name, alias, latex, latex ? "\\" + latex.split(" ").join(" \\") : ""]
@@ -97,6 +101,7 @@ export function applyUserSymbols(
       alias: "custom",
       kit: "Yours",
       cp,
+      emoji: cp >= 0x1f000,
       haystack: `${key} custom`,
     });
   }
@@ -169,6 +174,9 @@ export function searchSymbols(
             alias: "",
             kit: "",
             cp: direct.codePointAt(0) ?? 0,
+            // A code point typed by hand is off-table, so the flag is unknown; assume
+            // emoji above the BMP, which is where essentially all of them live.
+            emoji: (direct.codePointAt(0) ?? 0) >= 0x1f000,
             haystack: "",
           },
         positions: [],
@@ -285,20 +293,8 @@ export function recentSymbols(entries: readonly SymbolEntry[]): SymbolEntry[] {
 export const codePointLabel = (e: SymbolEntry) =>
   "U+" + e.cp.toString(16).toUpperCase().padStart(4, "0");
 
-/** Emoji-presentation characters render in COLOR from the emoji font, whatever the
- *  editor's theme; text-presentation ones take the current text color. "green check" and
- *  "check" are different requests, so the picker labels which is which rather than leaving
- *  you to discover it after inserting. */
-export function isEmojiPresentation(cp: number): boolean {
-  return (
-    (cp >= 0x1f000 && cp <= 0x1faff) ||
-    cp === 0x2705 ||
-    cp === 0x274c ||
-    cp === 0x274e ||
-    (cp >= 0x2795 && cp <= 0x2797) ||
-    (cp >= 0x1f300 && cp <= 0x1f5ff) ||
-    cp === 0x2b50 ||
-    cp === 0x2757 ||
-    cp === 0x2b55
-  );
-}
+/** Emoji-presentation characters render in COLOR from the emoji font; text-presentation
+ *  ones take the current text color. The flag comes from the generated table (a real
+ *  Unicode property) rather than a hand-rolled range list — it drives the picker's font
+ *  choice, so getting it wrong shows ✅ as a hollow monochrome outline. */
+export const isEmojiPresentation = (e: SymbolEntry): boolean => e.emoji;

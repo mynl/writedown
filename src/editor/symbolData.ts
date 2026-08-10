@@ -3,7 +3,10 @@
 //
 // The Unicode picker's search table (issue D.12). One tab-separated row per character:
 //
-//     char <TAB> unicode name <TAB> latex names <TAB> aliases <TAB> kit
+//     char <TAB> unicode name <TAB> latex names <TAB> aliases <TAB> kit <TAB> emoji?
+//
+// The last field is "1" when the character has Emoji_Presentation=Yes — i.e. it is COLOR
+// by default and must be drawn with the emoji font, not the symbol font.
 //
 // A string rather than an object array: it is about a third of the size and splits in
 // roughly a millisecond. `symbols.ts` imports this module DYNAMICALLY, so none of it is
@@ -12,2328 +15,2328 @@
 // LaTeX names, aliases and kits are curated in the generator — Unicode names come from
 // CPython's `unicodedata`, so they are authoritative and typo-free.
 
-export const SYMBOL_ROWS = `¡	inverted exclamation mark			
-¢	cent sign			
-£	pound sign		pound sterling money currency	
-¤	currency sign			
-¥	yen sign		yen money currency	
-¦	broken bar			
-§	section sign	S	section silcrow	Dashes & quotes
-¨	diaeresis			
-©	copyright sign	copyright	copyright	
-ª	feminine ordinal indicator			
-«	left-pointing double angle quotation mark		quote guillemet french open	Dashes & quotes
-¬	not sign	neg lnot		Set & logic
-®	registered sign	circledR	registered trademark	
-¯	macron			
-°	degree sign	degree	degree degrees temperature angle	
-±	plus-minus sign	pm	plus minus tolerance	Operators
-²	superscript two			Sub/superscripts
-³	superscript three			Sub/superscripts
-´	acute accent			
-µ	micro sign			
-¶	pilcrow sign	P	pilcrow paragraph	Dashes & quotes
-·	middle dot	centerdot	dot middle centered centred	Circles & dots
-¸	cedilla			
-¹	superscript one			Sub/superscripts
-º	masculine ordinal indicator			
-»	right-pointing double angle quotation mark		quote guillemet french close	Dashes & quotes
-¼	vulgar fraction one quarter		quarter fraction one four	
-½	vulgar fraction one half		half fraction one two	
-¾	vulgar fraction three quarters		three quarters fraction	
-¿	inverted question mark			
-À	latin capital letter a with grave			
-Á	latin capital letter a with acute			
-Â	latin capital letter a with circumflex			
-Ã	latin capital letter a with tilde			
-Ä	latin capital letter a with diaeresis			
-Å	latin capital letter a with ring above			
-Æ	latin capital letter ae			
-Ç	latin capital letter c with cedilla			
-È	latin capital letter e with grave			
-É	latin capital letter e with acute			
-Ê	latin capital letter e with circumflex			
-Ë	latin capital letter e with diaeresis			
-Ì	latin capital letter i with grave			
-Í	latin capital letter i with acute			
-Î	latin capital letter i with circumflex			
-Ï	latin capital letter i with diaeresis			
-Ð	latin capital letter eth			
-Ñ	latin capital letter n with tilde			
-Ò	latin capital letter o with grave			
-Ó	latin capital letter o with acute			
-Ô	latin capital letter o with circumflex			
-Õ	latin capital letter o with tilde			
-Ö	latin capital letter o with diaeresis			
-×	multiplication sign	times	times multiply cross by	Operators
-Ø	latin capital letter o with stroke			
-Ù	latin capital letter u with grave			
-Ú	latin capital letter u with acute			
-Û	latin capital letter u with circumflex			
-Ü	latin capital letter u with diaeresis			
-Ý	latin capital letter y with acute			
-Þ	latin capital letter thorn			
-ß	latin small letter sharp s			
-à	latin small letter a with grave			
-á	latin small letter a with acute			
-â	latin small letter a with circumflex			
-ã	latin small letter a with tilde			
-ä	latin small letter a with diaeresis			
-å	latin small letter a with ring above			
-æ	latin small letter ae			
-ç	latin small letter c with cedilla			
-è	latin small letter e with grave			
-é	latin small letter e with acute			
-ê	latin small letter e with circumflex			
-ë	latin small letter e with diaeresis			
-ì	latin small letter i with grave			
-í	latin small letter i with acute			
-î	latin small letter i with circumflex			
-ï	latin small letter i with diaeresis			
-ð	latin small letter eth			
-ñ	latin small letter n with tilde			
-ò	latin small letter o with grave			
-ó	latin small letter o with acute			
-ô	latin small letter o with circumflex			
-õ	latin small letter o with tilde			
-ö	latin small letter o with diaeresis			
-÷	division sign	div	divide division obelus	Operators
-ø	latin small letter o with stroke			
-ù	latin small letter u with grave			
-ú	latin small letter u with acute			
-û	latin small letter u with circumflex			
-ü	latin small letter u with diaeresis			
-ý	latin small letter y with acute			
-þ	latin small letter thorn			
-ÿ	latin small letter y with diaeresis			
-Ͱ	greek capital letter heta			
-ͱ	greek small letter heta			
-Ͳ	greek capital letter archaic sampi			
-ͳ	greek small letter archaic sampi			
-ʹ	greek numeral sign			
-͵	greek lower numeral sign			
-Ͷ	greek capital letter pamphylian digamma			
-ͷ	greek small letter pamphylian digamma			
-ͺ	greek ypogegrammeni			
-ͻ	greek small reversed lunate sigma symbol			
-ͼ	greek small dotted lunate sigma symbol			
-ͽ	greek small reversed dotted lunate sigma symbol			
-;	greek question mark			
-Ϳ	greek capital letter yot			
-΄	greek tonos			
-΅	greek dialytika tonos			
-Ά	greek capital letter alpha with tonos			
-·	greek ano teleia			
-Έ	greek capital letter epsilon with tonos			
-Ή	greek capital letter eta with tonos			
-Ί	greek capital letter iota with tonos			
-Ό	greek capital letter omicron with tonos			
-Ύ	greek capital letter upsilon with tonos			
-Ώ	greek capital letter omega with tonos			
-ΐ	greek small letter iota with dialytika and tonos			
-Α	greek capital letter alpha			
-Β	greek capital letter beta			
-Γ	greek capital letter gamma	Gamma		Greek
-Δ	greek capital letter delta	Delta		Greek
-Ε	greek capital letter epsilon			
-Ζ	greek capital letter zeta			
-Η	greek capital letter eta			
-Θ	greek capital letter theta	Theta		Greek
-Ι	greek capital letter iota			
-Κ	greek capital letter kappa			
-Λ	greek capital letter lamda	Lambda		Greek
-Μ	greek capital letter mu			
-Ν	greek capital letter nu			
-Ξ	greek capital letter xi	Xi		
-Ο	greek capital letter omicron			
-Π	greek capital letter pi	Pi		Greek
-Ρ	greek capital letter rho			
-Σ	greek capital letter sigma	Sigma		Greek
-Τ	greek capital letter tau			
-Υ	greek capital letter upsilon	Upsilon		
-Φ	greek capital letter phi	Phi		Greek
-Χ	greek capital letter chi			
-Ψ	greek capital letter psi	Psi		Greek
-Ω	greek capital letter omega	Omega		Greek
-Ϊ	greek capital letter iota with dialytika			
-Ϋ	greek capital letter upsilon with dialytika			
-ά	greek small letter alpha with tonos			
-έ	greek small letter epsilon with tonos			
-ή	greek small letter eta with tonos			
-ί	greek small letter iota with tonos			
-ΰ	greek small letter upsilon with dialytika and tonos			
-α	greek small letter alpha	alpha		Greek
-β	greek small letter beta	beta		Greek
-γ	greek small letter gamma	gamma		Greek
-δ	greek small letter delta	delta		Greek
-ε	greek small letter epsilon	varepsilon		Greek
-ζ	greek small letter zeta	zeta		
-η	greek small letter eta	eta		
-θ	greek small letter theta	theta		Greek
-ι	greek small letter iota	iota		
-κ	greek small letter kappa	kappa		
-λ	greek small letter lamda	lambda		Greek
-μ	greek small letter mu	mu		Greek
-ν	greek small letter nu	nu		
-ξ	greek small letter xi	xi		
-ο	greek small letter omicron			
-π	greek small letter pi	pi		Greek
-ρ	greek small letter rho	rho		Greek
-ς	greek small letter final sigma	varsigma		
-σ	greek small letter sigma	sigma		Greek
-τ	greek small letter tau	tau		Greek
-υ	greek small letter upsilon	upsilon		
-φ	greek small letter phi	varphi		Greek
-χ	greek small letter chi	chi		
-ψ	greek small letter psi	psi		Greek
-ω	greek small letter omega	omega		Greek
-ϊ	greek small letter iota with dialytika			
-ϋ	greek small letter upsilon with dialytika			
-ό	greek small letter omicron with tonos			
-ύ	greek small letter upsilon with tonos			
-ώ	greek small letter omega with tonos			
-Ϗ	greek capital kai symbol			
-ϐ	greek beta symbol			
-ϑ	greek theta symbol	vartheta		
-ϒ	greek upsilon with hook symbol			
-ϓ	greek upsilon with acute and hook symbol			
-ϔ	greek upsilon with diaeresis and hook symbol			
-ϕ	greek phi symbol	phi		
-ϖ	greek pi symbol	varpi		
-ϗ	greek kai symbol			
-Ϙ	greek letter archaic koppa			
-ϙ	greek small letter archaic koppa			
-Ϛ	greek letter stigma			
-ϛ	greek small letter stigma			
-Ϝ	greek letter digamma			
-ϝ	greek small letter digamma			
-Ϟ	greek letter koppa			
-ϟ	greek small letter koppa			
-Ϡ	greek letter sampi			
-ϡ	greek small letter sampi			
-Ϣ	coptic capital letter shei			
-ϣ	coptic small letter shei			
-Ϥ	coptic capital letter fei			
-ϥ	coptic small letter fei			
-Ϧ	coptic capital letter khei			
-ϧ	coptic small letter khei			
-Ϩ	coptic capital letter hori			
-ϩ	coptic small letter hori			
-Ϫ	coptic capital letter gangia			
-ϫ	coptic small letter gangia			
-Ϭ	coptic capital letter shima			
-ϭ	coptic small letter shima			
-Ϯ	coptic capital letter dei			
-ϯ	coptic small letter dei			
-ϰ	greek kappa symbol			
-ϱ	greek rho symbol	varrho		
-ϲ	greek lunate sigma symbol			
-ϳ	greek letter yot			
-ϴ	greek capital theta symbol			
-ϵ	greek lunate epsilon symbol	epsilon		
-϶	greek reversed lunate epsilon symbol			
-Ϸ	greek capital letter sho			
-ϸ	greek small letter sho			
-Ϲ	greek capital lunate sigma symbol			
-Ϻ	greek capital letter san			
-ϻ	greek small letter san			
-ϼ	greek rho with stroke symbol			
-Ͻ	greek capital reversed lunate sigma symbol			
-Ͼ	greek capital dotted lunate sigma symbol			
-Ͽ	greek capital reversed dotted lunate sigma symbol			
- 	en quad			
- 	em quad			
- 	en space		space en	
- 	em space		space em quad wide	Dashes & quotes
- 	three-per-em space			
- 	four-per-em space			
- 	six-per-em space			
- 	figure space			
- 	punctuation space			
- 	thin space		space thin	Dashes & quotes
- 	hair space			
-‐	hyphen	hyphen		Dashes & quotes
-‑	non-breaking hyphen			
-‒	figure dash			
-–	en dash	textendash	dash en range	Dashes & quotes
-—	em dash	textemdash	dash em long	Dashes & quotes
-―	horizontal bar			
-‖	double vertical line	Vert		
-‗	double low line			
-‘	left single quotation mark	lq	quote single open left curly smart	Dashes & quotes
-’	right single quotation mark	rq	quote single close right curly smart apostrophe	Dashes & quotes
-‚	single low-9 quotation mark			
-‛	single high-reversed-9 quotation mark			
-“	left double quotation mark		quote double open left curly smart	Dashes & quotes
-”	right double quotation mark		quote double close right curly smart	Dashes & quotes
-„	double low-9 quotation mark			
-‟	double high-reversed-9 quotation mark			
-†	dagger	dag	dagger footnote obelisk	Dashes & quotes
-‡	double dagger	ddagger	double dagger footnote	Dashes & quotes
-•	bullet	textbullet	bullet dot list point	Circles & dots
-‣	triangular bullet			
-․	one dot leader			
-‥	two dot leader			
-…	horizontal ellipsis	ldots dots	ellipsis dots three	Dashes & quotes
-‧	hyphenation point		dot hyphenation	
- 	line separator			
- 	paragraph separator			
- 	narrow no-break space			
-‰	per mille sign		per mille permille thousand	
-‱	per ten thousand sign			
-′	prime	prime		Operators
-″	double prime	dprime		Operators
-‴	triple prime			
-‵	reversed prime			
-‶	reversed double prime			
-‷	reversed triple prime			
-‸	caret			
-‹	single left-pointing angle quotation mark			
-›	single right-pointing angle quotation mark			
-※	reference mark			
-‼	double exclamation mark			
-‽	interrobang			
-‾	overline			
-‿	undertie			
-⁀	character tie			
-⁁	caret insertion point			
-⁂	asterism			
-⁃	hyphen bullet			
-⁄	fraction slash	diagup		
-⁅	left square bracket with quill			
-⁆	right square bracket with quill			
-⁇	double question mark			
-⁈	question exclamation mark			
-⁉	exclamation question mark			
-⁊	tironian sign et			
-⁋	reversed pilcrow sign			
-⁌	black leftwards bullet			
-⁍	black rightwards bullet			
-⁎	low asterisk			
-⁏	reversed semicolon			
-⁐	close up			
-⁑	two asterisks aligned vertically			
-⁒	commercial minus sign			
-⁓	swung dash			
-⁔	inverted undertie			
-⁕	flower punctuation mark			
-⁖	three dot punctuation			
-⁗	quadruple prime			
-⁘	four dot punctuation			
-⁙	five dot punctuation			
-⁚	two dot punctuation			
-⁛	four dot mark			
-⁜	dotted cross			
-⁝	tricolon			
-⁞	vertical four dots			
- 	medium mathematical space			
-⁰	superscript zero			Sub/superscripts
-ⁱ	superscript latin small letter i			
-⁴	superscript four			Sub/superscripts
-⁵	superscript five			Sub/superscripts
-⁶	superscript six			Sub/superscripts
-⁷	superscript seven			Sub/superscripts
-⁸	superscript eight			Sub/superscripts
-⁹	superscript nine			Sub/superscripts
-⁺	superscript plus sign			Sub/superscripts
-⁻	superscript minus			Sub/superscripts
-⁼	superscript equals sign			
-⁽	superscript left parenthesis			
-⁾	superscript right parenthesis			
-ⁿ	superscript latin small letter n			
-₀	subscript zero			Sub/superscripts
-₁	subscript one			Sub/superscripts
-₂	subscript two			Sub/superscripts
-₃	subscript three			Sub/superscripts
-₄	subscript four			Sub/superscripts
-₅	subscript five			Sub/superscripts
-₆	subscript six			Sub/superscripts
-₇	subscript seven			Sub/superscripts
-₈	subscript eight			Sub/superscripts
-₉	subscript nine			Sub/superscripts
-₊	subscript plus sign			
-₋	subscript minus			
-₌	subscript equals sign			
-₍	subscript left parenthesis			
-₎	subscript right parenthesis			
-ₐ	latin subscript small letter a			
-ₑ	latin subscript small letter e			
-ₒ	latin subscript small letter o			
-ₓ	latin subscript small letter x			
-ₔ	latin subscript small letter schwa			
-ₕ	latin subscript small letter h			
-ₖ	latin subscript small letter k			
-ₗ	latin subscript small letter l			
-ₘ	latin subscript small letter m			
-ₙ	latin subscript small letter n			
-ₚ	latin subscript small letter p			
-ₛ	latin subscript small letter s			
-ₜ	latin subscript small letter t			
-₠	euro-currency sign			
-₡	colon sign			
-₢	cruzeiro sign			
-₣	french franc sign			
-₤	lira sign			
-₥	mill sign			
-₦	naira sign			
-₧	peseta sign			
-₨	rupee sign			
-₩	won sign			
-₪	new sheqel sign			
-₫	dong sign			
-€	euro sign		euro money currency	
-₭	kip sign			
-₮	tugrik sign			
-₯	drachma sign			
-₰	german penny sign			
-₱	peso sign			
-₲	guarani sign			
-₳	austral sign			
-₴	hryvnia sign			
-₵	cedi sign			
-₶	livre tournois sign			
-₷	spesmilo sign			
-₸	tenge sign			
-₹	indian rupee sign			
-₺	turkish lira sign			
-₻	nordic mark sign			
-₼	manat sign			
-₽	ruble sign			
-₾	lari sign			
-₿	bitcoin sign			
-℀	account of			
-℁	addressed to the subject			
-ℂ	double-struck capital c	mathbb{C}	complex numbers blackboard bold C	Set & logic
-℃	degree celsius	degreeCelsius		
-℄	centre line symbol			
-℅	care of			
-℆	cada una			
-ℇ	euler constant			
-℈	scruple			
-℉	degree fahrenheit			
-ℊ	script small g			
-ℋ	script capital h			
-ℌ	black-letter capital h			
-ℍ	double-struck capital h	mathbb{H}		
-ℎ	planck constant			
-ℏ	planck constant over two pi	hbar		
-ℐ	script capital i			
-ℑ	black-letter capital i	Im		
-ℒ	script capital l			
-ℓ	script small l	ell		
-℔	l b bar symbol			
-ℕ	double-struck capital n	mathbb{N}	naturals counting numbers blackboard bold N	Set & logic
-№	numero sign		numero number no	
-℗	sound recording copyright			
-℘	script capital p	wp		
-ℙ	double-struck capital p	mathbb{P}		
-ℚ	double-struck capital q	mathbb{Q}	rationals blackboard bold Q	Set & logic
-ℛ	script capital r			
-ℜ	black-letter capital r	Re		
-ℝ	double-struck capital r	mathbb{R}	reals real numbers blackboard bold R	Set & logic
-℞	prescription take			
-℟	response			
-℠	service mark			
-℡	telephone sign			
-™	trade mark sign	texttrademark	trademark tm	
-℣	versicle			
-ℤ	double-struck capital z	mathbb{Z}	integers whole numbers blackboard bold Z	Set & logic
-℥	ounce sign			
-Ω	ohm sign			
-℧	inverted ohm sign			
-ℨ	black-letter capital z			
-℩	turned greek small letter iota			
-K	kelvin sign			
-Å	angstrom sign	AA		
-ℬ	script capital b			
-ℭ	black-letter capital c			
-℮	estimated symbol			
-ℯ	script small e			
-ℰ	script capital e			
-ℱ	script capital f			
-Ⅎ	turned capital f			
-ℳ	script capital m			
-ℴ	script small o			
-ℵ	alef symbol	aleph		
-ℶ	bet symbol	beth		
-ℷ	gimel symbol	gimel		
-ℸ	dalet symbol	daleth		
-ℹ	information source		info information note	Checks & crosses
-℺	rotated capital q			
-℻	facsimile sign			
-ℼ	double-struck small pi			
-ℽ	double-struck small gamma			
-ℾ	double-struck capital gamma			
-ℿ	double-struck capital pi			
-⅀	double-struck n-ary summation			
-⅁	turned sans-serif capital g			
-⅂	turned sans-serif capital l			
-⅃	reversed sans-serif capital l			
-⅄	turned sans-serif capital y			
-ⅅ	double-struck italic capital d			
-ⅆ	double-struck italic small d			
-ⅇ	double-struck italic small e			
-ⅈ	double-struck italic small i			
-ⅉ	double-struck italic small j			
-⅊	property line			
-⅋	turned ampersand			
-⅌	per sign			
-⅍	aktieselskab			
-ⅎ	turned small f			
-⅏	symbol for samaritan source			
-⅐	vulgar fraction one seventh			
-⅑	vulgar fraction one ninth			
-⅒	vulgar fraction one tenth			
-⅓	vulgar fraction one third		third fraction one three	
-⅔	vulgar fraction two thirds			
-⅕	vulgar fraction one fifth			
-⅖	vulgar fraction two fifths			
-⅗	vulgar fraction three fifths			
-⅘	vulgar fraction four fifths			
-⅙	vulgar fraction one sixth			
-⅚	vulgar fraction five sixths			
-⅛	vulgar fraction one eighth			
-⅜	vulgar fraction three eighths			
-⅝	vulgar fraction five eighths			
-⅞	vulgar fraction seven eighths			
-⅟	fraction numerator one			
-Ⅰ	roman numeral one			
-Ⅱ	roman numeral two			
-Ⅲ	roman numeral three			
-Ⅳ	roman numeral four			
-Ⅴ	roman numeral five			
-Ⅵ	roman numeral six			
-Ⅶ	roman numeral seven			
-Ⅷ	roman numeral eight			
-Ⅸ	roman numeral nine			
-Ⅹ	roman numeral ten			
-Ⅺ	roman numeral eleven			
-Ⅻ	roman numeral twelve			
-Ⅼ	roman numeral fifty			
-Ⅽ	roman numeral one hundred			
-Ⅾ	roman numeral five hundred			
-Ⅿ	roman numeral one thousand			
-ⅰ	small roman numeral one			
-ⅱ	small roman numeral two			
-ⅲ	small roman numeral three			
-ⅳ	small roman numeral four			
-ⅴ	small roman numeral five			
-ⅵ	small roman numeral six			
-ⅶ	small roman numeral seven			
-ⅷ	small roman numeral eight			
-ⅸ	small roman numeral nine			
-ⅹ	small roman numeral ten			
-ⅺ	small roman numeral eleven			
-ⅻ	small roman numeral twelve			
-ⅼ	small roman numeral fifty			
-ⅽ	small roman numeral one hundred			
-ⅾ	small roman numeral five hundred			
-ⅿ	small roman numeral one thousand			
-ↀ	roman numeral one thousand c d			
-ↁ	roman numeral five thousand			
-ↂ	roman numeral ten thousand			
-Ↄ	roman numeral reversed one hundred			
-ↄ	latin small letter reversed c			
-ↅ	roman numeral six late form			
-ↆ	roman numeral fifty early form			
-ↇ	roman numeral fifty thousand			
-ↈ	roman numeral one hundred thousand			
-↉	vulgar fraction zero thirds			
-↊	turned digit two			
-↋	turned digit three			
-←	leftwards arrow	leftarrow gets	arrow left from	Arrows
-↑	upwards arrow	uparrow	arrow up	Arrows
-→	rightwards arrow	rightarrow to	arrow right to	Arrows
-↓	downwards arrow	downarrow	arrow down	Arrows
-↔	left right arrow	leftrightarrow		Arrows
-↕	up down arrow	updownarrow		Arrows
-↖	north west arrow	nwarrow		Arrows
-↗	north east arrow	nearrow		Arrows
-↘	south east arrow	searrow		Arrows
-↙	south west arrow	swarrow		Arrows
-↚	leftwards arrow with stroke	nleftarrow		
-↛	rightwards arrow with stroke	nrightarrow		
-↜	leftwards wave arrow			
-↝	rightwards wave arrow			
-↞	leftwards two headed arrow			
-↟	upwards two headed arrow			
-↠	rightwards two headed arrow			
-↡	downwards two headed arrow			
-↢	leftwards arrow with tail			
-↣	rightwards arrow with tail			
-↤	leftwards arrow from bar			
-↥	upwards arrow from bar			
-↦	rightwards arrow from bar	mapsto		Arrows
-↧	downwards arrow from bar			
-↨	up down arrow with base			
-↩	leftwards arrow with hook	hookleftarrow		
-↪	rightwards arrow with hook	hookrightarrow		
-↫	leftwards arrow with loop	looparrowleft		
-↬	rightwards arrow with loop	looparrowright		
-↭	left right wave arrow			
-↮	left right arrow with stroke			
-↯	downwards zigzag arrow			
-↰	upwards arrow with tip leftwards	Lsh		
-↱	upwards arrow with tip rightwards	Rsh		
-↲	downwards arrow with tip leftwards			
-↳	downwards arrow with tip rightwards			
-↴	rightwards arrow with corner downwards			
-↵	downwards arrow with corner leftwards			
-↶	anticlockwise top semicircle arrow			
-↷	clockwise top semicircle arrow			
-↸	north west arrow to long bar			
-↹	leftwards arrow to bar over rightwards arrow to bar			
-↺	anticlockwise open circle arrow			Arrows
-↻	clockwise open circle arrow			Arrows
-↼	leftwards harpoon with barb upwards	leftharpoonup		
-↽	leftwards harpoon with barb downwards	leftharpoondown		
-↾	upwards harpoon with barb rightwards			
-↿	upwards harpoon with barb leftwards			
-⇀	rightwards harpoon with barb upwards	rightharpoonup		
-⇁	rightwards harpoon with barb downwards	rightharpoondown		
-⇂	downwards harpoon with barb rightwards			
-⇃	downwards harpoon with barb leftwards			
-⇄	rightwards arrow over leftwards arrow	rightleftarrows		
-⇅	upwards arrow leftwards of downwards arrow			
-⇆	leftwards arrow over rightwards arrow			
-⇇	leftwards paired arrows			
-⇈	upwards paired arrows			
-⇉	rightwards paired arrows			
-⇊	downwards paired arrows			
-⇋	leftwards harpoon over rightwards harpoon			
-⇌	rightwards harpoon over leftwards harpoon	rightleftharpoons		
-⇍	leftwards double arrow with stroke			
-⇎	left right double arrow with stroke			
-⇏	rightwards double arrow with stroke			
-⇐	leftwards double arrow	Leftarrow		Arrows
-⇑	upwards double arrow	Uparrow		
-⇒	rightwards double arrow	Rightarrow implies	arrow right double implies therefore	Arrows
-⇓	downwards double arrow	Downarrow		
-⇔	left right double arrow	Leftrightarrow iff		Arrows
-⇕	up down double arrow			
-⇖	north west double arrow			
-⇗	north east double arrow			
-⇘	south east double arrow			
-⇙	south west double arrow			
-⇚	leftwards triple arrow			
-⇛	rightwards triple arrow			
-⇜	leftwards squiggle arrow			
-⇝	rightwards squiggle arrow			
-⇞	upwards arrow with double stroke			
-⇟	downwards arrow with double stroke			
-⇠	leftwards dashed arrow			
-⇡	upwards dashed arrow			
-⇢	rightwards dashed arrow			
-⇣	downwards dashed arrow			
-⇤	leftwards arrow to bar			
-⇥	rightwards arrow to bar			
-⇦	leftwards white arrow			
-⇧	upwards white arrow			
-⇨	rightwards white arrow			
-⇩	downwards white arrow			
-⇪	upwards white arrow from bar			
-⇫	upwards white arrow on pedestal			
-⇬	upwards white arrow on pedestal with horizontal bar			
-⇭	upwards white arrow on pedestal with vertical bar			
-⇮	upwards white double arrow			
-⇯	upwards white double arrow on pedestal			
-⇰	rightwards white arrow from wall			
-⇱	north west arrow to corner			
-⇲	south east arrow to corner			
-⇳	up down white arrow			
-⇴	right arrow with small circle			
-⇵	downwards arrow leftwards of upwards arrow			
-⇶	three rightwards arrows			
-⇷	leftwards arrow with vertical stroke			
-⇸	rightwards arrow with vertical stroke			
-⇹	left right arrow with vertical stroke			
-⇺	leftwards arrow with double vertical stroke			
-⇻	rightwards arrow with double vertical stroke			
-⇼	left right arrow with double vertical stroke			
-⇽	leftwards open-headed arrow			
-⇾	rightwards open-headed arrow			
-⇿	left right open-headed arrow			
-∀	for all	forall	for all every any universal	Set & logic
-∁	complement			
-∂	partial differential	partial	partial derivative del	Operators
-∃	there exists	exists	there exists some existential	Set & logic
-∄	there does not exist	nexists		Set & logic
-∅	empty set	emptyset varnothing	empty set null nothing void	Set & logic
-∆	increment			
-∇	nabla	nabla	nabla del gradient grad divergence curl	Operators
-∈	element of	in	element of member in belongs	Set & logic
-∉	not an element of	notin	not element member	Set & logic
-∊	small element of			
-∋	contains as member	ni		
-∌	does not contain as member			
-∍	small contains as member			
-∎	end of proof			
-∏	n-ary product	prod	product prod multiply	Operators
-∐	n-ary coproduct	coprod		
-∑	n-ary summation	sum	sum sigma total add	Operators
-−	minus sign	minus	minus math	Operators
-∓	minus-or-plus sign	mp		Operators
-∔	dot plus	dotplus		
-∕	division slash			
-∖	set minus	setminus		
-∗	asterisk operator	ast		
-∘	ring operator	circ	circle small ring compose composition	Circles & dots
-∙	bullet operator	bullet	dot filled small	Circles & dots
-√	square root	sqrt	root radical square	Operators
-∛	cube root			
-∜	fourth root			
-∝	proportional to	propto		Relations
-∞	infinity	infty	infinity infinite forever	Operators
-∟	right angle			
-∠	angle	angle		
-∡	measured angle	measuredangle		
-∢	spherical angle	sphericalangle		
-∣	divides	mid		
-∤	does not divide	nmid		
-∥	parallel to	parallel		
-∦	not parallel to	nparallel		
-∧	logical and	wedge land		Set & logic
-∨	logical or	vee lor		Set & logic
-∩	intersection	cap		Set & logic
-∪	union	cup		Set & logic
-∫	integral	int	integral integrate	Operators
-∬	double integral	iint		
-∭	triple integral	iiint		
-∮	contour integral	oint		Operators
-∯	surface integral			
-∰	volume integral			
-∱	clockwise integral			
-∲	clockwise contour integral			
-∳	anticlockwise contour integral			
-∴	therefore	therefore		
-∵	because	because		
-∶	ratio	ratio		
-∷	proportion			
-∸	dot minus			
-∹	excess			
-∺	geometric proportion			
-∻	homothetic			
-∼	tilde operator	sim		Relations
-∽	reversed tilde			
-∾	inverted lazy s			
-∿	sine wave			
-≀	wreath product	wr		
-≁	not tilde			
-≂	minus tilde			
-≃	asymptotically equal to	simeq		Relations
-≄	not asymptotically equal to			
-≅	approximately equal to	cong		Relations
-≆	approximately but not actually equal to			
-≇	neither approximately nor actually equal to			
-≈	almost equal to	approx	approx approximately roughly about	Relations
-≉	not almost equal to			
-≊	almost equal or equal to			
-≋	triple tilde			
-≌	all equal to			
-≍	equivalent to	asymp		
-≎	geometrically equivalent to			
-≏	difference between			
-≐	approaches the limit	doteq		Relations
-≑	geometrically equal to			
-≒	approximately equal to or the image of	fallingdotseq		
-≓	image of or approximately equal to			
-≔	colon equals	coloneq		
-≕	equals colon			
-≖	ring in equal to			
-≗	ring equal to			
-≘	corresponds to			
-≙	estimates			
-≚	equiangular to			
-≛	star equals			
-≜	delta equal to			
-≝	equal to by definition			
-≞	measured by			
-≟	questioned equal to			
-≠	not equal to	ne neq	not equal ne different	Relations
-≡	identical to	equiv	identical equivalent congruent	Relations
-≢	not identical to	nequiv		
-≣	strictly equivalent to			
-≤	less-than or equal to	le leq	less equal le at most	Relations
-≥	greater-than or equal to	ge geq	greater equal ge at least	Relations
-≦	less-than over equal to			
-≧	greater-than over equal to			
-≨	less-than but not equal to			
-≩	greater-than but not equal to			
-≪	much less-than	ll		Relations
-≫	much greater-than	gg		Relations
-≬	between			
-≭	not equivalent to			
-≮	not less-than			
-≯	not greater-than			
-≰	neither less-than nor equal to			
-≱	neither greater-than nor equal to			
-≲	less-than or equivalent to			
-≳	greater-than or equivalent to			
-≴	neither less-than nor equivalent to			
-≵	neither greater-than nor equivalent to			
-≶	less-than or greater-than			
-≷	greater-than or less-than			
-≸	neither less-than nor greater-than			
-≹	neither greater-than nor less-than			
-≺	precedes	prec		
-≻	succeeds	succ		
-≼	precedes or equal to			
-≽	succeeds or equal to			
-≾	precedes or equivalent to			
-≿	succeeds or equivalent to			
-⊀	does not precede			
-⊁	does not succeed			
-⊂	subset of	subset		Set & logic
-⊃	superset of	supset		Set & logic
-⊄	not a subset of			
-⊅	not a superset of			
-⊆	subset of or equal to	subseteq		Set & logic
-⊇	superset of or equal to	supseteq		Set & logic
-⊈	neither a subset of nor equal to	nsubseteq		
-⊉	neither a superset of nor equal to	nsupseteq		
-⊊	subset of with not equal to			
-⊋	superset of with not equal to			
-⊌	multiset			
-⊍	multiset multiplication			
-⊎	multiset union	uplus		
-⊏	square image of	sqsubset		
-⊐	square original of	sqsupset		
-⊑	square image of or equal to	sqsubseteq		
-⊒	square original of or equal to	sqsupseteq		
-⊓	square cap	sqcap		
-⊔	square cup	sqcup		
-⊕	circled plus	oplus		Circles & dots
-⊖	circled minus	ominus		Circles & dots
-⊗	circled times	otimes		Circles & dots
-⊘	circled division slash	oslash		Circles & dots
-⊙	circled dot operator	odot	circle dot centered centred circled	Circles & dots
-⊚	circled ring operator	circledcirc		Circles & dots
-⊛	circled asterisk operator	circledast		
-⊜	circled equals			
-⊝	circled dash	circleddash		
-⊞	squared plus			
-⊟	squared minus			
-⊠	squared times			
-⊡	squared dot operator			
-⊢	right tack	vdash		Set & logic
-⊣	left tack	dashv		
-⊤	down tack	top		Set & logic
-⊥	up tack	perp bot		Set & logic
-⊦	assertion			
-⊧	models			
-⊨	true	models		Set & logic
-⊩	forces			
-⊪	triple vertical bar right turnstile			
-⊫	double vertical bar double right turnstile			
-⊬	does not prove			
-⊭	not true			
-⊮	does not force			
-⊯	negated double vertical bar double right turnstile			
-⊰	precedes under relation			
-⊱	succeeds under relation			
-⊲	normal subgroup of			
-⊳	contains as normal subgroup			
-⊴	normal subgroup of or equal to			
-⊵	contains as normal subgroup or equal to			
-⊶	original of			
-⊷	image of			
-⊸	multimap			
-⊹	hermitian conjugate matrix			
-⊺	intercalate			
-⊻	xor			
-⊼	nand			
-⊽	nor			
-⊾	right angle with arc			
-⊿	right triangle			
-⋀	n-ary logical and	bigwedge		
-⋁	n-ary logical or	bigvee		
-⋂	n-ary intersection	bigcap		
-⋃	n-ary union	bigcup		
-⋄	diamond operator			
-⋅	dot operator	cdot	dot centered centred multiply product	Circles & dots
-⋆	star operator	star		
-⋇	division times			
-⋈	bowtie			
-⋉	left normal factor semidirect product			
-⋊	right normal factor semidirect product			
-⋋	left semidirect product			
-⋌	right semidirect product			
-⋍	reversed tilde equals			
-⋎	curly logical or			
-⋏	curly logical and			
-⋐	double subset			
-⋑	double superset			
-⋒	double intersection			
-⋓	double union			
-⋔	pitchfork			
-⋕	equal and parallel to			
-⋖	less-than with dot			
-⋗	greater-than with dot			
-⋘	very much less-than			
-⋙	very much greater-than			
-⋚	less-than equal to or greater-than			
-⋛	greater-than equal to or less-than			
-⋜	equal to or less-than			
-⋝	equal to or greater-than			
-⋞	equal to or precedes			
-⋟	equal to or succeeds			
-⋠	does not precede or equal			
-⋡	does not succeed or equal			
-⋢	not square image of or equal to			
-⋣	not square original of or equal to			
-⋤	square image of or not equal to			
-⋥	square original of or not equal to			
-⋦	less-than but not equivalent to			
-⋧	greater-than but not equivalent to			
-⋨	precedes but not equivalent to			
-⋩	succeeds but not equivalent to			
-⋪	not normal subgroup of			
-⋫	does not contain as normal subgroup			
-⋬	not normal subgroup of or equal to			
-⋭	does not contain as normal subgroup or equal			
-⋮	vertical ellipsis	vdots		
-⋯	midline horizontal ellipsis	cdots		
-⋰	up right diagonal ellipsis			
-⋱	down right diagonal ellipsis	ddots		
-⋲	element of with long horizontal stroke			
-⋳	element of with vertical bar at end of horizontal stroke			
-⋴	small element of with vertical bar at end of horizontal stroke			
-⋵	element of with dot above			
-⋶	element of with overbar			
-⋷	small element of with overbar			
-⋸	element of with underbar			
-⋹	element of with two horizontal strokes			
-⋺	contains with long horizontal stroke			
-⋻	contains with vertical bar at end of horizontal stroke			
-⋼	small contains with vertical bar at end of horizontal stroke			
-⋽	contains with overbar			
-⋾	small contains with overbar			
-⋿	z notation bag membership			
-⌀	diameter sign			
-⌁	electric arrow			
-⌂	house			
-⌃	up arrowhead			
-⌄	down arrowhead			
-⌅	projective			
-⌆	perspective			
-⌇	wavy line			
-⌈	left ceiling	lceil		
-⌉	right ceiling	rceil		
-⌊	left floor	lfloor		
-⌋	right floor	rfloor		
-⌌	bottom right crop	ulcorner		
-⌍	bottom left crop			
-⌎	top right crop			
-⌏	top left crop			
-⌐	reversed not sign			
-⌑	square lozenge			
-⌒	arc			
-⌓	segment			
-⌔	sector			
-⌕	telephone recorder			
-⌖	position indicator			
-⌗	viewdata square			
-⌘	place of interest sign			
-⌙	turned not sign			
-⌚	watch			
-⌛	hourglass			
-⌜	top left corner			
-⌝	top right corner			
-⌞	bottom left corner			
-⌟	bottom right corner			
-⌠	top half integral			
-⌡	bottom half integral			
-⌢	frown			
-⌣	smile			
-⌤	up arrowhead between two horizontal bars			
-⌥	option key			
-⌦	erase to the right			
-⌧	x in a rectangle box			
-⌨	keyboard			
-〈	left-pointing angle bracket			
-〉	right-pointing angle bracket			
-⌫	erase to the left			
-⌬	benzene ring			
-⌭	cylindricity			
-⌮	all around-profile			
-⌯	symmetry			
-⌰	total runout			
-⌱	dimension origin			
-⌲	conical taper			
-⌳	slope			
-⌴	counterbore			
-⌵	countersink			
-⌶	apl functional symbol i-beam			
-⌷	apl functional symbol squish quad			
-⌸	apl functional symbol quad equal			
-⌹	apl functional symbol quad divide			
-⌺	apl functional symbol quad diamond			
-⌻	apl functional symbol quad jot			
-⌼	apl functional symbol quad circle			
-⌽	apl functional symbol circle stile			
-⌾	apl functional symbol circle jot			
-⌿	apl functional symbol slash bar			
-⍀	apl functional symbol backslash bar			
-⍁	apl functional symbol quad slash			
-⍂	apl functional symbol quad backslash			
-⍃	apl functional symbol quad less-than			
-⍄	apl functional symbol quad greater-than			
-⍅	apl functional symbol leftwards vane			
-⍆	apl functional symbol rightwards vane			
-⍇	apl functional symbol quad leftwards arrow			
-⍈	apl functional symbol quad rightwards arrow			
-⍉	apl functional symbol circle backslash			
-⍊	apl functional symbol down tack underbar			
-⍋	apl functional symbol delta stile			
-⍌	apl functional symbol quad down caret			
-⍍	apl functional symbol quad delta			
-⍎	apl functional symbol down tack jot			
-⍏	apl functional symbol upwards vane			
-⍐	apl functional symbol quad upwards arrow			
-⍑	apl functional symbol up tack overbar			
-⍒	apl functional symbol del stile			
-⍓	apl functional symbol quad up caret			
-⍔	apl functional symbol quad del			
-⍕	apl functional symbol up tack jot			
-⍖	apl functional symbol downwards vane			
-⍗	apl functional symbol quad downwards arrow			
-⍘	apl functional symbol quote underbar			
-⍙	apl functional symbol delta underbar			
-⍚	apl functional symbol diamond underbar			
-⍛	apl functional symbol jot underbar			
-⍜	apl functional symbol circle underbar			
-⍝	apl functional symbol up shoe jot			
-⍞	apl functional symbol quote quad			
-⍟	apl functional symbol circle star			
-⍠	apl functional symbol quad colon			
-⍡	apl functional symbol up tack diaeresis			
-⍢	apl functional symbol del diaeresis			
-⍣	apl functional symbol star diaeresis			
-⍤	apl functional symbol jot diaeresis			
-⍥	apl functional symbol circle diaeresis			
-⍦	apl functional symbol down shoe stile			
-⍧	apl functional symbol left shoe stile			
-⍨	apl functional symbol tilde diaeresis			
-⍩	apl functional symbol greater-than diaeresis			
-⍪	apl functional symbol comma bar			
-⍫	apl functional symbol del tilde			
-⍬	apl functional symbol zilde			
-⍭	apl functional symbol stile tilde			
-⍮	apl functional symbol semicolon underbar			
-⍯	apl functional symbol quad not equal			
-⍰	apl functional symbol quad question			
-⍱	apl functional symbol down caret tilde			
-⍲	apl functional symbol up caret tilde			
-⍳	apl functional symbol iota			
-⍴	apl functional symbol rho			
-⍵	apl functional symbol omega			
-⍶	apl functional symbol alpha underbar			
-⍷	apl functional symbol epsilon underbar			
-⍸	apl functional symbol iota underbar			
-⍹	apl functional symbol omega underbar			
-⍺	apl functional symbol alpha			
-⍻	not check mark			
-⍼	right angle with downwards zigzag arrow			
-⍽	shouldered open box			
-⍾	bell symbol			
-⍿	vertical line with middle dot			
-─	box drawings light horizontal			
-━	box drawings heavy horizontal			
-│	box drawings light vertical			
-┃	box drawings heavy vertical			
-┄	box drawings light triple dash horizontal			
-┅	box drawings heavy triple dash horizontal			
-┆	box drawings light triple dash vertical			
-┇	box drawings heavy triple dash vertical			
-┈	box drawings light quadruple dash horizontal			
-┉	box drawings heavy quadruple dash horizontal			
-┊	box drawings light quadruple dash vertical			
-┋	box drawings heavy quadruple dash vertical			
-┌	box drawings light down and right			
-┍	box drawings down light and right heavy			
-┎	box drawings down heavy and right light			
-┏	box drawings heavy down and right			
-┐	box drawings light down and left			
-┑	box drawings down light and left heavy			
-┒	box drawings down heavy and left light			
-┓	box drawings heavy down and left			
-└	box drawings light up and right			
-┕	box drawings up light and right heavy			
-┖	box drawings up heavy and right light			
-┗	box drawings heavy up and right			
-┘	box drawings light up and left			
-┙	box drawings up light and left heavy			
-┚	box drawings up heavy and left light			
-┛	box drawings heavy up and left			
-├	box drawings light vertical and right			
-┝	box drawings vertical light and right heavy			
-┞	box drawings up heavy and right down light			
-┟	box drawings down heavy and right up light			
-┠	box drawings vertical heavy and right light			
-┡	box drawings down light and right up heavy			
-┢	box drawings up light and right down heavy			
-┣	box drawings heavy vertical and right			
-┤	box drawings light vertical and left			
-┥	box drawings vertical light and left heavy			
-┦	box drawings up heavy and left down light			
-┧	box drawings down heavy and left up light			
-┨	box drawings vertical heavy and left light			
-┩	box drawings down light and left up heavy			
-┪	box drawings up light and left down heavy			
-┫	box drawings heavy vertical and left			
-┬	box drawings light down and horizontal			
-┭	box drawings left heavy and right down light			
-┮	box drawings right heavy and left down light			
-┯	box drawings down light and horizontal heavy			
-┰	box drawings down heavy and horizontal light			
-┱	box drawings right light and left down heavy			
-┲	box drawings left light and right down heavy			
-┳	box drawings heavy down and horizontal			
-┴	box drawings light up and horizontal			
-┵	box drawings left heavy and right up light			
-┶	box drawings right heavy and left up light			
-┷	box drawings up light and horizontal heavy			
-┸	box drawings up heavy and horizontal light			
-┹	box drawings right light and left up heavy			
-┺	box drawings left light and right up heavy			
-┻	box drawings heavy up and horizontal			
-┼	box drawings light vertical and horizontal			
-┽	box drawings left heavy and right vertical light			
-┾	box drawings right heavy and left vertical light			
-┿	box drawings vertical light and horizontal heavy			
-╀	box drawings up heavy and down horizontal light			
-╁	box drawings down heavy and up horizontal light			
-╂	box drawings vertical heavy and horizontal light			
-╃	box drawings left up heavy and right down light			
-╄	box drawings right up heavy and left down light			
-╅	box drawings left down heavy and right up light			
-╆	box drawings right down heavy and left up light			
-╇	box drawings down light and up horizontal heavy			
-╈	box drawings up light and down horizontal heavy			
-╉	box drawings right light and left vertical heavy			
-╊	box drawings left light and right vertical heavy			
-╋	box drawings heavy vertical and horizontal			
-╌	box drawings light double dash horizontal			
-╍	box drawings heavy double dash horizontal			
-╎	box drawings light double dash vertical			
-╏	box drawings heavy double dash vertical			
-═	box drawings double horizontal			
-║	box drawings double vertical			
-╒	box drawings down single and right double			
-╓	box drawings down double and right single			
-╔	box drawings double down and right			
-╕	box drawings down single and left double			
-╖	box drawings down double and left single			
-╗	box drawings double down and left			
-╘	box drawings up single and right double			
-╙	box drawings up double and right single			
-╚	box drawings double up and right			
-╛	box drawings up single and left double			
-╜	box drawings up double and left single			
-╝	box drawings double up and left			
-╞	box drawings vertical single and right double			
-╟	box drawings vertical double and right single			
-╠	box drawings double vertical and right			
-╡	box drawings vertical single and left double			
-╢	box drawings vertical double and left single			
-╣	box drawings double vertical and left			
-╤	box drawings down single and horizontal double			
-╥	box drawings down double and horizontal single			
-╦	box drawings double down and horizontal			
-╧	box drawings up single and horizontal double			
-╨	box drawings up double and horizontal single			
-╩	box drawings double up and horizontal			
-╪	box drawings vertical single and horizontal double			
-╫	box drawings vertical double and horizontal single			
-╬	box drawings double vertical and horizontal			
-╭	box drawings light arc down and right			
-╮	box drawings light arc down and left			
-╯	box drawings light arc up and left			
-╰	box drawings light arc up and right			
-╱	box drawings light diagonal upper right to lower left			
-╲	box drawings light diagonal upper left to lower right			
-╳	box drawings light diagonal cross			
-╴	box drawings light left			
-╵	box drawings light up			
-╶	box drawings light right			
-╷	box drawings light down			
-╸	box drawings heavy left			
-╹	box drawings heavy up			
-╺	box drawings heavy right			
-╻	box drawings heavy down			
-╼	box drawings light left and heavy right			
-╽	box drawings light up and heavy down			
-╾	box drawings heavy left and light right			
-╿	box drawings heavy up and light down			
-▀	upper half block			
-▁	lower one eighth block			
-▂	lower one quarter block			
-▃	lower three eighths block			
-▄	lower half block			
-▅	lower five eighths block			
-▆	lower three quarters block			
-▇	lower seven eighths block			
-█	full block			
-▉	left seven eighths block			
-▊	left three quarters block			
-▋	left five eighths block			
-▌	left half block			
-▍	left three eighths block			
-▎	left one quarter block			
-▏	left one eighth block			
-▐	right half block			
-░	light shade			
-▒	medium shade			
-▓	dark shade			
-▔	upper one eighth block			
-▕	right one eighth block			
-▖	quadrant lower left			
-▗	quadrant lower right			
-▘	quadrant upper left			
-▙	quadrant upper left and lower left and lower right			
-▚	quadrant upper left and lower right			
-▛	quadrant upper left and upper right and lower left			
-▜	quadrant upper left and upper right and lower right			
-▝	quadrant upper right			
-▞	quadrant upper right and lower left			
-▟	quadrant upper right and lower left and lower right			
-■	black square		square filled solid box	
-□	white square		square hollow outline empty box	
-▢	white square with rounded corners			
-▣	white square containing black small square			
-▤	square with horizontal fill			
-▥	square with vertical fill			
-▦	square with orthogonal crosshatch fill			
-▧	square with upper left to lower right fill			
-▨	square with upper right to lower left fill			
-▩	square with diagonal crosshatch fill			
-▪	black small square			
-▫	white small square			
-▬	black rectangle			
-▭	white rectangle			
-▮	black vertical rectangle			
-▯	white vertical rectangle			
-▰	black parallelogram			
-▱	white parallelogram			
-▲	black up-pointing triangle		triangle filled solid up	
-△	white up-pointing triangle	bigtriangleup		
-▴	black up-pointing small triangle			
-▵	white up-pointing small triangle			
-▶	black right-pointing triangle		triangle right play	
-▷	white right-pointing triangle			
-▸	black right-pointing small triangle			
-▹	white right-pointing small triangle			
-►	black right-pointing pointer			
-▻	white right-pointing pointer			
-▼	black down-pointing triangle			
-▽	white down-pointing triangle	bigtriangledown		
-▾	black down-pointing small triangle			
-▿	white down-pointing small triangle			
-◀	black left-pointing triangle			
-◁	white left-pointing triangle			
-◂	black left-pointing small triangle			
-◃	white left-pointing small triangle			
-◄	black left-pointing pointer			
-◅	white left-pointing pointer			
-◆	black diamond			
-◇	white diamond			
-◈	white diamond containing black small diamond			
-◉	fisheye			Circles & dots
-◊	lozenge	lozenge		
-○	white circle		circle hollow outline empty ring	Circles & dots
-◌	dotted circle			
-◍	circle with vertical fill			
-◎	bullseye		circle bullseye target ring dot	Circles & dots
-●	black circle		circle filled solid dot big disc bullet	Circles & dots
-◐	circle with left half black			Circles & dots
-◑	circle with right half black			Circles & dots
-◒	circle with lower half black			
-◓	circle with upper half black			
-◔	circle with upper right quadrant black			
-◕	circle with all but upper left quadrant black			
-◖	left half black circle			
-◗	right half black circle			
-◘	inverse bullet			
-◙	inverse white circle			
-◚	upper half inverse white circle			
-◛	lower half inverse white circle			
-◜	upper left quadrant circular arc			
-◝	upper right quadrant circular arc			
-◞	lower right quadrant circular arc			
-◟	lower left quadrant circular arc			
-◠	upper half circle			
-◡	lower half circle			
-◢	black lower right triangle			
-◣	black lower left triangle			
-◤	black upper left triangle			
-◥	black upper right triangle			
-◦	white bullet		circle hollow small bullet dot	Circles & dots
-◧	square with left half black			
-◨	square with right half black			
-◩	square with upper left diagonal half black			
-◪	square with lower right diagonal half black			
-◫	white square with vertical bisecting line			
-◬	white up-pointing triangle with dot			
-◭	up-pointing triangle with left half black			
-◮	up-pointing triangle with right half black			
-◯	large circle			Circles & dots
-◰	white square with upper left quadrant			
-◱	white square with lower left quadrant			
-◲	white square with lower right quadrant			
-◳	white square with upper right quadrant			
-◴	white circle with upper left quadrant			
-◵	white circle with lower left quadrant			
-◶	white circle with lower right quadrant			
-◷	white circle with upper right quadrant			
-◸	upper left triangle			
-◹	upper right triangle			
-◺	lower left triangle			
-◻	white medium square			
-◼	black medium square			
-◽	white medium small square			
-◾	black medium small square			
-◿	lower right triangle			
-☀	black sun with rays			
-☁	cloud			
-☂	umbrella			
-☃	snowman		snowman winter	
-☄	comet			
-★	black star	bigstar	star filled solid favourite favorite	
-☆	white star		star hollow outline empty	
-☇	lightning			
-☈	thunderstorm			
-☉	sun			
-☊	ascending node			
-☋	descending node			
-☌	conjunction			
-☍	opposition			
-☎	black telephone			
-☏	white telephone			
-☐	ballot box		empty checkbox todo unchecked box	Checks & crosses
-☑	ballot box with check		tick checkbox ticked done todo	Checks & crosses
-☒	ballot box with x		crossed checkbox x ex no	Checks & crosses
-☓	saltire			
-☔	umbrella with rain drops			
-☕	hot beverage		coffee tea hot drink break	
-☖	white shogi piece			
-☗	black shogi piece			
-☘	shamrock			
-☙	reversed rotated floral heart bullet			
-☚	black left pointing index			
-☛	black right pointing index			
-☜	white left pointing index			
-☝	white up pointing index			
-☞	white right pointing index			
-☟	white down pointing index			
-☠	skull and crossbones			
-☡	caution sign			
-☢	radioactive sign			
-☣	biohazard sign			
-☤	caduceus			
-☥	ankh			
-☦	orthodox cross			
-☧	chi rho			
-☨	cross of lorraine			
-☩	cross of jerusalem			
-☪	star and crescent			
-☫	farsi symbol			
-☬	adi shakti			
-☭	hammer and sickle			
-☮	peace symbol			
-☯	yin yang			
-☰	trigram for heaven			
-☱	trigram for lake			
-☲	trigram for fire			
-☳	trigram for thunder			
-☴	trigram for wind			
-☵	trigram for water			
-☶	trigram for mountain			
-☷	trigram for earth			
-☸	wheel of dharma			
-☹	white frowning face			
-☺	white smiling face		smiley smile happy face	
-☻	black smiling face			
-☼	white sun with rays			
-☽	first quarter moon			
-☾	last quarter moon			
-☿	mercury			
-♀	female sign			
-♁	earth			
-♂	male sign			
-♃	jupiter			
-♄	saturn			
-♅	uranus			
-♆	neptune			
-♇	pluto			
-♈	aries			
-♉	taurus			
-♊	gemini			
-♋	cancer			
-♌	leo			
-♍	virgo			
-♎	libra			
-♏	scorpius			
-♐	sagittarius			
-♑	capricorn			
-♒	aquarius			
-♓	pisces			
-♔	white chess king			
-♕	white chess queen			
-♖	white chess rook			
-♗	white chess bishop			
-♘	white chess knight			
-♙	white chess pawn			
-♚	black chess king			
-♛	black chess queen			
-♜	black chess rook			
-♝	black chess bishop			
-♞	black chess knight			
-♟	black chess pawn			
-♠	black spade suit	spadesuit		
-♡	white heart suit	heartsuit		
-♢	white diamond suit	diamondsuit		
-♣	black club suit	clubsuit		
-♤	white spade suit			
-♥	black heart suit			
-♦	black diamond suit			
-♧	white club suit			
-♨	hot springs			
-♩	quarter note			
-♪	eighth note			
-♫	beamed eighth notes			
-♬	beamed sixteenth notes			
-♭	music flat sign	flat		
-♮	music natural sign	natural		
-♯	music sharp sign	sharp		
-♰	west syriac cross			
-♱	east syriac cross			
-♲	universal recycling symbol			
-♳	recycling symbol for type-1 plastics			
-♴	recycling symbol for type-2 plastics			
-♵	recycling symbol for type-3 plastics			
-♶	recycling symbol for type-4 plastics			
-♷	recycling symbol for type-5 plastics			
-♸	recycling symbol for type-6 plastics			
-♹	recycling symbol for type-7 plastics			
-♺	recycling symbol for generic materials			
-♻	black universal recycling symbol			
-♼	recycled paper symbol			
-♽	partially-recycled paper symbol			
-♾	permanent paper sign			
-♿	wheelchair symbol			
-⚀	die face-1			
-⚁	die face-2			
-⚂	die face-3			
-⚃	die face-4			
-⚄	die face-5			
-⚅	die face-6			
-⚆	white circle with dot right			
-⚇	white circle with two dots			
-⚈	black circle with white dot right			
-⚉	black circle with two white dots			
-⚊	monogram for yang			
-⚋	monogram for yin			
-⚌	digram for greater yang			
-⚍	digram for lesser yin			
-⚎	digram for lesser yang			
-⚏	digram for greater yin			
-⚐	white flag			
-⚑	black flag			
-⚒	hammer and pick			
-⚓	anchor			
-⚔	crossed swords			
-⚕	staff of aesculapius			
-⚖	scales			
-⚗	alembic			
-⚘	flower			
-⚙	gear			
-⚚	staff of hermes			
-⚛	atom symbol			
-⚜	fleur-de-lis			
-⚝	outlined white star			
-⚞	three lines converging right			
-⚟	three lines converging left			
-⚠	warning sign		warning caution careful	Checks & crosses
-⚡	high voltage sign		lightning bolt zap power fast	
-⚢	doubled female sign			
-⚣	doubled male sign			
-⚤	interlocked female and male sign			
-⚥	male and female sign			
-⚦	male with stroke sign			
-⚧	male with stroke and male and female sign			
-⚨	vertical male with stroke sign			
-⚩	horizontal male with stroke sign			
-⚪	medium white circle			
-⚫	medium black circle			
-⚬	medium small white circle			
-⚭	marriage symbol			
-⚮	divorce symbol			
-⚯	unmarried partnership symbol			
-⚰	coffin			
-⚱	funeral urn			
-⚲	neuter			
-⚳	ceres			
-⚴	pallas			
-⚵	juno			
-⚶	vesta			
-⚷	chiron			
-⚸	black moon lilith			
-⚹	sextile			
-⚺	semisextile			
-⚻	quincunx			
-⚼	sesquiquadrate			
-⚽	soccer ball			
-⚾	baseball			
-⚿	squared key			
-⛀	white draughts man			
-⛁	white draughts king			
-⛂	black draughts man			
-⛃	black draughts king			
-⛄	snowman without snow			
-⛅	sun behind cloud			
-⛆	rain			
-⛇	black snowman			
-⛈	thunder cloud and rain			
-⛉	turned white shogi piece			
-⛊	turned black shogi piece			
-⛋	white diamond in square			
-⛌	crossing lanes			
-⛍	disabled car			
-⛎	ophiuchus			
-⛏	pick			
-⛐	car sliding			
-⛑	helmet with white cross			
-⛒	circled crossing lanes			
-⛓	chains			
-⛔	no entry			
-⛕	alternate one-way left way traffic			
-⛖	black two-way left way traffic			
-⛗	white two-way left way traffic			
-⛘	black left lane merge			
-⛙	white left lane merge			
-⛚	drive slow sign			
-⛛	heavy white down-pointing triangle			
-⛜	left closed entry			
-⛝	squared saltire			
-⛞	falling diagonal in white circle in black square			
-⛟	black truck			
-⛠	restricted left entry-1			
-⛡	restricted left entry-2			
-⛢	astronomical symbol for uranus			
-⛣	heavy circle with stroke and two dots above			
-⛤	pentagram			
-⛥	right-handed interlaced pentagram			
-⛦	left-handed interlaced pentagram			
-⛧	inverted pentagram			
-⛨	black cross on shield			
-⛩	shinto shrine			
-⛪	church			
-⛫	castle			
-⛬	historic site			
-⛭	gear without hub			
-⛮	gear with handles			
-⛯	map symbol for lighthouse			
-⛰	mountain			
-⛱	umbrella on ground			
-⛲	fountain			
-⛳	flag in hole			
-⛴	ferry			
-⛵	sailboat			
-⛶	square four corners			
-⛷	skier			
-⛸	ice skate			
-⛹	person with ball			
-⛺	tent			
-⛻	japanese bank symbol			
-⛼	headstone graveyard symbol			
-⛽	fuel pump			
-⛾	cup on black square			
-⛿	white flag with horizontal middle black stripe			
-✀	black safety scissors			
-✁	upper blade scissors			
-✂	black scissors			
-✃	lower blade scissors			
-✄	white scissors			
-✅	white heavy check mark		green check tick ok yes button emoji	Checks & crosses
-✆	telephone location sign			
-✇	tape drive			
-✈	airplane		plane flight travel	
-✉	envelope			
-✊	raised fist			
-✋	raised hand			
-✌	victory hand			
-✍	writing hand			
-✎	lower right pencil		pencil edit write note	
-✏	pencil			
-✐	upper right pencil			
-✑	white nib			
-✒	black nib			
-✓	check mark	checkmark	tick check ok yes	Checks & crosses
-✔	heavy check mark		tick check bold heavy ok yes	Checks & crosses
-✕	multiplication x			
-✖	heavy multiplication x		cross x ex multiply heavy	Checks & crosses
-✗	ballot x		cross x ex wrong no fail	Checks & crosses
-✘	heavy ballot x		cross x ex wrong no fail bold heavy	Checks & crosses
-✙	outlined greek cross			
-✚	heavy greek cross			
-✛	open centre cross			
-✜	heavy open centre cross			
-✝	latin cross			
-✞	shadowed white latin cross			
-✟	outlined latin cross			
-✠	maltese cross			
-✡	star of david			
-✢	four teardrop-spoked asterisk			
-✣	four balloon-spoked asterisk			
-✤	heavy four balloon-spoked asterisk			
-✥	four club-spoked asterisk			
-✦	black four pointed star			
-✧	white four pointed star			
-✨	sparkles			
-✩	stress outlined white star			
-✪	circled white star			
-✫	open centre black star			
-✬	black centre white star			
-✭	outlined black star			
-✮	heavy outlined black star			
-✯	pinwheel star			
-✰	shadowed white star			
-✱	heavy asterisk			
-✲	open centre asterisk			
-✳	eight spoked asterisk			
-✴	eight pointed black star			
-✵	eight pointed pinwheel star			
-✶	six pointed black star			
-✷	eight pointed rectilinear black star			
-✸	heavy eight pointed rectilinear black star			
-✹	twelve pointed black star			
-✺	sixteen pointed asterisk			
-✻	teardrop-spoked asterisk			
-✼	open centre teardrop-spoked asterisk			
-✽	heavy teardrop-spoked asterisk			
-✾	six petalled black and white florette			
-✿	black florette			
-❀	white florette			
-❁	eight petalled outlined black florette			
-❂	circled open centre eight pointed star			
-❃	heavy teardrop-spoked pinwheel asterisk			
-❄	snowflake			
-❅	tight trifoliate snowflake			
-❆	heavy chevron snowflake			
-❇	sparkle			
-❈	heavy sparkle			
-❉	balloon-spoked asterisk			
-❊	eight teardrop-spoked propeller asterisk			
-❋	heavy eight teardrop-spoked propeller asterisk			
-❌	cross mark		red cross x ex wrong no fail emoji	Checks & crosses
-❍	shadowed white circle			
-❎	negative squared cross mark			
-❏	lower right drop-shadowed white square			
-❐	upper right drop-shadowed white square			
-❑	lower right shadowed white square			
-❒	upper right shadowed white square			
-❓	black question mark ornament			
-❔	white question mark ornament			
-❕	white exclamation mark ornament			
-❖	black diamond minus white x			
-❗	heavy exclamation mark symbol		warning bang important	Checks & crosses
-❘	light vertical bar			
-❙	medium vertical bar			
-❚	heavy vertical bar			
-❛	heavy single turned comma quotation mark ornament			
-❜	heavy single comma quotation mark ornament			
-❝	heavy double turned comma quotation mark ornament			
-❞	heavy double comma quotation mark ornament			
-❟	heavy low single comma quotation mark ornament			
-❠	heavy low double comma quotation mark ornament			
-❡	curved stem paragraph sign ornament			
-❢	heavy exclamation mark ornament			
-❣	heavy heart exclamation mark ornament			
-❤	heavy black heart			
-❥	rotated heavy black heart bullet			
-❦	floral heart			
-❧	rotated floral heart bullet			
-❨	medium left parenthesis ornament			
-❩	medium right parenthesis ornament			
-❪	medium flattened left parenthesis ornament			
-❫	medium flattened right parenthesis ornament			
-❬	medium left-pointing angle bracket ornament			
-❭	medium right-pointing angle bracket ornament			
-❮	heavy left-pointing angle quotation mark ornament			
-❯	heavy right-pointing angle quotation mark ornament			
-❰	heavy left-pointing angle bracket ornament			
-❱	heavy right-pointing angle bracket ornament			
-❲	light left tortoise shell bracket ornament			
-❳	light right tortoise shell bracket ornament			
-❴	medium left curly bracket ornament			
-❵	medium right curly bracket ornament			
-❶	dingbat negative circled digit one			
-❷	dingbat negative circled digit two			
-❸	dingbat negative circled digit three			
-❹	dingbat negative circled digit four			
-❺	dingbat negative circled digit five			
-❻	dingbat negative circled digit six			
-❼	dingbat negative circled digit seven			
-❽	dingbat negative circled digit eight			
-❾	dingbat negative circled digit nine			
-❿	dingbat negative circled number ten			
-➀	dingbat circled sans-serif digit one			
-➁	dingbat circled sans-serif digit two			
-➂	dingbat circled sans-serif digit three			
-➃	dingbat circled sans-serif digit four			
-➄	dingbat circled sans-serif digit five			
-➅	dingbat circled sans-serif digit six			
-➆	dingbat circled sans-serif digit seven			
-➇	dingbat circled sans-serif digit eight			
-➈	dingbat circled sans-serif digit nine			
-➉	dingbat circled sans-serif number ten			
-➊	dingbat negative circled sans-serif digit one			
-➋	dingbat negative circled sans-serif digit two			
-➌	dingbat negative circled sans-serif digit three			
-➍	dingbat negative circled sans-serif digit four			
-➎	dingbat negative circled sans-serif digit five			
-➏	dingbat negative circled sans-serif digit six			
-➐	dingbat negative circled sans-serif digit seven			
-➑	dingbat negative circled sans-serif digit eight			
-➒	dingbat negative circled sans-serif digit nine			
-➓	dingbat negative circled sans-serif number ten			
-➔	heavy wide-headed rightwards arrow			
-➕	heavy plus sign			
-➖	heavy minus sign			
-➗	heavy division sign			
-➘	heavy south east arrow			
-➙	heavy rightwards arrow			
-➚	heavy north east arrow			
-➛	drafting point rightwards arrow			
-➜	heavy round-tipped rightwards arrow			
-➝	triangle-headed rightwards arrow			
-➞	heavy triangle-headed rightwards arrow			
-➟	dashed triangle-headed rightwards arrow			
-➠	heavy dashed triangle-headed rightwards arrow			
-➡	black rightwards arrow			
-➢	three-d top-lighted rightwards arrowhead			
-➣	three-d bottom-lighted rightwards arrowhead			
-➤	black rightwards arrowhead			
-➥	heavy black curved downwards and rightwards arrow			
-➦	heavy black curved upwards and rightwards arrow			
-➧	squat black rightwards arrow			
-➨	heavy concave-pointed black rightwards arrow			
-➩	right-shaded white rightwards arrow			
-➪	left-shaded white rightwards arrow			
-➫	back-tilted shadowed white rightwards arrow			
-➬	front-tilted shadowed white rightwards arrow			
-➭	heavy lower right-shadowed white rightwards arrow			
-➮	heavy upper right-shadowed white rightwards arrow			
-➯	notched lower right-shadowed white rightwards arrow			
-➰	curly loop			
-➱	notched upper right-shadowed white rightwards arrow			
-➲	circled heavy white rightwards arrow			
-➳	white-feathered rightwards arrow			
-➴	black-feathered south east arrow			
-➵	black-feathered rightwards arrow			
-➶	black-feathered north east arrow			
-➷	heavy black-feathered south east arrow			
-➸	heavy black-feathered rightwards arrow			
-➹	heavy black-feathered north east arrow			
-➺	teardrop-barbed rightwards arrow			
-➻	heavy teardrop-shanked rightwards arrow			
-➼	wedge-tailed rightwards arrow			
-➽	heavy wedge-tailed rightwards arrow			
-➾	open-outlined rightwards arrow			
-➿	double curly loop			
-⟀	three dimensional angle			
-⟁	white triangle containing small white triangle			
-⟂	perpendicular			
-⟃	open subset			
-⟄	open superset			
-⟅	left s-shaped bag delimiter			
-⟆	right s-shaped bag delimiter			
-⟇	or with dot inside			
-⟈	reverse solidus preceding subset			
-⟉	superset preceding solidus			
-⟊	vertical bar with horizontal stroke			
-⟋	mathematical rising diagonal			
-⟌	long division			
-⟍	mathematical falling diagonal			
-⟎	squared logical and			
-⟏	squared logical or			
-⟐	white diamond with centred dot			
-⟑	and with dot			
-⟒	element of opening upwards			
-⟓	lower right corner with dot			
-⟔	upper left corner with dot			
-⟕	left outer join			
-⟖	right outer join			
-⟗	full outer join			
-⟘	large up tack			
-⟙	large down tack			
-⟚	left and right double turnstile			
-⟛	left and right tack			
-⟜	left multimap			
-⟝	long right tack			
-⟞	long left tack			
-⟟	up tack with circle above			
-⟠	lozenge divided by horizontal rule			
-⟡	white concave-sided diamond			
-⟢	white concave-sided diamond with leftwards tick			
-⟣	white concave-sided diamond with rightwards tick			
-⟤	white square with leftwards tick			
-⟥	white square with rightwards tick			
-⟦	mathematical left white square bracket			
-⟧	mathematical right white square bracket			
-⟨	mathematical left angle bracket	langle		
-⟩	mathematical right angle bracket	rangle		
-⟪	mathematical left double angle bracket			
-⟫	mathematical right double angle bracket			
-⟬	mathematical left white tortoise shell bracket			
-⟭	mathematical right white tortoise shell bracket			
-⟮	mathematical left flattened parenthesis			
-⟯	mathematical right flattened parenthesis			
-⟰	upwards quadruple arrow			
-⟱	downwards quadruple arrow			
-⟲	anticlockwise gapped circle arrow			
-⟳	clockwise gapped circle arrow			
-⟴	right arrow with circled plus			
-⟵	long leftwards arrow	longleftarrow		
-⟶	long rightwards arrow	longrightarrow		Arrows
-⟷	long left right arrow	longleftrightarrow		
-⟸	long leftwards double arrow	Longleftarrow		
-⟹	long rightwards double arrow	Longrightarrow		Arrows
-⟺	long left right double arrow	Longleftrightarrow		
-⟻	long leftwards arrow from bar			
-⟼	long rightwards arrow from bar	longmapsto		
-⟽	long leftwards double arrow from bar			
-⟾	long rightwards double arrow from bar			
-⟿	long rightwards squiggle arrow			
-⤀	rightwards two-headed arrow with vertical stroke			
-⤁	rightwards two-headed arrow with double vertical stroke			
-⤂	leftwards double arrow with vertical stroke			
-⤃	rightwards double arrow with vertical stroke			
-⤄	left right double arrow with vertical stroke			
-⤅	rightwards two-headed arrow from bar			
-⤆	leftwards double arrow from bar			
-⤇	rightwards double arrow from bar			
-⤈	downwards arrow with horizontal stroke			
-⤉	upwards arrow with horizontal stroke			
-⤊	upwards triple arrow			
-⤋	downwards triple arrow			
-⤌	leftwards double dash arrow			
-⤍	rightwards double dash arrow			
-⤎	leftwards triple dash arrow			
-⤏	rightwards triple dash arrow			
-⤐	rightwards two-headed triple dash arrow			
-⤑	rightwards arrow with dotted stem			
-⤒	upwards arrow to bar			
-⤓	downwards arrow to bar			
-⤔	rightwards arrow with tail with vertical stroke			
-⤕	rightwards arrow with tail with double vertical stroke			
-⤖	rightwards two-headed arrow with tail			
-⤗	rightwards two-headed arrow with tail with vertical stroke			
-⤘	rightwards two-headed arrow with tail with double vertical stroke			
-⤙	leftwards arrow-tail			
-⤚	rightwards arrow-tail			
-⤛	leftwards double arrow-tail			
-⤜	rightwards double arrow-tail			
-⤝	leftwards arrow to black diamond			
-⤞	rightwards arrow to black diamond			
-⤟	leftwards arrow from bar to black diamond			
-⤠	rightwards arrow from bar to black diamond			
-⤡	north west and south east arrow			
-⤢	north east and south west arrow			
-⤣	north west arrow with hook			
-⤤	north east arrow with hook			
-⤥	south east arrow with hook			
-⤦	south west arrow with hook			
-⤧	north west arrow and north east arrow			
-⤨	north east arrow and south east arrow			
-⤩	south east arrow and south west arrow			
-⤪	south west arrow and north west arrow			
-⤫	rising diagonal crossing falling diagonal			
-⤬	falling diagonal crossing rising diagonal			
-⤭	south east arrow crossing north east arrow			
-⤮	north east arrow crossing south east arrow			
-⤯	falling diagonal crossing north east arrow			
-⤰	rising diagonal crossing south east arrow			
-⤱	north east arrow crossing north west arrow			
-⤲	north west arrow crossing north east arrow			
-⤳	wave arrow pointing directly right			
-⤴	arrow pointing rightwards then curving upwards			
-⤵	arrow pointing rightwards then curving downwards			
-⤶	arrow pointing downwards then curving leftwards			
-⤷	arrow pointing downwards then curving rightwards			
-⤸	right-side arc clockwise arrow			
-⤹	left-side arc anticlockwise arrow			
-⤺	top arc anticlockwise arrow			
-⤻	bottom arc anticlockwise arrow			
-⤼	top arc clockwise arrow with minus			
-⤽	top arc anticlockwise arrow with plus			
-⤾	lower right semicircular clockwise arrow			
-⤿	lower left semicircular anticlockwise arrow			
-⥀	anticlockwise closed circle arrow			
-⥁	clockwise closed circle arrow			
-⥂	rightwards arrow above short leftwards arrow			
-⥃	leftwards arrow above short rightwards arrow			
-⥄	short rightwards arrow above leftwards arrow			
-⥅	rightwards arrow with plus below			
-⥆	leftwards arrow with plus below			
-⥇	rightwards arrow through x			
-⥈	left right arrow through small circle			
-⥉	upwards two-headed arrow from small circle			
-⥊	left barb up right barb down harpoon			
-⥋	left barb down right barb up harpoon			
-⥌	up barb right down barb left harpoon			
-⥍	up barb left down barb right harpoon			
-⥎	left barb up right barb up harpoon			
-⥏	up barb right down barb right harpoon			
-⥐	left barb down right barb down harpoon			
-⥑	up barb left down barb left harpoon			
-⥒	leftwards harpoon with barb up to bar			
-⥓	rightwards harpoon with barb up to bar			
-⥔	upwards harpoon with barb right to bar			
-⥕	downwards harpoon with barb right to bar			
-⥖	leftwards harpoon with barb down to bar			
-⥗	rightwards harpoon with barb down to bar			
-⥘	upwards harpoon with barb left to bar			
-⥙	downwards harpoon with barb left to bar			
-⥚	leftwards harpoon with barb up from bar			
-⥛	rightwards harpoon with barb up from bar			
-⥜	upwards harpoon with barb right from bar			
-⥝	downwards harpoon with barb right from bar			
-⥞	leftwards harpoon with barb down from bar			
-⥟	rightwards harpoon with barb down from bar			
-⥠	upwards harpoon with barb left from bar			
-⥡	downwards harpoon with barb left from bar			
-⥢	leftwards harpoon with barb up above leftwards harpoon with barb down			
-⥣	upwards harpoon with barb left beside upwards harpoon with barb right			
-⥤	rightwards harpoon with barb up above rightwards harpoon with barb down			
-⥥	downwards harpoon with barb left beside downwards harpoon with barb right			
-⥦	leftwards harpoon with barb up above rightwards harpoon with barb up			
-⥧	leftwards harpoon with barb down above rightwards harpoon with barb down			
-⥨	rightwards harpoon with barb up above leftwards harpoon with barb up			
-⥩	rightwards harpoon with barb down above leftwards harpoon with barb down			
-⥪	leftwards harpoon with barb up above long dash			
-⥫	leftwards harpoon with barb down below long dash			
-⥬	rightwards harpoon with barb up above long dash			
-⥭	rightwards harpoon with barb down below long dash			
-⥮	upwards harpoon with barb left beside downwards harpoon with barb right			
-⥯	downwards harpoon with barb left beside upwards harpoon with barb right			
-⥰	right double arrow with rounded head			
-⥱	equals sign above rightwards arrow			
-⥲	tilde operator above rightwards arrow			
-⥳	leftwards arrow above tilde operator			
-⥴	rightwards arrow above tilde operator			
-⥵	rightwards arrow above almost equal to			
-⥶	less-than above leftwards arrow			
-⥷	leftwards arrow through less-than			
-⥸	greater-than above rightwards arrow			
-⥹	subset above rightwards arrow			
-⥺	leftwards arrow through subset			
-⥻	superset above leftwards arrow			
-⥼	left fish tail			
-⥽	right fish tail			
-⥾	up fish tail			
-⥿	down fish tail			
-⦀	triple vertical bar delimiter			
-⦁	z notation spot			
-⦂	z notation type colon			
-⦃	left white curly bracket			
-⦄	right white curly bracket			
-⦅	left white parenthesis			
-⦆	right white parenthesis			
-⦇	z notation left image bracket			
-⦈	z notation right image bracket			
-⦉	z notation left binding bracket			
-⦊	z notation right binding bracket			
-⦋	left square bracket with underbar			
-⦌	right square bracket with underbar			
-⦍	left square bracket with tick in top corner			
-⦎	right square bracket with tick in bottom corner			
-⦏	left square bracket with tick in bottom corner			
-⦐	right square bracket with tick in top corner			
-⦑	left angle bracket with dot			
-⦒	right angle bracket with dot			
-⦓	left arc less-than bracket			
-⦔	right arc greater-than bracket			
-⦕	double left arc greater-than bracket			
-⦖	double right arc less-than bracket			
-⦗	left black tortoise shell bracket			
-⦘	right black tortoise shell bracket			
-⦙	dotted fence			
-⦚	vertical zigzag line			
-⦛	measured angle opening left			
-⦜	right angle variant with square			
-⦝	measured right angle with dot			
-⦞	angle with s inside			
-⦟	acute angle			
-⦠	spherical angle opening left			
-⦡	spherical angle opening up			
-⦢	turned angle			
-⦣	reversed angle			
-⦤	angle with underbar			
-⦥	reversed angle with underbar			
-⦦	oblique angle opening up			
-⦧	oblique angle opening down			
-⦨	measured angle with open arm ending in arrow pointing up and right			
-⦩	measured angle with open arm ending in arrow pointing up and left			
-⦪	measured angle with open arm ending in arrow pointing down and right			
-⦫	measured angle with open arm ending in arrow pointing down and left			
-⦬	measured angle with open arm ending in arrow pointing right and up			
-⦭	measured angle with open arm ending in arrow pointing left and up			
-⦮	measured angle with open arm ending in arrow pointing right and down			
-⦯	measured angle with open arm ending in arrow pointing left and down			
-⦰	reversed empty set			
-⦱	empty set with overbar			
-⦲	empty set with small circle above			
-⦳	empty set with right arrow above			
-⦴	empty set with left arrow above			
-⦵	circle with horizontal bar			
-⦶	circled vertical bar			
-⦷	circled parallel			
-⦸	circled reverse solidus			
-⦹	circled perpendicular			
-⦺	circle divided by horizontal bar and top half divided by vertical bar			
-⦻	circle with superimposed x			
-⦼	circled anticlockwise-rotated division sign			
-⦽	up arrow through circle			
-⦾	circled white bullet			
-⦿	circled bullet			
-⧀	circled less-than			
-⧁	circled greater-than			
-⧂	circle with small circle to the right			
-⧃	circle with two horizontal strokes to the right			
-⧄	squared rising diagonal slash			
-⧅	squared falling diagonal slash			
-⧆	squared asterisk			
-⧇	squared small circle			
-⧈	squared square			
-⧉	two joined squares			
-⧊	triangle with dot above			
-⧋	triangle with underbar			
-⧌	s in triangle			
-⧍	triangle with serifs at bottom			
-⧎	right triangle above left triangle			
-⧏	left triangle beside vertical bar			
-⧐	vertical bar beside right triangle			
-⧑	bowtie with left half black			
-⧒	bowtie with right half black			
-⧓	black bowtie			
-⧔	times with left half black			
-⧕	times with right half black			
-⧖	white hourglass			
-⧗	black hourglass			
-⧘	left wiggly fence			
-⧙	right wiggly fence			
-⧚	left double wiggly fence			
-⧛	right double wiggly fence			
-⧜	incomplete infinity			
-⧝	tie over infinity			
-⧞	infinity negated with vertical bar			
-⧟	double-ended multimap			
-⧠	square with contoured outline			
-⧡	increases as			
-⧢	shuffle product			
-⧣	equals sign and slanted parallel			
-⧤	equals sign and slanted parallel with tilde above			
-⧥	identical to and slanted parallel			
-⧦	gleich stark			
-⧧	thermodynamic			
-⧨	down-pointing triangle with left half black			
-⧩	down-pointing triangle with right half black			
-⧪	black diamond with down arrow			
-⧫	black lozenge			
-⧬	white circle with down arrow			
-⧭	black circle with down arrow			
-⧮	error-barred white square			
-⧯	error-barred black square			
-⧰	error-barred white diamond			
-⧱	error-barred black diamond			
-⧲	error-barred white circle			
-⧳	error-barred black circle			
-⧴	rule-delayed			
-⧵	reverse solidus operator			
-⧶	solidus with overbar			
-⧷	reverse solidus with horizontal stroke			
-⧸	big solidus			
-⧹	big reverse solidus			
-⧺	double plus			
-⧻	triple plus			
-⧼	left-pointing curved angle bracket			
-⧽	right-pointing curved angle bracket			
-⧾	tiny			
-⧿	miny			
-⨀	n-ary circled dot operator	bigodot		
-⨁	n-ary circled plus operator	bigoplus		
-⨂	n-ary circled times operator	bigotimes		
-⨃	n-ary union operator with dot			
-⨄	n-ary union operator with plus	biguplus		
-⨅	n-ary square intersection operator			
-⨆	n-ary square union operator	bigsqcup		
-⨇	two logical and operator			
-⨈	two logical or operator			
-⨉	n-ary times operator			
-⨊	modulo two sum			
-⨋	summation with integral			
-⨌	quadruple integral operator			
-⨍	finite part integral			
-⨎	integral with double stroke			
-⨏	integral average with slash			
-⨐	circulation function			
-⨑	anticlockwise integration			
-⨒	line integration with rectangular path around pole			
-⨓	line integration with semicircular path around pole			
-⨔	line integration not including the pole			
-⨕	integral around a point operator			
-⨖	quaternion integral operator			
-⨗	integral with leftwards arrow with hook			
-⨘	integral with times sign			
-⨙	integral with intersection			
-⨚	integral with union			
-⨛	integral with overbar			
-⨜	integral with underbar			
-⨝	join			
-⨞	large left triangle operator			
-⨟	z notation schema composition			
-⨠	z notation schema piping			
-⨡	z notation schema projection			
-⨢	plus sign with small circle above			
-⨣	plus sign with circumflex accent above			
-⨤	plus sign with tilde above			
-⨥	plus sign with dot below			
-⨦	plus sign with tilde below			
-⨧	plus sign with subscript two			
-⨨	plus sign with black triangle			
-⨩	minus sign with comma above			
-⨪	minus sign with dot below			
-⨫	minus sign with falling dots			
-⨬	minus sign with rising dots			
-⨭	plus sign in left half circle			
-⨮	plus sign in right half circle			
-⨯	vector or cross product			
-⨰	multiplication sign with dot above			
-⨱	multiplication sign with underbar			
-⨲	semidirect product with bottom closed			
-⨳	smash product			
-⨴	multiplication sign in left half circle			
-⨵	multiplication sign in right half circle			
-⨶	circled multiplication sign with circumflex accent			
-⨷	multiplication sign in double circle			
-⨸	circled division sign			
-⨹	plus sign in triangle			
-⨺	minus sign in triangle			
-⨻	multiplication sign in triangle			
-⨼	interior product			
-⨽	righthand interior product			
-⨾	z notation relational composition			
-⨿	amalgamation or coproduct			
-⩀	intersection with dot			
-⩁	union with minus sign			
-⩂	union with overbar			
-⩃	intersection with overbar			
-⩄	intersection with logical and			
-⩅	union with logical or			
-⩆	union above intersection			
-⩇	intersection above union			
-⩈	union above bar above intersection			
-⩉	intersection above bar above union			
-⩊	union beside and joined with union			
-⩋	intersection beside and joined with intersection			
-⩌	closed union with serifs			
-⩍	closed intersection with serifs			
-⩎	double square intersection			
-⩏	double square union			
-⩐	closed union with serifs and smash product			
-⩑	logical and with dot above			
-⩒	logical or with dot above			
-⩓	double logical and			
-⩔	double logical or			
-⩕	two intersecting logical and			
-⩖	two intersecting logical or			
-⩗	sloping large or			
-⩘	sloping large and			
-⩙	logical or overlapping logical and			
-⩚	logical and with middle stem			
-⩛	logical or with middle stem			
-⩜	logical and with horizontal dash			
-⩝	logical or with horizontal dash			
-⩞	logical and with double overbar			
-⩟	logical and with underbar			
-⩠	logical and with double underbar			
-⩡	small vee with underbar			
-⩢	logical or with double overbar			
-⩣	logical or with double underbar			
-⩤	z notation domain antirestriction			
-⩥	z notation range antirestriction			
-⩦	equals sign with dot below			
-⩧	identical with dot above			
-⩨	triple horizontal bar with double vertical stroke			
-⩩	triple horizontal bar with triple vertical stroke			
-⩪	tilde operator with dot above			
-⩫	tilde operator with rising dots			
-⩬	similar minus similar			
-⩭	congruent with dot above			
-⩮	equals with asterisk			
-⩯	almost equal to with circumflex accent			
-⩰	approximately equal or equal to			
-⩱	equals sign above plus sign			
-⩲	plus sign above equals sign			
-⩳	equals sign above tilde operator			
-⩴	double colon equal			
-⩵	two consecutive equals signs			
-⩶	three consecutive equals signs			
-⩷	equals sign with two dots above and two dots below			
-⩸	equivalent with four dots above			
-⩹	less-than with circle inside			
-⩺	greater-than with circle inside			
-⩻	less-than with question mark above			
-⩼	greater-than with question mark above			
-⩽	less-than or slanted equal to			
-⩾	greater-than or slanted equal to			
-⩿	less-than or slanted equal to with dot inside			
-⪀	greater-than or slanted equal to with dot inside			
-⪁	less-than or slanted equal to with dot above			
-⪂	greater-than or slanted equal to with dot above			
-⪃	less-than or slanted equal to with dot above right			
-⪄	greater-than or slanted equal to with dot above left			
-⪅	less-than or approximate			
-⪆	greater-than or approximate			
-⪇	less-than and single-line not equal to			
-⪈	greater-than and single-line not equal to			
-⪉	less-than and not approximate			
-⪊	greater-than and not approximate			
-⪋	less-than above double-line equal above greater-than			
-⪌	greater-than above double-line equal above less-than			
-⪍	less-than above similar or equal			
-⪎	greater-than above similar or equal			
-⪏	less-than above similar above greater-than			
-⪐	greater-than above similar above less-than			
-⪑	less-than above greater-than above double-line equal			
-⪒	greater-than above less-than above double-line equal			
-⪓	less-than above slanted equal above greater-than above slanted equal			
-⪔	greater-than above slanted equal above less-than above slanted equal			
-⪕	slanted equal to or less-than			
-⪖	slanted equal to or greater-than			
-⪗	slanted equal to or less-than with dot inside			
-⪘	slanted equal to or greater-than with dot inside			
-⪙	double-line equal to or less-than			
-⪚	double-line equal to or greater-than			
-⪛	double-line slanted equal to or less-than			
-⪜	double-line slanted equal to or greater-than			
-⪝	similar or less-than			
-⪞	similar or greater-than			
-⪟	similar above less-than above equals sign			
-⪠	similar above greater-than above equals sign			
-⪡	double nested less-than			
-⪢	double nested greater-than			
-⪣	double nested less-than with underbar			
-⪤	greater-than overlapping less-than			
-⪥	greater-than beside less-than			
-⪦	less-than closed by curve			
-⪧	greater-than closed by curve			
-⪨	less-than closed by curve above slanted equal			
-⪩	greater-than closed by curve above slanted equal			
-⪪	smaller than			
-⪫	larger than			
-⪬	smaller than or equal to			
-⪭	larger than or equal to			
-⪮	equals sign with bumpy above			
-⪯	precedes above single-line equals sign	preceq		
-⪰	succeeds above single-line equals sign	succeq		
-⪱	precedes above single-line not equal to			
-⪲	succeeds above single-line not equal to			
-⪳	precedes above equals sign			
-⪴	succeeds above equals sign			
-⪵	precedes above not equal to			
-⪶	succeeds above not equal to			
-⪷	precedes above almost equal to			
-⪸	succeeds above almost equal to			
-⪹	precedes above not almost equal to			
-⪺	succeeds above not almost equal to			
-⪻	double precedes			
-⪼	double succeeds			
-⪽	subset with dot			
-⪾	superset with dot			
-⪿	subset with plus sign below			
-⫀	superset with plus sign below			
-⫁	subset with multiplication sign below			
-⫂	superset with multiplication sign below			
-⫃	subset of or equal to with dot above			
-⫄	superset of or equal to with dot above			
-⫅	subset of above equals sign			
-⫆	superset of above equals sign			
-⫇	subset of above tilde operator			
-⫈	superset of above tilde operator			
-⫉	subset of above almost equal to			
-⫊	superset of above almost equal to			
-⫋	subset of above not equal to			
-⫌	superset of above not equal to			
-⫍	square left open box operator			
-⫎	square right open box operator			
-⫏	closed subset			
-⫐	closed superset			
-⫑	closed subset or equal to			
-⫒	closed superset or equal to			
-⫓	subset above superset			
-⫔	superset above subset			
-⫕	subset above subset			
-⫖	superset above superset			
-⫗	superset beside subset			
-⫘	superset beside and joined by dash with subset			
-⫙	element of opening downwards			
-⫚	pitchfork with tee top			
-⫛	transversal intersection			
-⫝̸	forking			
-⫝	nonforking			
-⫞	short left tack			
-⫟	short down tack			
-⫠	short up tack			
-⫡	perpendicular with s			
-⫢	vertical bar triple right turnstile			
-⫣	double vertical bar left turnstile			
-⫤	vertical bar double left turnstile			
-⫥	double vertical bar double left turnstile			
-⫦	long dash from left member of double vertical			
-⫧	short down tack with overbar			
-⫨	short up tack with underbar			
-⫩	short up tack above short down tack			
-⫪	double down tack			
-⫫	double up tack			
-⫬	double stroke not sign			
-⫭	reversed double stroke not sign			
-⫮	does not divide with reversed negation slash			
-⫯	vertical line with circle above			
-⫰	vertical line with circle below			
-⫱	down tack with circle below			
-⫲	parallel with horizontal stroke			
-⫳	parallel with tilde operator			
-⫴	triple vertical bar binary relation			
-⫵	triple vertical bar with horizontal stroke			
-⫶	triple colon operator			
-⫷	triple nested less-than			
-⫸	triple nested greater-than			
-⫹	double-line slanted less-than or equal to			
-⫺	double-line slanted greater-than or equal to			
-⫻	triple solidus binary relation			
-⫼	large triple vertical bar operator			
-⫽	double solidus operator			
-⫾	white vertical bar			
-⫿	n-ary white vertical bar			
-👍	thumbs up sign		thumbs up like good yes emoji	
-👎	thumbs down sign		thumbs down dislike bad no emoji	
-🚀	rocket		rocket launch ship fast emoji	
-🐛	bug		bug defect issue emoji	
-💡	electric light bulb		idea bulb light insight emoji	
-🔥	fire		fire hot urgent emoji	
-🎉	party popper		party celebrate done shipped emoji	
-👀	eyes		eyes look review watching emoji	
-🤔	thinking face		thinking hmm unsure emoji	
-🎯	direct hit		target goal bullseye direct hit emoji	
-𝔼	mathematical double-struck capital e	mathbb{E}	expectation expected value blackboard bold E	
-$	dollar sign		dollar money currency	
-#	number sign			
-&	ampersand			
-@	commercial at			
-^	circumflex accent			
-~	tilde			`;
+export const SYMBOL_ROWS = `¡	inverted exclamation mark				
+¢	cent sign				
+£	pound sign		pound sterling money currency		
+¤	currency sign				
+¥	yen sign		yen money currency		
+¦	broken bar				
+§	section sign	S	section silcrow	Dashes & quotes	
+¨	diaeresis				
+©	copyright sign	copyright	copyright		
+ª	feminine ordinal indicator				
+«	left-pointing double angle quotation mark		quote guillemet french open	Dashes & quotes	
+¬	not sign	neg lnot		Set & logic	
+®	registered sign	circledR	registered trademark		
+¯	macron				
+°	degree sign	degree	degree degrees temperature angle		
+±	plus-minus sign	pm	plus minus tolerance	Operators	
+²	superscript two			Sub/superscripts	
+³	superscript three			Sub/superscripts	
+´	acute accent				
+µ	micro sign				
+¶	pilcrow sign	P	pilcrow paragraph	Dashes & quotes	
+·	middle dot	centerdot	dot middle centered centred	Circles & dots	
+¸	cedilla				
+¹	superscript one			Sub/superscripts	
+º	masculine ordinal indicator				
+»	right-pointing double angle quotation mark		quote guillemet french close	Dashes & quotes	
+¼	vulgar fraction one quarter		quarter fraction one four		
+½	vulgar fraction one half		half fraction one two		
+¾	vulgar fraction three quarters		three quarters fraction		
+¿	inverted question mark				
+À	latin capital letter a with grave				
+Á	latin capital letter a with acute				
+Â	latin capital letter a with circumflex				
+Ã	latin capital letter a with tilde				
+Ä	latin capital letter a with diaeresis				
+Å	latin capital letter a with ring above				
+Æ	latin capital letter ae				
+Ç	latin capital letter c with cedilla				
+È	latin capital letter e with grave				
+É	latin capital letter e with acute				
+Ê	latin capital letter e with circumflex				
+Ë	latin capital letter e with diaeresis				
+Ì	latin capital letter i with grave				
+Í	latin capital letter i with acute				
+Î	latin capital letter i with circumflex				
+Ï	latin capital letter i with diaeresis				
+Ð	latin capital letter eth				
+Ñ	latin capital letter n with tilde				
+Ò	latin capital letter o with grave				
+Ó	latin capital letter o with acute				
+Ô	latin capital letter o with circumflex				
+Õ	latin capital letter o with tilde				
+Ö	latin capital letter o with diaeresis				
+×	multiplication sign	times	times multiply cross by	Operators	
+Ø	latin capital letter o with stroke				
+Ù	latin capital letter u with grave				
+Ú	latin capital letter u with acute				
+Û	latin capital letter u with circumflex				
+Ü	latin capital letter u with diaeresis				
+Ý	latin capital letter y with acute				
+Þ	latin capital letter thorn				
+ß	latin small letter sharp s				
+à	latin small letter a with grave				
+á	latin small letter a with acute				
+â	latin small letter a with circumflex				
+ã	latin small letter a with tilde				
+ä	latin small letter a with diaeresis				
+å	latin small letter a with ring above				
+æ	latin small letter ae				
+ç	latin small letter c with cedilla				
+è	latin small letter e with grave				
+é	latin small letter e with acute				
+ê	latin small letter e with circumflex				
+ë	latin small letter e with diaeresis				
+ì	latin small letter i with grave				
+í	latin small letter i with acute				
+î	latin small letter i with circumflex				
+ï	latin small letter i with diaeresis				
+ð	latin small letter eth				
+ñ	latin small letter n with tilde				
+ò	latin small letter o with grave				
+ó	latin small letter o with acute				
+ô	latin small letter o with circumflex				
+õ	latin small letter o with tilde				
+ö	latin small letter o with diaeresis				
+÷	division sign	div	divide division obelus	Operators	
+ø	latin small letter o with stroke				
+ù	latin small letter u with grave				
+ú	latin small letter u with acute				
+û	latin small letter u with circumflex				
+ü	latin small letter u with diaeresis				
+ý	latin small letter y with acute				
+þ	latin small letter thorn				
+ÿ	latin small letter y with diaeresis				
+Ͱ	greek capital letter heta				
+ͱ	greek small letter heta				
+Ͳ	greek capital letter archaic sampi				
+ͳ	greek small letter archaic sampi				
+ʹ	greek numeral sign				
+͵	greek lower numeral sign				
+Ͷ	greek capital letter pamphylian digamma				
+ͷ	greek small letter pamphylian digamma				
+ͺ	greek ypogegrammeni				
+ͻ	greek small reversed lunate sigma symbol				
+ͼ	greek small dotted lunate sigma symbol				
+ͽ	greek small reversed dotted lunate sigma symbol				
+;	greek question mark				
+Ϳ	greek capital letter yot				
+΄	greek tonos				
+΅	greek dialytika tonos				
+Ά	greek capital letter alpha with tonos				
+·	greek ano teleia				
+Έ	greek capital letter epsilon with tonos				
+Ή	greek capital letter eta with tonos				
+Ί	greek capital letter iota with tonos				
+Ό	greek capital letter omicron with tonos				
+Ύ	greek capital letter upsilon with tonos				
+Ώ	greek capital letter omega with tonos				
+ΐ	greek small letter iota with dialytika and tonos				
+Α	greek capital letter alpha				
+Β	greek capital letter beta				
+Γ	greek capital letter gamma	Gamma		Greek	
+Δ	greek capital letter delta	Delta		Greek	
+Ε	greek capital letter epsilon				
+Ζ	greek capital letter zeta				
+Η	greek capital letter eta				
+Θ	greek capital letter theta	Theta		Greek	
+Ι	greek capital letter iota				
+Κ	greek capital letter kappa				
+Λ	greek capital letter lamda	Lambda		Greek	
+Μ	greek capital letter mu				
+Ν	greek capital letter nu				
+Ξ	greek capital letter xi	Xi			
+Ο	greek capital letter omicron				
+Π	greek capital letter pi	Pi		Greek	
+Ρ	greek capital letter rho				
+Σ	greek capital letter sigma	Sigma		Greek	
+Τ	greek capital letter tau				
+Υ	greek capital letter upsilon	Upsilon			
+Φ	greek capital letter phi	Phi		Greek	
+Χ	greek capital letter chi				
+Ψ	greek capital letter psi	Psi		Greek	
+Ω	greek capital letter omega	Omega		Greek	
+Ϊ	greek capital letter iota with dialytika				
+Ϋ	greek capital letter upsilon with dialytika				
+ά	greek small letter alpha with tonos				
+έ	greek small letter epsilon with tonos				
+ή	greek small letter eta with tonos				
+ί	greek small letter iota with tonos				
+ΰ	greek small letter upsilon with dialytika and tonos				
+α	greek small letter alpha	alpha		Greek	
+β	greek small letter beta	beta		Greek	
+γ	greek small letter gamma	gamma		Greek	
+δ	greek small letter delta	delta		Greek	
+ε	greek small letter epsilon	varepsilon		Greek	
+ζ	greek small letter zeta	zeta			
+η	greek small letter eta	eta			
+θ	greek small letter theta	theta		Greek	
+ι	greek small letter iota	iota			
+κ	greek small letter kappa	kappa			
+λ	greek small letter lamda	lambda		Greek	
+μ	greek small letter mu	mu		Greek	
+ν	greek small letter nu	nu			
+ξ	greek small letter xi	xi			
+ο	greek small letter omicron				
+π	greek small letter pi	pi		Greek	
+ρ	greek small letter rho	rho		Greek	
+ς	greek small letter final sigma	varsigma			
+σ	greek small letter sigma	sigma		Greek	
+τ	greek small letter tau	tau		Greek	
+υ	greek small letter upsilon	upsilon			
+φ	greek small letter phi	varphi		Greek	
+χ	greek small letter chi	chi			
+ψ	greek small letter psi	psi		Greek	
+ω	greek small letter omega	omega		Greek	
+ϊ	greek small letter iota with dialytika				
+ϋ	greek small letter upsilon with dialytika				
+ό	greek small letter omicron with tonos				
+ύ	greek small letter upsilon with tonos				
+ώ	greek small letter omega with tonos				
+Ϗ	greek capital kai symbol				
+ϐ	greek beta symbol				
+ϑ	greek theta symbol	vartheta			
+ϒ	greek upsilon with hook symbol				
+ϓ	greek upsilon with acute and hook symbol				
+ϔ	greek upsilon with diaeresis and hook symbol				
+ϕ	greek phi symbol	phi			
+ϖ	greek pi symbol	varpi			
+ϗ	greek kai symbol				
+Ϙ	greek letter archaic koppa				
+ϙ	greek small letter archaic koppa				
+Ϛ	greek letter stigma				
+ϛ	greek small letter stigma				
+Ϝ	greek letter digamma				
+ϝ	greek small letter digamma				
+Ϟ	greek letter koppa				
+ϟ	greek small letter koppa				
+Ϡ	greek letter sampi				
+ϡ	greek small letter sampi				
+Ϣ	coptic capital letter shei				
+ϣ	coptic small letter shei				
+Ϥ	coptic capital letter fei				
+ϥ	coptic small letter fei				
+Ϧ	coptic capital letter khei				
+ϧ	coptic small letter khei				
+Ϩ	coptic capital letter hori				
+ϩ	coptic small letter hori				
+Ϫ	coptic capital letter gangia				
+ϫ	coptic small letter gangia				
+Ϭ	coptic capital letter shima				
+ϭ	coptic small letter shima				
+Ϯ	coptic capital letter dei				
+ϯ	coptic small letter dei				
+ϰ	greek kappa symbol				
+ϱ	greek rho symbol	varrho			
+ϲ	greek lunate sigma symbol				
+ϳ	greek letter yot				
+ϴ	greek capital theta symbol				
+ϵ	greek lunate epsilon symbol	epsilon			
+϶	greek reversed lunate epsilon symbol				
+Ϸ	greek capital letter sho				
+ϸ	greek small letter sho				
+Ϲ	greek capital lunate sigma symbol				
+Ϻ	greek capital letter san				
+ϻ	greek small letter san				
+ϼ	greek rho with stroke symbol				
+Ͻ	greek capital reversed lunate sigma symbol				
+Ͼ	greek capital dotted lunate sigma symbol				
+Ͽ	greek capital reversed dotted lunate sigma symbol				
+ 	en quad				
+ 	em quad				
+ 	en space		space en		
+ 	em space		space em quad wide	Dashes & quotes	
+ 	three-per-em space				
+ 	four-per-em space				
+ 	six-per-em space				
+ 	figure space				
+ 	punctuation space				
+ 	thin space		space thin	Dashes & quotes	
+ 	hair space				
+‐	hyphen	hyphen		Dashes & quotes	
+‑	non-breaking hyphen				
+‒	figure dash				
+–	en dash	textendash	dash en range	Dashes & quotes	
+—	em dash	textemdash	dash em long	Dashes & quotes	
+―	horizontal bar				
+‖	double vertical line	Vert			
+‗	double low line				
+‘	left single quotation mark	lq	quote single open left curly smart	Dashes & quotes	
+’	right single quotation mark	rq	quote single close right curly smart apostrophe	Dashes & quotes	
+‚	single low-9 quotation mark				
+‛	single high-reversed-9 quotation mark				
+“	left double quotation mark		quote double open left curly smart	Dashes & quotes	
+”	right double quotation mark		quote double close right curly smart	Dashes & quotes	
+„	double low-9 quotation mark				
+‟	double high-reversed-9 quotation mark				
+†	dagger	dag	dagger footnote obelisk	Dashes & quotes	
+‡	double dagger	ddagger	double dagger footnote	Dashes & quotes	
+•	bullet	textbullet	bullet dot list point	Circles & dots	
+‣	triangular bullet				
+․	one dot leader				
+‥	two dot leader				
+…	horizontal ellipsis	ldots dots	ellipsis dots three	Dashes & quotes	
+‧	hyphenation point		dot hyphenation		
+ 	line separator				
+ 	paragraph separator				
+ 	narrow no-break space				
+‰	per mille sign		per mille permille thousand		
+‱	per ten thousand sign				
+′	prime	prime		Operators	
+″	double prime	dprime		Operators	
+‴	triple prime				
+‵	reversed prime				
+‶	reversed double prime				
+‷	reversed triple prime				
+‸	caret				
+‹	single left-pointing angle quotation mark				
+›	single right-pointing angle quotation mark				
+※	reference mark				
+‼	double exclamation mark				
+‽	interrobang				
+‾	overline				
+‿	undertie				
+⁀	character tie				
+⁁	caret insertion point				
+⁂	asterism				
+⁃	hyphen bullet				
+⁄	fraction slash	diagup			
+⁅	left square bracket with quill				
+⁆	right square bracket with quill				
+⁇	double question mark				
+⁈	question exclamation mark				
+⁉	exclamation question mark				
+⁊	tironian sign et				
+⁋	reversed pilcrow sign				
+⁌	black leftwards bullet				
+⁍	black rightwards bullet				
+⁎	low asterisk				
+⁏	reversed semicolon				
+⁐	close up				
+⁑	two asterisks aligned vertically				
+⁒	commercial minus sign				
+⁓	swung dash				
+⁔	inverted undertie				
+⁕	flower punctuation mark				
+⁖	three dot punctuation				
+⁗	quadruple prime				
+⁘	four dot punctuation				
+⁙	five dot punctuation				
+⁚	two dot punctuation				
+⁛	four dot mark				
+⁜	dotted cross				
+⁝	tricolon				
+⁞	vertical four dots				
+ 	medium mathematical space				
+⁰	superscript zero			Sub/superscripts	
+ⁱ	superscript latin small letter i				
+⁴	superscript four			Sub/superscripts	
+⁵	superscript five			Sub/superscripts	
+⁶	superscript six			Sub/superscripts	
+⁷	superscript seven			Sub/superscripts	
+⁸	superscript eight			Sub/superscripts	
+⁹	superscript nine			Sub/superscripts	
+⁺	superscript plus sign			Sub/superscripts	
+⁻	superscript minus			Sub/superscripts	
+⁼	superscript equals sign				
+⁽	superscript left parenthesis				
+⁾	superscript right parenthesis				
+ⁿ	superscript latin small letter n				
+₀	subscript zero			Sub/superscripts	
+₁	subscript one			Sub/superscripts	
+₂	subscript two			Sub/superscripts	
+₃	subscript three			Sub/superscripts	
+₄	subscript four			Sub/superscripts	
+₅	subscript five			Sub/superscripts	
+₆	subscript six			Sub/superscripts	
+₇	subscript seven			Sub/superscripts	
+₈	subscript eight			Sub/superscripts	
+₉	subscript nine			Sub/superscripts	
+₊	subscript plus sign				
+₋	subscript minus				
+₌	subscript equals sign				
+₍	subscript left parenthesis				
+₎	subscript right parenthesis				
+ₐ	latin subscript small letter a				
+ₑ	latin subscript small letter e				
+ₒ	latin subscript small letter o				
+ₓ	latin subscript small letter x				
+ₔ	latin subscript small letter schwa				
+ₕ	latin subscript small letter h				
+ₖ	latin subscript small letter k				
+ₗ	latin subscript small letter l				
+ₘ	latin subscript small letter m				
+ₙ	latin subscript small letter n				
+ₚ	latin subscript small letter p				
+ₛ	latin subscript small letter s				
+ₜ	latin subscript small letter t				
+₠	euro-currency sign				
+₡	colon sign				
+₢	cruzeiro sign				
+₣	french franc sign				
+₤	lira sign				
+₥	mill sign				
+₦	naira sign				
+₧	peseta sign				
+₨	rupee sign				
+₩	won sign				
+₪	new sheqel sign				
+₫	dong sign				
+€	euro sign		euro money currency		
+₭	kip sign				
+₮	tugrik sign				
+₯	drachma sign				
+₰	german penny sign				
+₱	peso sign				
+₲	guarani sign				
+₳	austral sign				
+₴	hryvnia sign				
+₵	cedi sign				
+₶	livre tournois sign				
+₷	spesmilo sign				
+₸	tenge sign				
+₹	indian rupee sign				
+₺	turkish lira sign				
+₻	nordic mark sign				
+₼	manat sign				
+₽	ruble sign				
+₾	lari sign				
+₿	bitcoin sign				
+℀	account of				
+℁	addressed to the subject				
+ℂ	double-struck capital c	mathbb{C}	complex numbers blackboard bold C	Set & logic	
+℃	degree celsius	degreeCelsius			
+℄	centre line symbol				
+℅	care of				
+℆	cada una				
+ℇ	euler constant				
+℈	scruple				
+℉	degree fahrenheit				
+ℊ	script small g				
+ℋ	script capital h				
+ℌ	black-letter capital h				
+ℍ	double-struck capital h	mathbb{H}			
+ℎ	planck constant				
+ℏ	planck constant over two pi	hbar			
+ℐ	script capital i				
+ℑ	black-letter capital i	Im			
+ℒ	script capital l				
+ℓ	script small l	ell			
+℔	l b bar symbol				
+ℕ	double-struck capital n	mathbb{N}	naturals counting numbers blackboard bold N	Set & logic	
+№	numero sign		numero number no		
+℗	sound recording copyright				
+℘	script capital p	wp			
+ℙ	double-struck capital p	mathbb{P}			
+ℚ	double-struck capital q	mathbb{Q}	rationals blackboard bold Q	Set & logic	
+ℛ	script capital r				
+ℜ	black-letter capital r	Re			
+ℝ	double-struck capital r	mathbb{R}	reals real numbers blackboard bold R	Set & logic	
+℞	prescription take				
+℟	response				
+℠	service mark				
+℡	telephone sign				
+™	trade mark sign	texttrademark	trademark tm		
+℣	versicle				
+ℤ	double-struck capital z	mathbb{Z}	integers whole numbers blackboard bold Z	Set & logic	
+℥	ounce sign				
+Ω	ohm sign				
+℧	inverted ohm sign				
+ℨ	black-letter capital z				
+℩	turned greek small letter iota				
+K	kelvin sign				
+Å	angstrom sign	AA			
+ℬ	script capital b				
+ℭ	black-letter capital c				
+℮	estimated symbol				
+ℯ	script small e				
+ℰ	script capital e				
+ℱ	script capital f				
+Ⅎ	turned capital f				
+ℳ	script capital m				
+ℴ	script small o				
+ℵ	alef symbol	aleph			
+ℶ	bet symbol	beth			
+ℷ	gimel symbol	gimel			
+ℸ	dalet symbol	daleth			
+ℹ	information source		info information note	Checks & crosses	
+℺	rotated capital q				
+℻	facsimile sign				
+ℼ	double-struck small pi				
+ℽ	double-struck small gamma				
+ℾ	double-struck capital gamma				
+ℿ	double-struck capital pi				
+⅀	double-struck n-ary summation				
+⅁	turned sans-serif capital g				
+⅂	turned sans-serif capital l				
+⅃	reversed sans-serif capital l				
+⅄	turned sans-serif capital y				
+ⅅ	double-struck italic capital d				
+ⅆ	double-struck italic small d				
+ⅇ	double-struck italic small e				
+ⅈ	double-struck italic small i				
+ⅉ	double-struck italic small j				
+⅊	property line				
+⅋	turned ampersand				
+⅌	per sign				
+⅍	aktieselskab				
+ⅎ	turned small f				
+⅏	symbol for samaritan source				
+⅐	vulgar fraction one seventh				
+⅑	vulgar fraction one ninth				
+⅒	vulgar fraction one tenth				
+⅓	vulgar fraction one third		third fraction one three		
+⅔	vulgar fraction two thirds				
+⅕	vulgar fraction one fifth				
+⅖	vulgar fraction two fifths				
+⅗	vulgar fraction three fifths				
+⅘	vulgar fraction four fifths				
+⅙	vulgar fraction one sixth				
+⅚	vulgar fraction five sixths				
+⅛	vulgar fraction one eighth				
+⅜	vulgar fraction three eighths				
+⅝	vulgar fraction five eighths				
+⅞	vulgar fraction seven eighths				
+⅟	fraction numerator one				
+Ⅰ	roman numeral one				
+Ⅱ	roman numeral two				
+Ⅲ	roman numeral three				
+Ⅳ	roman numeral four				
+Ⅴ	roman numeral five				
+Ⅵ	roman numeral six				
+Ⅶ	roman numeral seven				
+Ⅷ	roman numeral eight				
+Ⅸ	roman numeral nine				
+Ⅹ	roman numeral ten				
+Ⅺ	roman numeral eleven				
+Ⅻ	roman numeral twelve				
+Ⅼ	roman numeral fifty				
+Ⅽ	roman numeral one hundred				
+Ⅾ	roman numeral five hundred				
+Ⅿ	roman numeral one thousand				
+ⅰ	small roman numeral one				
+ⅱ	small roman numeral two				
+ⅲ	small roman numeral three				
+ⅳ	small roman numeral four				
+ⅴ	small roman numeral five				
+ⅵ	small roman numeral six				
+ⅶ	small roman numeral seven				
+ⅷ	small roman numeral eight				
+ⅸ	small roman numeral nine				
+ⅹ	small roman numeral ten				
+ⅺ	small roman numeral eleven				
+ⅻ	small roman numeral twelve				
+ⅼ	small roman numeral fifty				
+ⅽ	small roman numeral one hundred				
+ⅾ	small roman numeral five hundred				
+ⅿ	small roman numeral one thousand				
+ↀ	roman numeral one thousand c d				
+ↁ	roman numeral five thousand				
+ↂ	roman numeral ten thousand				
+Ↄ	roman numeral reversed one hundred				
+ↄ	latin small letter reversed c				
+ↅ	roman numeral six late form				
+ↆ	roman numeral fifty early form				
+ↇ	roman numeral fifty thousand				
+ↈ	roman numeral one hundred thousand				
+↉	vulgar fraction zero thirds				
+↊	turned digit two				
+↋	turned digit three				
+←	leftwards arrow	leftarrow gets	arrow left from	Arrows	
+↑	upwards arrow	uparrow	arrow up	Arrows	
+→	rightwards arrow	rightarrow to	arrow right to	Arrows	
+↓	downwards arrow	downarrow	arrow down	Arrows	
+↔	left right arrow	leftrightarrow		Arrows	
+↕	up down arrow	updownarrow		Arrows	
+↖	north west arrow	nwarrow		Arrows	
+↗	north east arrow	nearrow		Arrows	
+↘	south east arrow	searrow		Arrows	
+↙	south west arrow	swarrow		Arrows	
+↚	leftwards arrow with stroke	nleftarrow			
+↛	rightwards arrow with stroke	nrightarrow			
+↜	leftwards wave arrow				
+↝	rightwards wave arrow				
+↞	leftwards two headed arrow				
+↟	upwards two headed arrow				
+↠	rightwards two headed arrow				
+↡	downwards two headed arrow				
+↢	leftwards arrow with tail				
+↣	rightwards arrow with tail				
+↤	leftwards arrow from bar				
+↥	upwards arrow from bar				
+↦	rightwards arrow from bar	mapsto		Arrows	
+↧	downwards arrow from bar				
+↨	up down arrow with base				
+↩	leftwards arrow with hook	hookleftarrow			
+↪	rightwards arrow with hook	hookrightarrow			
+↫	leftwards arrow with loop	looparrowleft			
+↬	rightwards arrow with loop	looparrowright			
+↭	left right wave arrow				
+↮	left right arrow with stroke				
+↯	downwards zigzag arrow				
+↰	upwards arrow with tip leftwards	Lsh			
+↱	upwards arrow with tip rightwards	Rsh			
+↲	downwards arrow with tip leftwards				
+↳	downwards arrow with tip rightwards				
+↴	rightwards arrow with corner downwards				
+↵	downwards arrow with corner leftwards				
+↶	anticlockwise top semicircle arrow				
+↷	clockwise top semicircle arrow				
+↸	north west arrow to long bar				
+↹	leftwards arrow to bar over rightwards arrow to bar				
+↺	anticlockwise open circle arrow			Arrows	
+↻	clockwise open circle arrow			Arrows	
+↼	leftwards harpoon with barb upwards	leftharpoonup			
+↽	leftwards harpoon with barb downwards	leftharpoondown			
+↾	upwards harpoon with barb rightwards				
+↿	upwards harpoon with barb leftwards				
+⇀	rightwards harpoon with barb upwards	rightharpoonup			
+⇁	rightwards harpoon with barb downwards	rightharpoondown			
+⇂	downwards harpoon with barb rightwards				
+⇃	downwards harpoon with barb leftwards				
+⇄	rightwards arrow over leftwards arrow	rightleftarrows			
+⇅	upwards arrow leftwards of downwards arrow				
+⇆	leftwards arrow over rightwards arrow				
+⇇	leftwards paired arrows				
+⇈	upwards paired arrows				
+⇉	rightwards paired arrows				
+⇊	downwards paired arrows				
+⇋	leftwards harpoon over rightwards harpoon				
+⇌	rightwards harpoon over leftwards harpoon	rightleftharpoons			
+⇍	leftwards double arrow with stroke				
+⇎	left right double arrow with stroke				
+⇏	rightwards double arrow with stroke				
+⇐	leftwards double arrow	Leftarrow		Arrows	
+⇑	upwards double arrow	Uparrow			
+⇒	rightwards double arrow	Rightarrow implies	arrow right double implies therefore	Arrows	
+⇓	downwards double arrow	Downarrow			
+⇔	left right double arrow	Leftrightarrow iff		Arrows	
+⇕	up down double arrow				
+⇖	north west double arrow				
+⇗	north east double arrow				
+⇘	south east double arrow				
+⇙	south west double arrow				
+⇚	leftwards triple arrow				
+⇛	rightwards triple arrow				
+⇜	leftwards squiggle arrow				
+⇝	rightwards squiggle arrow				
+⇞	upwards arrow with double stroke				
+⇟	downwards arrow with double stroke				
+⇠	leftwards dashed arrow				
+⇡	upwards dashed arrow				
+⇢	rightwards dashed arrow				
+⇣	downwards dashed arrow				
+⇤	leftwards arrow to bar				
+⇥	rightwards arrow to bar				
+⇦	leftwards white arrow				
+⇧	upwards white arrow				
+⇨	rightwards white arrow				
+⇩	downwards white arrow				
+⇪	upwards white arrow from bar				
+⇫	upwards white arrow on pedestal				
+⇬	upwards white arrow on pedestal with horizontal bar				
+⇭	upwards white arrow on pedestal with vertical bar				
+⇮	upwards white double arrow				
+⇯	upwards white double arrow on pedestal				
+⇰	rightwards white arrow from wall				
+⇱	north west arrow to corner				
+⇲	south east arrow to corner				
+⇳	up down white arrow				
+⇴	right arrow with small circle				
+⇵	downwards arrow leftwards of upwards arrow				
+⇶	three rightwards arrows				
+⇷	leftwards arrow with vertical stroke				
+⇸	rightwards arrow with vertical stroke				
+⇹	left right arrow with vertical stroke				
+⇺	leftwards arrow with double vertical stroke				
+⇻	rightwards arrow with double vertical stroke				
+⇼	left right arrow with double vertical stroke				
+⇽	leftwards open-headed arrow				
+⇾	rightwards open-headed arrow				
+⇿	left right open-headed arrow				
+∀	for all	forall	for all every any universal	Set & logic	
+∁	complement				
+∂	partial differential	partial	partial derivative del	Operators	
+∃	there exists	exists	there exists some existential	Set & logic	
+∄	there does not exist	nexists		Set & logic	
+∅	empty set	emptyset varnothing	empty set null nothing void	Set & logic	
+∆	increment				
+∇	nabla	nabla	nabla del gradient grad divergence curl	Operators	
+∈	element of	in	element of member in belongs	Set & logic	
+∉	not an element of	notin	not element member	Set & logic	
+∊	small element of				
+∋	contains as member	ni			
+∌	does not contain as member				
+∍	small contains as member				
+∎	end of proof				
+∏	n-ary product	prod	product prod multiply	Operators	
+∐	n-ary coproduct	coprod			
+∑	n-ary summation	sum	sum sigma total add	Operators	
+−	minus sign	minus	minus math	Operators	
+∓	minus-or-plus sign	mp		Operators	
+∔	dot plus	dotplus			
+∕	division slash				
+∖	set minus	setminus			
+∗	asterisk operator	ast			
+∘	ring operator	circ	circle small ring compose composition	Circles & dots	
+∙	bullet operator	bullet	dot filled small	Circles & dots	
+√	square root	sqrt	root radical square	Operators	
+∛	cube root				
+∜	fourth root				
+∝	proportional to	propto		Relations	
+∞	infinity	infty	infinity infinite forever	Operators	
+∟	right angle				
+∠	angle	angle			
+∡	measured angle	measuredangle			
+∢	spherical angle	sphericalangle			
+∣	divides	mid			
+∤	does not divide	nmid			
+∥	parallel to	parallel			
+∦	not parallel to	nparallel			
+∧	logical and	wedge land		Set & logic	
+∨	logical or	vee lor		Set & logic	
+∩	intersection	cap		Set & logic	
+∪	union	cup		Set & logic	
+∫	integral	int	integral integrate	Operators	
+∬	double integral	iint			
+∭	triple integral	iiint			
+∮	contour integral	oint		Operators	
+∯	surface integral				
+∰	volume integral				
+∱	clockwise integral				
+∲	clockwise contour integral				
+∳	anticlockwise contour integral				
+∴	therefore	therefore			
+∵	because	because			
+∶	ratio	ratio			
+∷	proportion				
+∸	dot minus				
+∹	excess				
+∺	geometric proportion				
+∻	homothetic				
+∼	tilde operator	sim		Relations	
+∽	reversed tilde				
+∾	inverted lazy s				
+∿	sine wave				
+≀	wreath product	wr			
+≁	not tilde				
+≂	minus tilde				
+≃	asymptotically equal to	simeq		Relations	
+≄	not asymptotically equal to				
+≅	approximately equal to	cong		Relations	
+≆	approximately but not actually equal to				
+≇	neither approximately nor actually equal to				
+≈	almost equal to	approx	approx approximately roughly about	Relations	
+≉	not almost equal to				
+≊	almost equal or equal to				
+≋	triple tilde				
+≌	all equal to				
+≍	equivalent to	asymp			
+≎	geometrically equivalent to				
+≏	difference between				
+≐	approaches the limit	doteq		Relations	
+≑	geometrically equal to				
+≒	approximately equal to or the image of	fallingdotseq			
+≓	image of or approximately equal to				
+≔	colon equals	coloneq			
+≕	equals colon				
+≖	ring in equal to				
+≗	ring equal to				
+≘	corresponds to				
+≙	estimates				
+≚	equiangular to				
+≛	star equals				
+≜	delta equal to				
+≝	equal to by definition				
+≞	measured by				
+≟	questioned equal to				
+≠	not equal to	ne neq	not equal ne different	Relations	
+≡	identical to	equiv	identical equivalent congruent	Relations	
+≢	not identical to	nequiv			
+≣	strictly equivalent to				
+≤	less-than or equal to	le leq	less equal le at most	Relations	
+≥	greater-than or equal to	ge geq	greater equal ge at least	Relations	
+≦	less-than over equal to				
+≧	greater-than over equal to				
+≨	less-than but not equal to				
+≩	greater-than but not equal to				
+≪	much less-than	ll		Relations	
+≫	much greater-than	gg		Relations	
+≬	between				
+≭	not equivalent to				
+≮	not less-than				
+≯	not greater-than				
+≰	neither less-than nor equal to				
+≱	neither greater-than nor equal to				
+≲	less-than or equivalent to				
+≳	greater-than or equivalent to				
+≴	neither less-than nor equivalent to				
+≵	neither greater-than nor equivalent to				
+≶	less-than or greater-than				
+≷	greater-than or less-than				
+≸	neither less-than nor greater-than				
+≹	neither greater-than nor less-than				
+≺	precedes	prec			
+≻	succeeds	succ			
+≼	precedes or equal to				
+≽	succeeds or equal to				
+≾	precedes or equivalent to				
+≿	succeeds or equivalent to				
+⊀	does not precede				
+⊁	does not succeed				
+⊂	subset of	subset		Set & logic	
+⊃	superset of	supset		Set & logic	
+⊄	not a subset of				
+⊅	not a superset of				
+⊆	subset of or equal to	subseteq		Set & logic	
+⊇	superset of or equal to	supseteq		Set & logic	
+⊈	neither a subset of nor equal to	nsubseteq			
+⊉	neither a superset of nor equal to	nsupseteq			
+⊊	subset of with not equal to				
+⊋	superset of with not equal to				
+⊌	multiset				
+⊍	multiset multiplication				
+⊎	multiset union	uplus			
+⊏	square image of	sqsubset			
+⊐	square original of	sqsupset			
+⊑	square image of or equal to	sqsubseteq			
+⊒	square original of or equal to	sqsupseteq			
+⊓	square cap	sqcap			
+⊔	square cup	sqcup			
+⊕	circled plus	oplus		Circles & dots	
+⊖	circled minus	ominus		Circles & dots	
+⊗	circled times	otimes		Circles & dots	
+⊘	circled division slash	oslash		Circles & dots	
+⊙	circled dot operator	odot	circle dot centered centred circled	Circles & dots	
+⊚	circled ring operator	circledcirc		Circles & dots	
+⊛	circled asterisk operator	circledast			
+⊜	circled equals				
+⊝	circled dash	circleddash			
+⊞	squared plus				
+⊟	squared minus				
+⊠	squared times				
+⊡	squared dot operator				
+⊢	right tack	vdash		Set & logic	
+⊣	left tack	dashv			
+⊤	down tack	top		Set & logic	
+⊥	up tack	perp bot		Set & logic	
+⊦	assertion				
+⊧	models				
+⊨	true	models		Set & logic	
+⊩	forces				
+⊪	triple vertical bar right turnstile				
+⊫	double vertical bar double right turnstile				
+⊬	does not prove				
+⊭	not true				
+⊮	does not force				
+⊯	negated double vertical bar double right turnstile				
+⊰	precedes under relation				
+⊱	succeeds under relation				
+⊲	normal subgroup of				
+⊳	contains as normal subgroup				
+⊴	normal subgroup of or equal to				
+⊵	contains as normal subgroup or equal to				
+⊶	original of				
+⊷	image of				
+⊸	multimap				
+⊹	hermitian conjugate matrix				
+⊺	intercalate				
+⊻	xor				
+⊼	nand				
+⊽	nor				
+⊾	right angle with arc				
+⊿	right triangle				
+⋀	n-ary logical and	bigwedge			
+⋁	n-ary logical or	bigvee			
+⋂	n-ary intersection	bigcap			
+⋃	n-ary union	bigcup			
+⋄	diamond operator				
+⋅	dot operator	cdot	dot centered centred multiply product	Circles & dots	
+⋆	star operator	star			
+⋇	division times				
+⋈	bowtie				
+⋉	left normal factor semidirect product				
+⋊	right normal factor semidirect product				
+⋋	left semidirect product				
+⋌	right semidirect product				
+⋍	reversed tilde equals				
+⋎	curly logical or				
+⋏	curly logical and				
+⋐	double subset				
+⋑	double superset				
+⋒	double intersection				
+⋓	double union				
+⋔	pitchfork				
+⋕	equal and parallel to				
+⋖	less-than with dot				
+⋗	greater-than with dot				
+⋘	very much less-than				
+⋙	very much greater-than				
+⋚	less-than equal to or greater-than				
+⋛	greater-than equal to or less-than				
+⋜	equal to or less-than				
+⋝	equal to or greater-than				
+⋞	equal to or precedes				
+⋟	equal to or succeeds				
+⋠	does not precede or equal				
+⋡	does not succeed or equal				
+⋢	not square image of or equal to				
+⋣	not square original of or equal to				
+⋤	square image of or not equal to				
+⋥	square original of or not equal to				
+⋦	less-than but not equivalent to				
+⋧	greater-than but not equivalent to				
+⋨	precedes but not equivalent to				
+⋩	succeeds but not equivalent to				
+⋪	not normal subgroup of				
+⋫	does not contain as normal subgroup				
+⋬	not normal subgroup of or equal to				
+⋭	does not contain as normal subgroup or equal				
+⋮	vertical ellipsis	vdots			
+⋯	midline horizontal ellipsis	cdots			
+⋰	up right diagonal ellipsis				
+⋱	down right diagonal ellipsis	ddots			
+⋲	element of with long horizontal stroke				
+⋳	element of with vertical bar at end of horizontal stroke				
+⋴	small element of with vertical bar at end of horizontal stroke				
+⋵	element of with dot above				
+⋶	element of with overbar				
+⋷	small element of with overbar				
+⋸	element of with underbar				
+⋹	element of with two horizontal strokes				
+⋺	contains with long horizontal stroke				
+⋻	contains with vertical bar at end of horizontal stroke				
+⋼	small contains with vertical bar at end of horizontal stroke				
+⋽	contains with overbar				
+⋾	small contains with overbar				
+⋿	z notation bag membership				
+⌀	diameter sign				
+⌁	electric arrow				
+⌂	house				
+⌃	up arrowhead				
+⌄	down arrowhead				
+⌅	projective				
+⌆	perspective				
+⌇	wavy line				
+⌈	left ceiling	lceil			
+⌉	right ceiling	rceil			
+⌊	left floor	lfloor			
+⌋	right floor	rfloor			
+⌌	bottom right crop	ulcorner			
+⌍	bottom left crop				
+⌎	top right crop				
+⌏	top left crop				
+⌐	reversed not sign				
+⌑	square lozenge				
+⌒	arc				
+⌓	segment				
+⌔	sector				
+⌕	telephone recorder				
+⌖	position indicator				
+⌗	viewdata square				
+⌘	place of interest sign				
+⌙	turned not sign				
+⌚	watch				1
+⌛	hourglass				1
+⌜	top left corner				
+⌝	top right corner				
+⌞	bottom left corner				
+⌟	bottom right corner				
+⌠	top half integral				
+⌡	bottom half integral				
+⌢	frown				
+⌣	smile				
+⌤	up arrowhead between two horizontal bars				
+⌥	option key				
+⌦	erase to the right				
+⌧	x in a rectangle box				
+⌨	keyboard				
+〈	left-pointing angle bracket				
+〉	right-pointing angle bracket				
+⌫	erase to the left				
+⌬	benzene ring				
+⌭	cylindricity				
+⌮	all around-profile				
+⌯	symmetry				
+⌰	total runout				
+⌱	dimension origin				
+⌲	conical taper				
+⌳	slope				
+⌴	counterbore				
+⌵	countersink				
+⌶	apl functional symbol i-beam				
+⌷	apl functional symbol squish quad				
+⌸	apl functional symbol quad equal				
+⌹	apl functional symbol quad divide				
+⌺	apl functional symbol quad diamond				
+⌻	apl functional symbol quad jot				
+⌼	apl functional symbol quad circle				
+⌽	apl functional symbol circle stile				
+⌾	apl functional symbol circle jot				
+⌿	apl functional symbol slash bar				
+⍀	apl functional symbol backslash bar				
+⍁	apl functional symbol quad slash				
+⍂	apl functional symbol quad backslash				
+⍃	apl functional symbol quad less-than				
+⍄	apl functional symbol quad greater-than				
+⍅	apl functional symbol leftwards vane				
+⍆	apl functional symbol rightwards vane				
+⍇	apl functional symbol quad leftwards arrow				
+⍈	apl functional symbol quad rightwards arrow				
+⍉	apl functional symbol circle backslash				
+⍊	apl functional symbol down tack underbar				
+⍋	apl functional symbol delta stile				
+⍌	apl functional symbol quad down caret				
+⍍	apl functional symbol quad delta				
+⍎	apl functional symbol down tack jot				
+⍏	apl functional symbol upwards vane				
+⍐	apl functional symbol quad upwards arrow				
+⍑	apl functional symbol up tack overbar				
+⍒	apl functional symbol del stile				
+⍓	apl functional symbol quad up caret				
+⍔	apl functional symbol quad del				
+⍕	apl functional symbol up tack jot				
+⍖	apl functional symbol downwards vane				
+⍗	apl functional symbol quad downwards arrow				
+⍘	apl functional symbol quote underbar				
+⍙	apl functional symbol delta underbar				
+⍚	apl functional symbol diamond underbar				
+⍛	apl functional symbol jot underbar				
+⍜	apl functional symbol circle underbar				
+⍝	apl functional symbol up shoe jot				
+⍞	apl functional symbol quote quad				
+⍟	apl functional symbol circle star				
+⍠	apl functional symbol quad colon				
+⍡	apl functional symbol up tack diaeresis				
+⍢	apl functional symbol del diaeresis				
+⍣	apl functional symbol star diaeresis				
+⍤	apl functional symbol jot diaeresis				
+⍥	apl functional symbol circle diaeresis				
+⍦	apl functional symbol down shoe stile				
+⍧	apl functional symbol left shoe stile				
+⍨	apl functional symbol tilde diaeresis				
+⍩	apl functional symbol greater-than diaeresis				
+⍪	apl functional symbol comma bar				
+⍫	apl functional symbol del tilde				
+⍬	apl functional symbol zilde				
+⍭	apl functional symbol stile tilde				
+⍮	apl functional symbol semicolon underbar				
+⍯	apl functional symbol quad not equal				
+⍰	apl functional symbol quad question				
+⍱	apl functional symbol down caret tilde				
+⍲	apl functional symbol up caret tilde				
+⍳	apl functional symbol iota				
+⍴	apl functional symbol rho				
+⍵	apl functional symbol omega				
+⍶	apl functional symbol alpha underbar				
+⍷	apl functional symbol epsilon underbar				
+⍸	apl functional symbol iota underbar				
+⍹	apl functional symbol omega underbar				
+⍺	apl functional symbol alpha				
+⍻	not check mark				
+⍼	right angle with downwards zigzag arrow				
+⍽	shouldered open box				
+⍾	bell symbol				
+⍿	vertical line with middle dot				
+─	box drawings light horizontal				
+━	box drawings heavy horizontal				
+│	box drawings light vertical				
+┃	box drawings heavy vertical				
+┄	box drawings light triple dash horizontal				
+┅	box drawings heavy triple dash horizontal				
+┆	box drawings light triple dash vertical				
+┇	box drawings heavy triple dash vertical				
+┈	box drawings light quadruple dash horizontal				
+┉	box drawings heavy quadruple dash horizontal				
+┊	box drawings light quadruple dash vertical				
+┋	box drawings heavy quadruple dash vertical				
+┌	box drawings light down and right				
+┍	box drawings down light and right heavy				
+┎	box drawings down heavy and right light				
+┏	box drawings heavy down and right				
+┐	box drawings light down and left				
+┑	box drawings down light and left heavy				
+┒	box drawings down heavy and left light				
+┓	box drawings heavy down and left				
+└	box drawings light up and right				
+┕	box drawings up light and right heavy				
+┖	box drawings up heavy and right light				
+┗	box drawings heavy up and right				
+┘	box drawings light up and left				
+┙	box drawings up light and left heavy				
+┚	box drawings up heavy and left light				
+┛	box drawings heavy up and left				
+├	box drawings light vertical and right				
+┝	box drawings vertical light and right heavy				
+┞	box drawings up heavy and right down light				
+┟	box drawings down heavy and right up light				
+┠	box drawings vertical heavy and right light				
+┡	box drawings down light and right up heavy				
+┢	box drawings up light and right down heavy				
+┣	box drawings heavy vertical and right				
+┤	box drawings light vertical and left				
+┥	box drawings vertical light and left heavy				
+┦	box drawings up heavy and left down light				
+┧	box drawings down heavy and left up light				
+┨	box drawings vertical heavy and left light				
+┩	box drawings down light and left up heavy				
+┪	box drawings up light and left down heavy				
+┫	box drawings heavy vertical and left				
+┬	box drawings light down and horizontal				
+┭	box drawings left heavy and right down light				
+┮	box drawings right heavy and left down light				
+┯	box drawings down light and horizontal heavy				
+┰	box drawings down heavy and horizontal light				
+┱	box drawings right light and left down heavy				
+┲	box drawings left light and right down heavy				
+┳	box drawings heavy down and horizontal				
+┴	box drawings light up and horizontal				
+┵	box drawings left heavy and right up light				
+┶	box drawings right heavy and left up light				
+┷	box drawings up light and horizontal heavy				
+┸	box drawings up heavy and horizontal light				
+┹	box drawings right light and left up heavy				
+┺	box drawings left light and right up heavy				
+┻	box drawings heavy up and horizontal				
+┼	box drawings light vertical and horizontal				
+┽	box drawings left heavy and right vertical light				
+┾	box drawings right heavy and left vertical light				
+┿	box drawings vertical light and horizontal heavy				
+╀	box drawings up heavy and down horizontal light				
+╁	box drawings down heavy and up horizontal light				
+╂	box drawings vertical heavy and horizontal light				
+╃	box drawings left up heavy and right down light				
+╄	box drawings right up heavy and left down light				
+╅	box drawings left down heavy and right up light				
+╆	box drawings right down heavy and left up light				
+╇	box drawings down light and up horizontal heavy				
+╈	box drawings up light and down horizontal heavy				
+╉	box drawings right light and left vertical heavy				
+╊	box drawings left light and right vertical heavy				
+╋	box drawings heavy vertical and horizontal				
+╌	box drawings light double dash horizontal				
+╍	box drawings heavy double dash horizontal				
+╎	box drawings light double dash vertical				
+╏	box drawings heavy double dash vertical				
+═	box drawings double horizontal				
+║	box drawings double vertical				
+╒	box drawings down single and right double				
+╓	box drawings down double and right single				
+╔	box drawings double down and right				
+╕	box drawings down single and left double				
+╖	box drawings down double and left single				
+╗	box drawings double down and left				
+╘	box drawings up single and right double				
+╙	box drawings up double and right single				
+╚	box drawings double up and right				
+╛	box drawings up single and left double				
+╜	box drawings up double and left single				
+╝	box drawings double up and left				
+╞	box drawings vertical single and right double				
+╟	box drawings vertical double and right single				
+╠	box drawings double vertical and right				
+╡	box drawings vertical single and left double				
+╢	box drawings vertical double and left single				
+╣	box drawings double vertical and left				
+╤	box drawings down single and horizontal double				
+╥	box drawings down double and horizontal single				
+╦	box drawings double down and horizontal				
+╧	box drawings up single and horizontal double				
+╨	box drawings up double and horizontal single				
+╩	box drawings double up and horizontal				
+╪	box drawings vertical single and horizontal double				
+╫	box drawings vertical double and horizontal single				
+╬	box drawings double vertical and horizontal				
+╭	box drawings light arc down and right				
+╮	box drawings light arc down and left				
+╯	box drawings light arc up and left				
+╰	box drawings light arc up and right				
+╱	box drawings light diagonal upper right to lower left				
+╲	box drawings light diagonal upper left to lower right				
+╳	box drawings light diagonal cross				
+╴	box drawings light left				
+╵	box drawings light up				
+╶	box drawings light right				
+╷	box drawings light down				
+╸	box drawings heavy left				
+╹	box drawings heavy up				
+╺	box drawings heavy right				
+╻	box drawings heavy down				
+╼	box drawings light left and heavy right				
+╽	box drawings light up and heavy down				
+╾	box drawings heavy left and light right				
+╿	box drawings heavy up and light down				
+▀	upper half block				
+▁	lower one eighth block				
+▂	lower one quarter block				
+▃	lower three eighths block				
+▄	lower half block				
+▅	lower five eighths block				
+▆	lower three quarters block				
+▇	lower seven eighths block				
+█	full block				
+▉	left seven eighths block				
+▊	left three quarters block				
+▋	left five eighths block				
+▌	left half block				
+▍	left three eighths block				
+▎	left one quarter block				
+▏	left one eighth block				
+▐	right half block				
+░	light shade				
+▒	medium shade				
+▓	dark shade				
+▔	upper one eighth block				
+▕	right one eighth block				
+▖	quadrant lower left				
+▗	quadrant lower right				
+▘	quadrant upper left				
+▙	quadrant upper left and lower left and lower right				
+▚	quadrant upper left and lower right				
+▛	quadrant upper left and upper right and lower left				
+▜	quadrant upper left and upper right and lower right				
+▝	quadrant upper right				
+▞	quadrant upper right and lower left				
+▟	quadrant upper right and lower left and lower right				
+■	black square		square filled solid box		
+□	white square		square hollow outline empty box		
+▢	white square with rounded corners				
+▣	white square containing black small square				
+▤	square with horizontal fill				
+▥	square with vertical fill				
+▦	square with orthogonal crosshatch fill				
+▧	square with upper left to lower right fill				
+▨	square with upper right to lower left fill				
+▩	square with diagonal crosshatch fill				
+▪	black small square				
+▫	white small square				
+▬	black rectangle				
+▭	white rectangle				
+▮	black vertical rectangle				
+▯	white vertical rectangle				
+▰	black parallelogram				
+▱	white parallelogram				
+▲	black up-pointing triangle		triangle filled solid up		
+△	white up-pointing triangle	bigtriangleup			
+▴	black up-pointing small triangle				
+▵	white up-pointing small triangle				
+▶	black right-pointing triangle		triangle right play		
+▷	white right-pointing triangle				
+▸	black right-pointing small triangle				
+▹	white right-pointing small triangle				
+►	black right-pointing pointer				
+▻	white right-pointing pointer				
+▼	black down-pointing triangle				
+▽	white down-pointing triangle	bigtriangledown			
+▾	black down-pointing small triangle				
+▿	white down-pointing small triangle				
+◀	black left-pointing triangle				
+◁	white left-pointing triangle				
+◂	black left-pointing small triangle				
+◃	white left-pointing small triangle				
+◄	black left-pointing pointer				
+◅	white left-pointing pointer				
+◆	black diamond				
+◇	white diamond				
+◈	white diamond containing black small diamond				
+◉	fisheye			Circles & dots	
+◊	lozenge	lozenge			
+○	white circle		circle hollow outline empty ring	Circles & dots	
+◌	dotted circle				
+◍	circle with vertical fill				
+◎	bullseye		circle bullseye target ring dot	Circles & dots	
+●	black circle		circle filled solid dot big disc bullet	Circles & dots	
+◐	circle with left half black			Circles & dots	
+◑	circle with right half black			Circles & dots	
+◒	circle with lower half black				
+◓	circle with upper half black				
+◔	circle with upper right quadrant black				
+◕	circle with all but upper left quadrant black				
+◖	left half black circle				
+◗	right half black circle				
+◘	inverse bullet				
+◙	inverse white circle				
+◚	upper half inverse white circle				
+◛	lower half inverse white circle				
+◜	upper left quadrant circular arc				
+◝	upper right quadrant circular arc				
+◞	lower right quadrant circular arc				
+◟	lower left quadrant circular arc				
+◠	upper half circle				
+◡	lower half circle				
+◢	black lower right triangle				
+◣	black lower left triangle				
+◤	black upper left triangle				
+◥	black upper right triangle				
+◦	white bullet		circle hollow small bullet dot	Circles & dots	
+◧	square with left half black				
+◨	square with right half black				
+◩	square with upper left diagonal half black				
+◪	square with lower right diagonal half black				
+◫	white square with vertical bisecting line				
+◬	white up-pointing triangle with dot				
+◭	up-pointing triangle with left half black				
+◮	up-pointing triangle with right half black				
+◯	large circle			Circles & dots	
+◰	white square with upper left quadrant				
+◱	white square with lower left quadrant				
+◲	white square with lower right quadrant				
+◳	white square with upper right quadrant				
+◴	white circle with upper left quadrant				
+◵	white circle with lower left quadrant				
+◶	white circle with lower right quadrant				
+◷	white circle with upper right quadrant				
+◸	upper left triangle				
+◹	upper right triangle				
+◺	lower left triangle				
+◻	white medium square				
+◼	black medium square				
+◽	white medium small square				1
+◾	black medium small square				1
+◿	lower right triangle				
+☀	black sun with rays				
+☁	cloud				
+☂	umbrella				
+☃	snowman		snowman winter		
+☄	comet				
+★	black star	bigstar	star filled solid favourite favorite		
+☆	white star		star hollow outline empty		
+☇	lightning				
+☈	thunderstorm				
+☉	sun				
+☊	ascending node				
+☋	descending node				
+☌	conjunction				
+☍	opposition				
+☎	black telephone				
+☏	white telephone				
+☐	ballot box		empty checkbox todo unchecked box	Checks & crosses	
+☑	ballot box with check		tick checkbox ticked done todo	Checks & crosses	
+☒	ballot box with x		crossed checkbox x ex no	Checks & crosses	
+☓	saltire				
+☔	umbrella with rain drops				1
+☕	hot beverage		coffee tea hot drink break		1
+☖	white shogi piece				
+☗	black shogi piece				
+☘	shamrock				
+☙	reversed rotated floral heart bullet				
+☚	black left pointing index				
+☛	black right pointing index				
+☜	white left pointing index				
+☝	white up pointing index				
+☞	white right pointing index				
+☟	white down pointing index				
+☠	skull and crossbones				
+☡	caution sign				
+☢	radioactive sign				
+☣	biohazard sign				
+☤	caduceus				
+☥	ankh				
+☦	orthodox cross				
+☧	chi rho				
+☨	cross of lorraine				
+☩	cross of jerusalem				
+☪	star and crescent				
+☫	farsi symbol				
+☬	adi shakti				
+☭	hammer and sickle				
+☮	peace symbol				
+☯	yin yang				
+☰	trigram for heaven				
+☱	trigram for lake				
+☲	trigram for fire				
+☳	trigram for thunder				
+☴	trigram for wind				
+☵	trigram for water				
+☶	trigram for mountain				
+☷	trigram for earth				
+☸	wheel of dharma				
+☹	white frowning face				
+☺	white smiling face		smiley smile happy face		
+☻	black smiling face				
+☼	white sun with rays				
+☽	first quarter moon				
+☾	last quarter moon				
+☿	mercury				
+♀	female sign				
+♁	earth				
+♂	male sign				
+♃	jupiter				
+♄	saturn				
+♅	uranus				
+♆	neptune				
+♇	pluto				
+♈	aries				1
+♉	taurus				1
+♊	gemini				1
+♋	cancer				1
+♌	leo				1
+♍	virgo				1
+♎	libra				1
+♏	scorpius				1
+♐	sagittarius				1
+♑	capricorn				1
+♒	aquarius				1
+♓	pisces				1
+♔	white chess king				
+♕	white chess queen				
+♖	white chess rook				
+♗	white chess bishop				
+♘	white chess knight				
+♙	white chess pawn				
+♚	black chess king				
+♛	black chess queen				
+♜	black chess rook				
+♝	black chess bishop				
+♞	black chess knight				
+♟	black chess pawn				
+♠	black spade suit	spadesuit			
+♡	white heart suit	heartsuit			
+♢	white diamond suit	diamondsuit			
+♣	black club suit	clubsuit			
+♤	white spade suit				
+♥	black heart suit				
+♦	black diamond suit				
+♧	white club suit				
+♨	hot springs				
+♩	quarter note				
+♪	eighth note				
+♫	beamed eighth notes				
+♬	beamed sixteenth notes				
+♭	music flat sign	flat			
+♮	music natural sign	natural			
+♯	music sharp sign	sharp			
+♰	west syriac cross				
+♱	east syriac cross				
+♲	universal recycling symbol				
+♳	recycling symbol for type-1 plastics				
+♴	recycling symbol for type-2 plastics				
+♵	recycling symbol for type-3 plastics				
+♶	recycling symbol for type-4 plastics				
+♷	recycling symbol for type-5 plastics				
+♸	recycling symbol for type-6 plastics				
+♹	recycling symbol for type-7 plastics				
+♺	recycling symbol for generic materials				
+♻	black universal recycling symbol				
+♼	recycled paper symbol				
+♽	partially-recycled paper symbol				
+♾	permanent paper sign				
+♿	wheelchair symbol				1
+⚀	die face-1				
+⚁	die face-2				
+⚂	die face-3				
+⚃	die face-4				
+⚄	die face-5				
+⚅	die face-6				
+⚆	white circle with dot right				
+⚇	white circle with two dots				
+⚈	black circle with white dot right				
+⚉	black circle with two white dots				
+⚊	monogram for yang				
+⚋	monogram for yin				
+⚌	digram for greater yang				
+⚍	digram for lesser yin				
+⚎	digram for lesser yang				
+⚏	digram for greater yin				
+⚐	white flag				
+⚑	black flag				
+⚒	hammer and pick				
+⚓	anchor				1
+⚔	crossed swords				
+⚕	staff of aesculapius				
+⚖	scales				
+⚗	alembic				
+⚘	flower				
+⚙	gear				
+⚚	staff of hermes				
+⚛	atom symbol				
+⚜	fleur-de-lis				
+⚝	outlined white star				
+⚞	three lines converging right				
+⚟	three lines converging left				
+⚠	warning sign		warning caution careful	Checks & crosses	
+⚡	high voltage sign		lightning bolt zap power fast		1
+⚢	doubled female sign				
+⚣	doubled male sign				
+⚤	interlocked female and male sign				
+⚥	male and female sign				
+⚦	male with stroke sign				
+⚧	male with stroke and male and female sign				
+⚨	vertical male with stroke sign				
+⚩	horizontal male with stroke sign				
+⚪	medium white circle				1
+⚫	medium black circle				1
+⚬	medium small white circle				
+⚭	marriage symbol				
+⚮	divorce symbol				
+⚯	unmarried partnership symbol				
+⚰	coffin				
+⚱	funeral urn				
+⚲	neuter				
+⚳	ceres				
+⚴	pallas				
+⚵	juno				
+⚶	vesta				
+⚷	chiron				
+⚸	black moon lilith				
+⚹	sextile				
+⚺	semisextile				
+⚻	quincunx				
+⚼	sesquiquadrate				
+⚽	soccer ball				1
+⚾	baseball				1
+⚿	squared key				
+⛀	white draughts man				
+⛁	white draughts king				
+⛂	black draughts man				
+⛃	black draughts king				
+⛄	snowman without snow				1
+⛅	sun behind cloud				1
+⛆	rain				
+⛇	black snowman				
+⛈	thunder cloud and rain				
+⛉	turned white shogi piece				
+⛊	turned black shogi piece				
+⛋	white diamond in square				
+⛌	crossing lanes				
+⛍	disabled car				
+⛎	ophiuchus				1
+⛏	pick				
+⛐	car sliding				
+⛑	helmet with white cross				
+⛒	circled crossing lanes				
+⛓	chains				
+⛔	no entry				1
+⛕	alternate one-way left way traffic				
+⛖	black two-way left way traffic				
+⛗	white two-way left way traffic				
+⛘	black left lane merge				
+⛙	white left lane merge				
+⛚	drive slow sign				
+⛛	heavy white down-pointing triangle				
+⛜	left closed entry				
+⛝	squared saltire				
+⛞	falling diagonal in white circle in black square				
+⛟	black truck				
+⛠	restricted left entry-1				
+⛡	restricted left entry-2				
+⛢	astronomical symbol for uranus				
+⛣	heavy circle with stroke and two dots above				
+⛤	pentagram				
+⛥	right-handed interlaced pentagram				
+⛦	left-handed interlaced pentagram				
+⛧	inverted pentagram				
+⛨	black cross on shield				
+⛩	shinto shrine				
+⛪	church				1
+⛫	castle				
+⛬	historic site				
+⛭	gear without hub				
+⛮	gear with handles				
+⛯	map symbol for lighthouse				
+⛰	mountain				
+⛱	umbrella on ground				
+⛲	fountain				1
+⛳	flag in hole				1
+⛴	ferry				
+⛵	sailboat				1
+⛶	square four corners				
+⛷	skier				
+⛸	ice skate				
+⛹	person with ball				
+⛺	tent				1
+⛻	japanese bank symbol				
+⛼	headstone graveyard symbol				
+⛽	fuel pump				1
+⛾	cup on black square				
+⛿	white flag with horizontal middle black stripe				
+✀	black safety scissors				
+✁	upper blade scissors				
+✂	black scissors				
+✃	lower blade scissors				
+✄	white scissors				
+✅	white heavy check mark		green check tick ok yes button emoji	Checks & crosses	1
+✆	telephone location sign				
+✇	tape drive				
+✈	airplane		plane flight travel		
+✉	envelope				
+✊	raised fist				1
+✋	raised hand				1
+✌	victory hand				
+✍	writing hand				
+✎	lower right pencil		pencil edit write note		
+✏	pencil				
+✐	upper right pencil				
+✑	white nib				
+✒	black nib				
+✓	check mark	checkmark	tick check ok yes	Checks & crosses	
+✔	heavy check mark		tick check bold heavy ok yes	Checks & crosses	
+✕	multiplication x				
+✖	heavy multiplication x		cross x ex multiply heavy	Checks & crosses	
+✗	ballot x		cross x ex wrong no fail	Checks & crosses	
+✘	heavy ballot x		cross x ex wrong no fail bold heavy	Checks & crosses	
+✙	outlined greek cross				
+✚	heavy greek cross				
+✛	open centre cross				
+✜	heavy open centre cross				
+✝	latin cross				
+✞	shadowed white latin cross				
+✟	outlined latin cross				
+✠	maltese cross				
+✡	star of david				
+✢	four teardrop-spoked asterisk				
+✣	four balloon-spoked asterisk				
+✤	heavy four balloon-spoked asterisk				
+✥	four club-spoked asterisk				
+✦	black four pointed star				
+✧	white four pointed star				
+✨	sparkles				1
+✩	stress outlined white star				
+✪	circled white star				
+✫	open centre black star				
+✬	black centre white star				
+✭	outlined black star				
+✮	heavy outlined black star				
+✯	pinwheel star				
+✰	shadowed white star				
+✱	heavy asterisk				
+✲	open centre asterisk				
+✳	eight spoked asterisk				
+✴	eight pointed black star				
+✵	eight pointed pinwheel star				
+✶	six pointed black star				
+✷	eight pointed rectilinear black star				
+✸	heavy eight pointed rectilinear black star				
+✹	twelve pointed black star				
+✺	sixteen pointed asterisk				
+✻	teardrop-spoked asterisk				
+✼	open centre teardrop-spoked asterisk				
+✽	heavy teardrop-spoked asterisk				
+✾	six petalled black and white florette				
+✿	black florette				
+❀	white florette				
+❁	eight petalled outlined black florette				
+❂	circled open centre eight pointed star				
+❃	heavy teardrop-spoked pinwheel asterisk				
+❄	snowflake				
+❅	tight trifoliate snowflake				
+❆	heavy chevron snowflake				
+❇	sparkle				
+❈	heavy sparkle				
+❉	balloon-spoked asterisk				
+❊	eight teardrop-spoked propeller asterisk				
+❋	heavy eight teardrop-spoked propeller asterisk				
+❌	cross mark		red cross x ex wrong no fail emoji	Checks & crosses	1
+❍	shadowed white circle				
+❎	negative squared cross mark				1
+❏	lower right drop-shadowed white square				
+❐	upper right drop-shadowed white square				
+❑	lower right shadowed white square				
+❒	upper right shadowed white square				
+❓	black question mark ornament				1
+❔	white question mark ornament				1
+❕	white exclamation mark ornament				1
+❖	black diamond minus white x				
+❗	heavy exclamation mark symbol		warning bang important	Checks & crosses	1
+❘	light vertical bar				
+❙	medium vertical bar				
+❚	heavy vertical bar				
+❛	heavy single turned comma quotation mark ornament				
+❜	heavy single comma quotation mark ornament				
+❝	heavy double turned comma quotation mark ornament				
+❞	heavy double comma quotation mark ornament				
+❟	heavy low single comma quotation mark ornament				
+❠	heavy low double comma quotation mark ornament				
+❡	curved stem paragraph sign ornament				
+❢	heavy exclamation mark ornament				
+❣	heavy heart exclamation mark ornament				
+❤	heavy black heart				
+❥	rotated heavy black heart bullet				
+❦	floral heart				
+❧	rotated floral heart bullet				
+❨	medium left parenthesis ornament				
+❩	medium right parenthesis ornament				
+❪	medium flattened left parenthesis ornament				
+❫	medium flattened right parenthesis ornament				
+❬	medium left-pointing angle bracket ornament				
+❭	medium right-pointing angle bracket ornament				
+❮	heavy left-pointing angle quotation mark ornament				
+❯	heavy right-pointing angle quotation mark ornament				
+❰	heavy left-pointing angle bracket ornament				
+❱	heavy right-pointing angle bracket ornament				
+❲	light left tortoise shell bracket ornament				
+❳	light right tortoise shell bracket ornament				
+❴	medium left curly bracket ornament				
+❵	medium right curly bracket ornament				
+❶	dingbat negative circled digit one				
+❷	dingbat negative circled digit two				
+❸	dingbat negative circled digit three				
+❹	dingbat negative circled digit four				
+❺	dingbat negative circled digit five				
+❻	dingbat negative circled digit six				
+❼	dingbat negative circled digit seven				
+❽	dingbat negative circled digit eight				
+❾	dingbat negative circled digit nine				
+❿	dingbat negative circled number ten				
+➀	dingbat circled sans-serif digit one				
+➁	dingbat circled sans-serif digit two				
+➂	dingbat circled sans-serif digit three				
+➃	dingbat circled sans-serif digit four				
+➄	dingbat circled sans-serif digit five				
+➅	dingbat circled sans-serif digit six				
+➆	dingbat circled sans-serif digit seven				
+➇	dingbat circled sans-serif digit eight				
+➈	dingbat circled sans-serif digit nine				
+➉	dingbat circled sans-serif number ten				
+➊	dingbat negative circled sans-serif digit one				
+➋	dingbat negative circled sans-serif digit two				
+➌	dingbat negative circled sans-serif digit three				
+➍	dingbat negative circled sans-serif digit four				
+➎	dingbat negative circled sans-serif digit five				
+➏	dingbat negative circled sans-serif digit six				
+➐	dingbat negative circled sans-serif digit seven				
+➑	dingbat negative circled sans-serif digit eight				
+➒	dingbat negative circled sans-serif digit nine				
+➓	dingbat negative circled sans-serif number ten				
+➔	heavy wide-headed rightwards arrow				
+➕	heavy plus sign				1
+➖	heavy minus sign				1
+➗	heavy division sign				1
+➘	heavy south east arrow				
+➙	heavy rightwards arrow				
+➚	heavy north east arrow				
+➛	drafting point rightwards arrow				
+➜	heavy round-tipped rightwards arrow				
+➝	triangle-headed rightwards arrow				
+➞	heavy triangle-headed rightwards arrow				
+➟	dashed triangle-headed rightwards arrow				
+➠	heavy dashed triangle-headed rightwards arrow				
+➡	black rightwards arrow				
+➢	three-d top-lighted rightwards arrowhead				
+➣	three-d bottom-lighted rightwards arrowhead				
+➤	black rightwards arrowhead				
+➥	heavy black curved downwards and rightwards arrow				
+➦	heavy black curved upwards and rightwards arrow				
+➧	squat black rightwards arrow				
+➨	heavy concave-pointed black rightwards arrow				
+➩	right-shaded white rightwards arrow				
+➪	left-shaded white rightwards arrow				
+➫	back-tilted shadowed white rightwards arrow				
+➬	front-tilted shadowed white rightwards arrow				
+➭	heavy lower right-shadowed white rightwards arrow				
+➮	heavy upper right-shadowed white rightwards arrow				
+➯	notched lower right-shadowed white rightwards arrow				
+➰	curly loop				1
+➱	notched upper right-shadowed white rightwards arrow				
+➲	circled heavy white rightwards arrow				
+➳	white-feathered rightwards arrow				
+➴	black-feathered south east arrow				
+➵	black-feathered rightwards arrow				
+➶	black-feathered north east arrow				
+➷	heavy black-feathered south east arrow				
+➸	heavy black-feathered rightwards arrow				
+➹	heavy black-feathered north east arrow				
+➺	teardrop-barbed rightwards arrow				
+➻	heavy teardrop-shanked rightwards arrow				
+➼	wedge-tailed rightwards arrow				
+➽	heavy wedge-tailed rightwards arrow				
+➾	open-outlined rightwards arrow				
+➿	double curly loop				1
+⟀	three dimensional angle				
+⟁	white triangle containing small white triangle				
+⟂	perpendicular				
+⟃	open subset				
+⟄	open superset				
+⟅	left s-shaped bag delimiter				
+⟆	right s-shaped bag delimiter				
+⟇	or with dot inside				
+⟈	reverse solidus preceding subset				
+⟉	superset preceding solidus				
+⟊	vertical bar with horizontal stroke				
+⟋	mathematical rising diagonal				
+⟌	long division				
+⟍	mathematical falling diagonal				
+⟎	squared logical and				
+⟏	squared logical or				
+⟐	white diamond with centred dot				
+⟑	and with dot				
+⟒	element of opening upwards				
+⟓	lower right corner with dot				
+⟔	upper left corner with dot				
+⟕	left outer join				
+⟖	right outer join				
+⟗	full outer join				
+⟘	large up tack				
+⟙	large down tack				
+⟚	left and right double turnstile				
+⟛	left and right tack				
+⟜	left multimap				
+⟝	long right tack				
+⟞	long left tack				
+⟟	up tack with circle above				
+⟠	lozenge divided by horizontal rule				
+⟡	white concave-sided diamond				
+⟢	white concave-sided diamond with leftwards tick				
+⟣	white concave-sided diamond with rightwards tick				
+⟤	white square with leftwards tick				
+⟥	white square with rightwards tick				
+⟦	mathematical left white square bracket				
+⟧	mathematical right white square bracket				
+⟨	mathematical left angle bracket	langle			
+⟩	mathematical right angle bracket	rangle			
+⟪	mathematical left double angle bracket				
+⟫	mathematical right double angle bracket				
+⟬	mathematical left white tortoise shell bracket				
+⟭	mathematical right white tortoise shell bracket				
+⟮	mathematical left flattened parenthesis				
+⟯	mathematical right flattened parenthesis				
+⟰	upwards quadruple arrow				
+⟱	downwards quadruple arrow				
+⟲	anticlockwise gapped circle arrow				
+⟳	clockwise gapped circle arrow				
+⟴	right arrow with circled plus				
+⟵	long leftwards arrow	longleftarrow			
+⟶	long rightwards arrow	longrightarrow		Arrows	
+⟷	long left right arrow	longleftrightarrow			
+⟸	long leftwards double arrow	Longleftarrow			
+⟹	long rightwards double arrow	Longrightarrow		Arrows	
+⟺	long left right double arrow	Longleftrightarrow			
+⟻	long leftwards arrow from bar				
+⟼	long rightwards arrow from bar	longmapsto			
+⟽	long leftwards double arrow from bar				
+⟾	long rightwards double arrow from bar				
+⟿	long rightwards squiggle arrow				
+⤀	rightwards two-headed arrow with vertical stroke				
+⤁	rightwards two-headed arrow with double vertical stroke				
+⤂	leftwards double arrow with vertical stroke				
+⤃	rightwards double arrow with vertical stroke				
+⤄	left right double arrow with vertical stroke				
+⤅	rightwards two-headed arrow from bar				
+⤆	leftwards double arrow from bar				
+⤇	rightwards double arrow from bar				
+⤈	downwards arrow with horizontal stroke				
+⤉	upwards arrow with horizontal stroke				
+⤊	upwards triple arrow				
+⤋	downwards triple arrow				
+⤌	leftwards double dash arrow				
+⤍	rightwards double dash arrow				
+⤎	leftwards triple dash arrow				
+⤏	rightwards triple dash arrow				
+⤐	rightwards two-headed triple dash arrow				
+⤑	rightwards arrow with dotted stem				
+⤒	upwards arrow to bar				
+⤓	downwards arrow to bar				
+⤔	rightwards arrow with tail with vertical stroke				
+⤕	rightwards arrow with tail with double vertical stroke				
+⤖	rightwards two-headed arrow with tail				
+⤗	rightwards two-headed arrow with tail with vertical stroke				
+⤘	rightwards two-headed arrow with tail with double vertical stroke				
+⤙	leftwards arrow-tail				
+⤚	rightwards arrow-tail				
+⤛	leftwards double arrow-tail				
+⤜	rightwards double arrow-tail				
+⤝	leftwards arrow to black diamond				
+⤞	rightwards arrow to black diamond				
+⤟	leftwards arrow from bar to black diamond				
+⤠	rightwards arrow from bar to black diamond				
+⤡	north west and south east arrow				
+⤢	north east and south west arrow				
+⤣	north west arrow with hook				
+⤤	north east arrow with hook				
+⤥	south east arrow with hook				
+⤦	south west arrow with hook				
+⤧	north west arrow and north east arrow				
+⤨	north east arrow and south east arrow				
+⤩	south east arrow and south west arrow				
+⤪	south west arrow and north west arrow				
+⤫	rising diagonal crossing falling diagonal				
+⤬	falling diagonal crossing rising diagonal				
+⤭	south east arrow crossing north east arrow				
+⤮	north east arrow crossing south east arrow				
+⤯	falling diagonal crossing north east arrow				
+⤰	rising diagonal crossing south east arrow				
+⤱	north east arrow crossing north west arrow				
+⤲	north west arrow crossing north east arrow				
+⤳	wave arrow pointing directly right				
+⤴	arrow pointing rightwards then curving upwards				
+⤵	arrow pointing rightwards then curving downwards				
+⤶	arrow pointing downwards then curving leftwards				
+⤷	arrow pointing downwards then curving rightwards				
+⤸	right-side arc clockwise arrow				
+⤹	left-side arc anticlockwise arrow				
+⤺	top arc anticlockwise arrow				
+⤻	bottom arc anticlockwise arrow				
+⤼	top arc clockwise arrow with minus				
+⤽	top arc anticlockwise arrow with plus				
+⤾	lower right semicircular clockwise arrow				
+⤿	lower left semicircular anticlockwise arrow				
+⥀	anticlockwise closed circle arrow				
+⥁	clockwise closed circle arrow				
+⥂	rightwards arrow above short leftwards arrow				
+⥃	leftwards arrow above short rightwards arrow				
+⥄	short rightwards arrow above leftwards arrow				
+⥅	rightwards arrow with plus below				
+⥆	leftwards arrow with plus below				
+⥇	rightwards arrow through x				
+⥈	left right arrow through small circle				
+⥉	upwards two-headed arrow from small circle				
+⥊	left barb up right barb down harpoon				
+⥋	left barb down right barb up harpoon				
+⥌	up barb right down barb left harpoon				
+⥍	up barb left down barb right harpoon				
+⥎	left barb up right barb up harpoon				
+⥏	up barb right down barb right harpoon				
+⥐	left barb down right barb down harpoon				
+⥑	up barb left down barb left harpoon				
+⥒	leftwards harpoon with barb up to bar				
+⥓	rightwards harpoon with barb up to bar				
+⥔	upwards harpoon with barb right to bar				
+⥕	downwards harpoon with barb right to bar				
+⥖	leftwards harpoon with barb down to bar				
+⥗	rightwards harpoon with barb down to bar				
+⥘	upwards harpoon with barb left to bar				
+⥙	downwards harpoon with barb left to bar				
+⥚	leftwards harpoon with barb up from bar				
+⥛	rightwards harpoon with barb up from bar				
+⥜	upwards harpoon with barb right from bar				
+⥝	downwards harpoon with barb right from bar				
+⥞	leftwards harpoon with barb down from bar				
+⥟	rightwards harpoon with barb down from bar				
+⥠	upwards harpoon with barb left from bar				
+⥡	downwards harpoon with barb left from bar				
+⥢	leftwards harpoon with barb up above leftwards harpoon with barb down				
+⥣	upwards harpoon with barb left beside upwards harpoon with barb right				
+⥤	rightwards harpoon with barb up above rightwards harpoon with barb down				
+⥥	downwards harpoon with barb left beside downwards harpoon with barb right				
+⥦	leftwards harpoon with barb up above rightwards harpoon with barb up				
+⥧	leftwards harpoon with barb down above rightwards harpoon with barb down				
+⥨	rightwards harpoon with barb up above leftwards harpoon with barb up				
+⥩	rightwards harpoon with barb down above leftwards harpoon with barb down				
+⥪	leftwards harpoon with barb up above long dash				
+⥫	leftwards harpoon with barb down below long dash				
+⥬	rightwards harpoon with barb up above long dash				
+⥭	rightwards harpoon with barb down below long dash				
+⥮	upwards harpoon with barb left beside downwards harpoon with barb right				
+⥯	downwards harpoon with barb left beside upwards harpoon with barb right				
+⥰	right double arrow with rounded head				
+⥱	equals sign above rightwards arrow				
+⥲	tilde operator above rightwards arrow				
+⥳	leftwards arrow above tilde operator				
+⥴	rightwards arrow above tilde operator				
+⥵	rightwards arrow above almost equal to				
+⥶	less-than above leftwards arrow				
+⥷	leftwards arrow through less-than				
+⥸	greater-than above rightwards arrow				
+⥹	subset above rightwards arrow				
+⥺	leftwards arrow through subset				
+⥻	superset above leftwards arrow				
+⥼	left fish tail				
+⥽	right fish tail				
+⥾	up fish tail				
+⥿	down fish tail				
+⦀	triple vertical bar delimiter				
+⦁	z notation spot				
+⦂	z notation type colon				
+⦃	left white curly bracket				
+⦄	right white curly bracket				
+⦅	left white parenthesis				
+⦆	right white parenthesis				
+⦇	z notation left image bracket				
+⦈	z notation right image bracket				
+⦉	z notation left binding bracket				
+⦊	z notation right binding bracket				
+⦋	left square bracket with underbar				
+⦌	right square bracket with underbar				
+⦍	left square bracket with tick in top corner				
+⦎	right square bracket with tick in bottom corner				
+⦏	left square bracket with tick in bottom corner				
+⦐	right square bracket with tick in top corner				
+⦑	left angle bracket with dot				
+⦒	right angle bracket with dot				
+⦓	left arc less-than bracket				
+⦔	right arc greater-than bracket				
+⦕	double left arc greater-than bracket				
+⦖	double right arc less-than bracket				
+⦗	left black tortoise shell bracket				
+⦘	right black tortoise shell bracket				
+⦙	dotted fence				
+⦚	vertical zigzag line				
+⦛	measured angle opening left				
+⦜	right angle variant with square				
+⦝	measured right angle with dot				
+⦞	angle with s inside				
+⦟	acute angle				
+⦠	spherical angle opening left				
+⦡	spherical angle opening up				
+⦢	turned angle				
+⦣	reversed angle				
+⦤	angle with underbar				
+⦥	reversed angle with underbar				
+⦦	oblique angle opening up				
+⦧	oblique angle opening down				
+⦨	measured angle with open arm ending in arrow pointing up and right				
+⦩	measured angle with open arm ending in arrow pointing up and left				
+⦪	measured angle with open arm ending in arrow pointing down and right				
+⦫	measured angle with open arm ending in arrow pointing down and left				
+⦬	measured angle with open arm ending in arrow pointing right and up				
+⦭	measured angle with open arm ending in arrow pointing left and up				
+⦮	measured angle with open arm ending in arrow pointing right and down				
+⦯	measured angle with open arm ending in arrow pointing left and down				
+⦰	reversed empty set				
+⦱	empty set with overbar				
+⦲	empty set with small circle above				
+⦳	empty set with right arrow above				
+⦴	empty set with left arrow above				
+⦵	circle with horizontal bar				
+⦶	circled vertical bar				
+⦷	circled parallel				
+⦸	circled reverse solidus				
+⦹	circled perpendicular				
+⦺	circle divided by horizontal bar and top half divided by vertical bar				
+⦻	circle with superimposed x				
+⦼	circled anticlockwise-rotated division sign				
+⦽	up arrow through circle				
+⦾	circled white bullet				
+⦿	circled bullet				
+⧀	circled less-than				
+⧁	circled greater-than				
+⧂	circle with small circle to the right				
+⧃	circle with two horizontal strokes to the right				
+⧄	squared rising diagonal slash				
+⧅	squared falling diagonal slash				
+⧆	squared asterisk				
+⧇	squared small circle				
+⧈	squared square				
+⧉	two joined squares				
+⧊	triangle with dot above				
+⧋	triangle with underbar				
+⧌	s in triangle				
+⧍	triangle with serifs at bottom				
+⧎	right triangle above left triangle				
+⧏	left triangle beside vertical bar				
+⧐	vertical bar beside right triangle				
+⧑	bowtie with left half black				
+⧒	bowtie with right half black				
+⧓	black bowtie				
+⧔	times with left half black				
+⧕	times with right half black				
+⧖	white hourglass				
+⧗	black hourglass				
+⧘	left wiggly fence				
+⧙	right wiggly fence				
+⧚	left double wiggly fence				
+⧛	right double wiggly fence				
+⧜	incomplete infinity				
+⧝	tie over infinity				
+⧞	infinity negated with vertical bar				
+⧟	double-ended multimap				
+⧠	square with contoured outline				
+⧡	increases as				
+⧢	shuffle product				
+⧣	equals sign and slanted parallel				
+⧤	equals sign and slanted parallel with tilde above				
+⧥	identical to and slanted parallel				
+⧦	gleich stark				
+⧧	thermodynamic				
+⧨	down-pointing triangle with left half black				
+⧩	down-pointing triangle with right half black				
+⧪	black diamond with down arrow				
+⧫	black lozenge				
+⧬	white circle with down arrow				
+⧭	black circle with down arrow				
+⧮	error-barred white square				
+⧯	error-barred black square				
+⧰	error-barred white diamond				
+⧱	error-barred black diamond				
+⧲	error-barred white circle				
+⧳	error-barred black circle				
+⧴	rule-delayed				
+⧵	reverse solidus operator				
+⧶	solidus with overbar				
+⧷	reverse solidus with horizontal stroke				
+⧸	big solidus				
+⧹	big reverse solidus				
+⧺	double plus				
+⧻	triple plus				
+⧼	left-pointing curved angle bracket				
+⧽	right-pointing curved angle bracket				
+⧾	tiny				
+⧿	miny				
+⨀	n-ary circled dot operator	bigodot			
+⨁	n-ary circled plus operator	bigoplus			
+⨂	n-ary circled times operator	bigotimes			
+⨃	n-ary union operator with dot				
+⨄	n-ary union operator with plus	biguplus			
+⨅	n-ary square intersection operator				
+⨆	n-ary square union operator	bigsqcup			
+⨇	two logical and operator				
+⨈	two logical or operator				
+⨉	n-ary times operator				
+⨊	modulo two sum				
+⨋	summation with integral				
+⨌	quadruple integral operator				
+⨍	finite part integral				
+⨎	integral with double stroke				
+⨏	integral average with slash				
+⨐	circulation function				
+⨑	anticlockwise integration				
+⨒	line integration with rectangular path around pole				
+⨓	line integration with semicircular path around pole				
+⨔	line integration not including the pole				
+⨕	integral around a point operator				
+⨖	quaternion integral operator				
+⨗	integral with leftwards arrow with hook				
+⨘	integral with times sign				
+⨙	integral with intersection				
+⨚	integral with union				
+⨛	integral with overbar				
+⨜	integral with underbar				
+⨝	join				
+⨞	large left triangle operator				
+⨟	z notation schema composition				
+⨠	z notation schema piping				
+⨡	z notation schema projection				
+⨢	plus sign with small circle above				
+⨣	plus sign with circumflex accent above				
+⨤	plus sign with tilde above				
+⨥	plus sign with dot below				
+⨦	plus sign with tilde below				
+⨧	plus sign with subscript two				
+⨨	plus sign with black triangle				
+⨩	minus sign with comma above				
+⨪	minus sign with dot below				
+⨫	minus sign with falling dots				
+⨬	minus sign with rising dots				
+⨭	plus sign in left half circle				
+⨮	plus sign in right half circle				
+⨯	vector or cross product				
+⨰	multiplication sign with dot above				
+⨱	multiplication sign with underbar				
+⨲	semidirect product with bottom closed				
+⨳	smash product				
+⨴	multiplication sign in left half circle				
+⨵	multiplication sign in right half circle				
+⨶	circled multiplication sign with circumflex accent				
+⨷	multiplication sign in double circle				
+⨸	circled division sign				
+⨹	plus sign in triangle				
+⨺	minus sign in triangle				
+⨻	multiplication sign in triangle				
+⨼	interior product				
+⨽	righthand interior product				
+⨾	z notation relational composition				
+⨿	amalgamation or coproduct				
+⩀	intersection with dot				
+⩁	union with minus sign				
+⩂	union with overbar				
+⩃	intersection with overbar				
+⩄	intersection with logical and				
+⩅	union with logical or				
+⩆	union above intersection				
+⩇	intersection above union				
+⩈	union above bar above intersection				
+⩉	intersection above bar above union				
+⩊	union beside and joined with union				
+⩋	intersection beside and joined with intersection				
+⩌	closed union with serifs				
+⩍	closed intersection with serifs				
+⩎	double square intersection				
+⩏	double square union				
+⩐	closed union with serifs and smash product				
+⩑	logical and with dot above				
+⩒	logical or with dot above				
+⩓	double logical and				
+⩔	double logical or				
+⩕	two intersecting logical and				
+⩖	two intersecting logical or				
+⩗	sloping large or				
+⩘	sloping large and				
+⩙	logical or overlapping logical and				
+⩚	logical and with middle stem				
+⩛	logical or with middle stem				
+⩜	logical and with horizontal dash				
+⩝	logical or with horizontal dash				
+⩞	logical and with double overbar				
+⩟	logical and with underbar				
+⩠	logical and with double underbar				
+⩡	small vee with underbar				
+⩢	logical or with double overbar				
+⩣	logical or with double underbar				
+⩤	z notation domain antirestriction				
+⩥	z notation range antirestriction				
+⩦	equals sign with dot below				
+⩧	identical with dot above				
+⩨	triple horizontal bar with double vertical stroke				
+⩩	triple horizontal bar with triple vertical stroke				
+⩪	tilde operator with dot above				
+⩫	tilde operator with rising dots				
+⩬	similar minus similar				
+⩭	congruent with dot above				
+⩮	equals with asterisk				
+⩯	almost equal to with circumflex accent				
+⩰	approximately equal or equal to				
+⩱	equals sign above plus sign				
+⩲	plus sign above equals sign				
+⩳	equals sign above tilde operator				
+⩴	double colon equal				
+⩵	two consecutive equals signs				
+⩶	three consecutive equals signs				
+⩷	equals sign with two dots above and two dots below				
+⩸	equivalent with four dots above				
+⩹	less-than with circle inside				
+⩺	greater-than with circle inside				
+⩻	less-than with question mark above				
+⩼	greater-than with question mark above				
+⩽	less-than or slanted equal to				
+⩾	greater-than or slanted equal to				
+⩿	less-than or slanted equal to with dot inside				
+⪀	greater-than or slanted equal to with dot inside				
+⪁	less-than or slanted equal to with dot above				
+⪂	greater-than or slanted equal to with dot above				
+⪃	less-than or slanted equal to with dot above right				
+⪄	greater-than or slanted equal to with dot above left				
+⪅	less-than or approximate				
+⪆	greater-than or approximate				
+⪇	less-than and single-line not equal to				
+⪈	greater-than and single-line not equal to				
+⪉	less-than and not approximate				
+⪊	greater-than and not approximate				
+⪋	less-than above double-line equal above greater-than				
+⪌	greater-than above double-line equal above less-than				
+⪍	less-than above similar or equal				
+⪎	greater-than above similar or equal				
+⪏	less-than above similar above greater-than				
+⪐	greater-than above similar above less-than				
+⪑	less-than above greater-than above double-line equal				
+⪒	greater-than above less-than above double-line equal				
+⪓	less-than above slanted equal above greater-than above slanted equal				
+⪔	greater-than above slanted equal above less-than above slanted equal				
+⪕	slanted equal to or less-than				
+⪖	slanted equal to or greater-than				
+⪗	slanted equal to or less-than with dot inside				
+⪘	slanted equal to or greater-than with dot inside				
+⪙	double-line equal to or less-than				
+⪚	double-line equal to or greater-than				
+⪛	double-line slanted equal to or less-than				
+⪜	double-line slanted equal to or greater-than				
+⪝	similar or less-than				
+⪞	similar or greater-than				
+⪟	similar above less-than above equals sign				
+⪠	similar above greater-than above equals sign				
+⪡	double nested less-than				
+⪢	double nested greater-than				
+⪣	double nested less-than with underbar				
+⪤	greater-than overlapping less-than				
+⪥	greater-than beside less-than				
+⪦	less-than closed by curve				
+⪧	greater-than closed by curve				
+⪨	less-than closed by curve above slanted equal				
+⪩	greater-than closed by curve above slanted equal				
+⪪	smaller than				
+⪫	larger than				
+⪬	smaller than or equal to				
+⪭	larger than or equal to				
+⪮	equals sign with bumpy above				
+⪯	precedes above single-line equals sign	preceq			
+⪰	succeeds above single-line equals sign	succeq			
+⪱	precedes above single-line not equal to				
+⪲	succeeds above single-line not equal to				
+⪳	precedes above equals sign				
+⪴	succeeds above equals sign				
+⪵	precedes above not equal to				
+⪶	succeeds above not equal to				
+⪷	precedes above almost equal to				
+⪸	succeeds above almost equal to				
+⪹	precedes above not almost equal to				
+⪺	succeeds above not almost equal to				
+⪻	double precedes				
+⪼	double succeeds				
+⪽	subset with dot				
+⪾	superset with dot				
+⪿	subset with plus sign below				
+⫀	superset with plus sign below				
+⫁	subset with multiplication sign below				
+⫂	superset with multiplication sign below				
+⫃	subset of or equal to with dot above				
+⫄	superset of or equal to with dot above				
+⫅	subset of above equals sign				
+⫆	superset of above equals sign				
+⫇	subset of above tilde operator				
+⫈	superset of above tilde operator				
+⫉	subset of above almost equal to				
+⫊	superset of above almost equal to				
+⫋	subset of above not equal to				
+⫌	superset of above not equal to				
+⫍	square left open box operator				
+⫎	square right open box operator				
+⫏	closed subset				
+⫐	closed superset				
+⫑	closed subset or equal to				
+⫒	closed superset or equal to				
+⫓	subset above superset				
+⫔	superset above subset				
+⫕	subset above subset				
+⫖	superset above superset				
+⫗	superset beside subset				
+⫘	superset beside and joined by dash with subset				
+⫙	element of opening downwards				
+⫚	pitchfork with tee top				
+⫛	transversal intersection				
+⫝̸	forking				
+⫝	nonforking				
+⫞	short left tack				
+⫟	short down tack				
+⫠	short up tack				
+⫡	perpendicular with s				
+⫢	vertical bar triple right turnstile				
+⫣	double vertical bar left turnstile				
+⫤	vertical bar double left turnstile				
+⫥	double vertical bar double left turnstile				
+⫦	long dash from left member of double vertical				
+⫧	short down tack with overbar				
+⫨	short up tack with underbar				
+⫩	short up tack above short down tack				
+⫪	double down tack				
+⫫	double up tack				
+⫬	double stroke not sign				
+⫭	reversed double stroke not sign				
+⫮	does not divide with reversed negation slash				
+⫯	vertical line with circle above				
+⫰	vertical line with circle below				
+⫱	down tack with circle below				
+⫲	parallel with horizontal stroke				
+⫳	parallel with tilde operator				
+⫴	triple vertical bar binary relation				
+⫵	triple vertical bar with horizontal stroke				
+⫶	triple colon operator				
+⫷	triple nested less-than				
+⫸	triple nested greater-than				
+⫹	double-line slanted less-than or equal to				
+⫺	double-line slanted greater-than or equal to				
+⫻	triple solidus binary relation				
+⫼	large triple vertical bar operator				
+⫽	double solidus operator				
+⫾	white vertical bar				
+⫿	n-ary white vertical bar				
+👍	thumbs up sign		thumbs up like good yes emoji		1
+👎	thumbs down sign		thumbs down dislike bad no emoji		1
+🚀	rocket		rocket launch ship fast emoji		1
+🐛	bug		bug defect issue emoji		1
+💡	electric light bulb		idea bulb light insight emoji		1
+🔥	fire		fire hot urgent emoji		1
+🎉	party popper		party celebrate done shipped emoji		1
+👀	eyes		eyes look review watching emoji		1
+🤔	thinking face		thinking hmm unsure emoji		1
+🎯	direct hit		target goal bullseye direct hit emoji		1
+𝔼	mathematical double-struck capital e	mathbb{E}	expectation expected value blackboard bold E		
+$	dollar sign		dollar money currency		
+#	number sign				
+&	ampersand				
+@	commercial at				
+^	circumflex accent				
+~	tilde				`;
 
 /** Browsing groups shown when the query is empty — for when you do not know the name. */
 export const SYMBOL_KITS: [string, string][] = [

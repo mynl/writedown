@@ -7,7 +7,6 @@ import { getActiveView } from "./editor/editorView";
 import {
   applyUserSymbols,
   codePointLabel,
-  isEmojiPresentation,
   loadSymbols,
   recentSymbols,
   recordSymbolUse,
@@ -304,15 +303,17 @@ export function Palette() {
                   onClick={() => choose(i)}
                 >
                   {/* Own font stack, not the editor's coding face: a monospace programming
-                      font has no glyph for a third of this table and would draw tofu. */}
-                  <span className="symbol-glyph">{e.char}</span>
+                      font has no glyph for a third of this table and would draw tofu. The
+                      emoji class picks the COLOR font, so ✅ looks in the picker the way it
+                      will look in the document — see App.css for why the order matters. */}
+                  <span className={"symbol-glyph" + (e.emoji ? " is-emoji" : "")}>{e.char}</span>
                   <span className="symbol-text">
                     <span className="symbol-name">{e.name}</span>
                     <span className="symbol-meta">
                       {e.latex.map((l) => "\\" + l).join("  ")}
                       {e.latex.length ? " · " : ""}
                       {codePointLabel(e)}
-                      {isEmojiPresentation(e.cp) ? " · color emoji" : ""}
+                      {e.emoji ? " · color emoji" : ""}
                     </span>
                   </span>
                 </div>

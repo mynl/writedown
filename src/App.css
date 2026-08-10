@@ -1223,8 +1223,26 @@ body {
   font-size: 19px;
   line-height: 1.3;
   /* NOT var(--mono): a programming face has no glyph for a third of this table and would
-     draw tofu. Segoe UI Symbol / Emoji carry essentially all of it on Windows. */
-  font-family: "Segoe UI Symbol", "Segoe UI Emoji", "Cambria Math", serif;
+     draw tofu. Segoe UI Symbol covers the symbols; Segoe UI Emoji covers the emoji.
+
+     ORDER MATTERS, and getting it wrong is silent. Both fonts contain U+2705, but only
+     Segoe UI Emoji has a COLR table — so listing Segoe UI Symbol first (as this did in
+     2.13.0) drew the green check as a hollow monochrome outline and the color font never
+     got a look in. Text-presentation characters keep the symbol font first, so ✓ ★ ⚠ stay
+     in the editor's text color, which is what they do in the document. */
+  font-family: "Segoe UI Symbol", "Cambria Math", "Segoe UI Emoji", serif;
+}
+/* Emoji_Presentation=Yes — color by default, so the color font leads.
+
+   Per-character rather than one stack for the list, because NO single order is right for
+   both: Segoe UI Symbol has monochrome glyphs for ✅/❌ (so symbol-first kills the color),
+   and Segoe UI Emoji has color glyphs for ⚠/✓ (so emoji-first would colorize characters
+   that are monochrome in the document). The editor deliberately declares NEITHER font and
+   lets Chromium's presentation-aware fallback choose — that is why ✅ is already color in
+   a document while ✓ takes the text color. This list can't do that, because it has to
+   name a font with reliable symbol coverage; so it asks the table instead. */
+.symbol-glyph.is-emoji {
+  font-family: "Segoe UI Emoji", "Segoe UI Symbol", serif;
 }
 .symbol-text {
   display: flex;

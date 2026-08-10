@@ -208,7 +208,9 @@ operators, relations, set & logic, sub/superscripts, dashes & quotes).
 - Know the code point already? Type **`u+2299`** then **Tab** in the editor: no popup.
   A bare **`u+`** then **Tab** opens the picker.
 - ✅ and ❌ are color emoji (they come from the emoji font); ✓ and ✗ take your editor's
-  text color. The picker labels which is which.
+  text color. The picker labels which is which and draws each one the way your document
+  will. A character carries no color of its own — a *green* ✓ is styling, not a
+  different character.
 - Add your own names under `[symbols]` in config.toml.
 
 (Windows' own **Win+.** panel does not work in Writedown, and cannot be made to: it

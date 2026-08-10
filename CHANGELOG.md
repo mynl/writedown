@@ -543,6 +543,27 @@ messages point here for detail.
 - Backend `DirEntry` gained a `supported` flag and `list_directory` no longer drops
   unsupported files. Rust changed — `tauri dev` needs a restart, not just HMR.
 
+## [2.13.1] - 2026-08-10
+
+### Fixed
+
+- **The Unicode picker drew ✅ and ❌ in monochrome** — reported within minutes of 2.13.0.
+  The glyph column's font stack named `Segoe UI Symbol` first, and that font has its own
+  *monochrome* glyphs for U+2705 and U+274C, so it won and `Segoe UI Emoji` (the one with
+  the COLR table) never got a look in. Verified against the actual font files rather than
+  guessed.
+
+  There is no single font order that is right for every row: symbol-first kills the color
+  on ✅/❌, and emoji-first would colorize ⚠ and ✓, which are monochrome in a document. So
+  the table now carries **Emoji_Presentation** per character — a real Unicode property, not
+  a hand-rolled range list — and the picker picks the font per row. It now shows each
+  character the way the document will.
+
+  The editor and preview were never affected and are deliberately left alone: they declare
+  neither font, so Chromium's presentation-aware fallback chooses, which is strictly
+  better than any static list. (Confirmed by the font data: JetBrains Mono NL carries ✓, ⊙,
+  α and → itself, and lacks ✅/❌ — so those fall through to the color emoji font.)
+
 ## [2.13.0] - 2026-08-10
 
 Batch D (issues D.01–D.13). D.05 was dropped and D.10 needed almost nothing; D.08 turned
