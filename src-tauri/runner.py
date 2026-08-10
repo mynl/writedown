@@ -56,10 +56,15 @@ def reply(obj):
 
 
 TB_MODES = ("minimal", "plain", "context", "verbose", "docs")
-# Traceback verbosity for this render ([render] traceback_mode, `wd-traceback:`, or an
-# in-cell `%xmode`). Carried on the request; a cell-level %xmode overrides it from that
-# point on, which is why it lives at module scope rather than being threaded through.
+# Traceback verbosity. Two layers, because a render is many requests:
+#   tb_mode      — what the app asked for ([render] traceback_mode or `wd-traceback:`),
+#                  refreshed from every request;
+#   xmode_override — an in-cell `%xmode`, which must outlive the CELL it appears in and
+#                  apply to the rest of the render, then be forgotten when the next render
+#                  starts. Cleared on `reset`.
+# Keeping them apart is the whole fix for "%xmode in cell 1, failure in cell 2 ignored it".
 tb_mode = "context"
+xmode_override = None
 # The last cwd this runner applied, so a cell's own os.chdir() survives the rest of the
 # render while a switch to another document still re-anchors (issue D.10).
 applied_cwd = None
@@ -73,7 +78,7 @@ def clean(code):
     # There is no IPython here, but we ARE the traceback formatter, so the mode is ours to
     # honour — and it costs nothing, since it is read while the line is being blanked
     # anyway. Every other magic is still deleted.
-    global tb_mode
+    global xmode_override
     out = []
     for line in code.split("\n"):
         t = line.lstrip()
@@ -82,7 +87,7 @@ def clean(code):
             if parts and parts[0] in ("xmode", "xmode?") and len(parts) > 1:
                 m = parts[1].strip().lower()
                 if m in TB_MODES:
-                    tb_mode = m
+                    xmode_override = m
             out.append("")
         elif t.startswith(("!", "?", "#|")):
             out.append("")
@@ -156,7 +161,10 @@ def _frame_locals(frame, src):
         if len(lines) >= 25:
             lines.append("        ...")
             break
-    return lines
+    # Say so rather than print nothing. A frame with no bindings worth showing — `import
+    # missing_mod` is the canonical case — otherwise renders identically to `context`, and
+    # the mode reads as broken when it is merely quiet.
+    return lines or ["        (no locals)"]
 
 
 def _frame_doc(frame):
@@ -288,11 +296,13 @@ def collect_figures(fmt, dpi):
 
 
 def handle(req):
-    global ns, tb_mode, applied_cwd
+    global ns, tb_mode, xmode_override, applied_cwd
     t0 = time.perf_counter()
     mode = req.get("traceback_mode")
     tb_mode = mode if mode in TB_MODES else "context"
     if req.get("reset"):
+        # A new render: a %xmode from the previous one must not leak into it.
+        xmode_override = None
         ns = {"__name__": "__main__"}
         plt = sys.modules.get("matplotlib.pyplot")
         if plt is not None:
@@ -322,8 +332,9 @@ def handle(req):
     except BaseException as e:  # report everything (incl. SystemExit), never crash
         error = {
             "message": "%s: %s" % (type(e).__name__, e),
-            # tb_mode, not `mode`: an in-cell %xmode may have changed it while running.
-            "traceback": format_error(e, tb_mode),
+            # An in-cell %xmode wins over the configured mode — including one written in an
+            # EARLIER cell of the same render, which is the point of keeping it separate.
+            "traceback": format_error(e, xmode_override or tb_mode),
             "line": error_line(e),
         }
 

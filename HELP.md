@@ -29,9 +29,12 @@ overwritten). The canonical copy is `HELP.md` in the repository.
 - **Ctrl+Shift+Q** opens your quick file (`[files] quick_file` in config), and palette
   **Open Quick File…** searches the `[files] quick_files` list — the handful of files you
   come back to constantly, matched on name or folder.
-- **From a terminal**: `writedown notes.md`, `writedown C:\docs` (a folder joins the open
-  project, or becomes the Folder-tab root), `writedown --version`, `writedown --help`.
-  Every invocation opens a **new window** — running several at once is supported.
+- **From a terminal**: `writedown notes.md`, `writedown .` or `writedown C:\docs`,
+  `writedown --version`, `writedown --help`. A folder argument opens as **its own
+  project**, replacing the restored workspace rather than joining it — and its tabs and
+  layout are remembered against that folder, so running it again resumes where you were.
+  Nothing is written to disk; the project stays unsaved until you name it. Every
+  invocation opens a **new window** — running several at once is supported.
 - Palette **Close All Files** saves and closes every real file. Unsaved scratch buffers
   are deliberately left alone: their text exists nowhere but the session.
 - The file tree lists **every** file. Muted entries are files Writedown has no

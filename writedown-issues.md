@@ -26,11 +26,18 @@ For each row in the table add a new row below it for your input, item is ">>CC".
 
 ## Batch D: Thursday 2026-08-06
 
-writedown . need to open just . in a new project - not add . to the existing project. ditto if you pass a dir by name.
+    cmd prompt> writedown . needs to open just . in a new project - not add . to the existing project. ditto if you pass a dir by name.
 
-what's the toml syntax for the *list* of quick files?
+    what's the toml syntax for the *list* of quick files?
 
-where is large work report? not seeing on palette
+    where is large work report? not seeing on palette
+
+    not seeing %xmode in a code block working? this does nothing:
+
+    ```{python}
+    %xmode Verbose
+    import missing_mod
+    ```
 
 
 
@@ -55,13 +62,13 @@ where is large work report? not seeing on palette
 | >>CC | L | None | **You already have this: palette → "Enter Plain View — editor only, no sidebars or preview". The toggle is even registered in the keybinding system; it has simply never been given a key.** Ctrl+K Ctrl+F is free, and binding it is one line. ==> :-); BIND IT AS A TOGGLE ON/OFF |
 | **D.09** | | | get_ipython returns None. Why? Is it possible for it to work? Is it a matter of what kernel we are using? I want this so I can use %xmode Docs and other magics. Etc.  |
 | >>CC | M–H | None | **Because there is no IPython in the loop at all: our "kernel" is plain `python.exe` running a 240-line script that `exec`s your cells — and it *blanks every `%magic` line* before parsing.** So `get_ipython()` has nothing to return; it isn't a choice of kernel, there is no kernel in the Jupyter sense. Making magics real means running cells through an actual IPython shell — possible, and it would also buy you `display()`, but it is a rework of the runner, not a switch. A cheap middle ground exists. |
-| **D.10** | | | What is the cwd per project? How can we change it? (Ie what Path.cwd() returns). Where are the screen layout and open files stored per project? Do we need a ST "workspace" or should/could that info be bundled into the project file? Discuss!  |
+| **D.10** |✅| | What is the cwd per project? How can we change it? (Ie what Path.cwd() returns). Where are the screen layout and open files stored per project? Do we need a ST "workspace" or should/could that info be bundled into the project file? Discuss!  |
 | >>CC | L + discuss | None | **cwd is the folder of the document you rendered, set once per full render — not per project, and stale after a Run-This-Cell against a document from elsewhere (a small real bug). Layout and open files already live apart from the project, in `~/.writedown/sessions/<hash>.json`, keyed by the `.wdproj` path.** So you already have ST's workspace, automatic and invisible. I'd argue against folding it into the project file — that would have Writedown rewriting one of your files every few seconds. ==> Agree; nothing to do here. ==> parent of file is the expected answer. |
-| **D.11** | | | auto-reload a project after editing its project file  |
+| **D.11** |✅| | auto-reload a project after editing its project file  |
 | >>CC | L–M | None | **Nothing watches the project file, and the obvious fix — just re-open it — would wipe your tab strip, because opening a project clears every tab by design.** The right shape is a narrow "re-read the folders only" reload, fired when you save the `.wdproj` in a tab. Invalid JSON mid-edit must leave the sidebar alone. ==>Yes, reload the files is what i wanted; good solution.  |
 | **D.12** | | | The WIN + . unicode gizmo does not work (why, again?). Can we roll our own unicode inserter? Palette->Unicode-> search for name of char? Keep list of recent? Discuss! |
 | >>CC | M + discuss | None | **Win+. fails because the character panel is a separate OS window: opening it blurs the editor, then injects the character into a blurred CodeMirror, which discards it. We diagnosed that before and you DROPped it — the fix sits on the IME fast path, so I still wouldn't lead with it.** Our own picker sidesteps the whole thing; the only real question is table size, since names for all of Unicode is ~34,000 entries. There is also a smaller idea you may like better — `\alpha` + Tab. ==> WE'LL CHAT |
-| **D.13** | | | Add palette -> close all files, that closes all open files and temp files.  |
+| **D.13** |✅| | Add palette -> close all files, that closes all open files and temp files.  |
 | >>CC | L | None | **Small — but "and temp files" is the catch: scratch buffers have never touched disk, so closing them genuinely destroys the text (no Recycle Bin, no Previous Versions, no reopen).** Real files save first, exactly as Ctrl+W already does; I'd confirm once before discarding non-empty scratches. ==> Close all ACTUAL files, do not close temp files. When i wrote it i wasn't sure. But we don't want those inadvertently blown away. That makes it easier. |
 
 
@@ -778,31 +785,6 @@ have been invisible in the UI (you would just have thought the search was bad):
 Current top hits, for the record: `check` → ✓ ✔ ☑ ✅ · `tick` → ✓ · `red x` → ❌ ✗ ✘ ·
 `circle` → ◎ ○ ● ◦ · `arrow` → ↑ ← ↓ → · `right arrow` → → · `star` → ★ ☆ ·
 `warning` → ⚠ ❗ · `\alpha` → α · `dash` → – —.
-
-**Your "no green check?" — you were right, and it was my bug, FIXED in 2.13.1.** The glyph
-column named `Segoe UI Symbol` first, and **that font has its own monochrome ✅ and ❌** — so
-it won and the color font never got a look in. Checked against the font files rather than
-guessed: `seguisym.ttf` has no color table and does carry U+2705/U+274C; `seguiemj.ttf` has
-`COLR` and carries them too. Whichever is named first decides.
-
-The general lesson, since it is a trap and not a typo: **no single font order is right for
-every row.** Symbol-first kills the color on ✅/❌; emoji-first would colorize ⚠ and ✓, which
-are monochrome in a document. So the generated table now carries **Emoji_Presentation** per
-character (a real Unicode property, listed explicitly since `unicodedata` does not expose
-it), and the picker chooses per row.
-
-**Your editor and preview were never affected**, and I deliberately did not touch them.
-They declare *neither* font, which lets Chromium's presentation-aware fallback decide — and
-that is smarter than any static list I could write. The font data confirms it: JetBrains
-Mono NL carries ✓, ⊙, α and → itself (so they render in your editor font, in your text
-color) and lacks ✅ and ❌ (so those fall through to the color emoji font). Adding fonts to
-that stack would only take the choice away from the one mechanism that gets it right.
-
-**One thing Unicode cannot do, worth stating plainly:** a character has no color. ✅ is
-green because the emoji font draws it green; ✓ is not green in any font and never will be —
-it takes whatever color the surrounding text has. A green **✓** in a rendered document is a
-styling job (`<span style="color:green">✓</span>`, or CSS), not a different character. If
-you want that as a one-keystroke insert, say so and it becomes a snippet.
 
 ### D.13 — Close All Files
 

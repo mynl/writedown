@@ -582,6 +582,10 @@ type AppState = {
   openDropped: (paths: string[]) => Promise<void>;
   /** Open the files Writedown was launched with, after session restore (issue A.03). */
   openLaunchFiles: () => Promise<void>;
+  /** Adopt `dirs` as an UNSAVED project, replacing the current workspace — what
+   *  `writedown .` does. Nothing is written to disk; the layout is remembered against the
+   *  folder path, so running it again picks up where you left off. */
+  openFoldersAsProject: (dirs: string[]) => Promise<void>;
   /** Batch-fetch `roots` plus every remembered-expanded folder beneath them, ahead of the
    *  tree mount (issue A.25) — so a restored set of expanded folders paints in one go
    *  instead of filling in one folder at a time. Fills `dirCache`, which the tree reads. */
@@ -2313,11 +2317,53 @@ export const useStore = create<AppState>((set, get) => ({
       return; // older backend / no args — nothing to do
     }
     if (paths.length === 0) return;
-    // Hand them to the drop path (issue D.02) rather than opening files one by one: it
-    // already stats each path, routes a FOLDER to the project or the Folder-tab root, skips
-    // binaries, applies the 20-file cap and reports the overflow. `writedown C:\docs` used
-    // to do nothing at all, because the backend filter kept only `is_file()` paths.
-    await get().openDropped(paths);
+    let info;
+    try {
+      info = await statPaths(paths);
+    } catch {
+      return;
+    }
+    const dirs = info.filter((i) => i.exists && i.is_dir).map((i) => i.path);
+    const files = info.filter((i) => i.exists && !i.is_dir).map((i) => i.path);
+    // A directory on the COMMAND LINE opens as its own workspace — it must not be added to
+    // whatever project the session happened to restore. `writedown .` means "work on this",
+    // not "annex this into the last thing I had open". (Drag-and-drop keeps the opposite,
+    // additive behaviour: dropping a folder onto an open project is a different gesture
+    // with a different intent, and openDropped still owns it.)
+    if (dirs.length > 0) await get().openFoldersAsProject(dirs);
+    // Files still go through the drop path, which stats them, skips binaries, applies the
+    // 20-file cap and reports the overflow — and runs AFTER the workspace switch, so a
+    // launched file ends up as the active tab rather than being buried by the restore.
+    if (files.length > 0) await get().openDropped(files);
+  },
+
+  openFoldersAsProject: async (dirs) => {
+    if (dirs.length === 0) return;
+    // Same workspace-switch contract as openProject, minus the .wdproj: park unsaved work
+    // in the OLD workspace's session first, then adopt the folders as an unsaved project.
+    await get().saveAll();
+    const oldKey = sessionKey(get());
+    if (oldKey) await saveSession(oldKey, sessionSnapshot(get())).catch(() => {});
+    const name = dirs[0].replace(/[\\/]+$/, "").split(/[\\/]/).pop() || dirs[0];
+    set({
+      projFolders: dirs,
+      projectFile: null, // unsaved: persistProject no-ops, nothing is written to disk
+      projectName: name,
+      panelTab: "project",
+      tabs: [],
+      activePath: null,
+      closedStack: [],
+    });
+    await get().prefetchTree(dirs);
+    await get().setRoot(dirs[0]);
+    applyWatch(dirs);
+    get().syncExtraWatch();
+    void saveLastWorkspace(sessionKey(get()));
+    setTitle(name);
+    // sessionKey falls back to the joined folder list for an unsaved project, so this
+    // folder gets its own remembered tabs and layout — run `writedown .` twice and the
+    // second time picks up where the first left off.
+    await get().restoreSession(sessionKey(get()) ?? dirs[0]);
   },
 
   loadRecentProjects: async () => {

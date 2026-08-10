@@ -61,12 +61,37 @@ fn parse_args<I: IntoIterator<Item = String>>(args: I) -> Cli {
 
 /// Keep the candidates that exist — files **and directories** (D.02: a directory argument
 /// used to be silently dropped by an `is_file()` filter, so `writedown C:\docs` opened an
-/// empty window with no explanation).
+/// empty window with no explanation) — and make each one **absolute**.
+///
+/// Absolute matters more than it looks: `writedown .` is the natural way to type it, and
+/// "." reaching the frontend as-is would be used verbatim as a workspace root, a session
+/// key and a watcher path. `canonicalize` resolves it against the shell's working
+/// directory, and the `\\?\` verbatim prefix it returns on Windows is stripped — that form
+/// is correct but leaks into the title bar, the status bar and the session file name.
 fn existing_paths(candidates: Vec<String>) -> Vec<String> {
     candidates
         .into_iter()
-        .filter(|a| std::path::Path::new(a).exists())
+        .filter_map(|a| {
+            let p = std::path::Path::new(&a);
+            if !p.exists() {
+                return None;
+            }
+            Some(match std::fs::canonicalize(p) {
+                Ok(abs) => strip_verbatim(&abs.to_string_lossy()),
+                // Unreadable but existing (a permissions edge): pass the original through
+                // rather than dropping a path the user explicitly asked for.
+                Err(_) => a,
+            })
+        })
         .collect()
+}
+
+/// `\\?\C:\docs` → `C:\docs`; UNC `\\?\UNC\server\share` → `\\server\share`.
+fn strip_verbatim(p: &str) -> String {
+    if let Some(rest) = p.strip_prefix(r"\\?\UNC\") {
+        return format!(r"\\{rest}");
+    }
+    p.strip_prefix(r"\\?\").unwrap_or(p).to_string()
 }
 
 const HELP_TEXT: &str = "\
@@ -76,9 +101,12 @@ USAGE:
     writedown [OPTIONS] [PATH]...
 
 ARGS:
-    PATH...    Files to open as tabs, and/or a folder to open in the sidebar.
-               A folder joins the current project if one is open, otherwise it
-               becomes the Folder-tab root.
+    PATH...    Files to open as tabs, and/or a folder to work in.
+               A folder (including a bare dot) opens as its OWN project: it replaces
+               the restored workspace rather than joining it. Its open tabs and
+               layout are remembered against that folder, so running the same
+               command again picks up where you left off. Nothing is written to
+               disk: the project is unsaved until you name it.
 
 OPTIONS:
     -h, --help       Print this help and exit
@@ -289,5 +317,40 @@ mod tests {
         ]));
         assert_eq!(kept.len(), 2, "folder and file kept, missing path dropped");
         let _ = std::fs::remove_file(&file);
+    }
+}
+
+#[cfg(test)]
+mod path_tests {
+    use super::*;
+
+    #[test]
+    fn verbatim_prefix_is_stripped() {
+        assert_eq!(strip_verbatim(r"\\?\C:\docs\a.md"), r"C:\docs\a.md");
+        assert_eq!(strip_verbatim(r"\\?\UNC\server\share\a.md"), r"\\server\share\a.md");
+        assert_eq!(strip_verbatim(r"C:\docs\a.md"), r"C:\docs\a.md");
+    }
+
+    /// `writedown .` — the natural way to type it. "." must reach the frontend as a real
+    /// absolute path, or it becomes a workspace root, a session key and a watcher path.
+    #[test]
+    fn dot_becomes_an_absolute_path() {
+        let out = existing_paths(vec![".".to_string()]);
+        assert_eq!(out.len(), 1);
+        let p = std::path::Path::new(&out[0]);
+        assert!(p.is_absolute(), "got {p:?}");
+        assert!(p.is_dir());
+        assert!(!out[0].starts_with(r"\?\"), "verbatim prefix leaked: {}", out[0]);
+        assert!(
+            same_dir(p, &std::env::current_dir().unwrap()),
+            "{out:?} is not the working directory"
+        );
+    }
+
+    fn same_dir(a: &std::path::Path, b: &std::path::Path) -> bool {
+        match (std::fs::canonicalize(a), std::fs::canonicalize(b)) {
+            (Ok(x), Ok(y)) => x == y,
+            _ => false,
+        }
     }
 }

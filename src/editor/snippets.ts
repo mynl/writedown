@@ -14,7 +14,10 @@ export const DEFAULT_SNIPPETS: Record<string, string> = {
   // fold mirrors what the completer actually queries (wordFreq.ts buildAggregate), so these
   // numbers agree with what Tab offers you. Static text — no backend call, nothing to keep
   // in sync. The store holds at most 50 files × 250 words, so this is small and fast.
-  "Word Frequency Report": [
+  // Named for what the author calls it, not for what the file is called: he searched the
+  // palette for "large word report" and found nothing, because the verb was titled "Word
+  // Frequency Report". The palette matches on the title, so the title carries both.
+  "Large Word Report (word frequency, from Tab completion)": [
     "```{python}",
     "import json, pandas as pd",
     "from pathlib import Path",

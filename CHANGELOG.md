@@ -543,6 +543,41 @@ messages point here for detail.
 - Backend `DirEntry` gained a `supported` flag and `list_directory` no longer drops
   unsupported files. Rust changed — `tauri dev` needs a restart, not just HMR.
 
+## [2.13.2] - 2026-08-10
+
+Four punch-ups reported against 2.13.1.
+
+### Fixed
+
+- **`writedown .` (or any folder) now opens as its OWN project** instead of being added to
+  whatever project the session restored. A folder on the command line means "work on this",
+  not "annex this into the last thing I had open". It becomes an unsaved project — nothing
+  is written to disk — and its tabs and layout are remembered against the folder path, so
+  running the same command again resumes where you left off. Drag-and-drop keeps the
+  opposite, additive behavior: dropping a folder onto an open project is a different
+  gesture with a different intent.
+- **`writedown .` actually works at all.** Launch paths are now resolved to absolute paths
+  against the shell's working directory. `.` was previously handed to the frontend
+  verbatim, where it would have been used as a workspace root, a session key and a watcher
+  path. Windows' `\\?\` verbatim prefix is stripped, since it is correct but leaks into the
+  title bar, the status bar and the session file name.
+- **`%xmode` now applies to the rest of the render, not just the cell it appears in.** A
+  render is one request per cell and the mode was re-read from the request every time, so
+  `%xmode Verbose` in cell 1 was silently discarded before cell 4 failed — which is
+  precisely the way anyone would use it. The in-cell override is now tracked separately
+  from the configured mode and cleared when the next render starts. (Ctrl+Enter against a
+  live kernel keeps it, like Jupyter.)
+- **`verbose` says `(no locals)` instead of printing nothing** when a frame has no bindings
+  worth showing. `%xmode Verbose` followed by `import missing_mod` produced output
+  identical to `context` — the mode was working, it just had nothing to say, which reads
+  exactly like a broken feature.
+
+### Changed
+
+- The word-frequency snippet is now **"Insert: Large Word Report (word frequency, from Tab
+  completion)"**. It was titled "Word Frequency Report", and the palette matches on the
+  title, so searching for what the author calls it — "large word report" — found nothing.
+
 ## [2.13.1] - 2026-08-10
 
 ### Fixed
