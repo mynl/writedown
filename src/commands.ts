@@ -12,7 +12,12 @@ import { isProsePos } from "./editor/prose";
 import { renumberOrderedList } from "./editor/lists";
 import { reformatTables } from "./editor/tables";
 import { toggleBold, toggleItalic } from "./editor/markdownFormat";
-import { insertDateTime } from "./editor/textOps";
+import {
+  DEFAULT_DATETIME_FORMAT,
+  DEFAULT_DATE_FORMAT,
+  formatStamp,
+  insertStamp,
+} from "./editor/textOps";
 import { toggleWordWrap } from "./editor/wrap";
 import { keymapConfigBlock } from "./editor/keymap";
 import { insertSnippet, mergedSnippets } from "./editor/snippets";
@@ -45,6 +50,28 @@ function wordAtCursor(view: EditorView): string | null {
     if (rel >= s && rel <= e) return m[0].replace(/'+$/, "");
   }
   return null;
+}
+
+// ---- date stamps (issue D.01) -------------------------------------------------------
+// Formats come from [editor] date_format / datetime_format; the defaults reproduce the
+// output these verbs had before they were configurable.
+const dateFormat = () => useStore.getState().editorSettings?.date_format || DEFAULT_DATE_FORMAT;
+const datetimeFormat = () =>
+  useStore.getState().editorSettings?.datetime_format || DEFAULT_DATETIME_FORMAT;
+
+/** Today rendered in `pattern` — shown IN the palette title, so the verb tells you what
+ *  you are about to get rather than making you learn strftime. */
+const sampleStamp = (pattern: string) => formatStamp(new Date(), pattern);
+
+function stampCommand(pattern: string): () => void {
+  return () => {
+    const view = getActiveView();
+    if (!view) return;
+    insertStamp(pattern)({ state: view.state, dispatch: (tr) => view.dispatch(tr) });
+    // The palette input held focus; return it to the editor so the caret (already placed
+    // after the stamp by replaceSelection) is live and typing continues.
+    view.focus();
+  };
 }
 
 export function appCommands(): Command[] {
@@ -92,6 +119,13 @@ export function appCommands(): Command[] {
       id: "open-quick-file",
       title: "Open Quick File (Ctrl+Shift+Q)",
       run: () => void s().openQuickFile(),
+    },
+    {
+      // The `[files] quick_files` pick-list (issue D.04). Ctrl+Shift+Q still opens the
+      // single `quick_file`; this is the list, fuzzy-searchable by name or folder.
+      id: "quick-files",
+      title: "Open Quick File…",
+      run: () => s().openPalette("quickfiles"),
     },
     { id: "save", title: "Save", run: () => void s().saveActive() },
     { id: "save-as", title: "Save As…", run: () => void s().saveAs() },
@@ -182,15 +216,22 @@ export function appCommands(): Command[] {
     {
       // Any editor, not just markdown — timestamps are useful in every file type.
       id: "insert-datetime",
-      title: "Insert Date-Time (YYYY-MM-DD HH:MM:SS)",
-      run: () => {
-        const view = getActiveView();
-        if (!view) return;
-        insertDateTime({ state: view.state, dispatch: (tr) => view.dispatch(tr) });
-        // The palette input held focus; return it to the editor so the caret (already
-        // placed after the stamp by replaceSelection) is live and typing continues.
-        view.focus();
-      },
+      title: `Insert Date-Time (${sampleStamp(datetimeFormat())})`,
+      run: stampCommand(datetimeFormat()),
+    },
+    {
+      // Issue D.01: the date on its own, because the time half was being deleted by hand
+      // every time. Both formats are configurable — [editor] date_format / datetime_format.
+      id: "insert-date",
+      title: `Insert Date (${sampleStamp(dateFormat())})`,
+      run: stampCommand(dateFormat()),
+    },
+    {
+      // Issue D.12. Searches the Unicode name, the LaTeX command, emoji keywords and our
+      // aliases at once — "tick" finds ✓ even though no Unicode name contains the word.
+      id: "insert-symbol",
+      title: "Insert: Unicode Character… (Ctrl+Shift+U)",
+      run: () => s().openPalette("symbols"),
     },
     { id: "spell-toggle", title: "Toggle Spell Check", run: () => s().toggleSpell() },
     {
@@ -311,6 +352,13 @@ export function appCommands(): Command[] {
         const { activePath, closeTab } = s();
         if (activePath) closeTab(activePath);
       },
+    },
+    {
+      // Issue D.13: real files only. Scratch buffers stay open by decision — their text
+      // exists nowhere but the session, so closing one would destroy it outright.
+      id: "close-all",
+      title: "Close All Files (keeps unsaved scratch buffers)",
+      run: () => void s().closeAllTabs(),
     },
     { id: "next-tab", title: "Next Tab", run: () => s().nextTab(1) },
     { id: "prev-tab", title: "Previous Tab", run: () => s().nextTab(-1) },

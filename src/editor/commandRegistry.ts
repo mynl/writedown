@@ -125,6 +125,7 @@ export const COMMAND_REGISTRY: Record<string, RegistryEntry> = {
   zoomPreviewOut: { run: act(() => s().setPreviewZoom(-1)), label: "Preview zoom out", category: "View" },
   zoomPreviewReset: { run: act(() => s().setPreviewZoom("reset")), label: "Preview zoom reset", category: "View" },
   plainView: { run: act(() => s().togglePlainView()), label: "Toggle plain view (editor only, no sidebars/preview)", category: "View" },
+  insertSymbol: { run: act(() => s().openPalette("symbols")), label: "Insert a Unicode character (search by name, \\latex or u+XXXX)", category: "Edit" },
   toggleWordWrap: { run: act(() => toggleWordWrap()), label: "Toggle word wrap", category: "View" },
   toggleSpell: { run: act(() => s().toggleSpell()), label: "Toggle spell check", category: "View" },
   toggleSidebar: { run: act(() => s().setSidebarVisible(!s().sidebarVisible)), label: "Toggle sidebar", category: "View" },

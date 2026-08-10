@@ -62,7 +62,14 @@ struct RenderCfg {
     timeout_seconds: u64,
     figure_format: String, // "png" | "svg"
     figure_dpi: u32,
+    /// How a failing cell is reported (issue D.09): minimal | plain | context | verbose |
+    /// docs. The runner formats tracebacks itself, so this is ours to choose — there is no
+    /// IPython involved and no CPython flag that does it.
+    traceback_mode: String,
 }
+
+/// Valid `[render] traceback_mode` values; anything else falls back to the default.
+const TRACEBACK_MODES: &[&str] = &["minimal", "plain", "context", "verbose", "docs"];
 
 fn render_cfg(app: &tauri::AppHandle) -> RenderCfg {
     let mut cfg = RenderCfg {
@@ -70,6 +77,7 @@ fn render_cfg(app: &tauri::AppHandle) -> RenderCfg {
         timeout_seconds: 30,
         figure_format: "png".into(),
         figure_dpi: 150,
+        traceback_mode: "context".into(),
     };
     let Ok(dir) = crate::config::writedown_dir(app) else { return cfg };
     let txt = std::fs::read_to_string(dir.join("config.toml")).unwrap_or_default();
@@ -93,6 +101,12 @@ fn render_cfg(app: &tauri::AppHandle) -> RenderCfg {
             cfg.figure_dpi = d as u32;
         }
     }
+    if let Some(m) = r.get("traceback_mode").and_then(|v| v.as_str()) {
+        let m = m.trim().to_lowercase();
+        if TRACEBACK_MODES.contains(&m.as_str()) {
+            cfg.traceback_mode = m;
+        }
+    }
     cfg
 }
 
@@ -104,6 +118,7 @@ struct CellReq<'a> {
     cwd: Option<&'a str>,
     fig_format: &'a str,
     fig_dpi: u32,
+    traceback_mode: &'a str,
 }
 
 #[derive(Deserialize, Default)]
@@ -249,12 +264,13 @@ impl Kernel {
         cwd: Option<&str>,
         fig_format: &str,
         fig_dpi: u32,
+        traceback_mode: &str,
         timeout: Duration,
     ) -> Result<CellReply, ExecFail> {
         use std::io::Write;
         self.next_id += 1;
         let id = self.next_id;
-        let req = CellReq { id, code, reset, cwd, fig_format, fig_dpi };
+        let req = CellReq { id, code, reset, cwd, fig_format, fig_dpi, traceback_mode };
         let line = serde_json::to_string(&req).map_err(|_| ExecFail::Dead)?;
         writeln!(self.stdin, "{line}").map_err(|_| ExecFail::Dead)?;
         self.stdin.flush().map_err(|_| ExecFail::Dead)?;
@@ -343,7 +359,7 @@ fn run_cells(
         }
         let kernel = guard.as_mut().expect("kernel present until taken");
         match kernel.exec(code, first, doc_dir, &cfg.figure_format, cfg.figure_dpi,
-                          Duration::from_secs(cfg.timeout_seconds)) {
+                          &cfg.traceback_mode, Duration::from_secs(cfg.timeout_seconds)) {
             Ok(rep) => {
                 if rep.error.is_some() {
                     errors += 1;
@@ -401,7 +417,7 @@ fn run_one_cell(
     }
     let kernel = guard.as_mut().expect("kernel present until taken");
     match kernel.exec(code, first, doc_dir, &cfg.figure_format, cfg.figure_dpi,
-                      Duration::from_secs(cfg.timeout_seconds)) {
+                      &cfg.traceback_mode, Duration::from_secs(cfg.timeout_seconds)) {
         Ok(rep) => Ok(rep.into()),
         Err(fail) => {
             *guard = None; // Drop kills; the next run respawns
@@ -448,6 +464,9 @@ pub(crate) struct FrontMatter {
     /// `wd-python:` — a document-level Python interpreter override (issue 9). Absolute
     /// paths only; enforced where it is applied (see `render_impl`).
     pub(crate) wd_python: Option<String>,
+    /// `wd-traceback:` — a document-level traceback mode (issue D.09). One of
+    /// TRACEBACK_MODES; validated where it is applied (see `render_impl`).
+    pub(crate) wd_traceback: Option<String>,
 }
 
 /// Quarto `#|` cell options. All flags default true; unknown keys are ignored.
@@ -542,6 +561,14 @@ fn parse_front_matter(lines: &[&str], fm: &mut FrontMatter) {
             let v = unquote(v);
             if !v.is_empty() {
                 fm.wd_python = Some(v);
+            }
+        } else if let Some(v) = line.strip_prefix("wd-traceback:") {
+            // Document-level traceback verbosity (issue D.09), mirroring wd-python.
+            // Validated where it is applied, so an unknown value warns rather than
+            // silently doing nothing.
+            let v = unquote(v);
+            if !v.is_empty() {
+                fm.wd_traceback = Some(v);
             }
         }
     }
@@ -1315,6 +1342,19 @@ fn render_impl(
             pre_warnings.push(format!("wd-python ignored (must be an absolute path): {wp}"));
         }
     }
+    // Document-level traceback mode (issue D.09). An unrecognised value warns rather than
+    // being dropped in silence — a typo'd `wd-traceback: verbos` should say so.
+    if let Some(wt) = fm.wd_traceback.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        let wt = wt.to_lowercase();
+        if TRACEBACK_MODES.contains(&wt.as_str()) {
+            cfg.traceback_mode = wt;
+        } else {
+            pre_warnings.push(format!(
+                "wd-traceback ignored (expected one of {}): {wt}",
+                TRACEBACK_MODES.join(", ")
+            ));
+        }
+    }
     let mut exec: HashMap<usize, CellOutput> = HashMap::new();
     let mut errors = 0usize;
     let python = if n_python == 0 {
@@ -1540,6 +1580,24 @@ mod tests {
         let doc = "---\ntitle: Doc\nwd-python: \"C:/py/python.exe\"\n---\nbody\n";
         let (fm, _) = split_document(doc);
         assert_eq!(fm.wd_python.as_deref(), Some("C:/py/python.exe"));
+    }
+
+    #[test]
+    fn front_matter_reads_wd_traceback() {
+        let doc = "---\ntitle: Doc\nwd-traceback: verbose\n---\nbody\n";
+        let (fm, _) = split_document(doc);
+        assert_eq!(fm.wd_traceback.as_deref(), Some("verbose"));
+        // Absent is None, so the config default stands.
+        let (fm, _) = split_document("---\ntitle: Doc\n---\nbody\n");
+        assert_eq!(fm.wd_traceback, None);
+    }
+
+    #[test]
+    fn traceback_modes_are_the_five_the_runner_knows() {
+        // The runner validates the same list independently (runner.py TB_MODES); if these
+        // ever drift, a mode accepted here would be silently ignored there.
+        assert_eq!(TRACEBACK_MODES, &["minimal", "plain", "context", "verbose", "docs"]);
+        assert!(TRACEBACK_MODES.contains(&"context"), "context is the documented default");
     }
 
     #[test]
@@ -1774,7 +1832,7 @@ mod tests {
     fn kernel_stdout_and_last_expr() {
         let mut k = test_kernel();
         let r = k
-            .exec("print('hey')\n1 + 1", true, None, "png", 150, Duration::from_secs(10))
+            .exec("print('hey')\n1 + 1", true, None, "png", 150, "context", Duration::from_secs(10))
             .ok()
             .unwrap();
         assert_eq!(r.stdout, "hey\n");
@@ -1786,13 +1844,13 @@ mod tests {
     #[ignore]
     fn kernel_namespace_resets_but_modules_survive() {
         let mut k = test_kernel();
-        let r = k.exec("import math\nx = 41", true, None, "png", 150, Duration::from_secs(10));
+        let r = k.exec("import math\nx = 41", true, None, "png", 150, "context", Duration::from_secs(10));
         assert!(r.ok().unwrap().error.is_none());
         // Same render (no reset): x is visible.
-        let r = k.exec("x + 1", false, None, "png", 150, Duration::from_secs(10)).ok().unwrap();
+        let r = k.exec("x + 1", false, None, "png", 150, "context", Duration::from_secs(10)).ok().unwrap();
         assert_eq!(r.result_text.as_deref(), Some("42"));
         // New render (reset): x is gone.
-        let r = k.exec("x", true, None, "png", 150, Duration::from_secs(10)).ok().unwrap();
+        let r = k.exec("x", true, None, "png", 150, "context", Duration::from_secs(10)).ok().unwrap();
         assert!(r.error.is_some());
     }
 
@@ -1801,7 +1859,7 @@ mod tests {
     fn kernel_error_line_maps() {
         let mut k = test_kernel();
         let r = k
-            .exec("a = 1\nb = 2\n1/0", true, None, "png", 150, Duration::from_secs(10))
+            .exec("a = 1\nb = 2\n1/0", true, None, "png", 150, "context", Duration::from_secs(10))
             .ok()
             .unwrap();
         let e = r.error.expect("error");
@@ -1813,7 +1871,7 @@ mod tests {
     #[ignore]
     fn kernel_timeout_kills() {
         let mut k = test_kernel();
-        let r = k.exec("while True: pass", true, None, "png", 150, Duration::from_secs(2));
+        let r = k.exec("while True: pass", true, None, "png", 150, "context", Duration::from_secs(2));
         assert!(matches!(r, Err(ExecFail::Timeout)));
         drop(k); // Drop kills the busy process — must not hang
     }
@@ -1823,7 +1881,7 @@ mod tests {
     fn kernel_matplotlib_figure() {
         let mut k = test_kernel();
         let code = "import matplotlib.pyplot as plt\nplt.plot([1, 2], [3, 4])\nplt.gcf()";
-        let r = k.exec(code, true, None, "png", 96, Duration::from_secs(30)).ok().unwrap();
+        let r = k.exec(code, true, None, "png", 96, "context", Duration::from_secs(30)).ok().unwrap();
         assert!(r.error.is_none(), "{:?}", r.error.map(|e| e.message));
         assert_eq!(r.figures.len(), 1);
         assert_eq!(r.figures[0].format, "png");

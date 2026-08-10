@@ -88,8 +88,11 @@ export function OpenFiles() {
             onPointerUp={onPointerEnd}
             onPointerCancel={onPointerEnd}
           >
-            <span className="openfile-dirty">{isDirty(t) ? "●" : ""}</span>
-            <span className="tree-name">{basename(t.path)}</span>
+            {/* × FIRST, in a fixed left column (issue D.06, ST behaviour): closing five
+                files in a row needs no pointer movement. It is always visible rather than
+                appearing on hover, and the dirty ● moved to the right end — so nothing
+                here changes meaning with state, and one glance still shows what is
+                unsaved. */}
             <span
               className="tab-close"
               title="Close"
@@ -101,6 +104,8 @@ export function OpenFiles() {
             >
               ×
             </span>
+            <span className="tree-name">{basename(t.path)}</span>
+            <span className="openfile-dirty">{isDirty(t) ? "●" : ""}</span>
           </div>
         ))}
       </div>

@@ -18,6 +18,7 @@ import {
   keymapWarnings,
 } from "./keymap";
 import { autoCloseQuotes } from "./autoQuotes";
+import { codePointTab } from "./codePointTab";
 import { citationExtensions } from "./citations";
 import { wordCompleteKeymap, wordCompleteAutocomplete } from "./wordComplete";
 import { documentLint } from "./lint";
@@ -163,6 +164,13 @@ export function Editor({ path, content }: { path: string; content: string }) {
       // Editing keymap in a Compartment so config [keys] changes reconfigure it live (see the
       // effect below). Non-reactive read, like word wrap, so a reconfigure never rebuilds here.
       keymapCompartment.of(buildEditingKeymap(useStore.getState().editorSettings?.keys)),
+      // `u+2299` + Tab → ⊙, bare `u+` + Tab → the Unicode picker (issue D.12). Ahead of
+      // the word completer, and it only does anything when Tab is pressed right after a
+      // `u+…` — one regex over a few characters, never on the typing path.
+      codePointTab({
+        openPicker: () => useStore.getState().openPalette("symbols"),
+        notify: (msg) => useStore.getState().showStatusMessage(msg),
+      }),
       // Tab word-completion Tab keymap for every language (declines to indent when not after
       // a word). The completion popup itself is markdown's citation autocompletion (below)
       // or a word-only autocompletion for other languages.

@@ -15,12 +15,777 @@ For each row in the table add a new row below it for your input, item is ">>CC".
 | Item | Effort HML | Status/Impact | Description |
 |--:|:---:|:---:|:-------------------------|
 | **D.01** | | | Add insert date (as opposed to date time) to palette - I usually delete the time! |
-| **D.02** | | |  |
-| **D.03** | | |  |
-| **D.04** | | |  |
-| **D.05** | | |  |
+| >>CC | L | None | **Trivial — there is exactly one stamp verb, "Insert Date-Time", and nothing that inserts the date alone.** Adding the sibling verb is six lines. While I'm there I'd make both formats configurable, so you never have to delete anything again. |
+| **D.02** | | | Call writedown from the command line: writedown <file/dir> etc. like ST (if a file open it; if a dir open a temp project with that dir as its only folder); --version, --help, etc.  |
+| >>CC | M | None | **`writedown file.md` already works today — it is the rest that doesn't: a *directory* argument is silently thrown away, and `--version` / `--help` just open the window, because a GUI-subsystem exe has no console to print to.** One real decision for you: should a second `writedown` reuse the running window like ST does? That would end your habit of running three instances. Flagging it, not deciding it. ==>NO IT OPENS A NEW INSTANCE - THAT IS A FEATURE FOR ME, NOT A BUG |
+| **D.03** | | | File tree ignores links (eg c:\s where i keep everything is missing!) Needs to follow dir symlinks like they are dirs. |
+| >>CC | L–M | None | **Confirmed and pinned down: Rust classifies a Windows junction as a *link*, not a folder, and `C:\S` is a junction — so it draws as a dim, unexpandable file row, which reads as missing.** One extra check per link entry fixes the tree. The recursive quick-open walk needs a loop guard as well, or `C:\` lists everything under CloudStation twice. |
+| **D.04** | | | Extend quick open which opens one default file, to palette->quick open <files> where files are populated from config [files] -> quick_files list (with an s), quick_file is still Ctrl+Shift+Q default. |
+| >>CC | L | None | **Straightforward: `quick_file` is a single string read in exactly one place, and the palette is already a mode switch (Files / Commands / Projects) — a Quick Files mode is a fourth branch of the same shape.** Ctrl+Shift+Q keeps opening `quick_file` untouched. |
+| **D.05** | | | Auto detect tab size by doc on load; report tabsize in lower right corer: Spaces: 4 etc, like ST |
+| >>CC | M | None* | **Detection is easy; the trap is that indent width currently rebuilds the whole editor when it changes — which is precisely the tab-switch stall we killed in 2.10.0.** Done right (indent in a compartment, same trick as word wrap) it costs nothing; done naively it is a visible regression. Also needs a decision: we always insert spaces, so what should a tab-indented file do? ==>DROP |
+| **D.06** | | | Open file list (top left in project/folder bar) movethe (x) to close on left (aligned) rather than right, this is what ST does too. Makes it easy to close several tabs.  |
+| >>CC | L | None | **Pure layout — the × is simply last in the row today; moving it first is about ten lines of JSX and CSS.** One question: the left column currently holds the dirty ●, so either that moves to the right end, or the × only appears on hover (ST's way, but a control that changes with pointer state). |
+| **D.07** | | | Palette -> Large word report: write a python code block at the cursor that loads the large word usage file into a pandas dataframe and shows the top 10 most used words - then I can take analysis from there. Word + whatever stats you track about it. This is from the auto completer. (Pure sugar.)    |
+| >>CC | L | None | **Easy and self-contained. The file is `~/.writedown/word-frequency.json`: per file, word → count, capped at the 50 most recent files × 250 words each — so word, count and which file are the only stats there are.** A new insert-snippet verb, no backend work at all. |
+| **D.08** | | | I need a quick way to go to "Edit screen only" (no TOC/Files/Preview), palette plus Ctrl+K Ctrl+F if that is not taken (focus)  |
+| >>CC | L | None | **You already have this: palette → "Enter Plain View — editor only, no sidebars or preview". The toggle is even registered in the keybinding system; it has simply never been given a key.** Ctrl+K Ctrl+F is free, and binding it is one line. ==> :-); BIND IT AS A TOGGLE ON/OFF |
+| **D.09** | | | get_ipython returns None. Why? Is it possible for it to work? Is it a matter of what kernel we are using? I want this so I can use %xmode Docs and other magics. Etc.  |
+| >>CC | M–H | None | **Because there is no IPython in the loop at all: our "kernel" is plain `python.exe` running a 240-line script that `exec`s your cells — and it *blanks every `%magic` line* before parsing.** So `get_ipython()` has nothing to return; it isn't a choice of kernel, there is no kernel in the Jupyter sense. Making magics real means running cells through an actual IPython shell — possible, and it would also buy you `display()`, but it is a rework of the runner, not a switch. A cheap middle ground exists. |
+| **D.10** | | | What is the cwd per project? How can we change it? (Ie what Path.cwd() returns). Where are the screen layout and open files stored per project? Do we need a ST "workspace" or should/could that info be bundled into the project file? Discuss!  |
+| >>CC | L + discuss | None | **cwd is the folder of the document you rendered, set once per full render — not per project, and stale after a Run-This-Cell against a document from elsewhere (a small real bug). Layout and open files already live apart from the project, in `~/.writedown/sessions/<hash>.json`, keyed by the `.wdproj` path.** So you already have ST's workspace, automatic and invisible. I'd argue against folding it into the project file — that would have Writedown rewriting one of your files every few seconds. ==> Agree; nothing to do here. ==> parent of file is the expected answer. |
+| **D.11** | | | auto-reload a project after editing its project file  |
+| >>CC | L–M | None | **Nothing watches the project file, and the obvious fix — just re-open it — would wipe your tab strip, because opening a project clears every tab by design.** The right shape is a narrow "re-read the folders only" reload, fired when you save the `.wdproj` in a tab. Invalid JSON mid-edit must leave the sidebar alone. ==>Yes, reload the files is what i wanted; good solution.  |
+| **D.12** | | | The WIN + . unicode gizmo does not work (why, again?). Can we roll our own unicode inserter? Palette->Unicode-> search for name of char? Keep list of recent? Discuss! |
+| >>CC | M + discuss | None | **Win+. fails because the character panel is a separate OS window: opening it blurs the editor, then injects the character into a blurred CodeMirror, which discards it. We diagnosed that before and you DROPped it — the fix sits on the IME fast path, so I still wouldn't lead with it.** Our own picker sidesteps the whole thing; the only real question is table size, since names for all of Unicode is ~34,000 entries. There is also a smaller idea you may like better — `\alpha` + Tab. ==> WE'LL CHAT |
+| **D.13** | | | Add palette -> close all files, that closes all open files and temp files.  |
+| >>CC | L | None | **Small — but "and temp files" is the catch: scratch buffers have never touched disk, so closing them genuinely destroys the text (no Recycle Bin, no Previous Versions, no reopen).** Real files save first, exactly as Ctrl+W already does; I'd confirm once before discarding non-empty scratches. ==> Close all ACTUAL files, do not close temp files. When i wrote it i wasn't sure. But we don't want those inadvertently blown away. That makes it easier. |
+
 
 ***
+
+```{python}
+from pathlib import Path
+Path.cwd()
+```
+
+**Shipped in 2.13.0 (2026-08-10): D.01, D.02, D.03, D.04, D.06, D.07, D.08, D.09, D.10,
+D.11, D.12, D.13 — none yet confirmed in daily use. D.05 dropped at your call.** Three
+things before you test.
+
+**(1) You must rebuild.** No `tauri dev` is running, and `runner.py` is compiled into the
+binary by `include_str!`, so D.09 (traceback modes) and D.10 (cwd per cell) cannot be tested
+any other way.
+
+**(2) Two defaults changed on purpose, so you are not surprised.** Cell tracebacks now show
+*your* frames only, with the failing source line, instead of Writedown's runner frames —
+that is `traceback_mode = "context"`; set `plain` in `[render]` to get the old output back
+verbatim. And in the Open Files list the × moved to the left with the dirty ● moving to the
+right end.
+
+**(3) Where to start.** `Ctrl+Shift+U`, then type `tick`, then `\odot`, then `circle dot`,
+then `u+2299` — four different naming systems, one box. Then `u+2705` + `Tab` in the editor.
+Then open `C:\` in the Folder tab and expand `S`. Then break a cell on purpose with
+`wd-traceback: verbose` in the front matter.
+
+---
+
+## Batch D — developer notes and implementation plans
+
+Nothing below is built. Three of the thirteen are answers rather than work: **D.08 already
+exists** and only wants a key; **D.10** is largely "here is where it already lives"; and
+**D.12**'s first question has an answer from the earlier list. Four want a decision from you
+before I would start — D.02 (one instance or many?), D.05 (spaces or follow the file?), D.09
+(real IPython or not?), D.12 (how big a character table?).
+
+### Decisions taken 2026-08-10 (all four now settled)
+
+- **D.02 — many instances stays.** A second `writedown` opens a **new window**; that is a
+  feature, not a bug. No single-instance plugin. Scope is directories + `--version` / `--help`.
+- **D.05 — DROPPED.** No indent detection, no footer readout.
+- **D.06 — option (a):** × always visible on the left, dirty ● moves to the right end.
+- **D.08 — bound as a toggle** (`plainView` already is one), Ctrl+K Ctrl+F.
+- **D.09 — no IPython, ever.** CPython has no traceback flag (`-X no_debug_ranges` is the only
+  `-X` that touches traceback shape, and it goes the wrong way), but it doesn't matter: our
+  runner already *is* the formatter, so the modes are ours to write in stdlib. `[render]
+  traceback_mode`, default **`context`**. Drops from M–H to **L–M**, no dependency, no
+  startup cost.
+- **D.10 — nothing to do**, except the one small thing that makes reality match the accepted
+  answer: cwd is *supposed* to be the parent of the file, and Run This Cell doesn't set it.
+  Six lines, taken.
+- **D.12 — the `\alpha` + Tab expander is dropped** (Ctrl+Space already gets there with less
+  typing). Build the fuzzy picker on Ctrl+Shift+U plus the `u+` Tab rule.
+- **D.13 — real files only.** Scratch buffers are never closed, so there is no confirm dialog
+  and no way to lose one.
+
+### Everything this batch adds — the complete command surface
+
+Keys, palette verbs and config keys introduced by Batch D, in one place for testing.
+
+| Gesture / key | Item | What it does |
+|:--|:--:|:--|
+| `Ctrl+Shift+U` | D.12 | Open the Unicode picker. Editor-scoped, so it is rebindable from `[keys]` (action `insertSymbol`) and appears in the F1 list. Does nothing with tree focus — there is nowhere to insert. |
+| `u+2299` then `Tab` | D.12 | Insert ⊙ inline, no popup. 4–6 hex digits. An invalid or unassigned code point **declines** and leaves your text exactly as typed. |
+| `u+` then `Tab` | D.12 | Delete the `u+` and open the picker with an empty query. Same regex as the line above — one rule, both gestures. |
+| `Ctrl+K Ctrl+F` | D.08 | Toggle Plain View (editor only — no sidebar, no outline, no preview, not full screen). Exits back to the layout you were in. |
+| `Ctrl+O` … | — | unchanged |
+
+**Inside the Unicode picker:**
+
+| Key / query | What it does |
+|:--|:--|
+| words, e.g. `check`, `circled dot`, `red x` | Fuzzy, order-free, over **all four name systems at once**: Unicode name, LaTeX command, emoji/CLDR keywords, and our aliases. `tick` finds ✓ even though Unicode has no such word. |
+| `\odot` | LaTeX lookup; exact command match ranked first. |
+| `u+2299` / `0x2299` | Direct code point. |
+| `Enter` | Insert the character. |
+| `Shift+Enter` | Insert the **LaTeX command** instead (`\odot`), when the character has one. |
+| `Alt+Enter` | Insert and **keep the picker open**, for runs (✅ then ❌ then ⚠). |
+| `Esc` | Close, insert nothing, return focus to the editor. |
+| (empty query) | Recents first (most-used, not just most-recent), then the browsing kits: Checks & crosses, Circles & dots, Arrows, Greek, Operators, Relations, Set & logic, Sub/superscripts, Dashes & quotes. |
+| select exactly 1 character, then `Ctrl+Shift+U` | **Reverse lookup** — opens pre-filled with that character's name, code point and LaTeX name, so you can find its hollow/filled/circled neighbours. |
+
+**Palette verbs added:**
+
+| Verb | Item |
+|:--|:--:|
+| `Insert: Unicode Character…` | D.12 |
+| `Insert Date (YYYY-MM-DD)` | D.01 |
+| `Insert: Word Frequency Report` | D.07 |
+| `Open Quick File…` (the `quick_files` list picker) | D.04 |
+| `Close All Files` | D.13 |
+
+**Config keys added** (all in `~/.writedown/config.toml`):
+
+| Key | Item | Values |
+|:--|:--:|:--|
+| `[render] traceback_mode` | D.09 | `minimal` / `plain` / `context` (**default**) / `verbose` / `docs` |
+| `[files] quick_files` | D.04 | array of paths; `quick_file` (singular) is untouched and keeps Ctrl+Shift+Q |
+| `[editor] date_format` | D.01 | strftime pattern, default `%Y-%m-%d` |
+| `[editor] datetime_format` | D.01 | strftime pattern, default `%Y-%m-%d %H:%M:%S` (today's output) |
+| `[symbols]` | D.12 | your own `name = "char"` additions and aliases; `""` removes a built-in, same rules as `[snippets]` and `[keys]` |
+
+**Document-level overrides added:**
+
+| Front matter | Item | Effect |
+|:--|:--:|:--|
+| `wd-traceback: verbose` | D.09 | Traceback mode for this document only (mirrors `wd-python:`). |
+| `%xmode verbose` in a cell | D.09 | Sets the mode for the rest of that render. The *only* magic we interpret; every other `%` line is still blanked. |
+
+**Command line** (D.02): `writedown <file>…` (unchanged), `writedown <dir>` (new — adopted as
+the Folder-tab root, or added to the project if one is open), `writedown --version`,
+`writedown --help`. Every invocation opens a **new window**, by decision.
+
+### D.01 — Insert Date
+
+`insert-datetime` (`commands.ts:184-194`) formats `YYYY-MM-DD HH:MM:SS` in `insertDateTime`
+(`textOps.ts:123-131`), and it is the only stamp verb there is. Add `insertDate` beside it
+(the same function minus the time half) and an `insert-date` palette entry, "Insert Date
+(YYYY-MM-DD)". Keep the `view.focus()` line both have — the palette does not return focus by
+itself, which is C.04's prime suspect.
+
+Worth folding in while I'm there, one extra config read: `[editor] date_format` and
+`datetime_format` as `strftime`-style patterns, so `%Y-%m-%d` or `%A %d %B %Y` is your call
+rather than mine. Defaults reproduce today's output exactly, so nothing changes unless you
+set them. **L**, zero perf cost — this runs at palette time only.
+
+### D.02 — Writedown from the command line
+
+**What exists.** `launch_paths_from_args` (`lib.rs:31-37`) takes the process arguments,
+skips argv[0], drops anything beginning with `-`, and keeps whatever `Path::is_file()`
+accepts. The list is handed to the frontend once, after session restore, via `launch_files`
+(`lib.rs:24-27`) → `openLaunchFiles` (`store.ts:2220-2231`). So `writedown a.md b.md` works
+today, and since your exe lives at `C:\S\bin\writedown.exe` (per `scripts/windows-register.ps1`)
+it is presumably already on PATH.
+
+**What doesn't, and why.**
+
+1. **A directory argument is silently discarded** — `is_file()` is false for a folder, so
+   `writedown C:\S\telos` opens an empty window with no message.
+2. **`--version` / `--help` do nothing but open the app** — they are filtered out as flags,
+   and nothing consumes them.
+3. **Even if they were parsed, you would see no output.** `main.rs:2` sets
+   `windows_subsystem = "windows"` in release: the process is a GUI process with no console
+   attached, so `println!` goes to nowhere. The fix is `AttachConsole(ATTACH_PARENT_PROCESS)`
+   before printing (a small `extern` declaration, or the `windows-sys` crate). A second
+   wrinkle survives that one: the shell does not *wait* for a GUI process, so your prompt
+   comes back first and the text lands after it. Sublime solves this by shipping a separate
+   console launcher (`subl.exe`); if you want genuinely clean `writedown --version` output,
+   the honest answer is a ~20-line `writedown-cli.exe` console shim beside the app, or a
+   `writedown.cmd` wrapper. Say the word — it is small, but it is a second binary.
+
+**Plan.** Parse argv in `run()` *before* `tauri::Builder`: `--version` prints
+`env!("CARGO_PKG_VERSION")` and exits 0, `--help` prints usage and exits 0 (both after
+attaching the parent console). Then route launch arguments through `openDropped`
+(`store.ts:1742-1780`) instead of the current file-only loop — it already stats the paths,
+skips binaries, honours the 20-file cap, and does the right thing with a folder: added to the
+project when the Project tab has one, otherwise adopted as the Folder-tab root.
+
+If you specifically want *"a temp project with that dir as its only folder"*, that is a
+three-line variant rather than new machinery: `set({ projFolders: [dir], projectFile: null,
+projectName: basename(dir), panelTab: "project" })`. The store already supports an unsaved
+project — `persistProject` no-ops without a `projectFile`, and `sessionKey` falls back to the
+joined folder list (`store.ts:2273-2274`), so it even gets its own remembered layout, keyed by
+the folder path. Also cheap once a parser exists, if you want them: `--project x.wdproj`,
+`--goto file:line`, `--`-terminated paths so a file called `-weird.md` still opens.
+
+**The decision I am not taking for you: one instance or many.** ST's `subl` hands the file to
+the *running* window. We have nothing like that — every `writedown foo.md` is a new process
+and a new window. `tauri-plugin-single-instance` implements exactly the ST behaviour (the
+second process forwards its argv and exits), but it is all-or-nothing at the process level,
+and **you deliberately run three `writedown.exe` instances at once** — your own note in Batch
+B. Adopting it ends that, because this app is one window per process by construction (one
+store, one editor, one session). The options, as I see them:
+
+- **(a) Leave it.** `writedown x.md` opens a new window — which is also what `subl -n` does.
+  Multiple instances keep working.
+- **(b) Single instance.** ST-like reuse, and you give up running three at once. There is no
+  useful middle: the plugin decides before any of our code runs, so a `--new-window` escape
+  hatch can't be honoured from inside.
+- **(c) Multiple windows in one process.** The architecturally "right" answer and a large
+  change; I would argue against it for this app.
+
+**I recommend (a)**, and scoping this item to directories plus `--version`/`--help`. **M** at
+that scope, no perf impact whatsoever.
+
+**DECIDED 2026-08-10: (a).** *"NO IT OPENS A NEW INSTANCE — THAT IS A FEATURE FOR ME, NOT A
+BUG."* No single-instance plugin, now or later. Directories plus `--version` / `--help` only.
+
+### D.03 — Directory junctions and symlinks in the tree
+
+**Mechanism, exactly.** `list_directory` classifies each entry with
+`item.file_type()?.is_dir()` (`files.rs:61`). On Windows, Rust's `FileType::is_dir()` is
+defined as `!is_symlink() && is_directory()`, and `is_symlink()` is true for **both**
+`IO_REPARSE_TAG_SYMLINK` *and* `IO_REPARSE_TAG_MOUNT_POINT` — a junction. And `C:\S` is a
+junction: `fsutil reparsepoint query C:\S` reports tag `0xa0000003` (Mount Point) pointing at
+`\??\c:\users\steve\Documents\CloudStation`. So `is_dir` comes back **false**.
+
+**What you are actually seeing.** Not a hole in the list — an entry named `S` with
+`is_dir: false` and no extension, therefore `supported: false` (`files.rs:66-72`). The tree
+draws it as a **dimmed file row** with the `·` fallback icon and no expand triangle
+(`FileTree.tsx:171`, `.tree-row.unsupported`, `App.css:1366`), and clicking it calls
+`openFile` on a directory, which fails. Functionally identical to missing.
+
+**The contrast that proves it is this and nothing else:** dragging `C:\S` onto the window
+works fine, because `stat_paths` (`files.rs:191-203`) uses `std::fs::metadata`, which
+*follows* the link.
+
+**Fix — two lines in `list_directory`:**
+
+```rust
+let ft = item.file_type().map_err(|e| e.to_string())?;
+let is_dir = ft.is_dir()
+    || (ft.is_symlink() && std::fs::metadata(&full).map(|m| m.is_dir()).unwrap_or(false));
+```
+
+One extra stat, and only for reparse-point entries — a normal folder costs nothing. A dangling
+link stays a file, which is the right failure.
+
+**The part that is not free: the recursive walk.** `list_all_files` (quick-open,
+`files.rs:143`) needs the same change, and then a loop guard, because following links while
+walking can (i) list the same tree twice — with the root at `C:\`, everything under
+CloudStation is reachable both as `C:\Users\steve\...` and as `C:\S\...`, so Ctrl+P would
+show every file of yours twice — and (ii) run forever if a link ever points at one of its own
+ancestors. Guard: a `HashSet` of canonicalised directory paths (`std::fs::canonicalize`
+resolves reparse points to a `\\?\` path), consulted only for entries that are links. The
+existing 50,000-file cap (`files.rs:130`) would stop a runaway, but it truncates silently,
+which is worse than the loop.
+
+**One thing to know, stated so it isn't a surprise later:** `notify` on Windows is
+ReadDirectoryChangesW, which does **not** traverse junctions. A linked-in folder will appear
+and expand correctly, but changes inside it will not raise `fs-change` events; C.01's
+focus/panel-switch re-list is what will keep it honest in practice. **L–M**, no measurable
+cost in the tree.
+
+**BUILT in 2.13.0.** `is_dir_following_links` in `files.rs`, used by both `list_directory`
+and `list_all_files`; the walk's loop guard skips a link whose target is inside the root
+(the duplicate case) or is an ancestor of it (the non-terminating case), and `visited`
+catches two links into the same outside tree.
+
+**Verified with a real junction**, not a mock: the test makes one with `mklink /J` (which,
+unlike a symlink, needs no elevation — which is also why `C:\S` is one) and asserts the
+*precondition* as well as the fix, so the diagnosis is now pinned in the suite: Rust really
+does report a junction as a non-directory and as a symlink. If a future refactor reverts
+this, the test says exactly why.
+
+### D.04 — `quick_files` (a list) alongside `quick_file`
+
+Today `quick_file` is an `Option<String>` (`config.rs:296`, parsed at `405-408`), surfaced as
+`editorSettings.quick_file` (`api.ts:320-321`) and consumed in exactly one place —
+`openQuickFile` (`store.ts:767-778`) — reached by Ctrl+Shift+Q (`App.tsx:353-357`) and the
+palette verb `open-quick-file` (`commands.ts:92`). None of that changes.
+
+1. `config.rs` — add `quick_files: Option<Vec<String>>` from `[files] quick_files`, parsed
+   exactly like `font_choices` (`config.rs:337-339`).
+2. `api.ts` — mirror the field on `EditorSettings`.
+3. `Palette.tsx` — a fourth mode. The component is already a mode switch: `mode` comes from
+   `s.palette` and every branch is a three-way on `"files" | "commands" | "projects"` (lines
+   66-112 for the item source, 157-178 for the chrome). `"quickfiles"` adds: items built from
+   the config list, `fuzzyRank(query, items, i => i.path)` so you can match on folder as well
+   as file name, and `choose` → `openFile(path, false)`. About twenty lines, the same shape as
+   the existing `projects` mode.
+4. `commands.ts` — `{ id: "quick-files", title: "Open Quick File…" }` → `openPalette("quickfiles")`.
+
+Two small calls I would make unless you say otherwise: keep the entries in **config order**
+(that list *is* your preference order) rather than applying the palette's MRU float, since it
+is a short hand-written list and not a discovered one; and run one `statPaths` when the picker
+opens so a path that no longer exists is shown greyed rather than failing on Enter. **L**,
+palette-time only, zero baseline cost.
+
+### D.05 — Detect indentation per document, report it in the footer — DROPPED 2026-08-10
+
+**Not built.** The analysis below is kept for the day it comes back, chiefly for the
+compartment trap in the middle of it.
+
+
+**Reporting** is the easy half and the footer already has the pattern: `Wrap: On` and
+`Spell: On` are clickable `.status-item` buttons (`App.tsx:672-688`). `Spaces: 4` sits beside
+them; clicking it opens the palette on the indent verbs (ST opens a menu — we have no menus,
+and the palette is the house style).
+
+**Detection**: scan the first ~200 indented lines of the document. Leading tabs → tabs;
+leading spaces → the GCD of the positive first-differences of indent widths, clamped to
+{2, 3, 4, 8}; no evidence → fall back to `[editor] tab_size`. Roughly thirty lines, run once
+per document open, nowhere near the keystroke path.
+
+**The trap, and the reason this is M rather than L.** `tabSize` is a dependency of the
+extension `useMemo` (`Editor.tsx:199`), and that memo's *identity* is exactly what A.29 /
+2.10.0 was about: a new array forces a CodeMirror `reconfigure`, which destroys and rebuilds
+every ViewPlugin — two of which scan the whole document synchronously in their constructors.
+Make tab size per-document naively and you reintroduce the tab-switch stall on any pair of
+documents with different indentation, on `dm.md` most visibly. The fix is the trick already
+used twice in that file: put `indentUnit` and `EditorState.tabSize` in a **Compartment** (like
+`wrapCompartment`, `Editor.tsx:156`, and `keymapCompartment`, line 165) and reconfigure it from
+an effect when the detected value changes. Then a switch is one small transaction, no rebuild,
+and `tabSize` comes *out* of the memo dependencies — a net improvement on today.
+
+**The decision for you.** We currently insert spaces only, always
+(`Editor.tsx:157-159`: *"spaces only (never a literal tab)"*). If a file is tab-indented, do we
+
+- **(a)** report `Tab Size: 4` but keep inserting spaces — which quietly mixes indentation in
+  a tab-indented `.py` or a Makefile, or
+- **(b)** follow the file and insert real tabs (`indentUnit.of("\t")`)?
+
+ST does (b) and so would I, with `[editor] detect_indentation = true` to switch the whole
+mechanism off. Worth adding once the readout exists: palette verbs "Indentation: 2 / 4 / 8
+Spaces" and "Indentation: Tabs" for the current document, plus "Convert Indentation to
+Spaces / Tabs" — that last one rewrites the document, so it stays an explicit verb and never
+happens automatically. **M**; zero baseline cost via the compartment, a visible regression
+without it, which is why I am flagging it rather than letting you find it.
+
+### D.06 — Move the × to the left of the Open Files rows
+
+`OpenFiles.tsx:92-104` renders each row as `[● dirty][name][× close]`, with `.tab-close`
+last. ST puts the close affordance at the row's leading edge, which is what lets you close
+five files without moving the pointer. Swapping the JSX order and adjusting the `.openfile`
+rules is about ten lines and no logic change; the drag-reorder guard already ignores pointer-
+downs on `.tab-close` (`OpenFiles.tsx:30`), so reordering keeps working.
+
+**The one thing I need from you**, because the left column is currently the dirty dot:
+
+- **(a) × always visible on the left, the dirty ● moves to the right end.** A fixed, aligned
+  column of ×s; nothing changes meaning; one glance still tells you what is unsaved.
+- **(b) ST-exact: the left column shows ● when dirty and × on hover.** Fewer glyphs, but it is
+  a control whose meaning depends on pointer state — the thing you have asked me to avoid
+  elsewhere.
+
+**I would do (a).** Note it changes both panel tabs at once: `OpenFiles` is rendered above the
+tree, outside the Folder/Project switch (`App.tsx:459`). **L**, no perf cost.
+
+**DECIDED 2026-08-10: (a)** — × always visible on the left, dirty ● moves to the right end.
+
+### D.07 — "Insert: Word Frequency Report"
+
+The file is `~/.writedown/word-frequency.json` (`wordfreq.rs:7-9`); Rust only loads and stores
+the blob, the frontend owns the format (`wordFreq.ts`). Shape:
+
+```json
+{"version": 1, "files": {"<path>": {"scanned": 1754800000000, "words": {"<word>": 12}}}}
+```
+
+Words are kept **in their original casing**, per file, capped at the top 250 words per file
+and the 50 most-recently-scanned files (`wordFreq.ts:17-18`) — so the whole store is at most
+~12,500 rows, and the only stats that exist are: the form, its count, which file, and when
+that file was scanned. No first-seen date, no accept counts. Worth saying plainly, since your
+note asks for "whatever stats you track".
+
+Implementation: a palette verb `{ id: "word-report", title: "Insert: Word Frequency Report" }`
+that inserts a `{python}` cell at the cursor through the existing snippet machinery
+(`snippets.ts`), so it arrives with Tab stops and behaves like your other inserts. The body is
+static text — no backend call, nothing to keep in sync. Draft:
+
+```python
+import json, pandas as pd
+from pathlib import Path
+d = json.loads((Path.home() / ".writedown" / "word-frequency.json").read_text("utf-8"))
+df = pd.DataFrame(
+    [(f, w, n) for f, e in d["files"].items() for w, n in e["words"].items()],
+    columns=["file", "word", "n"],
+)
+top = (df.groupby(df.word.str.lower())
+         .agg(total=("n", "sum"), files=("file", "nunique"), form=("word", "first"))
+         .sort_values("total", ascending=False))
+top.head(10)
+```
+
+The lowercase fold matches what the completer actually queries (`buildAggregate`,
+`wordFreq.ts:99+`, which folds case and picks the majority casing), so the numbers agree with
+what Tab offers you. With C.06 shipped, the DataFrame comes back as an HTML table rather than
+monospace text. **L**, zero perf cost.
+
+### D.08 — "Edit screen only" — already built, never bound
+
+**This one is done; it has just never had a key.** `enterLayoutMode("plain")` hides both side
+panels *and* forces `viewMode: "editor"` so there is no preview either, remembering the
+previous layout to restore on exit (`store.ts:1839-1870`). It ships as two palette verbs
+today: **"Enter Plain View — editor only, no sidebars or preview"** and **"Exit Plain View"**
+(`commands.ts:248-249`). The toggle exists as well (`togglePlainView`, `store.ts:1878-1881`)
+and is already registered as a bindable action named `plainView` (`commandRegistry.ts:127`).
+
+The gap is one line in `keymap.ts`, whose comment says so out loud (line 52: *"Plain view is a
+palette verb only"*):
+
+```ts
+{ key: "Ctrl+K Ctrl+F", action: "plainView" },
+```
+
+Ctrl+K Ctrl+F is free — the bound Ctrl+K chords are K, Backspace, U, L, W, B, O, 0, 1 and T
+(`keymap.ts:44-78`), and Ctrl+K Ctrl+P is reserved by comment for goto-file muscle memory.
+Because it lives in `DEFAULT_KEYS` it is rebindable from `[keys]` and appears in the F1 list
+for free.
+
+One stated consequence: `DEFAULT_KEYS` bindings are editor-scoped, so it fires with editor
+focus but not from the tree — the same as F10/F11 today. Moving it to the App-level handler
+would make it global but unrebindable and invisible to F1; I would leave it editor-scoped.
+
+Related, in case you haven't found these either: **F10** sidebar, **F11** outline,
+**Ctrl+F11** full screen, **Ctrl+Shift+F11** distraction-free (full screen, no sidebars, but
+it *keeps* the preview — that difference is why Plain View exists). **L**, one line.
+
+### D.09 — `get_ipython()` and magics
+
+**The answer: there is no IPython anywhere in the pipeline.** Our "kernel" is
+`<python> -u runner.py` (`render.rs:188-208`) running `src-tauri/runner.py` — 240 lines of
+plain CPython that `ast.parse`s your cell, `exec`s it, `eval`s the last expression, captures
+stdout/stderr, and asks the value for a MIME bundle (C.06). No shell, no `get_ipython`, no
+`In`/`Out`, no `display()`. If you `from IPython import get_ipython`, you get IPython's
+module-level helper, which returns `None` when no shell instance exists — exactly what you saw.
+It is not a matter of which kernel we chose: there is no kernel in the Jupyter sense at all.
+
+Magics could not work even syntactically: `clean()` (`runner.py:47-54`) **blanks every line**
+starting `%`, `!`, `?` or `#|` before the code is parsed, preserving line numbering so
+tracebacks still map to your cell. `%xmode Verbose` is deleted before python ever sees it.
+That was deliberate — it lets a Quarto document written for Jupyter still run here.
+
+(Small aside: `%xmode` takes `Context` / `Plain` / `Verbose` / `Minimal`; there is no `Docs`
+mode. If what you want is richer tracebacks, `Verbose` is the one.)
+
+**Can it work? Yes — here is the honest scope.** Replace `exec` with
+`InteractiveShell.instance()` and `shell.run_cell(code)`:
+
+- **What you gain:** `get_ipython()`, line and cell magics (`%xmode`, `%timeit`, `%load_ext`,
+  `%%capture`), `display()` mid-cell, `_` / `In` / `Out`, and rich MIME output for **every**
+  display call rather than only the last expression.
+- **What it costs:**
+  1. **A new runtime dependency.** IPython must be importable in whichever interpreter
+     `[render] python` points at, so the runner needs a clean fallback to today's path when it
+     isn't — silent degradation is not acceptable here, it needs to say so.
+  2. ~0.3–0.6 s extra on kernel spawn (once per session, not per render).
+  3. **Output capture is rewritten.** You hook `shell.display_pub` and the display hook
+     instead of inspecting one return value — and our reply protocol
+     (`result_text` / `result_html` / one `figures` list, `runner.py:201-210`, consumed by
+     `CellOutput` in `render.rs`) has to grow into an **ordered list of outputs** to represent
+     `display(a); display(b)` honestly. That is the largest single piece.
+  4. Tracebacks come from IPython's formatter and need re-mapping to cell-relative lines
+     (`error_line`, `runner.py:72-80`).
+  5. `%matplotlib inline` would want the real inline backend rather than our `MPLBACKEND=Agg`
+     plus `get_fignums()` sweep (`runner.py:129-143`).
+
+  **M–H**, contained entirely within `runner.py` and the two output structs. Worth it only if
+  you would genuinely use magics day to day. **Zero effect on the app's baseline speed either
+  way** — the kernel is a separate process and none of this runs unless you render.
+
+**DECIDED 2026-08-10: none of the above. No IPython, now or later.** What we build instead —
+and it turns out to be the better answer, not the compromise:
+
+**There is no CPython flag for this, and it doesn't matter.** I checked the real surface —
+`-X dev`, `-X faulthandler`, `-X importtime`, `-X tracemalloc`, `PYTHONFAULTHANDLER`,
+`sys.tracebacklimit`. None adds locals or context. The only `-X` that touches traceback
+*shape* is `no_debug_ranges`, which **removes** the 3.11 `^^^^` carets — the wrong direction.
+(Correction to the aside above: `Docs` **is** a real `%xmode` mode; my list was stale.)
+
+**But `runner.py` already is the formatter.** It catches every exception itself
+(`runner.py:166-171`, `traceback.format_exc()`), and that string is emitted as a `<pre>` block
+in the rendered document (`render.rs:1154-1155`). Nothing is delegated to `python.exe`, so the
+modes are ours to write — pure stdlib, ~60 lines, no dependency.
+
+`[render] traceback_mode`, parsed exactly like `figure_format` (`render.rs:86-90`) and carried
+in the per-cell JSON beside `cwd` / `fig_format` / `fig_dpi`:
+
+- **`minimal`** — `format_exception_only`: type and message, nothing else.
+- **`plain`** — today's output, standard Python.
+- **`context`** — **the new default.** Your frames only. This fixes something visible right
+  now: because the `except` sits in `handle()`, every traceback you currently see includes
+  `runner.py, in handle` and `in run_cell`. Walk the frames, drop everything above `<cell>`.
+- **`verbose`** — locals in every frame. `traceback.walk_tb` → `frame.f_locals`, rendered as
+  `name = repr(value)` truncated to ~200 chars, skipping dunders and modules. Same information
+  `%xmode Verbose` shows; IPython's is prettier, not richer.
+- **`docs`** — best-effort: resolve each frame's function from `f_code.co_name` in `f_globals`
+  (and via `f_locals["self"].__class__` for methods), then `inspect.getdoc`. Ordinary
+  functions and methods resolve; closures and some decorated functions will not, and it must
+  **say so** rather than silently show nothing. `inspect` is imported lazily inside that
+  branch so kernel spawn is unchanged.
+
+Plus two overrides: **`%xmode <mode>`** recognised in a cell — the one magic `clean()` will
+interpret instead of blank, so the muscle memory works and config is merely the default — and
+**`wd-traceback:`** in front matter, mirroring `wd-python:`.
+
+**Speed, which is the binding constraint here:** this code runs **only when a cell raises**.
+No import at startup, no per-cell work, nothing on the keystroke path. The single honest cost
+is `verbose` calling `repr()` on locals — a 2 GB DataFrame in scope is not free — so values
+are truncated and a `repr` that throws is skipped rather than propagated.
+
+**Changing the default from today's output to `context` is a visible change**, stated rather
+than slipped in. **L–M.**
+
+`#|` lines stay blanked either way — Quarto cell options are ours to interpret, not python's.
+
+**BUILT in 2.13.0**, all five modes plus both overrides. `format_error` in `runner.py`
+(~90 lines of stdlib), `[render] traceback_mode` in `RenderCfg` beside `figure_format`,
+`traceback_mode` on the per-cell request, `wd-traceback:` in the front matter.
+
+Two things fell out that were not in the plan and are worth knowing. **The cell's source is
+now registered with `linecache`**, so traceback frames show the line that failed instead of
+a bare file/line pair — `<cell>` is not a real file, so Python had nothing to read. That
+improves *every* mode, `plain` included. And **at module level, `verbose` shows only the
+names that appear on the failing line** rather than the whole namespace: `f_locals` in the
+`<module>` frame is every variable you have defined, which buries the failure instead of
+explaining it. (IPython's Verbose does the same thing, and now I know why.)
+
+**Verified against the real interpreter** — 33 protocol assertions through the actual runner
+(your `T:/worktrees/aggregate_REFACTOR/.venv`, Python 3.14.5): each mode's shape; the
+runner frames present in `plain` and absent in `context`; locals in `verbose` and not in
+`docs`; an unknown mode and a missing mode both falling back to `context`; `%xmode`
+overriding mid-render and **not leaking into the next request**; a bad `%xmode` ignored;
+every other magic still blanked; a `__repr__` that raises not masking the real error;
+SyntaxError still mapping to a cell-relative line; and cwd re-anchoring on a non-reset cell
+while a cell's own `os.chdir` survives.
+
+### D.10 — cwd, and where the layout actually lives (discuss)
+
+**1. What is the cwd?** The **document's folder**, applied once per render.
+
+`render_impl` computes `doc_dir` as the parent of the active document's path
+(`render.rs:1329-1332`) and passes it as `cwd` — but the runner only acts on it inside
+`if req.get("reset")` (`runner.py:149-156`, `os.chdir(cwd)`), and `reset` is true only for the
+first cell of a **full** render. So it is **per document, not per project**. Two consequences:
+
+- **Run This Cell (Ctrl+Enter) does not set it.** `run_one_cell` passes `first = respawn`
+  (`render.rs:398`) — only a *cold* kernel chdirs. Run a cell in document A, then a cell in
+  document B without a full render, and B's relative `read_csv("data.csv")` resolves against
+  A's folder. That is a small honest bug; the fix is to send `cwd` on every exec and chdir
+  when it differs (~5 lines in `runner.py`, one in `render.rs`), and I would take it whatever
+  else we decide here.
+- Before any render, the kernel simply inherits **Writedown's own** cwd — the spawn sets no
+  `current_dir` (`render.rs:195-207`) — i.e. wherever the exe was launched from. So the
+  `{python}` block above will report the folder of *this file* after a full render, and
+  something arbitrary before one.
+
+**2. How to change it.** Nothing today. Three plausible knobs, cheapest first:
+
+- **(a) `wd-cwd:` in the document front matter**, mirroring the `wd-python:` override that
+  already exists (`render.rs:448-450`, parsed at `539-544`, applied at `1310-1318`). **L**,
+  per-document, consistent with how the rest of this works.
+- **(b) `[render] cwd` in config.toml** as a global default, read in `render_cfg`
+  (`render.rs:58-80`). **L**.
+- **(c) a `cwd` field in the `.wdproj`.** Also easy — but see below.
+
+I would ship (a) and (b), plus the Run-This-Cell fix, and skip (c).
+
+**3. Where layout and open files live — you already have ST's workspace.** `sessionKey`
+(`store.ts:2273-2274`) is the `.wdproj` path when a project is open, else the joined project
+folders, else the folder root. That string is hashed and the session written to
+`~/.writedown/sessions/<16-hex>.json` (`session.rs:62-69`). It holds `open_tabs`,
+`active_tab`, `tree_width`, `outline_width`, `split_ratio`, `sidebar_visible`,
+`outline_visible`, per-document cursor and scroll (`positions`), and hot-exit text for unsaved
+scratch buffers (`session.rs:11-36`). The `.wdproj` itself holds only `name` and `folders`
+(`project.rs:8-14`). Window position and size are separate again — the Tauri window-state
+plugin (`lib.rs:47`), global rather than per project.
+
+So the Sublime split already exists here: **`.wdproj` is the project** (small, readable,
+git-able, shareable) and **the hashed session file is the workspace** (machine-local,
+disposable). The difference is that ours is automatic and invisible — no second file to name,
+save, or accidentally commit.
+
+**Do we need an explicit workspace? My answer is no — and I would argue against bundling the
+layout into the project file.** Three reasons:
+
+1. It would make Writedown **rewrite one of your files continuously**. Cursor positions and
+   the active tab change every few seconds; the session writer is debounced at 400 ms with a
+   5 s ceiling (`App.tsx:180-186`). "Never rewrite the user's files behind their back" is the
+   app's founding rule, and this would violate it on the clock.
+2. Your `.wdproj` files live under CloudStation, so every one of those writes becomes a
+   Synology sync event.
+3. A project file you can commit and hand to someone stops being handable the moment it
+   carries your scroll offsets.
+
+**What I think the actual problem is: discoverability** — you couldn't find where it lives,
+and that is a fair complaint about an invisible file. Cheap fix, **L**: palette verbs
+**"Project: Show Session File"** (reveals the path, with "Locate in Sidebar" semantics) and
+**"Project: Reset Session Layout"** (deletes it), plus a line in the Diagnostics/Watch Status
+dialog. And if you ever do want a *portable* workspace, the right shape is an explicit,
+opt-in `Project: Export Workspace…` writing `<name>.wdworkspace` beside the project — a write
+you asked for, not one that happens while you type.
+
+### D.11 — Auto-reload a project after editing its project file
+
+**Why the obvious version is wrong.** `openProject(file)` (`store.ts:2132-2164`) is the only
+code that reads a `.wdproj`, and it does far more than re-read folders: `saveAll`, save the
+outgoing session, **clear the tab strip** (`tabs: [], activePath: null, closedStack: []`),
+prefetch the tree, `setRoot`, re-arm the watcher, push the MRU, retitle the window, and
+`restoreSession`. Calling that on every save of the project file would blow your tabs away and
+rebuild them from the session — visibly jarring, and it would lose any scratch buffer whose
+text had not yet been persisted.
+
+**Whether an event even arrives.** The workspace watcher covers `proj.folders`
+(`store.ts:2157`), not the project file — which for a managed project lives in
+`~/.writedown/projects/`, outside every root. But there is already a mechanism that reaches
+it: `syncExtraWatch` watches open tabs that lie outside the roots (`store.ts:459-461`,
+`watch.rs:30-60`). So as long as the `.wdproj` is **open in a tab** — which it is, if you are
+editing it — external edits do fire `fs-change`.
+
+**Plan, deliberately narrow:**
+
+1. `reloadProject()`: `loadProject(projectFile)`, then set `projFolders` and `projectName`
+   only; `prefetchTree(folders)`; `setRoot(folders[0])` **only if the first root changed**;
+   `applyWatch(folders)`; `syncExtraWatch()`; `refreshTree()`; `setTitle(name)`. **No tab
+   changes and no session restore** — it is the same workspace key, so re-reading the session
+   would fight the live state.
+2. **Trigger A (the main one):** in `saveDoc`, after a successful write, if the path is the
+   open `projectFile`, call it. Deterministic, no watcher in the loop, fires the moment you
+   Ctrl+S.
+3. **Trigger B:** in `onFsChange`, if any changed path matches `projectFile`, same call,
+   behind the existing 400 ms debounce.
+4. **Guard, and this one matters:** a `.wdproj` mid-edit is frequently invalid JSON.
+   `loadProject` returns `Err`; surface it in the status bar and **keep the current folders**.
+   A half-typed file must never empty your sidebar.
+5. Edge case I would accept rather than solve: removing a folder from the project does not
+   close tabs under it. That is the safe direction and it matches ST.
+
+**L–M**, one small file read per project-file save, no baseline cost.
+
+### D.12 — Win+. , and rolling our own character inserter (discuss)
+
+**Why Win+. fails — we diagnosed this before, and you DROPped it** (earlier list "2", item 2,
+still in this file). The character/emoji panel is a separate OS window. Opening it **blurs**
+the CodeMirror contenteditable — that blur is what fires our save-on-blur — and the panel then
+injects the character as a synthetic composition/`beforeinput` into an editor whose DOM
+observer is not actively reading, so CodeMirror reconciles it straight back out. Paste survives
+because Ctrl+V never moves focus. Nothing in our code swallows it; it is a WebView2 +
+contenteditable interaction. The fix surface — a `beforeinput`/`compositionend` bridge that
+catches the data and dispatches `replaceSelection` itself — is real, but it sits on the exact
+IME and dead-key fast path, carries a genuine CJK-input regression risk, and behaves
+differently across WebView2 versions. I still would not lead with it.
+
+**Our own picker sidesteps all of it**, because insertion becomes an ordinary CodeMirror
+transaction. **DECIDED 2026-08-10: the `\alpha` + Tab expander is DROPPED** — Ctrl+Space
+already gets there with less typing — and we build the picker plus the `u+` Tab rule. The
+exact gestures are tabulated in "the complete command surface" above; the design reasoning
+is here.
+
+**The insight that makes this better than the pickers you have tried: every character has
+three or four names, and the Unicode one is the *worst* of them for you.** You think
+`\odot`; Unicode says `CIRCLED DOT OPERATOR`. Every existing tool indexes one naming system,
+usually the one you do not think in. So each entry carries the glyph plus **all** of them —
+Unicode name, LaTeX command(s), emoji/CLDR short name and keywords, and hand-written aliases
+— and one query searches the union:
+
+| you type | you get | which name matched |
+|:--|:--|:--|
+| `check` | ✓ ✔ ✅ ☑ | Unicode name |
+| `tick` | the same | our alias (Unicode has no "tick") |
+| `\checkmark` | ✓ | LaTeX |
+| `red x` | ❌ | emoji keyword |
+| `odot` / `circled dot` / `\odot` / `u+2299` | ⊙ | all four routes to one character |
+
+**Table:** the `unicode-math` LaTeX set (~2,500 characters — the same table Julia's REPL uses)
+plus ~200 curated emoji and dingbats you would actually reach for (✅ ❌ ⚠ ★ † ‡ → ⇒). Generated
+at **build time** into a committed TS file: small, stable, offline, no network at runtime, no
+new runtime dependency. The full 34,000-name UCD is **deliberately skipped** — `u+XXXX` covers
+the tail, and if it is ever needed it goes into Rust behind the SkimMatcherV2 we already run
+over your 7,000 BibTeX entries, loading only on first open.
+
+**Ranking:** exact LaTeX command → whole-word name match → fuzzy (order-free since B.02, so
+"arrow right" and "right arrow" both hit), ties broken toward the classic blocks
+(Mathematical Operators, Arrows, Greek) over obscure ones. **Recents sit on top, weighted by
+use count** rather than pure recency — the same idea as the D.07 frequency store, persisted
+under `~/.writedown/` as derived data, not in config.toml.
+
+**Browsing, for when you do not know the name:** an empty query shows Recents, then kits —
+Checks & crosses, Circles & dots, Arrows, Greek, Operators, Relations, Set & logic,
+Sub/superscripts, Dashes & quotes.
+
+**One regex serves both Tab gestures:** `/u\+([0-9a-fA-F]{0,6})$/i` on the text before the
+cursor, evaluated **only on a Tab keypress** (so zero keystroke cost), ahead of the word
+completer. Four to six hex digits → insert the character; empty → delete the `u+` and open the
+picker. Unassigned code points, surrogates and private-use characters **decline** and leave the
+text exactly as typed, rather than inserting a box.
+
+**Two practical notes so it does not disappoint on day one.** The glyph column needs its own
+font stack (Segoe UI Symbol / Segoe UI Emoji), not the editor's coding font, or a third of the
+table renders as tofu. And ✅ / ❌ are *emoji-presentation* — they come out coloured from the
+emoji font — while ✓ / ✗ are *text-presentation* and take the editor's text colour. Both are
+shown and labelled, because "green check" and "check" are different requests.
+
+**Not recommended, still:** treating "make Win+. work" as a prerequisite for any of it.
+**L–M.**
+
+**BUILT in 2.13.0** as specced. `scripts/gen-symbols.py` → `src/editor/symbolData.ts`
+(2,322 characters, 86 KB, Unicode names straight from CPython's `unicodedata`);
+`src/editor/symbols.ts` (parse, search, recents, `[symbols]` merge);
+`src/editor/codePointTab.ts` (the one `u+` regex, both gestures); a `symbols` palette mode
+with the glyph column, kits and the Enter / Shift+Enter / Alt+Enter keys. Vite emits
+`symbolData` as its own chunk, which is the proof the dynamic import worked — nothing loads
+until you press Ctrl+Shift+U.
+
+**The headless harness earned its keep again — 37 assertions against the real table, and
+the first version failed five of them.** Every failure was ranking, and every one would
+have been invisible in the UI (you would just have thought the search was bad):
+
+1. **`\Rightarrow` returned → instead of ⇒.** I lowercased the query before comparing it to
+   the LaTeX names — but **LaTeX is case-sensitive, and here the case IS the meaning**:
+   `\rightarrow` and `\Rightarrow` are different characters. Now matched case-sensitively
+   first, case-insensitively second.
+2. **A bare `odot` (no backslash) found nothing useful.** The whole-word test looked at the
+   Unicode name and the aliases but not the LaTeX names, so `odot` had to compete as a
+   fuzzy subsequence — against 2,322 entries, that is noise.
+3. **`right arrow` ranked ⇴ RIGHT ARROW WITH SMALL CIRCLE above →.** This one is worth
+   stating because it is a trap in any "search a concatenated haystack" design: fzf's
+   length penalty grows with the field, so **the best-documented character — Unicode name
+   plus LaTeX plus four aliases — is systematically punished**. Fixed by discarding the
+   fuzzy score entirely once there is a real signal (exact command, exact name, whole-word
+   hit) and breaking ties on how *canonical* the name is: word count first, then length,
+   then code point. RIGHTWARDS ARROW is the arrow; ARROW POINTING RIGHTWARDS THEN CURVING
+   UPWARDS is a special case of one, and Unicode names say so if you count their words.
+4. **`arrow` led with ⤴ and `circle` with ◍**, because I had a "name starts with the query"
+   bonus. It reads sensible and behaves badly — it just favours long names that happen to
+   begin with the word. Removed; whole-word matching already covered everything it did.
+5. **`red x` found nothing**, because "x" is a whole word in no Unicode name. Added to the
+   cross family's aliases — which is exactly the class of gap the alias column exists for.
+
+Current top hits, for the record: `check` → ✓ ✔ ☑ ✅ · `tick` → ✓ · `red x` → ❌ ✗ ✘ ·
+`circle` → ◎ ○ ● ◦ · `arrow` → ↑ ← ↓ → · `right arrow` → → · `star` → ★ ☆ ·
+`warning` → ⚠ ❗ · `\alpha` → α · `dash` → – —.
+
+### D.13 — Close All Files
+
+No such verb exists: `closeTab` is per-path (`store.ts:1193`) and the palette has "Close Tab",
+"Next/Previous Tab" and "Reopen Closed Tab" (`commands.ts:308-317`), nothing bulk.
+
+`closeAllTabs()` = `await saveAll()` (`store.ts:1464`), then `set({ tabs: [], activePath: null })`,
+pushing the closed real-file paths onto `closedStack` so Ctrl+Shift+T walks them back one at a
+time. Palette verb `{ id: "close-all", title: "Close All Files" }`. About twenty-five lines.
+
+**The catch, and the reason this isn't a pure L in my head: "and temp files".** Scratch buffers
+(`untitled://…`) have never touched disk. Their only home is `scratch_contents` in the session,
+which is keyed off `open_tabs` (`session.rs:28-32`, `store.ts:2286-2288`). Close them and the
+text is **gone for good** — no Recycle Bin, no Previous Versions, no reopen. Options:
+
+- **(a)** Close All closes real files only and leaves scratches; a second verb, "Close All
+  Including Scratch Buffers", takes the rest.
+- **(b)** One verb: silently drop *empty* scratches, and ask once — "3 unsaved buffers will be
+  discarded" — if any has text.
+- **(c)** Close everything silently. I would rather not build this one.
+
+**DECIDED 2026-08-10: (a), and simpler than any of the above.** *"Close all ACTUAL files, do
+not close temp files… we don't want those inadvertently blown away."* So **Close All Files**
+saves and closes real files only; scratch buffers are never touched, there is **no confirm
+dialog**, and there is no path by which an unsaved buffer can be lost. `saveAll()` still runs
+first, so nothing on disk is lost either.
+
+Free while I am in there, if you want them: **"Close Other Files"** and **"Close Saved Files"**
+(everything not dirty). Say the word. **L**, no perf cost.
+
+---
 
 ## Batch C: Tuesday 2026-08-04
 

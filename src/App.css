@@ -261,18 +261,24 @@ body {
 .openfiles .tree-name {
   line-height: 1.4; /* fixed so italic / fallback-font metrics can't inflate the row box */
 }
+/* Issue D.06: × in a fixed LEFT column, dirty ● pushed to the right end. The ×s line up,
+   so closing several files in a row needs no pointer movement (this is what ST does). It
+   stays visible at all times rather than appearing on hover — a control whose meaning
+   depends on pointer state is exactly what this project avoids. */
+.openfiles .tree-row {
+  padding-left: 4px;
+}
+.openfiles .tab-close {
+  margin-right: 1px;
+}
+.openfiles .tree-name {
+  flex: 1 1 auto; /* takes the slack, so the dirty dot sits hard right */
+}
 .openfile-dirty {
   flex: 0 0 auto;
   width: 1.2em;
   text-align: center;
   font-size: 9px;
-}
-.openfiles .tab-close {
-  visibility: hidden;
-}
-.openfiles .tree-row:hover .tab-close,
-.openfiles .tree-row.active .tab-close {
-  visibility: visible;
 }
 
 .tree-row {
@@ -1191,6 +1197,66 @@ body {
   padding: 10px 14px;
   color: var(--muted);
   font-size: 13px;
+}
+
+/* Unicode picker (issue D.12). Kit headings for browsing, a glyph column in a font stack
+   that actually HAS these characters, and a muted second line carrying the LaTeX name and
+   code point — so the row answers "which check mark is this?" without inserting it. */
+.palette-heading {
+  padding: 8px 14px 3px;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  user-select: none;
+}
+.palette-symbol {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 14px;
+}
+.symbol-glyph {
+  flex: 0 0 auto;
+  width: 1.6em;
+  text-align: center;
+  font-size: 19px;
+  line-height: 1.3;
+  /* NOT var(--mono): a programming face has no glyph for a third of this table and would
+     draw tofu. Segoe UI Symbol / Emoji carry essentially all of it on Windows. */
+  font-family: "Segoe UI Symbol", "Segoe UI Emoji", "Cambria Math", serif;
+}
+.symbol-text {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.symbol-name {
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.symbol-meta {
+  font-size: 10.5px;
+  color: var(--muted);
+  font-family: var(--mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.palette-item.active .symbol-meta {
+  color: #e8e8e8;
+}
+.palette-hint {
+  padding: 6px 14px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+}
+.palette-hint code {
+  font-family: var(--mono);
+  font-size: 11px;
 }
 
 /* Keyboard-shortcuts overlay (Help.tsx) — reuses .palette-backdrop. */

@@ -26,7 +26,14 @@ overwritten). The canonical copy is `HELP.md` in the repository.
   switch (MRU quick-switch), save, and delete them from the palette; the sidebar's
   Folder/Project tabs and the dropdown at the bottom switch between them. Project
   files are fully managed — you are never asked where to save one.
-- **Ctrl+Shift+Q** opens your quick file (`[files] quick_file` in config).
+- **Ctrl+Shift+Q** opens your quick file (`[files] quick_file` in config), and palette
+  **Open Quick File…** searches the `[files] quick_files` list — the handful of files you
+  come back to constantly, matched on name or folder.
+- **From a terminal**: `writedown notes.md`, `writedown C:\docs` (a folder joins the open
+  project, or becomes the Folder-tab root), `writedown --version`, `writedown --help`.
+  Every invocation opens a **new window** — running several at once is supported.
+- Palette **Close All Files** saves and closes every real file. Unsaved scratch buffers
+  are deliberately left alone: their text exists nowhere but the session.
 - The file tree lists **every** file. Muted entries are files Writedown has no
   syntax support for — they still open as plain text. Obviously binary files
   (exe, dll, zip, media, fonts) are muted and inert: right-click → Open Externally.
@@ -136,6 +143,16 @@ a selection wraps the selection — press `$` twice for `$$…$$`.
 - A cell's last value is shown the way Jupyter would: HTML from its MIME bundle or
   `_repr_html_` (pandas tables, `greater_tables` `GT`, …), else an image from the
   bundle, else text. No wrapper needed.
+- The working directory is **the document's own folder** — for every cell, including
+  Ctrl+Enter — so `pd.read_csv("data.csv")` means what you expect.
+- **When a cell fails**, `[render] traceback_mode` decides how much you are told:
+  `minimal` (type and message), `plain` (exactly what python prints), `context`
+  (**default** — your frames only, with the failing line), `verbose` (adds the local
+  variables in each frame), `docs` (adds each function's docstring). Override it for
+  one document with `wd-traceback: verbose` in the front matter, or from inside a cell
+  with `%xmode verbose` — the one magic Writedown interprets rather than ignores.
+  (There is no IPython here: Writedown formats tracebacks itself, so none of this
+  costs anything, and none of it runs unless a cell actually raises.)
 
 ## Citations (BibTeX)
 
@@ -169,9 +186,34 @@ words and short words are skipped. Toggle for the session from the status bar.
 
 ## View modes
 
-**F11** full screen; **Shift+F11** distraction-free (sidebars hidden, layout
-restored on exit); **Ctrl+K Ctrl+B** sidebar; **Ctrl+K Ctrl+O** outline. The
-outline pane doubles as a click-to-jump table of contents.
+**Ctrl+F11** full screen; **Ctrl+Shift+F11** distraction-free (full screen, sidebars
+hidden, but the preview stays); **Ctrl+K Ctrl+F** plain view — editor only, no sidebar,
+no outline, no preview, not full screen. All three toggle, and exiting restores the
+layout you came from. **F10** / **Ctrl+K Ctrl+B** sidebar; **F11** / **Ctrl+K Ctrl+O**
+outline. The outline pane doubles as a click-to-jump table of contents.
+
+## Inserting characters
+
+**Ctrl+Shift+U** (palette: **Insert: Unicode Character…**) searches every name a
+character has at once — its Unicode name, its LaTeX command, emoji keywords, and
+aliases — so `tick`, `check`, `\checkmark` and `u+2713` all find ✓, and `odot`,
+`circle dot` and `\odot` all find ⊙. With an empty query it lists your most-used
+characters, then browsing groups (checks & crosses, circles & dots, arrows, Greek,
+operators, relations, set & logic, sub/superscripts, dashes & quotes).
+
+- **Enter** inserts the character, **Shift+Enter** inserts its LaTeX command
+  (`\odot`) instead, **Alt+Enter** inserts and keeps the picker open for a run.
+- Select exactly one character and press **Ctrl+Shift+U** to look it up — name, code
+  point and LaTeX name — which is how you find its hollow or filled sibling.
+- Know the code point already? Type **`u+2299`** then **Tab** in the editor: no popup.
+  A bare **`u+`** then **Tab** opens the picker.
+- ✅ and ❌ are color emoji (they come from the emoji font); ✓ and ✗ take your editor's
+  text color. The picker labels which is which.
+- Add your own names under `[symbols]` in config.toml.
+
+(Windows' own **Win+.** panel does not work in Writedown, and cannot be made to: it
+blurs the editor and then injects the character into an editor that is no longer
+listening. This picker exists because of that.)
 
 ## Configuration
 

@@ -543,6 +543,117 @@ messages point here for detail.
 - Backend `DirEntry` gained a `supported` flag and `list_directory` no longer drops
   unsupported files. Rust changed — `tauri dev` needs a restart, not just HMR.
 
+## [2.13.0] - 2026-08-10
+
+Batch D (issues D.01–D.13). D.05 was dropped and D.10 needed almost nothing; D.08 turned
+out to exist already and only wanted a key.
+
+### Added
+
+- **Unicode character picker — Ctrl+Shift+U**, or palette "Insert: Unicode Character…"
+  (D.12). Windows' own Win+. panel cannot work here and never will: it is a separate OS
+  window, so opening it blurs the CodeMirror contenteditable, and the character is then
+  injected into an editor whose DOM observer is no longer reading — CodeMirror reconciles
+  it away. This picker sidesteps that entirely, because insertion is an ordinary editor
+  transaction.
+
+  What makes it better than the pickers that already exist: **every character has three or
+  four names, and the Unicode one is usually the worst.** You think `\odot`; Unicode says
+  CIRCLED DOT OPERATOR. Each of the 2,322 entries carries its Unicode name, its LaTeX
+  command(s), emoji/CLDR keywords and hand-written aliases, and one query searches the
+  union — so `tick`, `check`, `\checkmark` and `u+2713` all find ✓, and `odot`,
+  `circle dot`, `\odot` and `u+2299` all find ⊙. `tick` works even though no Unicode name
+  contains the word.
+
+  Enter inserts the character; **Shift+Enter** inserts its LaTeX command instead;
+  **Alt+Enter** inserts and keeps the picker open for a run of several. An empty query
+  lists your most-used characters (weighted by use count, not recency) then browsing kits.
+  Selecting exactly one character and pressing Ctrl+Shift+U does a **reverse lookup** —
+  name, code point, LaTeX name — which is how you find a character's hollow or filled
+  sibling. `[symbols]` in config.toml adds your own names.
+
+  The table is generated at build time from CPython's `unicodedata` (so the names are
+  authoritative) by `scripts/gen-symbols.py`, and is **imported dynamically**: 86 KB that
+  is not loaded, parsed or paid for until you open the picker for the first time.
+- **`u+2299` + Tab inserts ⊙ inline**, no popup; a bare **`u+` + Tab** opens the picker
+  (D.12). One regex, evaluated only on a Tab keypress, ahead of the word completer. A code
+  point that names nothing drawable — unassigned, a lone surrogate, private use, a C1
+  control — declines and leaves your text exactly as typed rather than inserting a box.
+- **`[render] traceback_mode`** — how a failing `{python}` cell is reported (D.09):
+  `minimal`, `plain`, `context` (new default), `verbose` (locals in every frame), `docs`
+  (each frame's docstring). Overridable per document with `wd-traceback:` in the front
+  matter, or from inside a cell with **`%xmode <mode>`** — the one magic Writedown
+  interprets rather than blanks.
+
+  There is no IPython involved and no CPython flag for any of this (`-X no_debug_ranges`
+  is the only `-X` that touches traceback shape, and it goes the wrong way). It works
+  because the runner already *is* the formatter. Nothing here runs unless a cell raises.
+- **Insert Date** (D.01), beside the existing Insert Date-Time — the time half was being
+  deleted by hand every time. Both formats are now configurable: `[editor] date_format`
+  and `datetime_format`, strftime-style. The palette shows today's date in your format, so
+  the verb says what you are about to get.
+- **`[files] quick_files`** — a list, searchable from palette "Open Quick File…" by name or
+  folder (D.04). `quick_file` (singular) is untouched and keeps Ctrl+Shift+Q.
+- **Ctrl+K Ctrl+F toggles Plain View** — editor only: no sidebar, no outline, no preview,
+  not full screen (D.08). The mode has existed since A.16 as a palette verb; it had simply
+  never been given a key. Rebindable from `[keys]` as `plainView`.
+- **Palette "Close All Files"** (D.13): saves and closes every real file. Scratch buffers
+  are deliberately left open — their text exists nowhere but the session, so closing one
+  would destroy it outright, and leaving them alone means there is no confirm dialog and
+  no way to lose anything.
+- **Palette "Insert: Word Frequency Report"** (D.07): drops a `{python}` cell at the cursor
+  that loads `~/.writedown/word-frequency.json` into a DataFrame and shows the top words.
+  The lowercase fold matches what Tab completion actually queries, so the numbers agree
+  with what it offers you.
+- **Command line** (D.02): `writedown <dir>` now works — a folder joins the open project,
+  or becomes the Folder-tab root — and `--version` / `--help` print and exit. A GUI-
+  subsystem exe has no console, so they attach the parent shell's first. `--` ends option
+  parsing. Unknown switches are ignored rather than fatal, since WebView2 and Tauri inject
+  their own. **Every invocation still opens a new window, by decision** — no
+  single-instance forwarding, so running several at once keeps working.
+
+### Fixed
+
+- **Directory junctions and symlinks are followed in the file tree** (D.03). `C:\S` is a
+  junction, and Rust's `FileType::is_dir()` on Windows is `!is_symlink() && is_directory()`
+  with mount points counting as symlinks — so it came back `is_dir: false` and drew as a
+  dim, unexpandable *file* row. Indistinguishable from missing. (Drag-and-drop always
+  worked, because that path uses `fs::metadata`, which follows the link.) The extra stat is
+  paid only for reparse-point entries.
+
+  Quick-open's recursive walk follows them too, with a loop guard: a link whose target lies
+  inside the root is skipped (with the root at `C:\`, everything under CloudStation is
+  reachable twice, so every file would have been listed twice), as is one pointing at an
+  ancestor (which would never terminate). Note that Windows' change notifications do not
+  traverse junctions, so a linked-in folder refreshes on focus rather than live.
+- **The python working directory is now set for every cell, not just on a namespace
+  reset** (D.10). Run This Cell in document A, then in document B without a full render in
+  between, and B's relative `read_csv` resolved against A's folder. A cell's own
+  `os.chdir()` still survives the rest of the render — the comparison is against the
+  directory Writedown last applied, not the live one.
+- **Editing a project file reloads the project** (D.11) — its folders and name are re-read
+  in place when you save the `.wdproj`, or when it changes on disk. Deliberately *not*
+  `openProject`, which clears the tab strip and re-restores the session. Invalid JSON
+  mid-edit reports and keeps the current folders: a half-typed file must never empty the
+  sidebar.
+
+### Changed
+
+- **Open Files: the × moved to the left**, aligned in a fixed column, and the dirty ● moved
+  to the right end (D.06). Closing several files in a row now needs no pointer movement,
+  which is the point. The × is always visible rather than appearing on hover — a control
+  whose meaning depends on pointer position is the thing this project avoids.
+- **Cell tracebacks no longer include Writedown's own runner frames** by default, and now
+  show the failing source line. This is `context` mode; `plain` restores the previous
+  output exactly.
+
+### Notes
+
+- `runner.py` is embedded in the binary by `include_str!`, so **D.09 and D.10 need a
+  rebuild, not a reload** — `tauri dev`'s HMR will not pick them up.
+- Dropped: **D.05** (auto-detect indentation + a footer readout). The analysis is kept in
+  the issues file for the compartment trap it uncovered.
+
 ## [2.12.1] - 2026-08-06
 
 Two regressions from 2.12.0's tree work, both reported within the hour.

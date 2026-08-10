@@ -319,6 +319,15 @@ export type EditorSettings = {
   spelling_skip_proper_nouns: boolean | null;
   /** `[files] quick_file`: file opened by Ctrl+Shift+Q / "Open Quick File". */
   quick_file: string | null;
+  /** `[files] quick_files`: pick-list behind the palette's "Open Quick File…" (D.04). */
+  quick_files: string[] | null;
+  /** `[editor] date_format` / `datetime_format`: strftime patterns for the stamp verbs
+   *  (D.01). Defaults: `%Y-%m-%d` and `%Y-%m-%d %H:%M:%S`. */
+  date_format: string | null;
+  datetime_format: string | null;
+  /** `[symbols]`: user name → character additions for the Unicode picker (D.12);
+   *  `""` removes a built-in. */
+  symbols: Record<string, string> | null;
   /** User keybinding overrides: friendly-key ("Ctrl+Shift+K") → action name. */
   keys: Record<string, string> | null;
   /** Palette insert snippets from `[snippets]`: display name → body ("" removes a built-in). */

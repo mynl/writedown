@@ -118,17 +118,54 @@ export const insertLineAfter: StateCommand = ({ state, dispatch }) => {
   return true;
 };
 
-// Insert the local date-time as `YYYY-MM-DD HH:MM:SS` at every cursor (replacing any
-// selection) — note/journal timestamps.
-export const insertDateTime: StateCommand = ({ state, dispatch }) => {
-  const d = new Date();
+/** The strftime directives the stamp formats support — the useful subset, not a full
+ *  implementation. Unknown `%x` is left alone (so a literal `%` survives), and `%%` is an
+ *  escaped percent. Locale-dependent names come from `toLocaleDateString`, so `%B` in a
+ *  German Windows says "August" in German — which is the right answer. */
+export function formatStamp(d: Date, pattern: string): string {
   const p = (n: number) => String(n).padStart(2, "0");
-  const stamp = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(
-    d.getHours(),
-  )}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
-  dispatch(state.update(state.replaceSelection(stamp), { scrollIntoView: true, userEvent: "input" }));
-  return true;
-};
+  const loc = (opt: Intl.DateTimeFormatOptions) => d.toLocaleDateString(undefined, opt);
+  const map: Record<string, string> = {
+    Y: String(d.getFullYear()),
+    y: p(d.getFullYear() % 100),
+    m: p(d.getMonth() + 1),
+    d: p(d.getDate()),
+    e: String(d.getDate()),
+    H: p(d.getHours()),
+    I: p(d.getHours() % 12 || 12),
+    M: p(d.getMinutes()),
+    S: p(d.getSeconds()),
+    p: d.getHours() < 12 ? "AM" : "PM",
+    A: loc({ weekday: "long" }),
+    a: loc({ weekday: "short" }),
+    B: loc({ month: "long" }),
+    b: loc({ month: "short" }),
+    j: String(
+      Math.floor((d.getTime() - new Date(d.getFullYear(), 0, 0).getTime()) / 86_400_000),
+    ).padStart(3, "0"),
+    "%": "%",
+  };
+  return pattern.replace(/%(.)/g, (whole, k: string) => map[k] ?? whole);
+}
+
+export const DEFAULT_DATE_FORMAT = "%Y-%m-%d";
+export const DEFAULT_DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S";
+
+/** Insert a formatted timestamp at every cursor (replacing any selection). Two palette
+ *  verbs share this: "Insert Date" and "Insert Date-Time" (issue D.01 — the time half was
+ *  being deleted by hand every time). Formats come from `[editor] date_format` /
+ *  `datetime_format`; the defaults reproduce the previous hard-coded output exactly. */
+export function insertStamp(pattern: string): StateCommand {
+  return ({ state, dispatch }) => {
+    const stamp = formatStamp(new Date(), pattern);
+    dispatch(
+      state.update(state.replaceSelection(stamp), { scrollIntoView: true, userEvent: "input" }),
+    );
+    return true;
+  };
+}
+
+export const insertDateTime: StateCommand = insertStamp(DEFAULT_DATETIME_FORMAT);
 
 export const insertLineBefore: StateCommand = ({ state, dispatch }) => {
   const tr = state.changeByRange((range) => {

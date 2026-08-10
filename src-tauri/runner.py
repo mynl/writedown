@@ -6,7 +6,7 @@ Spawned as `<python> -u runner.py` with MPLBACKEND=Agg so the backend is fixed b
 user import. One JSON object per line in, one per line out:
 
   -> {"id": 1, "code": "...", "reset": true, "cwd": "C:/docs/paper",
-      "fig_format": "png", "fig_dpi": 150}
+      "fig_format": "png", "fig_dpi": 150, "traceback_mode": "context"}
   <- {"id": 1, "stdout": "...", "stderr": "...", "result_text": null,
       "result_html": null, "figures": [{"format": "png", "b64": "..."}],
       "error": null, "ms": 12}
@@ -17,8 +17,17 @@ figure), else `text/plain` from the bundle, else `repr()`.
 
 `reset: true` (the first cell of every render) starts a fresh namespace while sys.modules
 survives — imports are paid once, yet each render is a deterministic clean top-to-bottom
-run. On stdin EOF the runner exits 0, so a dead app never leaves an orphan. Internal
-failures become error replies; the runner itself never crashes.
+run. `cwd` is applied to every cell, not just the reset, so Run This Cell against another
+document re-anchors relative paths (issue D.10).
+
+`traceback_mode` (issue D.09) selects how a failure is reported: minimal / plain / context
+(default) / verbose (locals per frame) / docs (docstring per frame). There is no IPython
+here and no CPython flag for any of this — but this runner IS the formatter, so the modes
+cost nothing and run only when a cell raises. An in-cell `%xmode <mode>` overrides it; it
+is the one magic that is interpreted rather than blanked.
+
+On stdin EOF the runner exits 0, so a dead app never leaves an orphan. Internal failures
+become error replies; the runner itself never crashes.
 """
 
 import ast
@@ -26,7 +35,9 @@ import base64
 import contextlib
 import io
 import json
+import linecache
 import os
+import re
 import sys
 import time
 import traceback
@@ -44,18 +55,48 @@ def reply(obj):
     sys.stdout.flush()
 
 
+TB_MODES = ("minimal", "plain", "context", "verbose", "docs")
+# Traceback verbosity for this render ([render] traceback_mode, `wd-traceback:`, or an
+# in-cell `%xmode`). Carried on the request; a cell-level %xmode overrides it from that
+# point on, which is why it lives at module scope rather than being threaded through.
+tb_mode = "context"
+# The last cwd this runner applied, so a cell's own os.chdir() survives the rest of the
+# render while a switch to another document still re-anchors (issue D.10).
+applied_cwd = None
+
+
 def clean(code):
     # Blank IPython-isms (%magic, !shell, ?help) and #| option lines, preserving line
     # numbering so tracebacks map back to the cell (mirrors the app's syntax checker).
+    #
+    # ONE exception (issue D.09): `%xmode <mode>` is interpreted rather than discarded.
+    # There is no IPython here, but we ARE the traceback formatter, so the mode is ours to
+    # honour — and it costs nothing, since it is read while the line is being blanked
+    # anyway. Every other magic is still deleted.
+    global tb_mode
     out = []
     for line in code.split("\n"):
         t = line.lstrip()
-        out.append("" if t.startswith(("%", "!", "?", "#|")) else line)
+        if t.startswith("%"):
+            parts = t[1:].split()
+            if parts and parts[0] in ("xmode", "xmode?") and len(parts) > 1:
+                m = parts[1].strip().lower()
+                if m in TB_MODES:
+                    tb_mode = m
+            out.append("")
+        elif t.startswith(("!", "?", "#|")):
+            out.append("")
+        else:
+            out.append(line)
     return "\n".join(out)
 
 
 def run_cell(code):
     """exec the cell; if the last statement is an expression, eval it for its value."""
+    # Make the cell's own source visible to linecache, so traceback frames show the line
+    # that failed instead of a bare file/line pair (`<cell>` is not a real file). This is
+    # what IPython does, and it improves EVERY mode, plain included.
+    linecache.cache["<cell>"] = (len(code), None, code.splitlines(keepends=True), "<cell>")
     tree = ast.parse(code, "<cell>", "exec")
     result = None
     if tree.body and isinstance(tree.body[-1], ast.Expr):
@@ -78,6 +119,109 @@ def error_line(exc):
         if fs.filename == "<cell>":
             line = fs.lineno
     return line
+
+
+def _short_repr(value, limit=200):
+    """repr() that can neither explode nor flood the pane. A broken __repr__ is common in
+    exactly the half-constructed objects you are debugging, so it must not mask the real
+    error."""
+    try:
+        r = repr(value)
+    except BaseException as e:
+        return "<repr failed: %s>" % type(e).__name__
+    r = " ".join(r.split())
+    return r if len(r) <= limit else r[: limit - 1] + "…"
+
+
+def _frame_locals(frame, src):
+    """Interesting locals of one frame, as `name = repr` lines. Modules and dunders are
+    noise; `self` is kept because it usually is the point.
+
+    At MODULE level `f_locals` is the entire cell namespace — every variable you have
+    defined — which buries the failure instead of explaining it. There, show only names
+    that actually appear in the failing source line (what IPython's Verbose does), so a
+    top-level `df.merge(other)` reports `df` and `other` and nothing else.
+    """
+    import types
+
+    at_module = frame.f_code.co_name == "<module>"
+    wanted = set(re.findall(r"[A-Za-z_]\w*", src)) if at_module else None
+    lines = []
+    for name, value in list(frame.f_locals.items()):
+        if name.startswith("__") or isinstance(value, types.ModuleType):
+            continue
+        if wanted is not None and name not in wanted:
+            continue
+        lines.append("        %s = %s" % (name, _short_repr(value)))
+        if len(lines) >= 25:
+            lines.append("        ...")
+            break
+    return lines
+
+
+def _frame_doc(frame):
+    """First lines of the docstring of the function this frame is running, best-effort.
+
+    A frame carries a code object, not a function, so the function has to be recovered:
+    module-level by name from globals, methods via `self`/`cls`. Closures and some
+    decorated functions cannot be resolved — say so rather than show nothing, so the mode
+    never looks broken when it is merely defeated.
+    """
+    import inspect
+
+    name = frame.f_code.co_name
+    if name == "<module>":
+        return []  # module level: there is no function, so there is nothing to document
+    fn = None
+    obj = frame.f_locals.get("self") or frame.f_locals.get("cls")
+    if obj is not None:
+        fn = getattr(type(obj) if not isinstance(obj, type) else obj, name, None)
+    if fn is None:
+        fn = frame.f_globals.get(name)
+    if fn is None:
+        return ["        (docstring unavailable: closure or decorated function)"]
+    try:
+        doc = inspect.getdoc(fn)
+    except Exception:
+        doc = None
+    if not doc:
+        return ["        (no docstring)"]
+    body = doc.strip().split("\n")[:5]
+    return ["        " + ln for ln in body]
+
+
+def format_error(exc, mode):
+    """The traceback text for `mode` (issue D.09).
+
+    CPython has no flag for any of this — `-X no_debug_ranges` is the only `-X` that
+    touches traceback shape and it goes the wrong way — but it needs none, because this
+    function IS the formatter. Nothing here runs unless a cell raises.
+    """
+    if mode == "minimal":
+        return "".join(traceback.format_exception_only(type(exc), exc)).rstrip()
+    if mode == "plain":
+        return traceback.format_exc().rstrip()
+
+    # context / verbose / docs: drop our own frames (handle → run_cell → exec), which are
+    # noise the author never wrote, and keep everything from <cell> down.
+    frames = list(traceback.walk_tb(exc.__traceback__))
+    start = next((i for i, (f, _) in enumerate(frames) if f.f_code.co_filename == "<cell>"), 0)
+    frames = frames[start:]
+
+    out = ["Traceback (most recent call last):"] if frames else []
+    for frame, lineno in frames:
+        code = frame.f_code
+        where = "<cell>" if code.co_filename == "<cell>" else code.co_filename
+        out.append('  File "%s", line %d, in %s' % (where, lineno, code.co_name))
+        src = linecache.getline(code.co_filename, lineno).strip()
+        if src:
+            out.append("    " + src)
+        if mode == "verbose":
+            out.extend(_frame_locals(frame, src))
+        elif mode == "docs":
+            out.extend(_frame_doc(frame))
+    out.extend(ln.rstrip("\n") for ln in traceback.format_exception_only(type(exc), exc))
+    return "\n".join(out).rstrip()
 
 
 def mime_bundle(obj):
@@ -144,19 +288,31 @@ def collect_figures(fmt, dpi):
 
 
 def handle(req):
-    global ns
+    global ns, tb_mode, applied_cwd
     t0 = time.perf_counter()
+    mode = req.get("traceback_mode")
+    tb_mode = mode if mode in TB_MODES else "context"
     if req.get("reset"):
         ns = {"__name__": "__main__"}
-        cwd = req.get("cwd")
-        if cwd:
-            try:
-                os.chdir(cwd)  # relative pd.read_csv("data.csv") works like Quarto
-            except OSError:
-                pass
         plt = sys.modules.get("matplotlib.pyplot")
         if plt is not None:
             plt.close("all")
+
+    # cwd on EVERY cell, not only on reset (issue D.10). It used to ride along with the
+    # namespace reset, so "Run This Cell" against a document in another folder inherited
+    # whichever folder the last full render had chdir'd to — a relative read_csv silently
+    # resolved against the wrong document.
+    #
+    # The comparison is against the cwd WE last applied, not against os.getcwd(): a cell
+    # that calls os.chdir() itself must keep its effect for the rest of the render, and
+    # comparing with the live cwd would undo it on the very next cell.
+    cwd = req.get("cwd")
+    if cwd and (req.get("reset") or cwd != applied_cwd):
+        try:
+            os.chdir(cwd)  # relative pd.read_csv("data.csv") works like Quarto
+            applied_cwd = cwd
+        except OSError:
+            pass
 
     out_io, err_io = io.StringIO(), io.StringIO()
     result, error = None, None
@@ -166,7 +322,8 @@ def handle(req):
     except BaseException as e:  # report everything (incl. SystemExit), never crash
         error = {
             "message": "%s: %s" % (type(e).__name__, e),
-            "traceback": traceback.format_exc(),
+            # tb_mode, not `mode`: an in-cell %xmode may have changed it while running.
+            "traceback": format_error(e, tb_mode),
             "line": error_line(e),
         }
 

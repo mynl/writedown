@@ -28,6 +28,19 @@ pub struct DirEntry {
     supported: bool,
 }
 
+/// Is this entry a directory, **following Windows junctions and symlinks** (issue D.03)?
+///
+/// `FileType::is_dir()` on Windows is `!is_symlink() && is_directory()`, and `is_symlink()`
+/// counts BOTH `IO_REPARSE_TAG_SYMLINK` and `IO_REPARSE_TAG_MOUNT_POINT` — a junction. So
+/// `C:\S` (a junction to `…\Documents\CloudStation`) came back `is_dir: false` and drew as a
+/// dim, unexpandable file row: present, but useless. The extra `metadata()` — which DOES
+/// follow the link — is paid only for reparse-point entries, so an ordinary folder costs
+/// nothing. A dangling link stays a file, which is the right failure.
+fn is_dir_following_links(ft: &std::fs::FileType, full: &std::path::Path) -> bool {
+    ft.is_dir()
+        || (ft.is_symlink() && std::fs::metadata(full).map(|m| m.is_dir()).unwrap_or(false))
+}
+
 /// `[files] show_hidden` from config.toml, default **true** — dot files/dirs (`.writedown`,
 /// `.github`, …) are shown unless the user opts out. Read per call (like the bib module
 /// reads `[bibliography]`), so a config edit applies on the next listing without plumbing.
@@ -58,7 +71,8 @@ pub fn list_directory(app: tauri::AppHandle, path: String) -> Result<Vec<DirEntr
             continue;
         }
         let full = item.path();
-        let is_dir = item.file_type().map_err(|e| e.to_string())?.is_dir();
+        let ft = item.file_type().map_err(|e| e.to_string())?;
+        let is_dir = is_dir_following_links(&ft, &full);
         let ext = full
             .extension()
             .map(|e| e.to_string_lossy().to_lowercase());
@@ -121,12 +135,29 @@ const SKIP_DIRS: &[&str] = &["node_modules", "target", ".git", "__pycache__", ".
 /// Recursively list every supported file under `root` (for quick-open, spec §10, §23).
 /// Honors `[files] show_hidden` (default true); always skips heavy build/VCS
 /// directories (SKIP_DIRS); capped for safety.
+///
+/// Directory junctions and symlinks are followed (issue D.03), which makes a loop guard
+/// mandatory. A followed link is walked only when its target lies **outside** the root
+/// tree, and only once:
+///
+/// - target inside the root (`C:\S` → CloudStation, with the root at `C:\`) — skipped,
+///   because the ordinary walk already reaches those files under their real path; without
+///   this every file would appear in quick-open twice;
+/// - target is an ancestor of the root (root `C:\S\AI` containing a link to `C:\S`) —
+///   skipped, since walking it re-enters the root and never terminates;
+/// - target genuinely elsewhere (`data` → `D:\data`) — walked, which is the point of D.03,
+///   and `visited` keeps two links to the same tree from listing it twice.
+///
+/// Only LINKS pay the `canonicalize` syscall: a plain subdirectory cannot introduce a cycle
+/// or a duplicate, so the common path is exactly as fast as before.
 #[tauri::command]
 pub fn list_all_files(app: tauri::AppHandle, root: String) -> Result<Vec<FileItem>, String> {
     let root_path = std::path::Path::new(&root);
     let show_dots = show_hidden(&app);
     let mut out: Vec<FileItem> = Vec::new();
     let mut stack = vec![root_path.to_path_buf()];
+    let root_real = std::fs::canonicalize(root_path).unwrap_or_else(|_| root_path.to_path_buf());
+    let mut visited: std::collections::HashSet<std::path::PathBuf> = std::collections::HashSet::new();
     const CAP: usize = 50_000;
 
     while let Some(dir) = stack.pop() {
@@ -140,11 +171,25 @@ pub fn list_all_files(app: tauri::AppHandle, root: String) -> Result<Vec<FileIte
                 continue;
             }
             let full = item.path();
-            let is_dir = item.file_type().map(|f| f.is_dir()).unwrap_or(false);
+            let Ok(ft) = item.file_type() else { continue };
+            let is_dir = is_dir_following_links(&ft, &full);
             if is_dir {
-                if !SKIP_DIRS.contains(&name.as_str()) {
-                    stack.push(full);
+                if SKIP_DIRS.contains(&name.as_str()) {
+                    continue;
                 }
+                // Only a link can re-enter a tree we have already walked; a plain
+                // subdirectory is new by construction, so it skips the syscall.
+                if ft.is_symlink() {
+                    let Ok(real) = std::fs::canonicalize(&full) else { continue };
+                    // Either direction of containment means the walk already covers it.
+                    if real.starts_with(&root_real) || root_real.starts_with(&real) {
+                        continue;
+                    }
+                    if !visited.insert(real) {
+                        continue; // a second link into the same outside tree
+                    }
+                }
+                stack.push(full);
                 continue;
             }
             let keep = full
@@ -396,4 +441,89 @@ pub fn write_file(
     // vanished between rename and stat is reported as len 0 rather than failing a save
     // that did in fact succeed.
     Ok(stamp_of_path(&path).unwrap_or(FileStamp { mtime_ms: 0, len: 0 }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::{Path, PathBuf};
+
+    /// Make a directory junction with `mklink /J`. Junctions — unlike symlinks — need no
+    /// elevation and no Developer Mode, which is why `C:\S` is one and why this test can
+    /// run anywhere. Returns None if the OS declines, so the test skips instead of failing.
+    fn make_junction(link: &Path, target: &Path) -> Option<()> {
+        let ok = std::process::Command::new("cmd")
+            .args(["/C", "mklink", "/J"])
+            .arg(link)
+            .arg(target)
+            .output()
+            .ok()?
+            .status
+            .success();
+        ok.then_some(())
+    }
+
+    fn temp_dir(tag: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("writedown-junction-{tag}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).expect("temp dir");
+        d
+    }
+
+    /// Issue D.03: a junction must classify as a DIRECTORY. Rust's `FileType::is_dir()`
+    /// says false for one (it counts IO_REPARSE_TAG_MOUNT_POINT as a symlink), which is
+    /// why `C:\S` used to draw as a dim, unexpandable file row.
+    #[test]
+    fn junction_is_a_directory() {
+        let base = temp_dir("dir");
+        let real = base.join("real");
+        std::fs::create_dir_all(real.join("inner")).unwrap();
+        std::fs::write(real.join("note.md"), "hi").unwrap();
+        let link = base.join("linked");
+        let Some(()) = make_junction(&link, &real) else {
+            eprintln!("skipped: mklink /J unavailable");
+            return;
+        };
+
+        let ft = std::fs::symlink_metadata(&link).unwrap().file_type();
+        // The bug, asserted so the fix cannot be quietly reverted:
+        assert!(!ft.is_dir(), "precondition: Rust reports a junction as a non-dir");
+        assert!(ft.is_symlink(), "precondition: a junction counts as a symlink on Windows");
+        // The fix:
+        assert!(is_dir_following_links(&ft, &link), "junction must classify as a directory");
+
+        // And a plain file is still not a directory, junction logic notwithstanding.
+        let f = real.join("note.md");
+        let fft = std::fs::symlink_metadata(&f).unwrap().file_type();
+        assert!(!is_dir_following_links(&fft, &f));
+
+        let _ = std::fs::remove_dir(&link);
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    /// Issue D.03, second half: following links must not make quick-open list a tree twice.
+    /// `inside` points at a sibling under the same root, which the ordinary walk already
+    /// covers; without the containment check every file below it would appear twice.
+    #[test]
+    fn walk_does_not_follow_a_link_into_its_own_root() {
+        let base = temp_dir("walk");
+        let docs = base.join("docs");
+        std::fs::create_dir_all(&docs).unwrap();
+        std::fs::write(docs.join("a.md"), "a").unwrap();
+        let link = base.join("shortcut");
+        let Some(()) = make_junction(&link, &docs) else {
+            eprintln!("skipped: mklink /J unavailable");
+            return;
+        };
+
+        let root_real = std::fs::canonicalize(&base).unwrap();
+        let link_real = std::fs::canonicalize(&link).unwrap();
+        assert!(
+            link_real.starts_with(&root_real),
+            "a link to a sibling resolves inside the root, so the walk must skip it"
+        );
+
+        let _ = std::fs::remove_dir(&link);
+        let _ = std::fs::remove_dir_all(&base);
+    }
 }

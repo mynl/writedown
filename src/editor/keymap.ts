@@ -49,7 +49,15 @@ export const DEFAULT_KEYS: { key: string; action: string }[] = [
   { key: "Ctrl+K Ctrl+B", action: "toggleSidebar" },
   { key: "Ctrl+K Ctrl+O", action: "toggleOutline" },
   // Ctrl+K Ctrl+P is deliberately NOT bound — reserved for goto-file muscle memory.
-  // Plain view is a palette verb only; F10/F11 cover the day-to-day panel toggling.
+  // Plain view: editor only — no sidebar, no outline, no preview, NOT full screen. It
+  // toggles, and exiting restores the layout you came from (issue D.08; the machinery has
+  // existed since A.16, it had simply never been given a key).
+  { key: "Ctrl+K Ctrl+F", action: "plainView" },
+  // Unicode picker (issue D.12). Editor-scoped on purpose: it inserts at the caret, so it
+  // should do nothing when the tree has focus — and being in DEFAULT_KEYS makes it
+  // rebindable from [keys] and lists it in F1 for free.
+  { key: "Ctrl+Shift+U", action: "insertSymbol" },
+  // F10/F11 cover the day-to-day panel toggling.
   // Joplin muscle memory: the bare function keys toggle the two side panels, which is what
   // they get used for constantly; the window-level modes move onto modifiers.
   // (F10 is Windows' menu-bar activation key. There is no menu bar here so it reaches us,

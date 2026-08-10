@@ -43,6 +43,10 @@ word_wrap = true
 # space line breaks (tip: a trailing backslash is the trim-proof hard break); false
 # disables. CSV/TSV files are never trimmed.
 trim_trailing_whitespace = true
+# Stamp formats for the palette's "Insert Date" and "Insert Date-Time" (strftime patterns:
+# %Y year, %m month, %d day, %H:%M:%S time, %A weekday, %B month name). Defaults below.
+# date_format = "%Y-%m-%d"
+# datetime_format = "%Y-%m-%d %H:%M:%S"
 
 [outline]
 # Outline pane side: "left" (between the tree and editor) or "right" (far right, past the preview).
@@ -74,6 +78,16 @@ python = ""
 timeout_seconds = 30
 figure_format = "png" # png | svg
 figure_dpi = 150
+# traceback_mode: how a failing cell is reported. Writedown formats tracebacks itself (there
+# is no IPython here), so this costs nothing and runs only when a cell raises.
+#   minimal  exception type + message, no frames
+#   plain    exactly what python prints, including Writedown's own runner frames
+#   context  your frames only, with the failing source line          <- default
+#   verbose  context + the local variables in each frame
+#   docs     context + the docstring of the function in each frame
+# A document can override it with `wd-traceback: verbose` in its front matter, or a cell
+# with `%xmode verbose` — the one magic Writedown interprets instead of ignoring.
+traceback_mode = "context"
 
 [tree]
 # Left file/project panel font (like ST's sidebar). font_weight as in [editor].
@@ -88,6 +102,13 @@ show_hidden = true
 # quick_file: opened by Ctrl+Shift+Q / palette "Open Quick File" — a running notes or
 # issues file you jump to constantly. Absolute path; single quotes keep backslashes literal.
 # quick_file = 'C:\path\to\notes.md'
+# quick_files: the pick-list behind palette "Open Quick File…" — fuzzy-search these by name
+# or folder and Enter to open. Independent of quick_file, which keeps Ctrl+Shift+Q. Listed
+# in the order you write them (that IS your preference order); missing files show greyed.
+# quick_files = [
+#   'C:\path\to\notes.md',
+#   'C:\path\to\issues.md',
+# ]
 
 [spelling]
 # Prose spellchecker (English US). Only prose is checked — code, math, citation keys, file
@@ -140,6 +161,16 @@ skip_proper_nouns = true
 # ${}
 # $$
 # '''
+
+# ── Unicode picker additions ─────────────────────────────────────────────────────────────────
+# Extra entries and aliases for Ctrl+Shift+U ("Insert: Unicode Character…"). Key = the name
+# you want to search for, value = the character. Repeat a character under several names to
+# give it aliases. Setting a BUILT-IN name to "" removes it. Nothing here is needed for
+# ordinary use — the built-in table already carries LaTeX names, Unicode names and emoji
+# keywords — this is for your own shorthand.
+# [symbols]
+# "sjm" = "✠"
+# "wat" = "⁇"
 
 # ── Build commands ─────────────────────────────────────────────────────────────────────────────
 # Run an external script/command against the current file — Sublime's build system. Each entry is
@@ -294,6 +325,16 @@ pub struct EditorSettings {
     spelling_skip_proper_nouns: Option<bool>,
     /// `[files] quick_file`: file opened by Ctrl+Shift+Q / "Open Quick File".
     quick_file: Option<String>,
+    /// `[files] quick_files`: the pick-list behind the palette's "Open Quick File…"
+    /// (issue D.04). Independent of `quick_file`, which keeps Ctrl+Shift+Q to itself.
+    quick_files: Option<Vec<String>>,
+    /// `[editor] date_format` / `datetime_format`: strftime-style patterns for the two
+    /// stamp verbs (issue D.01). Defaults reproduce the previous hard-coded output.
+    date_format: Option<String>,
+    datetime_format: Option<String>,
+    /// `[symbols]`: user additions and aliases for the Unicode picker (issue D.12) —
+    /// name → character, `""` removes a built-in. Same override rules as `[snippets]`.
+    symbols: Option<HashMap<String, String>>,
     /// User keybinding overrides from `[keys]`: friendly-key string → action name.
     keys: Option<HashMap<String, String>>,
     /// Palette insert snippets from `[snippets]`: display name → body ("" removes a built-in).
@@ -406,6 +447,18 @@ pub fn load_editor_settings(app: tauri::AppHandle) -> Result<EditorSettings, Str
             .get("files")
             .and_then(|f| f.get("quick_file"))
             .and_then(string),
+        quick_files: val
+            .get("files")
+            .and_then(|f| f.get("quick_files"))
+            .and_then(|v| v.as_array())
+            .map(|a| a.iter().filter_map(|v| v.as_str().map(str::to_string)).collect()),
+        date_format: ed.and_then(|e| e.get("date_format")).and_then(string),
+        datetime_format: ed.and_then(|e| e.get("datetime_format")).and_then(string),
+        symbols: val.get("symbols").and_then(|v| v.as_table()).map(|t| {
+            t.iter()
+                .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
+                .collect()
+        }),
         keys: val.get("keys").and_then(|v| v.as_table()).map(|t| {
             t.iter()
                 .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))

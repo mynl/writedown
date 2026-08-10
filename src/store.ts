@@ -120,6 +120,10 @@ function setTitle(project: string | null) {
 type ViewMode = "editor" | "split" | "preview";
 let layoutRestore: { sidebar: boolean; outline: boolean; view: ViewMode } | null = null;
 
+/** Which list the command palette is showing. `quickfiles` = the `[files] quick_files`
+ *  pick-list (D.04); `symbols` = the Unicode character picker (D.12). */
+export type PaletteMode = "files" | "commands" | "projects" | "quickfiles" | "symbols";
+
 // Paths Writedown just saved — used to ignore the watcher event our own write triggers.
 // Keyed by normPath: the watcher reports a path spelled from the WATCHED ROOT, which need
 // not match the spelling we saved under (see onFsChange).
@@ -130,6 +134,9 @@ const markJustSaved = (path: string) => {
   setTimeout(() => justSaved.delete(key), 1500);
 };
 let fsRefreshTimer: ReturnType<typeof setTimeout> | undefined;
+/** Debounce for re-reading the `.wdproj` after an external change (issue D.11). An editor
+ *  writing the file can emit several events; one reload is enough. */
+let projReloadTimer: ReturnType<typeof setTimeout> | undefined;
 /** Folders a watcher event touched, coalesced behind `fsRefreshTimer` into ONE batched
  *  re-list (issue C.01). Only folders already in `dirCache` are ever added, so a busy
  *  watcher can never fan out into listing work for folders nobody can see. */
@@ -341,7 +348,7 @@ type AppState = {
   treeSelected: Entry | null;
   /** Last tree-body scroll offset, restored across a remount so New File/Delete don't jump. */
   treeScrollTop: number;
-  palette: "files" | "commands" | "projects" | null;
+  palette: PaletteMode | null;
   /** Keyboard-shortcuts help overlay open (F1 / palette). */
   helpOpen: boolean;
   /** About dialog open (palette: "About Writedown"). */
@@ -466,6 +473,9 @@ type AppState = {
   /** Move a tab to a new position in the strip (drag-reorder). Session order follows. */
   moveTab: (path: string, toIndex: number) => void;
   closeTab: (path: string) => void;
+  /** Save and close every REAL file; scratch buffers are deliberately left open, since
+   *  closing one would destroy text that exists nowhere else (issue D.13). */
+  closeAllTabs: () => Promise<void>;
   reopenClosed: () => Promise<void>;
   nextTab: (dir: 1 | -1) => void;
   editActive: (content: string) => void;
@@ -509,7 +519,7 @@ type AppState = {
    *  command via pwsh from its folder, report exit/timing in the status bar, and open
    *  captured output in a scratch tab on failure. No name → the last-run or first one. */
   runBuild: (name?: string) => Promise<void>;
-  openPalette: (mode: "files" | "commands" | "projects") => void;
+  openPalette: (mode: PaletteMode) => void;
   closePalette: () => void;
   /** Toggle the keyboard-shortcuts help overlay (F1). */
   toggleHelp: () => void;
@@ -550,6 +560,9 @@ type AppState = {
   /** Refresh the managed-projects list from disk. */
   loadProjects: () => Promise<void>;
   openProject: (path?: string) => Promise<void>;
+  /** Re-read the open `.wdproj`'s folders + name in place — no tab or session churn
+   *  (issue D.11). Fired when you save the project file, or when it changes on disk. */
+  reloadProject: () => Promise<void>;
   closeProject: () => void;
   /** Recycle a MANAGED project's .wdproj (confirmed); closes it if it's the open one. */
   deleteProject: (path: string, name: string) => Promise<void>;
@@ -1168,6 +1181,17 @@ export const useStore = create<AppState>((set, get) => ({
         void get().refreshDirs(batch);
       }, 400);
     }
+    // The open project file changing on disk re-reads its folders (issue D.11) — an edit
+    // from another editor, or from another Writedown instance. Our own save is covered
+    // directly in saveDoc and is skipped here by justSaved, so the reload happens once.
+    const projFile = get().projectFile;
+    if (projFile) {
+      const pk = normPath(projFile);
+      if (paths.some((p) => normPath(p) === pk && !justSaved.has(pk))) {
+        clearTimeout(projReloadTimer);
+        projReloadTimer = setTimeout(() => void get().reloadProject(), 400);
+      }
+    }
     // Key by normPath, NOT by the raw string. The watcher reports each path spelled from
     // the root it was handed (watch.rs), which need not match the spelling the tab was
     // opened under — a quick-opened `[files] quick_file`, typed by hand into config.toml,
@@ -1207,6 +1231,33 @@ export const useStore = create<AppState>((set, get) => ({
       };
     });
     get().syncExtraWatch(); // last out-of-root tab closed → its watch is dropped
+  },
+
+  closeAllTabs: async () => {
+    // Real files only, by decision (issue D.13). A scratch buffer has never touched disk —
+    // its only copy is the session's hot-exit text — so closing one destroys it: no Recycle
+    // Bin, no Previous Versions, no Ctrl+Shift+T. Leaving them alone means Close All has no
+    // failure mode worth a confirm dialog.
+    const doomed = get().tabs.filter((t) => !isScratch(t.path));
+    if (doomed.length === 0) return;
+    await get().saveAll(); // same save-then-close contract as Ctrl+W
+    set((s) => {
+      const tabs = s.tabs.filter((t) => isScratch(t.path));
+      return {
+        tabs,
+        activePath: tabs.length ? tabs[0].path : null,
+        // Newest last, so Ctrl+Shift+T walks them back in reverse-close order. Preview tabs
+        // are excluded: they were never "open" in the sense the reopen stack means.
+        closedStack: [...s.closedStack, ...doomed.filter((t) => !t.preview).map((t) => t.path)],
+      };
+    });
+    get().syncExtraWatch();
+    const n = doomed.length;
+    const kept = get().tabs.length;
+    get().showStatusMessage(
+      `closed ${n} ${n === 1 ? "file" : "files"}` +
+        (kept > 0 ? ` — ${kept} unsaved ${kept === 1 ? "buffer" : "buffers"} kept` : ""),
+    );
   },
 
   reopenClosed: async () => {
@@ -1404,6 +1455,10 @@ export const useStore = create<AppState>((set, get) => ({
       // flagged without a restart (issue 3 — the config.toml branch's missing twin).
       const dict = get().personalDictFile;
       if (dict && samePath(path, dict)) void get().reloadPersonalDictionary();
+      // Saving the OPEN project file re-reads its folders in place (issue D.11) — the
+      // deterministic trigger, independent of whether a watcher is armed on it.
+      const proj = get().projectFile;
+      if (proj && samePath(path, proj)) void get().reloadProject();
       scheduleWordScan(path); // refresh this file's frequency-dictionary entry
     } catch (e) {
       set((s) => ({
@@ -2163,6 +2218,39 @@ export const useStore = create<AppState>((set, get) => ({
     await get().restoreSession(file);
   },
 
+  reloadProject: async () => {
+    // Re-read the .wdproj's FOLDERS and name, and nothing else (issue D.11). Deliberately
+    // not `openProject(file)`: that clears the tab strip, drops the reopen stack and
+    // re-restores the session — correct when switching workspace, catastrophic when you
+    // merely saved the project file you were editing. Same workspace key, so the session
+    // must not be re-read either; the live state is the newer truth.
+    const file = get().projectFile;
+    if (!file) return;
+    let proj;
+    try {
+      proj = await loadProject(file);
+    } catch (e) {
+      // A .wdproj mid-edit is very often invalid JSON. Say so and KEEP the current
+      // folders — a half-typed file must never empty the sidebar.
+      set({ configError: `project ${file} — ${String(e)}` });
+      return;
+    }
+    const before = get().projFolders;
+    set({ projFolders: proj.folders, projectName: proj.name, configError: null });
+    setTitle(proj.name);
+    if (proj.folders.length === 0) return; // valid: an empty project gets folders later
+    const same =
+      before.length === proj.folders.length &&
+      before.every((f, i) => samePath(f, proj.folders[i]));
+    if (same) return; // name-only edit: nothing to re-list, nothing to re-arm
+    await get().prefetchTree(proj.folders);
+    if (!samePath(before[0] ?? "", proj.folders[0])) await get().setRoot(proj.folders[0]);
+    applyWatch(proj.folders);
+    get().syncExtraWatch();
+    get().refreshTree();
+    get().showStatusMessage(`project reloaded — ${proj.folders.length} folder(s)`);
+  },
+
   closeProject: () => {
     const { root } = get();
     set({ projFolders: [], projectFile: null, projectName: "", panelTab: "folder" });
@@ -2224,10 +2312,12 @@ export const useStore = create<AppState>((set, get) => ({
     } catch {
       return; // older backend / no args — nothing to do
     }
-    for (const p of paths) {
-      if (isBinaryExt(p)) continue;
-      await get().openFile(p, false).catch((e) => set({ configError: String(e) }));
-    }
+    if (paths.length === 0) return;
+    // Hand them to the drop path (issue D.02) rather than opening files one by one: it
+    // already stats each path, routes a FOLDER to the project or the Folder-tab root, skips
+    // binaries, applies the 20-file cap and reports the overflow. `writedown C:\docs` used
+    // to do nothing at all, because the backend filter kept only `is_file()` paths.
+    await get().openDropped(paths);
   },
 
   loadRecentProjects: async () => {
