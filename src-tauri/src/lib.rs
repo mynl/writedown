@@ -4,6 +4,7 @@ mod check;
 mod config;
 mod external;
 mod files;
+mod labels;
 mod project;
 mod render;
 mod session;
@@ -233,6 +234,7 @@ pub fn run() {
             bib::get_citation,
             bib::check_citation_keys,
             check::check_document,
+            labels::document_labels,
             spelling::spell_check,
             spelling::add_to_dictionary,
             spelling::spell_reload,

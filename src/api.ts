@@ -386,6 +386,21 @@ export const searchBibliography = (query: string) =>
 export const getCitation = (key: string) =>
   invoke<BibEntry | null>("get_citation", { key });
 
+/** A Quarto cross-reference label defined in the document (issue E.01). */
+export type DocLabel = {
+  /** The label without `@` — e.g. `fig-flood`. */
+  name: string;
+  /** 1-based line where it is defined. */
+  line: number;
+  /** Family prefix (`fig`, `tbl`, `sec`, …), or "" if it has none. */
+  kind: string;
+};
+
+/** Every label defined in `text`, document order, de-duplicated. Same extractor the
+ *  duplicate-label checker and the renderer use — one definition of the syntax. */
+export const documentLabels = (text: string) =>
+  invoke<DocLabel[]>("document_labels", { text });
+
 /** Of the given `@keys`, which have no match in the loaded bibliography. */
 export const checkCitationKeys = (keys: string[]) =>
   invoke<string[]>("check_citation_keys", { keys });

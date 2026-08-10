@@ -5,7 +5,8 @@
 //! Nothing is ever written to the user's files.
 
 use crate::bib::{self, BibEntry};
-use crate::check::{attr_labels, fence_close, fence_open};
+use crate::check::{fence_close, fence_open};
+use crate::labels::attr_labels;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -670,24 +671,9 @@ fn attr_block_re() -> &'static Regex {
     RE.get_or_init(|| Regex::new(r"(\))?\{([^}]*)\}").unwrap())
 }
 
-/// Split a `{ … }` block's content into its first `#id` (in any position) and the other
-/// attributes rejoined: `width=50% #fig-x .cls` → (`Some("fig-x")`, `"width=50% .cls"`).
-fn split_attr_block(inner: &str) -> (Option<String>, String) {
-    let mut id = None;
-    let mut rest: Vec<&str> = Vec::new();
-    for tok in inner.split_whitespace() {
-        if id.is_none() {
-            if let Some(t) = tok.strip_prefix('#') {
-                if !t.is_empty() {
-                    id = Some(t.to_string());
-                    continue;
-                }
-            }
-        }
-        rest.push(tok);
-    }
-    (id, rest.join(" "))
-}
+// Shared with the checker and the `@`-completion label picker (issue E.01): one definition
+// of which token in a `{ … }` block is the id.
+use crate::labels::split_attr_block;
 
 fn first_hash_id(inner: &str) -> Option<String> {
     split_attr_block(inner).0

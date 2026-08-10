@@ -162,8 +162,14 @@ a selection wraps the selection — press `$` twice for `$$…$$`.
 Point `[bibliography]` at your `.bib` file (it is watched, and never modified).
 Then type **@** and a few letters for ranked autocomplete; **Ctrl+Shift+C** opens
 the citation picker; hovering a key shows the title. "Extract refs" collects the
-entries a document cites into a scratch `.bib`. Quarto cross-reference prefixes
-(`@sec-`, `@fig-`, `@tbl-`, …) are left alone.
+entries a document cites into a scratch `.bib`.
+
+**Cross-references complete too, from the document itself.** Type **`@-`** for every
+Quarto label in the file, or **`@fig-`** / **`@tbl-`** / **`@thm-`** / … for a family.
+Matching is order-free, so `@-flood tbl` finds `tbl-flood`. Both ways of writing a
+label are found — `#| label: fig-x` in a cell and `{#fig-x}` on a heading, figure,
+table or div. A citation key (`@Author2024`) is untouched: the leading hyphen is what
+picks label mode, and a citation key can never start with one.
 
 ## Spelling
 

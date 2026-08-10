@@ -47,42 +47,10 @@ pub(crate) fn fence_close(trimmed: &str, open_ticks: usize) -> bool {
     ticks >= open_ticks && trimmed[ticks..].trim().is_empty()
 }
 
-/// `#| label: fig-x` inside a cell (quotes stripped).
-pub(crate) fn cell_label(line: &str) -> Option<String> {
-    let t = line.trim_start();
-    let rest = t.strip_prefix("#|")?.trim_start();
-    let val = rest.strip_prefix("label:")?.trim();
-    let val = val.trim_matches(|c| c == '"' || c == '\'').trim();
-    (!val.is_empty()).then(|| val.to_string())
-}
-
-/// `{#sec-x}`-style attribute labels in prose (headings, divs, figures). The `#id` may sit
-/// anywhere inside the block — `{width=50% #fig-x}` is as valid as `{#fig-x width=50%}` —
-/// so each `{ … }` is scanned for its first `#`-prefixed token. Returns (label, brace col).
-pub(crate) fn attr_labels(line: &str) -> Vec<(String, usize)> {
-    let mut out = Vec::new();
-    let bytes = line.as_bytes();
-    let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i] == b'{' {
-            if let Some(rel) = line[i + 1..].find('}') {
-                let close = i + 1 + rel;
-                for tok in line[i + 1..close].split_whitespace() {
-                    if let Some(id) = tok.strip_prefix('#') {
-                        if !id.is_empty() {
-                            out.push((id.to_string(), i));
-                            break;
-                        }
-                    }
-                }
-                i = close + 1;
-                continue;
-            }
-        }
-        i += 1;
-    }
-    out
-}
+// `cell_label` / `attr_labels` moved to `labels.rs` (issue E.01) — the completion picker
+// became a third reader of the same rule, and three copies of "what a Quarto label looks
+// like" is one too many.
+pub(crate) use crate::labels::{attr_labels, cell_label};
 
 /// Syntax-check one python cell. `first_doc_line` is the 1-based document line of the
 /// cell's first body line. Reports the first parse error (as Python itself would).

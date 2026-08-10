@@ -14,14 +14,77 @@ For each row in the table add a new row below it for your input, item is ">>CC".
 
 | Item | Effort HML | Status/Impact | Description |
 |--:|:---:|:---:|:-------------------------|
-| **E.01** | | |   |
+| **E.01** | | | In a qmd, typing `@` then `tbl-`/`thm-`/… (any Quarto crossref family) should switch from the BibTeX lookup to a lookup of the LABELS IN THE DOC. Better still: `@-` triggers qmd tag mode, since the fuzzy match is not order sensitive. No caption needed, just autocomplete the tag. Share one label extractor. |
+| >>CC | L–M | None | **Built. Two triggers, both unambiguous: `@-` opens the whole label list, and `@fig-`/`@tbl-`/… (family WITH its hyphen) does too — `@Author2024` is untouched.** Your `@-` idea is the better one and it costs nothing: a citation key must start alphanumeric, so `@-` could never have been a citation. Typing `@fig-` used to run "fig-" through the bibliography and return noise, so this removes an annoyance as well as adding a feature. |
 | **E.02** | | |   |
 | **E.03** | | |   |
 | **E.04** | | |   |
 | **E.05** | | |   |
 | **E.06** | | |   |
 
+**Shipped in 2.14.0 (2026-08-10): E.01 — not yet confirmed in daily use.** Needs a rebuild
+(Rust changed). Try: `@-` in a .qmd with a few labels, then `@-flood` and `@-flood tbl` (the
+matcher is order-free, so both find `tbl-flood`), then `@tbl-`, then `@Mild` to confirm the
+bibliography is untouched.
 
+---
+
+## Batch E — developer notes and implementation plans
+
+### E.01 — `@` label lookup for Quarto crossrefs
+
+**Most of this already existed**, which is why it came in at L–M rather than M.
+
+- **Label extraction was already written, twice.** `check.rs` had `cell_label()` (`#| label:
+  fig-x` in a cell) and `attr_labels()` (`{#sec-x}` anywhere in a line, order-free) and
+  already walked the document fence-aware building `label -> occurrences` for duplicate
+  detection. `render.rs` had its own `split_attr_block()` doing the same id-extraction rule
+  for anchor rewriting.
+- **The `@` plumbing was already written.** `citationSource` already matched
+  `@[\p{L}\d_:.\-']*`, checked `isProsePos`, and returned ranked options with a custom
+  match-highlighting renderer. `CROSSREF_PREFIX` already existed and was already the exact
+  split — used by the hover and the linter to *skip* crossrefs.
+
+**The one design decision, and you made the better call.** I proposed switching on a
+complete family name with or without the hyphen (`@tbl` → labels). Your `@-` is better and
+strictly safer:
+
+- **`@-` is free by construction.** `CITE_RE` requires a citation key to *start* alphanumeric
+  (`@([\p{L}\d]…)`), so `@-` is not a citation and never could be. Nothing is hijacked. It
+  opens the whole list, and since the matcher is order-free (B.02) `@-flood tbl` finds
+  `tbl-flood` without you having to remember which family it was in.
+- **`@fig-` and friends need the hyphen.** A bare `@tbl` could still be the start of a
+  citation key; taking it would make that key unreachable. With the hyphen the split is
+  exact, and it is what you asked for.
+
+Both are pinned by tests, including the claim the whole design rests on — that `@-` matches
+no citation key.
+
+**One extractor, as agreed.** New `src-tauri/src/labels.rs` owns `cell_label`,
+`attr_labels`, `split_attr_block`, `family_of`, a fence-aware `scan()` returning labels in
+document order, and the `document_labels` command. `check.rs` and `render.rs` now import
+from it; their local copies are gone. `scan()` keeps duplicates (the checker needs every
+occurrence); `document_labels` de-duplicates with first-definition-wins (the picker should
+not offer the same label twice). A test asserts **Rust's `FAMILIES` and the frontend's
+`CROSSREF_PREFIX` list the same families**, so the two halves cannot drift apart.
+
+**The one real cost, and what was done about it.** The scan is a line walk and costs
+nothing — but the *call* ships the whole document to Rust, and a completion source re-runs
+on **every keystroke** while the popup is open. On `dm.md` (209 KB) that is 209 KB of IPC per
+letter typed. The bibliography source has no such problem: it sends the query, not the
+corpus. So labels are cached for the completion session — invalidated by a change in line
+count (adding a label adds a line) and by a 1.5 s timer. **Stated failure mode:** define a
+label and reference it *on the same line* within 1.5 s and it is missing for one keystroke.
+
+**Deliberately not included** (each is small, say the word):
+
+- **No captions.** Per your call — the popup shows the label and its line number, nothing
+  else. `#| fig-cap:` extraction is ~30 lines if you change your mind.
+- **No cross-file labels.** Only the current document. A Quarto book's cross-file refs need
+  a project-wide index, which is a genuinely different feature.
+- **No linting of unknown crossrefs.** The citation linter still skips every `@fig-…`, so a
+  typo'd `@fig-flodo` is silently unflagged. With the label list now in hand this is ~15
+  lines and the same source of truth — the obvious next step if you want it.
 
 
 ## Batch D: Thursday 2026-08-06

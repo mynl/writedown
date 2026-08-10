@@ -17,11 +17,14 @@ import { isProsePos } from "./prose";
 import { wordCompleteSource } from "./wordComplete";
 import {
   checkCitationKeys,
+  documentLabels,
   getCitation,
   searchBibliography,
   type BibEntry,
   type CiteMatch,
+  type DocLabel,
 } from "../api";
+import { fuzzyRank } from "../fuzzy";
 
 // Extra fields we hang off the Completion for our custom renderer.
 type CiteCompletion = Completion & { cite?: string; positions?: number[] };
@@ -37,15 +40,94 @@ function inProse(context: CompletionContext): boolean {
   return isProsePos(context.state, context.pos);
 }
 
+/** Does this `@…` query mean "a label in this document" rather than "a bibliography key"?
+ *  (Issue E.01.) Two triggers, both unambiguous:
+ *
+ *  - **`@-`** — a bare hyphen. Free by construction: `CITE_RE` requires a citation key to
+ *    START alphanumeric, so `@-` is not, and can never be, a citation. It opens the whole
+ *    label list, and because the matcher is order-free (B.02) `@-flood tbl` finds
+ *    `tbl-flood` without knowing which family it was in.
+ *  - **`@fig-`, `@tbl-`, `@thm-`, …** — a family name WITH its hyphen. The hyphen is what
+ *    makes it safe: a bare `@tbl` could still be the start of a citation key, and hijacking
+ *    it would make that key unreachable.
+ *
+ *  `@Author2024` is untouched and still goes to the bibliography. */
+export function labelQuery(typed: string): string | null {
+  if (typed.startsWith("-")) return typed.slice(1);
+  return CROSSREF_PREFIX.test(typed) ? typed : null;
+}
+
+/** Short-lived label cache.
+ *
+ *  The scan itself is a line walk and costs nothing, but the CALL ships the whole document
+ *  to Rust — and a completion source re-runs on every keystroke while the popup is open.
+ *  On a 200 KB document that is 200 KB of IPC per letter typed, which is exactly the kind
+ *  of cost this project does not pay. (The bibliography source has no such problem: it
+ *  sends the query, not the corpus.)
+ *
+ *  Labels cannot change while you are typing a reference, so one snapshot serves the whole
+ *  session. Invalidated by a change in line count — adding a label adds a line — and by a
+ *  1.5 s timer. Stated failure mode: define a label and reference it *on the same line*
+ *  within 1.5 s and the new one is missing for one keystroke. */
+let labelCache: { labels: DocLabel[]; lines: number; at: number } | null = null;
+const LABEL_CACHE_MS = 1500;
+
+async function cachedLabels(doc: { toString(): string; lines: number }): Promise<DocLabel[]> {
+  const now = Date.now();
+  if (labelCache && labelCache.lines === doc.lines && now - labelCache.at < LABEL_CACHE_MS) {
+    return labelCache.labels;
+  }
+  const labels = await documentLabels(doc.toString());
+  labelCache = { labels, lines: doc.lines, at: Date.now() };
+  return labels;
+}
+
+/** Completions drawn from the document's own Quarto labels. */
+async function labelCompletions(
+  context: CompletionContext,
+  from: number,
+  query: string,
+): Promise<CompletionResult | null> {
+  let labels: DocLabel[];
+  try {
+    labels = await cachedLabels(context.state.doc);
+  } catch {
+    return null;
+  }
+  if (labels.length === 0) return null;
+  // Empty query keeps document order — the reference you want is usually the one you just
+  // wrote. A typed query switches to fuzzy rank, order-free, over the whole label.
+  const ranked = query
+    ? fuzzyRank(query, labels, (l) => l.name, 60)
+    : labels.map((item) => ({ item, positions: [] as number[], score: 0 }));
+  if (ranked.length === 0) return null;
+  return {
+    from,
+    filter: false, // ranked here; CodeMirror must not re-filter against the `@-` text
+    options: ranked.map(({ item, positions }): CiteCompletion => ({
+      label: item.name,
+      cite: item.name,
+      positions,
+      detail: `line ${item.line}`,
+      apply: "@" + item.name,
+    })),
+  };
+}
+
 async function citationSource(context: CompletionContext): Promise<CompletionResult | null> {
-  // Allow `'` in the query so `@'mild'pric` (exact terms) reaches the matcher.
+  // Allow `'` in the query so `@'mild'pric` (exact terms) reaches the matcher, and `-` so
+  // the crossref triggers below are seen.
   const match = context.matchBefore(/@[\p{L}\d_:.\-']*/u);
   if (!match || (match.from === match.to && !context.explicit)) return null;
   if (!inProse(context)) return null;
 
+  const typed = match.text.slice(1);
+  const asLabel = labelQuery(typed);
+  if (asLabel !== null) return labelCompletions(context, match.from, asLabel);
+
   let results: CiteMatch[];
   try {
-    results = await searchBibliography(match.text.slice(1));
+    results = await searchBibliography(typed);
   } catch {
     return null;
   }

@@ -543,6 +543,45 @@ messages point here for detail.
 - Backend `DirEntry` gained a `supported` flag and `list_directory` no longer drops
   unsupported files. Rust changed — `tauri dev` needs a restart, not just HMR.
 
+## [2.14.0] - 2026-08-10
+
+### Added
+
+- **`@` now completes Quarto cross-reference labels from the document** (issue E.01), not
+  just bibliography keys. Two triggers, both unambiguous:
+
+  - **`@-`** opens the whole label list. It is free by construction: a citation key must
+    start alphanumeric, so `@-` is not a citation and never could be. Because the matcher is
+    order-free, `@-flood tbl` finds `tbl-flood` without you having to remember its family.
+  - **`@fig-`, `@tbl-`, `@thm-`, …** — a family name *with* its hyphen — does the same. The
+    hyphen is what makes it safe: a bare `@tbl` could still begin a citation key.
+
+  `@Author2024` is untouched and still searches the bibliography. Both flavors of label are
+  found — `#| label: fig-x` in a cell and `{#fig-x}` on a heading, figure, table or div,
+  with the `#id` in any position. The popup shows the label and the line it is defined on,
+  in document order until you type a query.
+
+  This also removes an existing annoyance: typing `@fig-` used to run "fig-" through the
+  bibliography and return noise.
+
+### Changed
+
+- **One label extractor, shared** (issue E.01). "What a Quarto label looks like" was
+  implemented twice — in the document checker and in the renderer — and the completion
+  picker would have been a third. All three now use `src-tauri/src/labels.rs`; a test
+  asserts that Rust's family list and the frontend's `CROSSREF_PREFIX` stay in agreement, so
+  the two halves cannot drift.
+
+### Notes
+
+- Labels are cached for the duration of a completion session (invalidated on a line-count
+  change or after 1.5 s). The scan itself is trivial, but the *call* ships the document to
+  Rust and a completion source re-runs on every keystroke — 209 KB of IPC per letter on a
+  document the size of `dm.md`. Failure mode, stated: define a label and reference it on the
+  same line within 1.5 s and it is missing for one keystroke.
+- Not included, each small if wanted: captions in the popup, labels from other files in a
+  book, and linting of unknown `@fig-…` references (still silently unflagged).
+
 ## [2.13.2] - 2026-08-10
 
 Four punch-ups reported against 2.13.1.
