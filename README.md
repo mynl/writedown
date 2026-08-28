@@ -287,15 +287,18 @@ last-writer-wins — avoid opening the *same workspace* in two instances at once
 ## Development
 
 `npm run tauri dev` for the live dev build (Vite HMR), `npm run tauri build` for the
-release `.exe` — full command list in `CLAUDE.md`. All build churn (Rust `target/`,
-`node_modules/`) lives on the `V:` developer drive, not in this folder — see `CLAUDE.md`.
+release `.exe` — full command list in `CLAUDE.md`. Build output (`target/`,
+`node_modules/`, `dist/`) stays in the checkout and is gitignored.
 
 Hard-won notes:
 
 - **Run cargo with its working directory inside `src-tauri/`** — never
   `cargo --manifest-path` from the repo root. Cargo reads `.cargo/config.toml` from the
-  *current directory*, not the manifest's, so a root-run misses the `target-dir = V:`
-  override and dumps gigabytes of build output into this synced tree.
+  *current directory*, not the manifest's, so a root-run misses the
+  `target-dir = "../target"` override and puts build output somewhere else entirely.
+- **Nothing in this repo may hard-code a machine path.** Scripts derive from the repo
+  root; cargo and Vite config use relative paths. A path that happens to be right on
+  one machine is a latent bug — moving the checkout is what broke `tauri dev` in 2.14.4.
 - **A new `@tauri-apps/api` window/webview call needs a matching grant** in
   `src-tauri/capabilities/default.json`, added in the same change. ACL denials are
   silent promise rejections — invisible under `.catch(() => {})` — which is how the

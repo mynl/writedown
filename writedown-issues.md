@@ -10,21 +10,44 @@ For each row in the table add a new row below it for your input, item is ">>CC".
 
 ***
 
+
+## Batch G: Tuesday 2026-08-11
+
+
+| Item | Effort HML | Status/Impact | Description |
+|--:|:---:|:---:|:-------------------------|
+| **G.01** | | | Unicode inserter: it is not searching RECENT first! And why no colored results in search? |
+| **G.02** | | | Orange bar....hummm; can that be a config setting for color? What about height? Can the text [Project name] - Writedown be white and a config setting (better contrast) |
+| **G.03** | | | When a file opens (eg quick file) the cursor needs to go in the edit box,. This occurs all the time now. First edit of file.  |
+| **G.04** | | | Open a new file...edit...couple of seconds later-> ~2 second delay, no response from keyboard??? Some background task |
+| **G.05** | | | New temp file (C+S+N) appear not to have a palette options; All commands hould be accessible from palette. |
+| **G.06** | | |Error in config are reported at the top of the program but they are overwritten and cannot be read! |
+| **G.07** | | | You said multi window not possible; what about side by side tabs: both code view (in JLab) and  ST support this. Just *viewing* the two side by side. Could take over the space used by preview/render.  |
+| **G.08** | | | Can ctrl+shift be the auto complete for large words? Or infact as an alternative for any compeletion situation. |
+| **G.09** | | | select a character then palette->identify = unicode info of selected glyph |
+| **G.10** | | | Can we set the "type" of the file for coloring?  |
+| **G.11** | | | Mouse arrows in the unicode select box do not work well. |
+| **G.12** | | | colorization lag on scrolling - white then colored. Can we "color ahead" a bit so that is smoother? |
+| **G.13** | | | several commands (eg ctrl k, ctrl f) depend on which window you are in - they do not work in the preview window. That is confusing. Anything we can do about that? |
+| **G.14** | | | |
+| **G.15** | | | |
+| **G.16** | | | |
+
+
 ## Batch F: Monday 2026-08-10 later that day...
 
 | Item | Effort HML | Status/Impact | Description |
 |--:|:---:|:---:|:-------------------------|
-| **F.01** | | | Unicode inserter: it is not searching first in recent — I can see "heavy white right" there, but the search goes to the full list! It should search MRU first and add other finds below that. |
+| **F.01** |❌| | Unicode inserter: it is not searching first in recent — I can see "heavy white right" there, but the search goes to the full list! It should search MRU first and add other finds below that. |
 | >>CC | L | None | **Fixed. A query went straight to the full 2,322-character table, so a character you could see under Recent a moment earlier vanished into the middle of the results.** Recently-used matches are now listed first under a Recent heading, the rest below. |
-| **F.02** | | | Default Ctrl+Shift+U then Enter should insert the last char again. |
+| **F.02** |✅| | Default Ctrl+Shift+U then Enter should insert the last char again. |
 | >>CC | L | None | **Fixed, and it was a real bug rather than a missing feature: selection index 0 was sitting on the "Recent" HEADING, which is not choosable, so Enter did nothing at all.** The selection now always seats on a real row. I also switched recents from use-count weighting to most-recent-first — my weighting was cleverer and wrong for exactly this gesture. |
-| **F.03** | | | "Open Quick File…" is not doing anything. |
+| **F.03** |✅| | "Open Quick File…" is not doing anything. |
 | >>CC | L | None | **Fixed, and it was three verbs, not one: any palette command that opens ANOTHER picker was being closed by the palette that ran it.** The mode got set, then wiped a tick later. "Quick Files: Open from List…", "Insert: Unicode Character…" and "Project: Quick Switch…" were all affected — the last one since it was added, with Ctrl+Alt+P masking it. |
-| **F.04** | | | Worrying pause before opening the palette. One-time (first time) only, but I don't like it — not speedy and sprightly. Investigate. |
+| **F.04** |❓| | Worrying pause before opening the palette. One-time (first time) only, but I don't like it — not speedy and sprightly. Investigate. |
 | >>CC | L | **Was ~39 ms, now 0.03** | **Found, measured, mine. Building the palette re-formatted both date-stamp titles, and each one eagerly constructed four locale formatters — eight per palette open, and the first pays ICU startup: 38.7 ms measured.** Your default date formats need none of them; they are now computed only when the pattern asks. 0.027 ms after. |
-| **F.05** | | | Can the app have its own colour for the top window frame bar? Currently grey — doesn't stand out, too many things that colour. Pick up the orange out of the logo word "down". |
+| **F.05** |✅!| | Can the app have its own colour for the top window frame bar? Currently grey — doesn't stand out, too many things that colour. Pick up the orange out of the logo word "down". |
 | >>CC | L | None | **Done — caption in the logo's orange `#DD9536` with the title text in the logo's navy `#15385D`, both sampled from the wordmark rather than guessed.** Windows 11 only (it goes through DWM; Windows 10 keeps the system caption silently). No new dependency. Tunable in config as `[window] titlebar_color` / `titlebar_text_color` so you can adjust the shade without a rebuild. |
-| **F.06** | | |   |
 
 **Shipped: F.01–F.04 in 2.14.2, F.05 in 2.14.3 (2026-08-10) — none yet confirmed in daily
 use.** F.05 changed Rust, so rebuild.

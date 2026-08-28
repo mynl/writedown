@@ -3,8 +3,8 @@
 # manifests into the cargo cache on the very first run) and the installed
 # node_modules (via `npm ls`, which installs nothing). Run from anywhere:
 #   pwsh scripts/generate-notices.ps1
-# IMPORTANT: never run `npm install` as part of this — it destroys the node_modules
-# junction to V: (see CLAUDE.md). This script only READS what is already installed.
+# IMPORTANT: never run `npm install` as part of this — the notices must describe the
+# tree as it stands. This script only READS what is already installed.
 
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
@@ -19,7 +19,7 @@ $placeholder = '(none declared - check repository)'
 
 # ---- Rust crates -------------------------------------------------------------------
 # cargo must run with its working directory inside src-tauri/ so .cargo/config.toml
-# (the V: target-dir firewall) is honored — metadata builds nothing, but stay in the
+# (the target-dir override) is honored — metadata builds nothing, but stay in the
 # habit (see CLAUDE.md). Filter to the Windows target: Writedown ships Windows-only,
 # and an unfiltered resolve pulls in gtk/objc2/jni crates that are never compiled.
 Push-Location (Join-Path $repo 'src-tauri')

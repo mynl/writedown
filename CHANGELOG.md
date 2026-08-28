@@ -543,6 +543,51 @@ messages point here for detail.
 - Backend `DirEntry` gained a `supported` flag and `list_directory` no longer drops
   unsupported files. Rust changed — `tauri dev` needs a restart, not just HMR.
 
+## [2.14.4] - 2026-08-28
+
+### Fixed
+
+- **`npm run tauri dev` starts again after the move to the dedicated dev drive.** It was
+  dying during startup with `EBUSY: resource busy or locked, watch '…/target/debug/build/
+  <crate>-<hash>/build_script_build-<hash>.exe'`, reported only as *"The beforeDevCommand
+  terminated with a non-zero status code."* Nothing to do with Rust.
+
+  Cause: a hard-coded path outliving its machine. `src-tauri/.cargo/config.toml` set
+  `target-dir = "V:/dev/writedown/target"` — the churn firewall that kept cargo's output
+  off the Synology-synced tree back when the checkout lived under `…/Documents/CloudStation/`.
+  The checkout now *is* `V:\dev\writedown`, so that absolute path resolves to
+  `<project-root>/target`: 271 MB and ~1,000 files sitting inside the directory Vite
+  watches. Tauri runs `beforeDevCommand` and the cargo build concurrently, so chokidar's
+  startup walk called `fs.watch()` on a build-script `.exe` while cargo was writing and
+  executing it. Windows holds an exclusive lock on a running exe, `fs.watch()` returned
+  `EBUSY`, and chokidar re-emitted it as an unhandled `'error'` that killed the dev server.
+  The crate named in the message is just whichever build script was in flight.
+
+- `scripts/windows-register.ps1` pointed at `C:\S\bin\writedown.exe`, a path that exists
+  on no current machine. It now takes an optional `-Exe`, defaults to the release build in
+  the checkout, and refuses a path that does not exist — the registry accepts a bogus
+  command happily and pays you back with silently broken "Open with" entries.
+
+### Changed
+
+- **Paths in this repo are derived, never hard-coded** — the rule the above earns.
+  `target-dir` is now `"../target"` (relative to `src-tauri/`, so the same physical
+  directory as before — no rebuild needed, and it follows the checkout wherever it goes).
+  Vite's watcher ignores `**/target/**` as well as `**/src-tauri/**`; even without the
+  crash, watching a thousand churning build artifacts bought nothing but spurious reloads.
+  `scripts/publish-release.ps1` derives the release directory from the repo root instead
+  of naming `V:\dev\writedown\target\release`, which was correct only by coincidence.
+
+### Removed
+
+- **`scripts/dev-setup.ps1`**, which relocated `node_modules` to `V:` behind a junction
+  and had to be re-run after every `npm install`. The problem it solved — build churn
+  inside a continuously-synced folder — no longer exists. It had also become dangerous:
+  with the checkout on `V:`, its source and destination were the same path, so its
+  `robocopy /MOVE` would fail (a native exe's exit code does not trip
+  `$ErrorActionPreference`), fall through to `Remove-Item -Recurse -Force`, and delete
+  `node_modules` outright. `npm install` now needs no follow-up.
+
 ## [2.14.3] - 2026-08-10
 
 ### Added

@@ -1,4 +1,8 @@
-# Churn firewall: keep Rust build output OFF the Synology-synced project tree.
-# See CLAUDE.md "READ THIS FIRST". target/ is hundreds of MB and rewrites every build.
+# Keep Rust build output out of the source tree: target/ is hundreds of MB and rewrites
+# on every compile. Relative, so it follows the checkout instead of naming a drive —
+# resolved from src-tauri/, giving <repo>/target. See CLAUDE.md "READ THIS FIRST".
+#
+# Cargo reads this file from the CURRENT DIRECTORY, not the manifest's — always run
+# cargo with its cwd inside src-tauri/, never `--manifest-path` from the repo root.
 [build]
-target-dir = "V:/dev/writedown/target"
+target-dir = "../target"

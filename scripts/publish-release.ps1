@@ -4,7 +4,7 @@
 #   bundle\msi\Writedown_<v>_x64_en-US.msi    "MSI (Windows x64)"
 #   writedown.exe                             "portable exe (no installer)"
 #
-# Prereqs: a fresh `npm run tauri build` (artifacts on V:) and the gh CLI logged in.
+# Prereqs: a fresh `npm run tauri build` (artifacts in <repo>/target) and gh CLI logged in.
 # Usage:
 #   pwsh scripts/publish-release.ps1                  # version read from src-tauri/Cargo.toml
 #   pwsh scripts/publish-release.ps1 -Draft           # staged; publish later in the UI
@@ -27,7 +27,9 @@ if (-not $Version) {
     else { throw "could not read version from src-tauri/Cargo.toml" }
 }
 $tag = "v$Version"
-$rel = "V:\dev\writedown\target\release"
+# target/ sits beside src-tauri/ in the checkout (src-tauri/.cargo/config.toml sets
+# target-dir = "../target"), so derive it from the repo — never name a drive.
+$rel = Join-Path $repoRoot "target\release"
 $assets = @(
     @{ Path = "$rel\bundle\nsis\Writedown_${Version}_x64-setup.exe"; Label = "Writedown $Version installer (Windows x64, recommended)" }
     @{ Path = "$rel\bundle\msi\Writedown_${Version}_x64_en-US.msi";  Label = "Writedown $Version MSI (Windows x64)" }

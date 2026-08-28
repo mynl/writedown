@@ -14,32 +14,31 @@ probability, risk measures) are welcome and often the intended design language.
 
 ## READ THIS FIRST — critical constraints
 
-Two non-negotiables. Everything else bends before these.
+One non-negotiable, and one rule about paths. Everything else bends before these.
 
-### 1. Dev churn lives on `V:`, never in this Synology-synced folder
+### 1. Never name a machine's paths in the repo (2026-08-28)
 
-This project tree is inside `C:\Users\steve\Documents\CloudStation\...`, which is
-**continuously synced by Synology Drive**. Rust and Node generate huge, constant
-build churn (`target/` is hundreds of MB and rewrites on every compile;
-`node_modules/` is tens of thousands of files). None of that may touch the synced
-tree. Route all dev-heavy artifacts to `V:` (the developer drive):
+The project lives on the dedicated dev drive `V:\dev\writedown` on **DOOB**. It is
+**not** synced by anything. Build churn (`target/`, `node_modules/`) belongs right
+here in the checkout, gitignored, and needs no relocation.
 
-- **Rust build output** → `src-tauri/.cargo/config.toml` sets `target-dir =
-  "V:/dev/writedown/target"`. Clean and durable — cargo always honours it. This is the
-  big one (Rust `target/` is the "ton of stuff"). Never let `target/` land in-repo.
-- **`node_modules/`** → a Windows directory junction to `V:\dev\writedown\node_modules`.
-  **Caveat: `npm install`/`npm ci` DELETES the junction** and rebuilds a real
-  `node_modules` on C: (npm refuses a reparse-point at the node_modules root). So after
-  **any** install, re-run `scripts/dev-setup.ps1`, which moves it back to V: and
-  re-junctions. (Durable alternative, if the author wants it: exclude `node_modules` in
-  the Synology Drive client's filtered-files list — then physical location stops
-  mattering. Gitignoring is NOT enough; Synology syncs the filesystem, not git.)
-- **npm cache** → `V:\dev\npm-cache` (`npm config set cache`). Cargo registry cache
-  (`CARGO_HOME`, default `%USERPROFILE%\.cargo`) is already off the synced tree.
-- The `V:` paths are `V:\dev\writedown\{target, node_modules}` + `V:\dev\npm-cache`.
+That is a change. The tree used to sit inside `C:\Users\steve\Documents\CloudStation\...`
+under continuous Synology Drive sync, so the churn was firewalled off to `V:` by
+absolute path — `target-dir = "V:/dev/writedown/target"` plus a `node_modules` junction,
+re-established after each install by `scripts/dev-setup.ps1`. On DOOB that absolute path
+resolves *inside* the project root, which is how a hard-coded path turns into a bug:
+Vite's watcher walked `target/`, hit a cargo build-script `.exe` that Windows had locked,
+threw `EBUSY`, and killed `tauri dev` on startup. The junction script became a
+`robocopy`-onto-itself that would have deleted `node_modules`. Both are gone —
+`target-dir` is now `"../target"` and `dev-setup.ps1` is deleted.
 
-The only things that belong in this folder are **source, docs, and small committed
-assets**. If you're about to write a large or fast-changing artifact here, stop.
+The standing rule that survives: **paths in this repo are derived, never hard-coded.**
+Scripts derive from `$PSScriptRoot`/repo root; cargo and Vite config use relative paths.
+No drive letters, no `C:\Users\steve`, no machine names. A path that is merely *correct
+on this machine* is a latent bug — it will be wrong on the next one.
+
+If the tree ever moves back under a synced folder, the firewall has to come back with
+it: sync clients sync the filesystem, not git, so `.gitignore` will not save you.
 
 ### 2. Never rename, move, or rewrite the user's files (spec §2, §8)
 
@@ -170,14 +169,14 @@ Standing rules — follow without being re-asked.
 
 ## Commands
 
-All dev-heavy artifacts live on `V:` (see the firewall above).
+Build output (`target/`, `node_modules/`, `dist/`) stays in the checkout, gitignored.
 
 ```
-npm install                       # then ALWAYS: pwsh scripts/dev-setup.ps1 (re-junctions node_modules → V:)
+npm install                       # plain install; nothing to re-establish afterwards
 npm run tauri dev                 # dev build + hot reload (opens the window)
 npm run tauri build               # production writedown.exe + installer
 npm run build                     # frontend only (tsc + vite → dist/)
-cargo check   (in src-tauri/)     # backend typecheck; target-dir is V:\dev\writedown\target
+cargo check   (in src-tauri/)     # backend typecheck; target-dir is ../target (repo root)
 cargo test    (in src-tauri/)     # backend tests
 npm run tauri -- icon <square.png> # regenerate app icons from a square master
 ```
@@ -236,5 +235,4 @@ render — `filter:false` drops CM's highlight); bracketed `[@key]` insertion fo
 document-YAML `bibliography:` override; relative-image resolution + preview code
 highlighting; save-on-close, configurable idle timeout, logging; ST tree/tab fonts;
 Sublime-project multi-folder browser; Ctrl+M / Ctrl+K Ctrl+D. (ST has only Loudoun — md/qmd
-differ by syntax.) node_modules relocation can hang if installs race — `dev-setup.ps1` is
-now `/R:1 /W:1`; run installs one at a time.
+differ by syntax.)

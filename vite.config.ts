@@ -74,8 +74,15 @@ export default defineConfig(async ({ command }) => ({
         }
       : undefined,
     watch: {
-      // 3. tell Vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
+      // 3. tell Vite to ignore watching `src-tauri` and the cargo build output.
+      // target/ sits beside src-tauri/ inside the project root, so chokidar walks it
+      // unless told not to. It cannot: cargo is concurrently writing and EXECUTING
+      // build-script .exe files there, and Windows holds an exclusive lock on a running
+      // exe, so fs.watch() throws EBUSY. Chokidar re-emits that as an unhandled 'error'
+      // and the dev server dies mid-startup ("beforeDevCommand terminated with a
+      // non-zero status code"). Watching 1000+ churning build artifacts would be a bad
+      // idea regardless.
+      ignored: ["**/src-tauri/**", "**/target/**"],
     },
     // The dev server refuses files outside the project root by default, and setting
     // `allow` REPLACES the default list — so it must contain the project root in BOTH
