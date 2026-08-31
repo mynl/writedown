@@ -14,6 +14,7 @@ import { EditorView, hoverTooltip, keymap } from "@codemirror/view";
 import { Prec } from "@codemirror/state";
 import { linter, type Diagnostic } from "@codemirror/lint";
 import { isProsePos } from "./prose";
+import { CITE_RE, CROSSREF_PREFIX } from "./citePatterns";
 import { wordCompleteSource } from "./wordComplete";
 import {
   checkCitationKeys,
@@ -217,16 +218,10 @@ function retriggerTab(view: EditorView): boolean {
   return false;
 }
 
-// A `@key` in prose: `@` at a word boundary (not an email or `a/@b`), key starting and
-// ending on an alphanumeric so a trailing `.`/`-`/`:` (sentence punctuation) is excluded.
-export const CITE_RE = /(?<![\p{L}\p{N}_@/])@([\p{L}\d](?:[\p{L}\d_:.\-]*[\p{L}\d])?)/gu;
-
-// Quarto cross-reference families (`@sec-…`, `@fig-…`, `@tbl-…`, `@eq-…`, theorem-likes,
-// …) are document crossrefs, not bibliography citations — they must never be looked up in
-// the bib or flagged as missing. Steve's citation keys are `Author2024a` / `Authors`
-// (no hyphen); his Quarto tags carry the `prefix-` shape, so this is an exact split.
-export const CROSSREF_PREFIX =
-  /^(fig|tbl|eq|sec|lst|thm|lem|cor|prp|cnj|def|exm|exr|sol|rem)-/;
+// CITE_RE and CROSSREF_PREFIX moved to citePatterns.ts (a leaf module) to break the
+// citations ↔ prose import cycle that blanked the app at 2.17.0 — see the note there.
+// Re-exported so this file remains their public home for callers.
+export { CITE_RE, CROSSREF_PREFIX } from "./citePatterns";
 
 /** Flag every `@key` that has no match in the loaded bibliography — a red underline +
  *  gutter marker, like the Python-cell errors. Silent when no bib is loaded. */

@@ -7,7 +7,7 @@
 import { syntaxTree } from "@codemirror/language";
 import type { EditorState } from "@codemirror/state";
 import type { SyntaxNode } from "@lezer/common";
-import { CITE_RE } from "./citations";
+import { CITE_RE } from "./citePatterns"; // NOT ./citations — that import was a cycle
 import { mathRegions } from "./math";
 
 /** True only in prose — false inside code, fenced blocks, inline code, comments, YAML front

@@ -5,6 +5,22 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [2.17.1] - 2026-08-31
+
+### Fixed
+
+- **The app started as an empty window** (reported minutes after the 2.17.0 build; 2.15.0
+  and 2.16.0 were never run and carried no such fault). 2.17.0's SYNTAX_CHOICES table was
+  read by module-level code placed ABOVE its declaration, so the whole frontend died at
+  import time — "Cannot access 'SYNTAX_CHOICES' before initialization" — before even the
+  error logger existed, which is why nothing reached the log. tsc cannot flag a
+  use-before-declaration hiding behind a function call; an unminified build in a headless
+  browser named it. The table is now declared once, with its values, beside the language
+  singletons it references.
+- Hardening found on the way: the long-standing citations ↔ prose circular import is
+  gone — CITE_RE / CROSSREF_PREFIX moved to a leaf module (citations.ts re-exports them);
+  `madge --circular` now reports none from the entry point.
+
 ## [2.17.0] - 2026-08-31
 
 ### Added

@@ -57,6 +57,8 @@ For each row in the table add a new row below it for your input, item is ">>CC".
 
 **Shipped: G.09, G.10 and G.13 in 2.17.0 (2026-08-31) — frontend only; Batch G is now fully dispatched (G.07 and G.12 pended by decision).** Set Syntax is coloring only, session only; the footer button opens the palette pre-filtered; preview-only Ctrl+F switches to split rather than searching the rendered page (the minimal answer — a find-in-preview is a follow-up if wanted).
 
+**2.17.1 hotfix (2026-08-31): the 2.17.0 build opened an empty window** — a use-before-declaration in the new Set Syntax table killed the frontend at import time. Found by loading the bundle unminified in a headless browser; fixed, and the pre-existing citations/prose circular import removed while hunting it. Rebuilt; test against 2.17.1.
+
 **Release batching, revised 2026-08-31 after the author's `==>` comments. Plan: `dev/plan-2.15.0-batch-g.md`. Nothing built yet.**
 
 - **2.15.0 — confirmed fixes, frontend only:** G.01, G.11, G.03, G.05 (rename + registry-generated verbs, after the inventory review below), G.06, G.14 (explicit folder label), G.15, G.16 (Ctrl+Shift+C → Copy File Path; citation picker unbound but rebindable), G.02 (HELP.md documentation only — author experimenting with the colours).

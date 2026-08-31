@@ -63,35 +63,24 @@ const yamlExt = yaml();
 const tomlExt = StreamLanguage.define(toml);
 const stexExt = StreamLanguage.define(stex);
 
-// Wire the choice table (declared above languageForPath, filled here where the singletons
-// exist). Same objects as the by-extension path, so a "Syntax: Python" override on a .py
-// file is the identity and reconfigures nothing.
-{
-  const fill = (name: string, ext: Extension | null) => {
-    const c = SYNTAX_CHOICES.find((x) => x.name === name);
-    if (c) c.ext = ext;
-  };
-  fill("Markdown", markdownExt);
-  fill("Python", pythonExt);
-  fill("JSON", jsonExt);
-  fill("YAML", yamlExt);
-  fill("TOML", tomlExt);
-  fill("LaTeX", stexExt);
-  fill("DecL", declSupport);
-}
-
 /** The syntaxes offered by the "Syntax: …" verbs (issue G.10): display name → the shared
  *  singleton extension. First-class types only; everything else stays extension-driven
  *  through the language-data registry. Coloring only — the markdown feature set
- *  (math, citations, spelling) and the CSV rainbow remain keyed on the file's extension. */
+ *  (math, citations, spelling) and the CSV rainbow remain keyed on the file's extension.
+ *  Declared HERE, after the singletons it references and directly with them: an earlier
+ *  version declared it above with nulls and patched it in a module-level block below,
+ *  which put the read before the declaration in evaluation order — a TDZ crash at import
+ *  time that blanked the whole app, and tsc cannot see through the intervening function.
+ *  Same objects as the by-extension path, so "Syntax: Python" on a .py file is the
+ *  identity. */
 export const SYNTAX_CHOICES: { name: string; ext: Extension | null }[] = [
-  { name: "Markdown", ext: null /* markdownExt, set below — declared before use */ },
-  { name: "Python", ext: null },
-  { name: "JSON", ext: null },
-  { name: "YAML", ext: null },
-  { name: "TOML", ext: null },
-  { name: "LaTeX", ext: null },
-  { name: "DecL", ext: null },
+  { name: "Markdown", ext: markdownExt },
+  { name: "Python", ext: pythonExt },
+  { name: "JSON", ext: jsonExt },
+  { name: "YAML", ext: yamlExt },
+  { name: "TOML", ext: tomlExt },
+  { name: "LaTeX", ext: stexExt },
+  { name: "DecL", ext: declSupport },
   { name: "Plain Text", ext: null },
 ];
 
