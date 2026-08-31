@@ -2,6 +2,7 @@ import { memo, useEffect, useState } from "react";
 import { openDefault, openShell, type Entry } from "../api";
 import { isBinaryExt, isExternalDoc } from "../editor/languages";
 import { rootEntry, useStore } from "../store";
+import { copyText } from "../clipboardOps";
 import { revealTreeRow, selectedTreeRow } from "./scrollRow";
 
 function icon(entry: Entry, expanded: boolean): string {
@@ -182,7 +183,10 @@ function TreeNode({ entry, depth }: { entry: Entry; depth: number }) {
         }}
       >
         <span className="tree-icon">{icon(entry, expanded)}</span>
-        <span className="tree-name">{entry.name}</span>
+        <span className="tree-name">
+          {entry.name}
+          {entry.label && <span className="tree-label"> ({entry.label})</span>}
+        </span>
       </div>
       {error && !children && (
         <div className="tree-error" style={{ paddingLeft: 6 + depth * 14 }}>{error}</div>
@@ -336,7 +340,7 @@ export function TreeContextMenu() {
         {item("New File…", () => newFileIn(dir))}
         {item("New Folder…", () => newFolderIn(dir))}
         {item("Open Shell Here", () =>
-          openShell(dir).catch((e) => useStore.setState({ configError: String(e) })),
+          openShell(dir).catch((e) => useStore.setState({ lastError: String(e) })),
         )}
         <div className="ctx-sep" />
         {item(
@@ -349,9 +353,10 @@ export function TreeContextMenu() {
             isExternalDoc(entry.path)
               ? void useStore.getState().openFile(entry.path, false)
               : void openDefault(entry.path).catch((e) =>
-                  useStore.setState({ configError: String(e) }),
+                  useStore.setState({ lastError: String(e) }),
                 ),
         )}
+        {item("Copy Path", () => copyText(entry.path, "path"))}
         <div className="ctx-sep" />
         {item("Rename…", () => renameEntry(entry))}
         {item("Delete", () => void deleteEntry(entry))}
@@ -366,12 +371,14 @@ export function TreeContextMenu() {
 /** Project view: every project folder as a collapsible root (ST's FOLDERS list). */
 export function ProjectTree() {
   const projFolders = useStore((s) => s.projFolders);
+  const projLabels = useStore((s) => s.projLabels);
   const treeVersion = useStore((s) => s.treeVersion);
 
+  // A root's label comes from the .wdproj (issue G.14): "docs (papers)" beside "docs".
   return (
     <div className="tree" key={treeVersion}>
       {projFolders.map((f) => (
-        <TreeNode key={f} depth={0} entry={rootEntry(f)} />
+        <TreeNode key={f} depth={0} entry={{ ...rootEntry(f), label: projLabels[f] || undefined }} />
       ))}
     </div>
   );

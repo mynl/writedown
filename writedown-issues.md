@@ -17,22 +17,189 @@ For each row in the table add a new row below it for your input, item is ">>CC".
 | Item | Effort HML | Status/Impact | Description |
 |--:|:---:|:---:|:-------------------------|
 | **G.01** | | | Unicode inserter: it is not searching RECENT first! And why no colored results in search? |
-| **G.02** | | | Orange bar....hummm; can that be a config setting for color? What about height? Can the text [Project name] - Writedown be white and a config setting (better contrast) |
-| **G.03** | | | When a file opens (eg quick file) the cursor needs to go in the edit box,. This occurs all the time now. First edit of file.  |
-| **G.04** | | | Open a new file...edit...couple of seconds later-> ~2 second delay, no response from keyboard??? Some background task |
-| **G.05** | | | New temp file (C+S+N) appear not to have a palette options; All commands hould be accessible from palette. |
-| **G.06** | | |Error in config are reported at the top of the program but they are overwritten and cannot be read! |
+| >>CC | L | None | **Confirmed — two bugs, both mine, both live in the exe you run. (1) The 2.14.2 fix is undone the moment you type: a second effect resets the selection to row 0, which is the "Recent" heading, so no row is highlighted and Enter does nothing until you press Down. (2) The search cuts to the top 60 BEFORE splitting out recents, so a recent match ranked 61st for "arrow" vanishes.** "No colored results": symbol rows never went through the match highlighter and carry no match positions. All three are small, one file each. |
+| **G.02** | | | Orange bar: can color be a config setting? What about height? Can the text [Project name] - Writedown be white and a config setting to ensure good contrast |
+| >>CC | L | None | **Color: already a setting since 2.14.3 — `[window] titlebar_color` and `titlebar_text_color`; white text is one line, `titlebar_text_color = '#FFFFFF'`. The real bug is that neither key is in HELP.md.** Height: not adjustable — Windows owns the caption height; changing it means drawing our own title bar, which I recommend against. CHALLENGE on white: navy-on-orange measures 4.8:1 contrast (passes AA), white-on-orange 2.5:1 (fails). Try it via config; I would not make it the default. ==>AGREE; i will experiment |
+| **G.03** | | | When a file opens (eg quick file) the cursor needs to go in the edit window. This occurs all the time now. First edit of file.  |
+| >>CC | L | None | **Confirmed: no open path focuses the editor — only New File, Scratch and Save As do. From the palette, focus falls to the page body; from the tree it STAYS in the tree, where your first Delete deletes the file.** Fix: one focus-on-open effect in the editor, plus clearing the stale editor handle on unmount (a latent bug in its own right, also behind G.13). |
+| **G.04** | | | Open a new file...edit...couple of seconds later-> ~2 second delay, no response from keyboard? Some background task. Investigate if there is anything obvious going on. |
+| >>CC | M | **Big win** | **Found, with high confidence. Every backend command except render and build runs on the UI thread, and the first spell-check of a freshly opened document computes suggestions for up to 64 misspellings cold — tens of ms each. That is a one-time 1–2 s freeze, 500 ms after you pause typing, exactly your symptom; it never repeats because the suggestions are cached.** Fix: run the three check commands off the UI thread (one keyword each) and compute suggestions lazily. I have an estimate, not a number — the plan measures first. |
+| **G.05** | | | New temp file (Ctl+Shft+N) appear not to have a palette options; All commands hould be accessible from palette. |
+| >>CC | L | None | **It exists — as "New Scratch File (unsaved)". You call it a temporary file, and so does its own sibling verb "Name Temporary File…", so searching "temp" finds one and not the other. Same disease as 2.14.1's quick-files rename: one vocabulary.** Audit result: about 35 editor keys (Find, Replace, Go to Line, fold, zoom, case, sort, Copy Path…) have no palette verb at all; they can be generated from the command registry in one pass. ==> Yes several palette things don't quite live where i expect! Pls add below table list of current palette commands so i can review.  |
+| **G.06** | | |Error in config are reported at the top of the program but they are overwritten (line row height is too small) and it cannot be read! |
+| >>CC | L | None | **Confirmed. The error bar is one line, no-wrap, ellipsized, with 68 characters of boilerplate BEFORE the error text, no tooltip carrying the text, and nothing written to the log. Worse, it is the app's general error slot — any later error silently replaces the config error.** Fix: error text first, wrap, full text in the tooltip, log it, and a dismiss. |
 | **G.07** | | | You said multi window not possible; what about side by side tabs: both code view (in JLab) and  ST support this. Just *viewing* the two side by side. Could take over the space used by preview/render.  |
-| **G.08** | | | Can ctrl+shift be the auto complete for large words? Or infact as an alternative for any compeletion situation. |
+| >>CC | M | None at rest | **Feasible for exactly what you asked — a DIFFERENT open tab, read-only, in the preview slot, reusing the existing splitter: ~300 lines, no refactor of the editor. YELL: the same file in both panes, or an editable second pane, is L — 25 places assume one editor, and it re-opens the 1.81.0 edits-land-in-the-wrong-file bug. Read-only-other-tab or nothing; your call.** ==>Pend for now; do nothing  |
+| **G.08** | | | ~~Can ctrl+space sp be the auto complete for large words? Or infact as an alternative for any compeletion situation.~~ appears to work already. |
+| >>CC | — | — | Nothing to do. |
 | **G.09** | | | select a character then palette->identify = unicode info of selected glyph |
-| **G.10** | | | Can we set the "type" of the file for coloring?  |
+| >>CC | L | None | **Half exists: Ctrl+Shift+U with one character selected already prefills its code point. Proposal: an "Identify Character" verb showing code point, Unicode name, LaTeX name and UTF-8 bytes in the status bar, working from a bare cursor too.** Limit: a character outside our 2,322-entry table gets a code point but no name — shipping the full Unicode name list is ~1 MB and not worth it. ==>Agree |
+| **G.10** | | | Can we set the "type" of the file for coloring? (cf ST lower right, scope).   |
+| >>CC | L | None | **Doable: syntax is chosen by extension only today. Proposal: "Syntax: Python / Markdown / TOML…" palette verbs plus a clickable "Syntax: X" item in the footer, session-only — never written to the file or config. Coloring only in v1**; Markdown-specific features (math, citations, spelling) stay extension-driven, and making those follow the override is what would turn this into M. |
 | **G.11** | | | Mouse arrows in the unicode select box do not work well. |
+| >>CC | L | None | **Confirmed, two bugs: (1) the mouse fights the arrows — any mouse-move event reselects the row under the pointer, and scrolling the list under a stationary mouse generates one, so Up/Down snap back; (2) PageUp/PageDown/Home/End do nothing.** Plus G.01(1) hides the selection while you type. One file, shared with G.01. |
 | **G.12** | | | colorization lag on scrolling - white then colored. Can we "color ahead" a bit so that is smoother? |
+| >>CC | L | **Risk** | **Not our code: nothing Writedown adds does any work on scroll. It is CodeMirror's parser scheduling — it starts at least 100 ms after the viewport moves, and for .agg/.toml/.tex files it never parses past the visible area at all. Mitigation: a ~20-line "parse ahead on scroll" nudge. Trade-off: it could turn "white then colored" into "colored but stuttery", so the plan measures on a big .qmd and a big .agg before deciding.** ==>PEND |
 | **G.13** | | | several commands (eg ctrl k, ctrl f) depend on which window you are in - they do not work in the preview window. That is confusing. Anything we can do about that? |
-| **G.14** | | | |
-| **G.15** | | | |
-| **G.16** | | | |
+| >>CC | L | None | **Confirmed. Clicking the preview blurs the editor (focus goes to the page body), and Ctrl+F and the whole Ctrl+K family live in the editor's keymap, so they die there. Fix: the existing global key handler forwards editor chords to the editor whenever focus is nowhere useful — CodeMirror's own chord state handles Ctrl+K Ctrl+x for free.** Preview-ONLY mode has no editor to forward to; Ctrl+F there needs its own small handler. |
+| **G.14** | | | New issue: i've just made a project that has three directories with the same name... we need a way to decorate them or distinguish them. Ideas?  |
+| >>CC | L | None | **Roots show the folder name only; the full path is already in the hover tooltip. Proposal: when root names collide, label them "name — parent" (and one more level if the parents collide too). The project switcher already does exactly this for same-named projects, so it is a reuse, not an invention.** Optional later: an explicit per-folder name in the .wdproj, Sublime-style.==>I'd like to be able to set an optional str that is shown after the folder name in the config - rather than guess from the folder name, format as dir (str) with the parens. Default '' which is just dir (no parens empty string obvs). ad |
+| **G.15** | | | App title bar - can we change to JUST be the project name or just Writedown if there is no project open. Ie omit the - Writedown? I have made the header bar orange to make it stand out, and run with several instances open. I just want to see the project name. It is really helpful and the - writedown part just confuses me.  |
+| >>CC | L | None | **One line. Also found while looking: a plain folder workspace restored at launch never sets a title at all — it shows "Writedown" until you open a project. Fix together.** |
+| **G.16** | | | Ctrl+Shift+C as shortcut for copy full file path and name (like OneCommander |
+| >>CC | L | None | **"Copy File Path" already exists as a palette verb with no key. CHALLENGE: Ctrl+Shift+C is the citation picker, documented in HELP. Options: (a) move citations elsewhere and give C to copy-path ==> yes I never knew about that or used it!; (b) copy-path on a free key — Ctrl+Shift+Y or Ctrl+Shift+M. I lean (b): a bib-first editor should keep its citation key. Also worth adding: Copy Path on the tree right-click menu, which is the OneCommander gesture.** |
+| **G.17** | | | **NEW** when I edit this table the preview flies off to another part of the doc...can we have more stability. |
 
+**Shipped: G.01, G.03, G.05, G.06, G.11, G.14, G.15, G.16 and the G.02 documentation in 2.15.0 (2026-08-31) — none yet confirmed in daily use.** G.14 changed Rust, so rebuild. G.04 (2.16.0) and G.09 / G.10 / G.13 (2.17.0) follow; G.07 and G.12 pended; G.17 is new and untriaged.
+
+**Release batching, revised 2026-08-31 after the author's `==>` comments. Plan: `dev/plan-2.15.0-batch-g.md`. Nothing built yet.**
+
+- **2.15.0 — confirmed fixes, frontend only:** G.01, G.11, G.03, G.05 (rename + registry-generated verbs, after the inventory review below), G.06, G.14 (explicit folder label), G.15, G.16 (Ctrl+Shift+C → Copy File Path; citation picker unbound but rebindable), G.02 (HELP.md documentation only — author experimenting with the colours).
+- **2.16.0 — G.04, Rust:** check commands off the UI thread + lazy suggestions. Measured before and after.
+- **2.17.0 — G.09, G.10, G.13.**
+- **Pended, author's call:** G.07 (do nothing), G.12 (do nothing).
+- **Tidying, no bump, alongside 2.15.0:** CHANGELOG reorder + restored 2.11.0 (done, uncommitted), `vite.config.ts` junction code, `config.rs` example path, `CLAUDE.md` commit.
+
+---
+
+## Batch G — developer notes and implementation plans
+
+### The DOOB review (2026-08-31)
+
+The 2.14.4 migration is holding: `tauri dev` starts, the release exe on disk is the 2026-08-28 build, and every G item is behavior, not environment. Loose ends found while looking, none urgent:
+
+- **`vite.config.ts` junction handling can go** (author's decision 2026-08-31: Writedown is always built from `V:\dev`; `C:\S\dev` never enters into it). `C:\S\dev` is still a symlink to `V:\dev`, so the `realpathSync.native` real-root computation, the `root: realRoot` override on `build`, and the dual-spelling `fs.allow` list would matter if the dev server were ever launched through it — but it will not be, so on `V:\dev` `realRoot === cwd` and the code is inert. Strip it to `process.cwd()`, keep `fs.allow: [cwd, csvGridDist]`, and record the "always from `V:\dev`" rule in `CLAUDE.md` so nobody re-adds it. Also stale in the same file: "Both repos ride the same synced tree" — should say the sibling `csv-viewer` checkout is expected beside this one (`V:\dev\csv-viewer`, present, 3.9.0). Tidying, no bump.
+- **`src-tauri/src/config.rs:138`** — the default config template's example line is `personal_dictionary = "C:/Users/steve/Documents/CloudStation/writedown-personal.dic"`: a username and a dead machine path, written into every new user's config.toml. Replace with a neutral example.
+- **`src-tauri/src/files.rs`** doc comments describe `C:\S` as a junction to CloudStation. Historical and harmless (they explain why junction handling exists), but the path they name no longer exists; one sentence saying so would stop the next reader going looking.
+- **`CLAUDE.md`** rewrite to the house-rules layout is uncommitted (working tree). Commit as tidying.
+- **CHANGELOG.md — DONE 2026-08-31, uncommitted.** A 37-section block, 1.81.0 through 2.1.0, sat ASCENDING at the top of the file above 2.14.4, and `## [2.11.0]` was missing (the 2.12.0 commit, 58abb65, dropped it). All 178 sections are now strictly newest-first and 2.11.0 is restored verbatim from commit 4e2f084. Tidying, no bump.
+- **This file:** the Batch F section ends with a pasted chat transcript ("from last time: 0.69 ms in release… ✻ Cooked for 9m 24s… ※ recap"). The decision it records (strip the label cache) shipped in 2.14.1; the block is safe to delete.
+- **G.02's settings are undocumented** — `[window] titlebar_color` / `titlebar_text_color` appear only in the config template comments and CHANGELOG, never in HELP.md.
+
+### G.01 / G.11 — the Unicode picker (`src/Palette.tsx`, `src/editor/symbols.ts`)
+
+Four defects, one component:
+
+1. **Selection lands on the heading whenever the query is non-empty.** `Palette.tsx:227-235`: the "seat on a choosable row" effect (deps `[results]`) runs first and picks index 1; the next line, `useEffect(() => setSel(0), [query])`, runs second and overwrites it. Its comment says "the effect above re-seats" — it cannot, because on the re-render `results` is the same memo object and the seat effect has no reason to fire. The 2.14.2 fix therefore only ever worked for the empty query. Consequences: no row highlighted (the heading branch never gets `.active` — this is the "no colored results"), Enter is a no-op (`choose()` bails on a heading), ArrowUp dead. **Fix:** delete the `[query]` effect and make the seat effect re-anchor to the first choosable row on every `results` change, which is what a new query wants anyway.
+2. **Recents are split out AFTER the 60-row cut.** `searchSymbols(..., limit = 60)` slices at `symbols.ts:224`; the MRU partition happens afterwards at `Palette.tsx:88-92`. A recent character ranked 61st for a broad query is gone before the partition sees it. **Fix:** rank unlimited (2,322 rows, trivial), partition, then cap the *rest* group.
+3. **No match highlighting.** Symbol rows render `e.name` as a plain span (`Palette.tsx:332-356`) and `searchSymbols` pushes `positions: []` (`symbols.ts:221`). The fuzzy match runs against a name+alias+latex haystack, so its indices do not map onto the displayed name; the fix is a second `fuzzyMatch(q, e.name)` for display positions, then route through the existing `<Highlight>`.
+4. **Mouse fights arrows.** `onMouseMove={() => setSel(i)}` on every row (`Palette.tsx:338, 374`), unguarded. Arrowing scrolls the list under a stationary pointer, Chromium fires a synthetic mousemove, selection snaps back. **Fix:** remember `clientX/Y`, ignore a move whose coordinates are unchanged. Add PageUp/PageDown/Home/End to `onKeyDown` (`Palette.tsx:293-310`) while there. The scroll-into-view selector also skips headings, so the "Recent" label stays off-screen when you arrow onto its first row — include headings in the scroll target.
+
+Bonus, minor: the code-point branch (`u+2299`) and the `\latex` branch bypass the MRU entirely. Acceptable; noting so it is not re-reported as G.01 again.
+
+### G.03 — focus on open (`src/editor/Editor.tsx`, `src/store.ts`, `src/editor/editorView.ts`)
+
+Audit of every open path: tree click, tree Enter, palette/quick-file picker, Ctrl+Shift+Q, Ctrl+O, project switch, session restore, launch files, tab click, Ctrl+Tab — **none focus the editor.** Only `newFile`, `newFileIn`, `newScratch`, `saveAs` call `focusEditorSoon()` (`store.ts:106`). From the palette, `choose()` opens then synchronously `closePalette()`, unmounting the input that held focus (`Palette.tsx:268-283`). From the tree, focus stays in the `tabIndex={0}` tree body (`App.tsx:465`), whose key handler owns Delete/Enter/F2.
+
+**Fix, one place:** a `useEffect` keyed on `path` in `Editor.tsx`, right after the cursor/scroll restore effect (`Editor.tsx:319-353`), calling `view.focus()` — after the synchronous doc swap, so the cursor lands in the right document. **Prerequisite:** `setActiveView(null)` on Editor unmount. Today the module singleton (`editorView.ts:6-22`) is set once in `onCreateEditor` and never cleared, so in preview-only mode `getActiveView()` returns a destroyed view; `Outline.tsx:8-14` already works around this. Fixing it here also unblocks G.13. Guard: do not steal focus when the opened doc is preview-only (images, CSV grid).
+
+### G.04 — the two-second freeze (`src-tauri/src/spelling.rs`, `lib.rs`; `src/editor/prose.ts`)
+
+**Mechanism.** Tauri runs a non-`async` `#[tauri::command]` on the main event-loop thread (macro default `ExecutionContext::Blocking`). In this crate only `render_document`, `run_cell` and `run_build` are `async`; `spell_check`, `check_document`, `check_citation_keys`, `read_file`, `write_file`, `list_all_files` all block the WebView2 host thread for their duration — that is the "no keyboard response".
+
+**Magnitude.** The three linters share one CodeMirror lint timer (`delay: 500` in `spelling.ts:75`, `lint.ts:28`, `citations.ts:263`), so on the first pause after opening a document all three IPC calls fire together and serialize. `spell_check` (`spelling.rs:159-199`) computes `dict.suggest()` for up to `MAX_SUGGEST_WORDS = 64` unknown words, cold; spellbook's suggest is an n-gram scan over the whole word list, tens of ms per word. 64 × 20–40 ms ≈ 1.3–2.6 s, once, then memoized in `suggest_cache`. On the JS side `spellTokens` (`prose.ts:93-164`) does a `syntaxTree().resolveInner()` per candidate word over the whole document first — plausibly 100–500 ms on a 200 KB file, on the same thread, ahead of the IPC.
+
+Timing fits: open → type → 500 ms pause → freeze → never again for that document. A document with few misspellings (or one you have spell-checked before this session) will not show it, which is why it feels random.
+
+**Plan.**
+1. *Measure:* an `#[ignore]` benchmark beside the `labels.rs` one — time `spell_check` on a fixture with 64+ unknown words, cold and warm, release build. Numbers, not estimates, in the CHANGELOG.
+2. *Off the UI thread:* `#[tauri::command(async)]` on `spell_check`, `check_document`, `check_citation_keys` (and `read_file`, `write_file`, `list_all_files` — `write_file` does a full backup copy on blur). `SpellState` is already behind a `Mutex`; `dict()` is a `OnceLock`. Typing stays responsive during the pass; the pass itself still takes as long.
+3. *Cut the pass:* compute suggestions lazily — return misspellings without suggestions, fetch suggestions for one word when the user hovers/opens the fix menu. That removes the cost rather than hiding it. Drop `MAX_SUGGEST_WORDS` to ~8 as an interim if lazy suggestions are more than an hour.
+4. *Frontend:* `spellTokens` can skip the per-word tree resolution for words outside any fenced/math region by using the regions it already computes — measure before touching.
+
+Also noted: `check_citation_keys` rebuilds a 7,000-entry `HashSet` per call (`bib.rs:547-556`) — 0.3 ms, wasteful, not the freeze.
+
+### G.05 — palette coverage and naming (`src/commands.ts`, `src/editor/commandRegistry.ts`, `src/editor/keymap.ts`)
+
+Ctrl+Shift+N → `newScratch` (`App.tsx:357`) → palette id `new-scratch`, title "New Scratch File (unsaved) (Ctrl+Shift+N)" (`commands.ts:99`). Sibling verb: "Name Temporary File…" (`commands.ts:107`). Rename to "New Temporary File (unsaved) (Ctrl+Shift+N)"; both verbs say "temporary".
+
+**Current palette inventory (`appCommands()`, `commands.ts:77-408`, in source order) — for the author's review.** Mark what should move, merge, rename, or go.
+
+- *Files:* Open File… (Ctrl+O) · Open Folder… · New File… · New Folder… · New Scratch File (unsaved) (Ctrl+Shift+N) · Name Temporary File… · Open Quick File (Ctrl+Shift+Q) — the single [files] quick_file · Quick Files: Open from List… · Save · Save As… · Set Current Editor Size as Default (write to config) · Previous Versions… · Reload from Disk (discard my edits) · Overwrite Disk with My Version · Diagnostics: File Watch Status · Locate File in Sidebar · Copy File Path · Copy File Name
+- *Markdown / editing:* Renumber Ordered List · Reformat Markdown Table(s) · Bold (surround with **…**) · Italic (surround with *…*) · Extract Citations to .bib (scratch) · Insert Date-Time (sample) · Insert Date (sample) · Insert: Unicode Character… (Ctrl+Shift+U) · Insert: ‹snippet› (one per `[snippets]` entry)
+- *Spelling:* Toggle Spell Check · Add Word to Dictionary · Ignore Word (this session) · Open Personal Dictionary · Reload Personal Dictionary
+- *View / layout:* Refresh File Tree · Show Sidebar (F10 toggles) · Hide Sidebar (F10 toggles) · Show Outline (F11 toggles) · Hide Outline (F11 toggles) · Enter Full Screen (Ctrl+F11 toggles) · Exit Full Screen · Enter Distraction Free (Ctrl+Shift+F11 toggles) · Exit Distraction Free · Enter Plain View — editor only, no sidebars or preview · Exit Plain View · Preview: Zoom In · Preview: Zoom Out · Preview: Reset Zoom · Toggle Word Wrap · Toggle Preview (editor / split / preview)
+- *Help:* Open Help (help.md) · Help: Keyboard Shortcuts · About Writedown
+- *Tools / render:* Open Shell (document folder) · Render Document (run code cells) · Run This Cell (Ctrl+Enter — live kernel state) · Preview: Number Sections · Preview: Don't Number Sections · Preview: Number Sections — Follow Document YAML · Restart Python Kernel · Edit Config (config.toml) · Keybindings: Write All Shortcuts to Scratch File · Build: ‹name› (one per `[build]` entry)
+- *Tabs:* Close Tab · Close All Files (keeps unsaved scratch buffers) · Next Tab · Previous Tab · Reopen Closed Tab
+- *Project:* Project: Add Folder to Project… · Project: New Project… · Project: Quick Switch… (Ctrl+Alt+P) · Project: Save / Rename Project… · Project: Open Project… · Project: Close Project · Project: Edit Project File (.wdproj) · Project: Switch to "‹name›" (one per recent project) · Project: Remove Folder "‹dir›" (‹path›) (one per root) · Project: Delete "‹name›"… (one per managed project)
+- *Font:* Font: ‹family› (one per `[fonts]` entry) · Font: Reset to Config
+
+**What I see in that list, for you to confirm or reject:**
+
+1. **Prefixes are inconsistent.** `Project:`, `Preview:`, `Insert:`, `Font:`, `Build:`, `Help:` verbs are prefixed; file, edit, spelling, view and tab verbs are not. Searching "sidebar" or "close" works; browsing does not. Proposal: every verb gets a category prefix from a fixed list — `File:` `Edit:` `Insert:` `Spell:` `View:` `Preview:` `Tabs:` `Project:` `Tools:` `Help:` — and the palette shows the prefix dimmed. Cost: retyping titles; the fuzzy matcher is order-free since 2.11.0, so "sidebar hide" and "hide sidebar" both still hit.
+2. **Three verbs flip meaning with state,** against your own UI rule: Toggle Spell Check, Toggle Word Wrap, Toggle Preview. The rest of the list already uses explicit pairs (Show/Hide Sidebar, Enter/Exit Full Screen). Proposal: Spell: On / Spell: Off, Wrap: On / Wrap: Off, View: Editor / View: Split / View: Preview. Keys keep toggling; only the palette verbs become explicit.
+3. **Key hints in titles are hand-typed and stale-prone** — some verbs show one, most do not, and they cannot follow a `[keys]` rebind. Proposal: strip them from titles and append the *live* binding from the merged keymap when the palette renders, so every verb shows its real key and a rebind updates it.
+4. **Missing entirely** (from a diff of `DEFAULT_KEYS` against `appCommands()`): Find, Replace, Go to Line; Fold / Unfold / Fold All / Unfold All; editor Zoom In / Out / Reset (the palette has only *preview* zoom); Select Next Occurrence, Select Line, Add Cursor Above / Below, Subword Left / Right, Line Start / End; Duplicate Selection, Move Line Up / Down, Toggle Comment, Join Lines, Delete Line, Kill to Line End / Start, Upper / Lower / Title Case, Transpose Chars / Words; Sort Lines, Insert Line After / Before, Duplicate Line (registry, no key, no verb); the Ctrl+P file picker; the bare-key Build; and the citation picker (Ctrl+Shift+C lives in `citations.ts:278`, outside the registry, so it is neither rebindable nor in F1 — G.16 moves it). **Generate** these: one `registryCommands()` mapping every `COMMAND_REGISTRY` entry (they already carry `label` and `category`) to a palette verb with its live key appended. That closes the gap permanently.
+
+### G.06 — the config error bar (`src/App.tsx:424-436`, `src/App.css:549-567`, `src/store.ts:1649`)
+
+Rendered as one `<button>` whose text is a 68-character fixed prefix followed by `{configError}`, styled `white-space: nowrap; overflow: hidden; text-overflow: ellipsis`. A `toml::de::Error` is multi-line (message, source line, caret, "at line N column M"); the newlines collapse and the error is ellipsized away. The `title` tooltip is the fixed "Open config.toml". Nothing calls `logError`, so the text lands nowhere. And `configError` is the general error slot written from ~25 sites (`store.ts`, `commands.ts`, `Editor.tsx`, `pasteImage.ts`, `spelling.ts`, `Preview.tsx`, `FileTree.tsx`) — last writer wins, no queue.
+
+**Fix:** error text first, boilerplate second; `white-space: pre-wrap` with a `max-height` and `overflow: auto`; full text in `title`; `void logError(...)` beside the `set()`; a dismiss (×) that clears the slot; and a separate `configError` vs `lastError` so a later unrelated error does not erase the config one. Optional verb "Show Last Error" that reopens it.
+
+### G.07 — side-by-side — PENDED (author, 2026-08-31: do nothing)
+
+Analysis kept for when it comes back. One `EditorView` serves all tabs (1.81.0), reached through the module singleton `getActiveView()` from 25 call sites in 7 files. `Editor.tsx` also writes editor font CSS variables on `:root`, saves `store.activePath` on blur, and reconfigures two Compartments on the singleton.
+
+**Design A — read-only second pane, different tab (M, ~300 lines).** Store gains `secondaryPath` (never in the session snapshot). New `SecondaryView.tsx`: a `<CodeMirror editable={false}>` with language + highlight + line numbers only — no save-on-blur, spelling, lint, citations, math, keymap Compartment, cursor reporting — and it never calls `setActiveView`, so every existing call site keeps meaning "the editable pane". Renders in the preview slot ahead of the `showPreview` branch (`App.tsx:566`), inheriting `.split-pane`, the `Resizer` and `splitRatio`. Needs its own `EditorBoundary`. Entry points: "Split: Show <tab> Beside" verbs per open tab; middle-click on a tab. Bypasses the `previewable` gate so a `.py` can sit beside a `.qmd`.
+
+**Design B — editable second pane (L, 800+ lines).** Singleton becomes a focus-tracked registry; blur-save, Compartment fan-out, `:root` variables, footer Ln/Col, doc-swap effect, outline jump and preview scroll-sync all need a pane parameter. Re-opens the 1.81.0 bug class. Not without an explicit ask.
+
+**Same document in both panes** is a third thing: two views cannot share an `EditorState`, so every keystroke is dispatched twice with mapped changes and an anti-echo annotation, doubling decoration and lint work. Not in v1 of either design.
+
+### G.09 — Identify Character
+
+Partial precedent: Ctrl+Shift+U with a one-character selection prefills `u+XXXX` (`Palette.tsx:162-172`), and the code-point branch of `searchSymbols` (`symbols.ts:163-186`) shows that one row. No verb, no status readout, nothing for a bare cursor. **Build:** `identifyCharacter` in `COMMAND_REGISTRY` (rebindable, F1-listed) reading `state.selection.main` — the selected char, else the char at `head` — then `loadSymbols()` lookup by `char`, and `showStatusMessage("U+2192 RIGHTWARDS ARROW · \rightarrow · UTF-8 E2 86 92")` (`store.ts:823-830`, 20 s auto-clear). `symbolData.ts` carries char, name, LaTeX names, aliases, kit, emoji flag for 2,322 characters — no general category; the generator has it and could add a column if wanted. Off-table characters: code point and bytes only.
+
+### G.10 — Set Syntax (`src/editor/languages.ts`, `src/editor/Editor.tsx:149-207`, `src/App.tsx:655-702`)
+
+`languageForPath` is a `switch` on extension (`languages.ts:66-93`), falling back to `@codemirror/language-data` (143 languages, lazy chunks). The language extension sits in the memoized extension array (`Editor.tsx:153`), not in a Compartment; two Compartments already exist to copy (`keymap.ts:16`, `wrap.ts:10`). The footer already has clickable `status-item` buttons (Wrap, Spell — `App.tsx:672-688`).
+
+**Build (S):** `syntaxOverride: Record<path, name>` in the store, excluded from the session snapshot like `fontOverride`; `useLanguageFor(path, override?)` reusing `codeLanguages(name)`; a `langCompartment` around line 153; `syntaxCommands()` in the `fontCommands()` pattern producing "Syntax: Markdown / Python / JSON / YAML / TOML / LaTeX / DecL / Plain Text" plus the registry names; a "Syntax: X" footer item opening the palette pre-filtered. **Scope:** coloring only. `isMarkdownDoc` / `isCsv` (which gate front matter, math, citations, spelling, rainbow) stay extension-driven in v1; the footer label says "Syntax: Python (coloring)" to be honest about it.
+
+### G.12 — highlighting lag on scroll — PENDED (author, 2026-08-31)
+
+Analysis kept. Audit of every ViewPlugin and decoration source in `src/editor/` (`math.ts`, `frontmatter.ts`, `csvRainbow.ts`, `spelling.ts`, `lint.ts`, `citations.ts`): all guard on `docChanged`; none recompute on viewport change; there are no state-facet decoration providers, no CSS transitions on token colors. On a pure scroll Writedown adds zero work. What remains is CodeMirror itself (`@codemirror/language` 6.12.4, `@codemirror/view` 6.43.6):
+
+- The parse worker defers work by ≥100 ms after a viewport move (`requestIdle`, `MinPause`), then needs a dispatch before `treeHighlighter` repaints. That gap is the white band on Markdown.
+- The viewport margin is a compile-time 1000 px; there is no facet to widen it.
+- `StreamLanguage` (`.agg`, `.toml`, `.tex`, and those languages inside Markdown fences) clamps parsing to `viewport.to` and never parses ahead, so any scroll past the margin guarantees a band.
+
+**If revived:** measure first with a throwaway `updateListener` logging `syntaxTree(state).length` against `viewport.to` on viewport change, on a large `.qmd` and a large `.agg`. Mitigation if warranted: a ~20-line plugin calling `forceParsing(view, viewport.to + 20_000, 25)` inside `requestAnimationFrame` on viewport change; budget ≤25 ms or the white band becomes scroll stutter. Stream parsers ignore the ahead margin — only the earlier start helps them.
+
+Side finding: `csvRainbow` rebuilds its whole decoration set on every keystroke with no debounce (`csvRainbow.ts:72`), unlike `mathHighlight`'s 200 ms. Give it the same treatment if CSV typing ever feels heavy.
+
+### G.13 — editor chords from the preview (`src/App.tsx:291-364`, `src/preview/Preview.tsx:958`)
+
+Two disjoint key layers: the CodeMirror keymap (`DEFAULT_KEYS`, fires only with the view focused — Ctrl+F/H/G, the Ctrl+K chords, Ctrl+D, fold, zoom…) and the window `keydown` in `App.tsx` (Ctrl+S, Ctrl+P, Ctrl+W, tabs, F-keys…). The preview has no `tabIndex`; clicking it blurs the editor and leaves `document.activeElement` on `<body>`, where only the second layer listens. The blur also triggers save-on-blur with its main-thread backup copy.
+
+**Fix:** at the top of the existing `onKey`, when the event target is not inside `input, textarea, [contenteditable], .cm-editor, .tree-body`, take `getActiveView()`, check `view.dom.isConnected`, focus it, and call `runScopeHandlers(view, e, "editor")` from `@codemirror/view` — it carries CodeMirror's chord-prefix state, so Ctrl+K Ctrl+x works across the two keystrokes with no bespoke tracking. The `.tree-body` exclusion preserves the tree's Delete/F2/Enter contract. **Prerequisite:** the same `setActiveView(null)`-on-unmount as G.03. Preview-only mode is unmounted-editor territory: Ctrl+F there needs a small handler on `.preview-scroll` (browser find over the rendered text), or we keep the editor mounted-but-hidden in that mode — decide when building.
+
+### G.14 — labelled project roots (`src-tauri/src/project.rs:8-14`, `src/api.ts:59`, `src/store.ts:155-161`, `src/tree/FileTree.tsx:367-378`)
+
+Author's design (2026-08-31): an optional string per folder, set explicitly rather than guessed, shown as **`dir (label)`**; empty label → plain `dir`.
+
+`.wdproj` is `{ name, folders: string[] }` today; roots are labelled by `rootEntry()` (basename only); the full path is already the row tooltip. `projFolders: string[]` feeds `applyWatch`, `prefetchTree`, `setRoot`, `sessionKey` (which joins the *paths* with `|` — must not change) and `displayedRootsOf`. Two ways to carry the label:
+
+- **(recommended) a sibling map:** `labels: { [path]: label }` on `Project`, `#[serde(default, skip_serializing_if = "HashMap::is_empty")]`. `folders` and every consumer stay untouched; only `rootEntry` / `ProjectTree` read the map. Round-trips through `save_project` unchanged. Hand-editable: `"labels": { "D:\\projects\\AI": "papers" }`.
+- (alternative) Sublime-style entries `folders: (string | { path, label })[]` via a serde-untagged enum. Nicer to hand-write, but every `projFolders` consumer needs a `folderPath()` accessor — more blast radius for the same result.
+
+**Setting it:** two routes. (1) Hand-edit via "Project: Edit Project File (.wdproj)" — the project already reloads live when that file is saved (`store.ts:1465`, HELP "in place when you save the .wdproj"). (2) A per-root palette verb "Project: Label Folder “‹dir›”…" in the `projectSwitches()` pattern, using the existing `openPrompt(title, placeholder, cb)` (as `New File…` does, `commands.ts:84-88`), writing through `save_project`. Empty input clears the label. Display: `tree-name` shows `dir (label)`; the tooltip keeps the path.
+
+### G.15 — window title (`src/store.ts:110-115`)
+
+`setTitle(project)` → `` `${project} — Writedown` `` or `"Writedown"`. Not reused anywhere (taskbar, session, tests). Change to bare project name. Gap: `hydrate` (`store.ts:697-733`) never calls `setTitle` on the plain-folder branch, so a folder workspace restored at launch keeps the `tauri.conf.json` default "Writedown"; `openFoldersAsProject` does set it at `store.ts:2362`. Fix both together; "unsaved project" stays as the label for a project with no file yet.
+
+### G.16 — Ctrl+Shift+C = Copy File Path (`src/commands.ts:161-188`, `src/editor/citations.ts:278`, `src/editor/keymap.ts`, `HELP.md:163`)
+
+Author's decision (2026-08-31): option (a) — copy-path takes Ctrl+Shift+C; the citation picker moves.
+
+"Copy File Path" and "Copy File Name" exist as verbs (`commands.ts:161-188`), no key; the tree context menu (`FileTree.tsx:326-363`) has neither. Ctrl+Shift+C is `openCitationPicker`, bound inside `citationExtensions` at `Prec.high` — outside the registry, so not rebindable and not in F1.
+
+**Build:** `copyFilePath` and `copyFileName` become `COMMAND_REGISTRY` actions (copy the *active document's* path; scratch buffers report "unsaved" in the status bar rather than erroring); `DEFAULT_KEYS` gains `Ctrl+Shift+C → copyFilePath`. The picker becomes registry action `insertCitation`, **unbound by default** (typing `@` already opens the same completion, and the author never used the key), so `[keys]` can rebind it. Its palette verb is "Insert: Citation…". Remove the `Prec.high` binding from `citations.ts`; update HELP.md:163 to say `@` and the palette. Tree context menu gains "Copy Path" acting on the right-clicked entry — the OneCommander gesture.
+
+---
 
 ## Batch F: Monday 2026-08-10 later that day...
 

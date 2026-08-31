@@ -4,6 +4,7 @@
 
 use crate::config::writedown_dir;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct Project {
@@ -11,6 +12,12 @@ pub struct Project {
     pub name: String,
     #[serde(default)]
     pub folders: Vec<String>,
+    /// Optional display label per folder (issue G.14), shown as `dir (label)` in the
+    /// sidebar so three roots named `docs` can be told apart. Keyed by the path exactly
+    /// as it appears in `folders`. A BTreeMap so the written file is stable, and omitted
+    /// entirely when empty so a project without labels round-trips byte-identical.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub labels: BTreeMap<String, String>,
 }
 
 /// A managed project (name + file path) for the quick-switch list.
@@ -64,6 +71,7 @@ pub fn new_project(
     app: tauri::AppHandle,
     name: String,
     folders: Vec<String>,
+    labels: Option<BTreeMap<String, String>>,
 ) -> Result<String, String> {
     let dir = projects_dir(&app)?;
     std::fs::create_dir_all(&dir).map_err(|e| format!("create {}: {e}", dir.display()))?;
@@ -78,7 +86,7 @@ pub fn new_project(
         let t = name.trim();
         if t.is_empty() { "project".to_string() } else { t.to_string() }
     };
-    let project = Project { name: display, folders };
+    let project = Project { name: display, folders, labels: labels.unwrap_or_default() };
     let json = serde_json::to_string_pretty(&project).map_err(|e| e.to_string())?;
     std::fs::write(&path, json).map_err(|e| format!("write {}: {e}", path.display()))?;
     Ok(path.to_string_lossy().to_string())
@@ -95,6 +103,7 @@ pub fn save_managed_project(
     name: String,
     folders: Vec<String>,
     old_path: Option<String>,
+    labels: Option<BTreeMap<String, String>>,
 ) -> Result<String, String> {
     let dir = projects_dir(&app)?;
     std::fs::create_dir_all(&dir).map_err(|e| format!("create {}: {e}", dir.display()))?;
@@ -113,7 +122,7 @@ pub fn save_managed_project(
         let t = name.trim();
         if t.is_empty() { "project".to_string() } else { t.to_string() }
     };
-    let project = Project { name: display, folders };
+    let project = Project { name: display, folders, labels: labels.unwrap_or_default() };
     let json = serde_json::to_string_pretty(&project).map_err(|e| e.to_string())?;
     std::fs::write(&path, json).map_err(|e| format!("write {}: {e}", path.display()))?;
     if let Some(old) = old_path {
@@ -212,4 +221,38 @@ pub fn add_recent_project(app: tauri::AppHandle, path: String) -> Result<(), Str
     list.truncate(10);
     let json = serde_json::to_string_pretty(&list).map_err(|e| e.to_string())?;
     std::fs::write(recent_file(&app)?, json).map_err(|e| format!("write recents: {e}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A project written before labels existed must load, and save back byte-identical:
+    /// the `labels` key is absent from the file when there are none (issue G.14).
+    #[test]
+    fn labels_are_optional_and_omitted_when_empty() {
+        // Exactly what serde_json's pretty printer emits for a label-free project, with
+        // the JSON-escaped Windows path — so the equality below is a real round trip.
+        let before = "{\n  \"name\": \"AI\",\n  \"folders\": [\n    \"D:\\\\projects\\\\AI\"\n  ]\n}";
+        let p: Project = serde_json::from_str(before).unwrap();
+        assert!(p.labels.is_empty());
+        assert_eq!(serde_json::to_string_pretty(&p).unwrap(), before);
+    }
+
+    #[test]
+    fn labels_round_trip_keyed_by_folder_path() {
+        let a = r"D:\a\docs";
+        let b = r"D:\b\docs";
+        let mut p = Project {
+            name: "AI".into(),
+            folders: vec![a.into(), b.into()],
+            labels: BTreeMap::new(),
+        };
+        p.labels.insert(b.into(), "papers".into());
+        let json = serde_json::to_string_pretty(&p).unwrap();
+        assert!(json.contains("\"labels\""));
+        let back: Project = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.labels.get(b).map(String::as_str), Some("papers"));
+        assert_eq!(back.labels.get(a), None);
+    }
 }

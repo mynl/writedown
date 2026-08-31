@@ -10,6 +10,8 @@ export type Entry = {
   ext: string | null;
   /** Openable in a tab (text whitelist or image viewer); the tree mutes the rest. */
   supported: boolean;
+  /** Frontend-only: a project root's configured label (issue G.14), drawn as "name (label)". */
+  label?: string;
 };
 
 export const logError = (message: string) =>
@@ -56,7 +58,13 @@ export const watchExtraFiles = (paths: string[]) =>
   invoke<void>("watch_extra_files", { paths });
 
 // Sublime-style projects: a named set of folder roots in a .wdproj JSON file.
-export type Project = { name: string; folders: string[] };
+export type Project = {
+  name: string;
+  folders: string[];
+  /** Optional per-folder display label, keyed by the path as written in `folders`
+   *  (issue G.14). Absent from the file when empty. */
+  labels?: Record<string, string>;
+};
 /** A managed project (name + full path) for the quick-switch list. */
 export type ProjectInfo = { name: string; path: string };
 
@@ -66,14 +74,18 @@ export const saveProject = (path: string, project: Project) =>
   invoke<void>("save_project", { path, project });
 
 /** Create a managed project under ~/.writedown/projects/ (location is managed — no dialog). */
-export const newProject = (name: string, folders: string[]) =>
-  invoke<string>("new_project", { name, folders });
+export const newProject = (name: string, folders: string[], labels?: Record<string, string>) =>
+  invoke<string>("new_project", { name, folders, labels });
 
 /** Save/rename the current project in the managed dir — name only, location is managed.
  *  Renaming a managed project removes its old file; one from elsewhere is adopted in
  *  (original untouched). Rejects if a different project already has the name. */
-export const saveManagedProject = (name: string, folders: string[], oldPath: string | null) =>
-  invoke<string>("save_managed_project", { name, folders, oldPath });
+export const saveManagedProject = (
+  name: string,
+  folders: string[],
+  oldPath: string | null,
+  labels?: Record<string, string>,
+) => invoke<string>("save_managed_project", { name, folders, oldPath, labels });
 
 /** All managed projects under ~/.writedown/projects/, name-sorted. */
 export const listProjects = () => invoke<ProjectInfo[]>("list_projects");

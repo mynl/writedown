@@ -195,8 +195,9 @@ const citeHover = hoverTooltip(async (view, pos) => {
   return null;
 });
 
-/** Ctrl+Shift+C: insert `@` and open the picker. */
-function openCitationPicker(view: EditorView): boolean {
+/** Insert `@` and open the picker. A registry action (`insertCitation`), unbound by
+ *  default since Ctrl+Shift+C became Copy File Path (issue G.16). */
+export function openCitationPicker(view: EditorView): boolean {
   const pos = view.state.selection.main.head;
   view.dispatch({ changes: { from: pos, insert: "@" }, selection: { anchor: pos + 1 } });
   startCompletion(view);
@@ -273,10 +274,5 @@ export const citationExtensions = [
   }),
   citeHover,
   citationLint,
-  Prec.high(
-    keymap.of([
-      { key: "Mod-Shift-c", run: openCitationPicker },
-      { key: "Tab", run: retriggerTab },
-    ]),
-  ),
+  Prec.high(keymap.of([{ key: "Tab", run: retriggerTab }])),
 ];

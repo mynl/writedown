@@ -351,6 +351,26 @@ export function Editor({ path, content }: { path: string; content: string }) {
       sc.removeEventListener("scroll", onScroll);
     };
   }, [path]);
+  // Focus follows the document (issue G.03). Every open path — tree, palette, quick file,
+  // tab click, Ctrl+Tab, project switch, session restore — reaches this component through
+  // the `path` prop, so this is the ONE place that hands the keyboard to the editor. It
+  // runs after the doc swap and the cursor/scroll restore above, so the caret lands in
+  // the right document at its remembered spot. Not while a palette or prompt is up: a
+  // picker that opened the file has already closed by now, and one still open must keep
+  // the keyboard. (Re-opening the already-active file changes no prop; store.openFile
+  // calls focusEditorSoon for that case.)
+  useEffect(() => {
+    const view = getActiveView();
+    if (!view || !view.dom.isConnected) return;
+    const s = useStore.getState();
+    if (s.palette || s.prompt) return;
+    view.focus();
+  }, [path]);
+  // The singleton must not outlive the view. In preview-only mode this component
+  // unmounts, and a stale handle made getActiveView() return a destroyed view — which
+  // Outline.tsx works around and focusEditorSoon silently tripped over. Cleared here so
+  // callers get null (or can test `view.dom.isConnected`) instead of a dead view.
+  useEffect(() => () => setActiveView(null), []);
   useEffect(() => {
     getActiveView()?.dispatch({
       effects: keymapCompartment.reconfigure(buildEditingKeymap(userKeys)),

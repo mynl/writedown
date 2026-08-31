@@ -349,6 +349,10 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* A project root's configured label — "docs (papers)" — muted so the name stays primary. */
+.tree-label {
+  color: var(--muted);
+}
 
 .tree-loading,
 .tree-empty,
@@ -546,24 +550,65 @@ body {
   background-color: var(--pane-header-bg);
 }
 
-/* Config parse-error strip — full width, above the panes, impossible to miss. */
-.config-error-bar {
-  display: block;
+/* Error strips — full width, above the panes, impossible to miss (issue G.06). The
+   message comes first and WRAPS: a TOML parse error is several lines and must be readable
+   in full, so there is no nowrap/ellipsis here; past ~6 lines the strip scrolls. */
+.error-bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
   width: 100%;
-  text-align: left;
-  border: 0;
+  max-height: 8em;
+  overflow: auto;
+  padding: 5px 12px;
+  font-size: 12px;
   border-bottom: 1px solid #a8600088;
+}
+.error-bar.config {
   background: #7a4a00;
   color: #ffe6c2;
-  font-size: 12px;
-  padding: 5px 12px;
-  cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
-.config-error-bar:hover {
-  background: #8f5800;
+.error-bar.general {
+  background: #6b2323;
+  color: #ffd9d9;
+  border-bottom-color: #a0404088;
+}
+.error-icon {
+  flex: 0 0 auto;
+}
+.error-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--mono);
+}
+.error-text.clickable {
+  cursor: pointer;
+}
+.error-text.clickable:hover {
+  text-decoration: underline;
+}
+.error-hint {
+  display: block;
+  margin-top: 2px;
+  opacity: 0.75;
+  font-family: inherit;
+  white-space: normal;
+}
+.error-dismiss {
+  flex: 0 0 auto;
+  background: none;
+  border: 0;
+  padding: 0 2px;
+  font-size: 15px;
+  line-height: 1;
+  color: inherit;
+  opacity: 0.8;
+  cursor: pointer;
+}
+.error-dismiss:hover {
+  opacity: 1;
 }
 
 /* File-tree right-click context menu */
@@ -1172,14 +1217,31 @@ body {
   overflow-y: auto;
 }
 .palette-item {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
   padding: 6px 14px;
   font-size: 13px;
   font-family: var(--mono);
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
   cursor: pointer;
   color: var(--fg);
+}
+.palette-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* The verb's live key (issue G.05), read from the merged keymap at render time. */
+.palette-key {
+  flex: 0 0 auto;
+  font-size: 11px;
+  opacity: 0.6;
+}
+.palette-item.active .palette-key {
+  opacity: 0.9;
 }
 .palette-item.active {
   background: var(--accent, #4a90d9);

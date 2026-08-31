@@ -26,6 +26,12 @@ overwritten). The canonical copy is `HELP.md` in the repository.
   switch (MRU quick-switch), save, and delete them from the palette; the sidebar's
   Folder/Project tabs and the dropdown at the bottom switch between them. Project
   files are fully managed — you are never asked where to save one.
+- **Same-named folders** in a project can carry a label, shown as `docs (papers)`:
+  palette → **Project: Label Folder "docs"…**, or add a `labels` map to the `.wdproj`
+  (`"labels": { "D:\\b\\docs": "papers" }`, keyed by the path as written in `folders`) —
+  the sidebar updates when you save the file. An empty label removes it.
+- **Ctrl+Shift+C** copies the active document's full path (palette: Copy File Path /
+  Copy File Name); right-click a file in the tree → **Copy Path**.
 - **Ctrl+Shift+Q** opens your quick file (`[files] quick_file` in config). Palette
   **Quick Files: Open from List…** searches the `[files] quick_files` list — the handful of
   files you come back to constantly, matched on name or folder, in the order you list them.
@@ -160,9 +166,10 @@ a selection wraps the selection — press `$` twice for `$$…$$`.
 ## Citations (BibTeX)
 
 Point `[bibliography]` at your `.bib` file (it is watched, and never modified).
-Then type **@** and a few letters for ranked autocomplete; **Ctrl+Shift+C** opens
-the citation picker; hovering a key shows the title. "Extract refs" collects the
-entries a document cites into a scratch `.bib`.
+Then type **@** and a few letters for ranked autocomplete (palette → **Insert:
+Citation…** opens the same picker; give it a key under `[keys]` as `insertCitation` if
+you want one — **Ctrl+Shift+C** is Copy File Path); hovering a key shows the title.
+"Extract Citations" collects the entries a document cites into a temporary `.bib`.
 
 **Cross-references complete too, from the document itself.** Type **`@-`** for every
 Quarto label in the file, or **`@fig-`** / **`@tbl-`** / **`@thm-`** / … for a family.
@@ -233,12 +240,24 @@ listening. This picker exists because of that.)
 Everything lives in `~/.writedown/config.toml` — palette → "Edit Config" opens it,
 and saving applies live (fonts, colors, keymap, spelling, tools). Import a Sublime
 Text color scheme for the editor theme. Remap editor keys under `[keys]`; palette →
-"Keybindings: Write All Shortcuts to Scratch File" gives you the full current map
+"Keybindings: Write All Shortcuts to Temporary File" gives you the full current map
 to paste from. App state under `~/.writedown/` is disposable — your documents are
 never copied there.
 
 Multiple Writedown windows are fine — sessions are kept per workspace, and the
-files themselves are the single source of truth.
+files themselves are the single source of truth. The window title is the project
+name (or the folder's, or plain "Writedown"), so several instances tell apart at a glance.
+
+**Window caption colours** (Windows 11): the title bar is the logo's orange with navy
+text. `[window] titlebar_color` and `titlebar_text_color` in config.toml take
+`'#RRGGBB'` — single-quoted, since `#` ends a double-quoted TOML string — or `'none'`
+to hand that part back to Windows. Defaults `'#DD9536'` / `'#15385D'`. (Navy on the
+orange measures 4.8:1 contrast; white would be 2.5:1 — try it, but it is not the default.)
+
+**Errors** appear as a strip above the panes — config.toml problems in amber (click the
+message to open the file), everything else in red. The full text wraps and is also in the
+strip's tooltip; **×** dismisses it and palette → **Show Last Error** brings it back.
+Everything shown there is also written to `~/.writedown/logs/writedown.log`.
 
 ## More
 

@@ -35,6 +35,8 @@ import {
   upperCase,
 } from "./textOps";
 import { toggleWordWrap } from "./wrap";
+import { openCitationPicker } from "./citations";
+import { copyActiveName, copyActivePath } from "../clipboardOps";
 import { useStore } from "../store";
 
 // Add a cursor on the line above (-1) / below (+1) each cursor, same column. Lives here (not
@@ -115,6 +117,13 @@ export const COMMAND_REGISTRY: Record<string, RegistryEntry> = {
   bold: { run: toggleBold, label: "Bold (**…**)", category: "Markdown" },
   italic: { run: toggleItalic, label: "Italic (*…*)", category: "Markdown" },
   reformatTable: { run: reformatTables, label: "Reformat table(s)", category: "Markdown" },
+  // Unbound by default (issue G.16): typing `@` opens the same picker, and Ctrl+Shift+C
+  // went to Copy File Path. Here so `[keys]` can give it a key and the palette lists it.
+  insertCitation: { run: openCitationPicker, label: "Insert citation (opens the @ picker)", category: "Markdown" },
+
+  // Files & app
+  copyFilePath: { run: act(copyActivePath), label: "Copy file path", category: "Files & app" },
+  copyFileName: { run: act(copyActiveName), label: "Copy file name", category: "Files & app" },
 
   // View
   togglePreview: { run: act(() => s().cycleView()), label: "Toggle preview (editor / split / preview)", category: "View" },

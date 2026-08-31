@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { listAllFiles, type FileItem } from "./api";
 import { appCommands, type Command } from "./commands";
-import { fuzzyRank, type Ranked } from "./fuzzy";
+import { fuzzyMatch, fuzzyRank, type Ranked } from "./fuzzy";
 import { mergedProjects, useStore, type PaletteMode } from "./store";
 import { getActiveView } from "./editor/editorView";
+import { keyForAction } from "./editor/keymap";
 import {
   applyUserSymbols,
   codePointLabel,
@@ -85,11 +86,19 @@ function symbolResults(
     // often one you have used before, and burying it 30 rows down in the full table — with
     // "heavy white right" visible in Recent a moment earlier — is the wrong answer.
     const mru = symbolMru();
-    const ranked = searchSymbols(query, data.entries);
+    // Rank the WHOLE table, then split; the cap applies to the "all characters" group
+    // only. Capping before the split (2.14.2) dropped a recent character ranked past
+    // the cap for a broad query like "arrow" — exactly the character recents exist for.
+    // Display positions come from a second match against the NAME alone: ranking runs
+    // over name+alias+latex, whose indices do not map onto what is drawn (issue G.01).
+    const ranked = searchSymbols(query, data.entries, Infinity).map((r) => ({
+      ...r,
+      positions: fuzzyMatch(query, r.item.name)?.positions ?? [],
+    }));
     const recent = ranked
       .filter((r) => mruRank(r.item.char, mru) >= 0)
       .sort((a, b) => mruRank(a.item.char, mru) - mruRank(b.item.char, mru));
-    const rest = ranked.filter((r) => mruRank(r.item.char, mru) < 0);
+    const rest = ranked.filter((r) => mruRank(r.item.char, mru) < 0).slice(0, 60);
     // Headings only when the split is real — one group alone needs no explaining.
     if (recent.length && rest.length) {
       return [row({ heading: "Recent" }), ...recent, row({ heading: "All characters" }), ...rest];
@@ -131,6 +140,8 @@ export function Palette() {
   const [recentChars, setRecentChars] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  // Last pointer position seen by a row's mousemove — see hover() below.
+  const lastMouse = useRef({ x: -1, y: -1 });
 
   useEffect(() => {
     setQuery("");
@@ -181,6 +192,12 @@ export function Palette() {
   }, [mode, root, projFolders]);
 
   const commands = useMemo(() => (mode === "commands" ? appCommands() : []), [mode]);
+  // Live key hints (issue G.05): a verb backed by a registry action shows whatever key
+  // the merged keymap currently binds to it, so a `[keys]` rebind updates the palette.
+  const keyHints = useMemo(
+    () => (mode === "commands" ? keyForAction(editorSettings?.keys) : null),
+    [mode, editorSettings],
+  );
   const projectItems = useMemo<ProjItem[]>(
     () => (mode === "projects" ? mergedProjects(useStore.getState()) : []),
     [mode, projects, recents],
@@ -221,20 +238,29 @@ export function Palette() {
     return [];
   }, [mode, query, commands, files, projectItems, quickFiles, symbols, recentChars]);
 
-  // Keep the selection on a CHOOSABLE row. The symbol list starts with a "Recent" heading,
-  // and a heading is not selectable — so selection index 0 sat on it and Enter did nothing
-  // at all. Ctrl+Shift+U then Enter must give back the character you last used.
+  // Anchor the selection on the first CHOOSABLE row whenever the results change — a new
+  // query, the symbol table arriving, an Alt+Enter re-rank. The symbol list can start
+  // with a "Recent" heading, which is not selectable: index 0 there meant no row was
+  // highlighted and Enter did nothing. ONE effect, deliberately: 2.14.2 paired this with
+  // a second `setSel(0)` keyed on the query, which ran after it and put the selection
+  // back on the heading on every keystroke — the fix only ever worked for the empty
+  // query (issue G.01).
   useEffect(() => {
     const first = results.findIndex((r) => !isHeading(r.item));
-    setSel((s) =>
-      results[s] && !isHeading(results[s].item) && s < results.length
-        ? s
-        : Math.max(first, 0),
-    );
+    setSel(Math.max(first, 0));
   }, [results]);
-  useEffect(() => setSel(0), [query]); // a new query re-anchors; the effect above re-seats
   useEffect(() => {
-    listRef.current?.querySelector(".palette-item.active")?.scrollIntoView({ block: "nearest" });
+    const list = listRef.current;
+    const el = list?.querySelector(".palette-item.active");
+    if (!list || !el) return;
+    el.scrollIntoView({ block: "nearest" });
+    // First row of a group: keep its heading in view as well, or "Recent" is never seen
+    // when arrowing onto the character directly under it.
+    const prev = el.previousElementSibling;
+    if (prev?.classList.contains("palette-heading")) {
+      const gap = list.getBoundingClientRect().top - prev.getBoundingClientRect().top;
+      if (gap > 0) list.scrollTop -= gap;
+    }
   }, [sel, results]);
 
   if (!mode) return null;
@@ -289,6 +315,37 @@ export function Palette() {
     if (i < 0 || i >= results.length) return from;
     return i;
   }
+  /** `n` steps in `dir`, stopping at the end of the list. */
+  function stepMany(from: number, dir: 1 | -1, n: number): number {
+    let i = from;
+    for (let k = 0; k < n; k++) {
+      const next = step(i, dir);
+      if (next === i) break;
+      i = next;
+    }
+    return i;
+  }
+  /** Rows per page for PageUp/PageDown: the list's height over one row's, less one. */
+  function pageSize(): number {
+    const list = listRef.current;
+    const row = list?.querySelector<HTMLElement>(".palette-item");
+    if (!list || !row || row.offsetHeight === 0) return 10;
+    return Math.max(1, Math.floor(list.clientHeight / row.offsetHeight) - 1);
+  }
+  function lastChoosable(): number {
+    for (let i = results.length - 1; i >= 0; i--) if (!isHeading(results[i].item)) return i;
+    return 0;
+  }
+
+  /** Select-on-hover, but only for a REAL pointer movement. Arrowing scrolls the list
+   *  under a stationary mouse, Chromium then fires a synthetic mousemove for the row now
+   *  beneath it, and the selection snapped straight back — "the arrows do not work"
+   *  (issue G.11). Unchanged coordinates mean the list moved, not the mouse. */
+  function hover(i: number, e: React.MouseEvent) {
+    if (e.clientX === lastMouse.current.x && e.clientY === lastMouse.current.y) return;
+    lastMouse.current = { x: e.clientX, y: e.clientY };
+    setSel(i);
+  }
 
   function onKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Escape") {
@@ -301,6 +358,20 @@ export function Palette() {
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setSel((s) => step(s, -1));
+    } else if (e.key === "PageDown") {
+      e.preventDefault();
+      const n = pageSize();
+      setSel((s) => stepMany(s, 1, n));
+    } else if (e.key === "PageUp") {
+      e.preventDefault();
+      const n = pageSize();
+      setSel((s) => stepMany(s, -1, n));
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      setSel(Math.max(0, results.findIndex((r) => !isHeading(r.item))));
+    } else if (e.key === "End") {
+      e.preventDefault();
+      setSel(lastChoosable());
     } else if (e.key === "Enter") {
       e.preventDefault();
       // Symbols only: Shift+Enter inserts the LaTeX command instead of the glyph (in a
@@ -335,7 +406,7 @@ export function Palette() {
                 <div
                   key={"s:" + e.char + e.name}
                   className={"palette-item palette-symbol" + (i === sel ? " active" : "")}
-                  onMouseMove={() => setSel(i)}
+                  onMouseMove={(ev) => hover(i, ev)}
                   onClick={() => choose(i)}
                 >
                   {/* Own font stack, not the editor's coding face: a monospace programming
@@ -344,7 +415,9 @@ export function Palette() {
                       will look in the document — see App.css for why the order matters. */}
                   <span className={"symbol-glyph" + (e.emoji ? " is-emoji" : "")}>{e.char}</span>
                   <span className="symbol-text">
-                    <span className="symbol-name">{e.name}</span>
+                    <span className="symbol-name">
+                      <Highlight text={e.name} positions={r.positions} />
+                    </span>
                     <span className="symbol-meta">
                       {e.latex.map((l) => "\\" + l).join("  ")}
                       {e.latex.length ? " · " : ""}
@@ -367,14 +440,19 @@ export function Palette() {
                 : mode === "projects"
                   ? (r.item as ProjItem).path
                   : (r.item as Command).id;
+            const cmd = mode === "commands" ? (r.item as Command) : null;
+            const hint = cmd?.key ?? (cmd?.action ? keyHints?.get(cmd.action) : undefined);
             return (
               <div
                 key={id}
                 className={"palette-item" + (i === sel ? " active" : "")}
-                onMouseMove={() => setSel(i)}
+                onMouseMove={(ev) => hover(i, ev)}
                 onClick={() => choose(i)}
               >
-                <Highlight text={label} positions={r.positions} />
+                <span className="palette-label">
+                  <Highlight text={label} positions={r.positions} />
+                </span>
+                {hint && <span className="palette-key">{hint}</span>}
               </div>
             );
           })}

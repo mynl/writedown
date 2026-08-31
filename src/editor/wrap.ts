@@ -14,9 +14,13 @@ export function wrapExtension(on: boolean) {
   return on ? EditorView.lineWrapping : [];
 }
 
-/** Flip word wrap for the session and reconfigure the live editor in place. */
+/** Set word wrap for the session and reconfigure the live editor in place. */
+export function setWordWrap(on: boolean) {
+  useStore.setState({ wordWrap: on });
+  getActiveView()?.dispatch({ effects: wrapCompartment.reconfigure(wrapExtension(on)) });
+}
+
+/** Flip word wrap (the footer button and Ctrl+K Ctrl+W; the palette has explicit On/Off). */
 export function toggleWordWrap() {
-  const next = !useStore.getState().wordWrap;
-  useStore.setState({ wordWrap: next });
-  getActiveView()?.dispatch({ effects: wrapCompartment.reconfigure(wrapExtension(next)) });
+  setWordWrap(!useStore.getState().wordWrap);
 }

@@ -88,7 +88,18 @@ export const DEFAULT_KEYS: { key: string; action: string }[] = [
   { key: "Alt+T", action: "transposeWords" },
   { key: "Ctrl+Shift+[", action: "foldCode" },
   { key: "Ctrl+Shift+]", action: "unfoldCode" },
+  // Copy the active document's full path (issue G.16; OneCommander muscle memory). This
+  // key used to open the citation picker; `@` does that, and `insertCitation` is here
+  // unbound so [keys] can give it a chord back.
+  { key: "Ctrl+Shift+C", action: "copyFilePath" },
 ];
+
+/** Action → its first bound key (friendly form), for the palette's live key hints. */
+export function keyForAction(userKeys?: Record<string, string> | null): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const [key, action] of mergedKeys(userKeys)) if (!out.has(action)) out.set(action, key);
+  return out;
+}
 
 /** Effective friendly-key → action map: defaults overlaid with the user's [keys] ("" / "none"
  *  unbinds a default). */

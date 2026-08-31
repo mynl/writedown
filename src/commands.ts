@@ -1,5 +1,11 @@
 // The command registry behind the command palette (Ctrl+Shift+P). Kept small and
 // declarative so the palette is one source of truth for user-invocable actions.
+//
+// Naming rules (issue G.05): one vocabulary per thing ("temporary file", never "scratch"
+// in a title); no verb whose meaning flips with state — explicit On/Off and Show/Hide
+// pairs instead of "Toggle …"; and no key names typed into titles: a verb carries either
+// `action` (a registry name — the palette shows whatever the merged keymap binds to it,
+// so a [keys] rebind updates the hint) or `key` (a fixed app-level chord from App.tsx).
 import { type StateCommand } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { forceLinting } from "@codemirror/lint";
@@ -7,7 +13,7 @@ import { addToDictionary, configPath, extractBibEntries, logError, openShell, re
 import { SCRATCH_PREFIX, isScratch, mergedProjects, useStore } from "./store";
 import { getActiveView } from "./editor/editorView";
 import { isMarkdownDoc } from "./editor/languages";
-import { CITE_RE, CROSSREF_PREFIX } from "./editor/citations";
+import { CITE_RE, CROSSREF_PREFIX, openCitationPicker } from "./editor/citations";
 import { isProsePos } from "./editor/prose";
 import { renumberOrderedList } from "./editor/lists";
 import { reformatTables } from "./editor/tables";
@@ -18,11 +24,21 @@ import {
   formatStamp,
   insertStamp,
 } from "./editor/textOps";
-import { toggleWordWrap } from "./editor/wrap";
+import { setWordWrap } from "./editor/wrap";
 import { keymapConfigBlock } from "./editor/keymap";
+import { COMMAND_REGISTRY } from "./editor/commandRegistry";
+import { copyActiveName, copyActivePath } from "./clipboardOps";
 import { insertSnippet, mergedSnippets } from "./editor/snippets";
 
-export type Command = { id: string; title: string; run: () => void };
+export type Command = {
+  id: string;
+  title: string;
+  run: () => void;
+  /** Registry action this verb performs — the palette shows its live key beside it. */
+  action?: string;
+  /** A fixed app-level key (App.tsx, not rebindable), shown beside the verb. */
+  key?: string;
+};
 
 // Run an editor command against the active Markdown view (no-op elsewhere), so
 // document-editing palette entries only act where they make sense.
@@ -74,10 +90,13 @@ function stampCommand(pattern: string): () => void {
   };
 }
 
+/** The last path segment of a folder, for verb titles. */
+const baseName = (p: string) => p.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || p;
+
 export function appCommands(): Command[] {
   const s = useStore.getState;
   return [
-    { id: "open-file", title: "Open File… (Ctrl+O)", run: () => void s().openFilesDialog() },
+    { id: "open-file", title: "Open File…", key: "Ctrl+O", run: () => void s().openFilesDialog() },
     { id: "open-folder", title: "Open Folder…", run: () => void s().openFolder() },
     {
       id: "new-file",
@@ -96,8 +115,11 @@ export function appCommands(): Command[] {
         ),
     },
     {
+      // "Temporary file" here and in the verb below it, on purpose: the two used to say
+      // "Scratch" and "Temporary" and a search for either found only one (issue G.05).
       id: "new-scratch",
-      title: "New Scratch File (unsaved) (Ctrl+Shift+N)",
+      title: "New Temporary File (unsaved)",
+      key: "Ctrl+Shift+N",
       run: () => s().newScratch(),
     },
     {
@@ -108,7 +130,7 @@ export function appCommands(): Command[] {
       run: () => {
         const a = s().activePath;
         if (!a || !isScratch(a)) {
-          useStore.setState({ configError: "name temporary file — no temporary file active" });
+          useStore.setState({ lastError: "name temporary file — no temporary file active" });
           return;
         }
         const current = a.slice(SCRATCH_PREFIX.length);
@@ -117,7 +139,8 @@ export function appCommands(): Command[] {
     },
     {
       id: "open-quick-file",
-      title: "Open Quick File (Ctrl+Shift+Q) — the single [files] quick_file",
+      title: "Open Quick File — the single [files] quick_file",
+      key: "Ctrl+Shift+Q",
       run: () => void s().openQuickFile(),
     },
     {
@@ -132,7 +155,7 @@ export function appCommands(): Command[] {
       title: "Quick Files: Open from List…",
       run: () => s().openPalette("quickfiles"),
     },
-    { id: "save", title: "Save", run: () => void s().saveActive() },
+    { id: "save", title: "Save", key: "Ctrl+S", run: () => void s().saveActive() },
     { id: "save-as", title: "Save As…", run: () => void s().saveAs() },
     {
       id: "size-as-default",
@@ -157,44 +180,19 @@ export function appCommands(): Command[] {
       title: "Diagnostics: File Watch Status",
       run: () => s().showWatchStatus(),
     },
+    { id: "show-last-error", title: "Show Last Error", run: () => s().showLastError() },
     { id: "locate-file", title: "Locate File in Sidebar", run: () => s().revealActive() },
-    {
-      id: "copy-file-path",
-      title: "Copy File Path",
-      run: () => {
-        const a = s().activePath;
-        if (!a || isScratch(a)) {
-          useStore.setState({ configError: "copy path — no file on disk (scratch buffer?)" });
-          return;
-        }
-        void navigator.clipboard
-          .writeText(a)
-          .catch((e) => useStore.setState({ configError: `copy path — ${String(e)}` }));
-      },
-    },
-    {
-      id: "copy-file-name",
-      title: "Copy File Name",
-      run: () => {
-        const a = s().activePath;
-        if (!a || isScratch(a)) {
-          useStore.setState({ configError: "copy name — no file on disk (scratch buffer?)" });
-          return;
-        }
-        void navigator.clipboard
-          .writeText(a.split(/[\\/]/).pop() ?? a)
-          .catch((e) => useStore.setState({ configError: `copy name — ${String(e)}` }));
-      },
-    },
-    { id: "renumber-list", title: "Renumber Ordered List", run: onMarkdownView(renumberOrderedList) },
-    { id: "reformat-tables", title: "Reformat Markdown Table(s)", run: onMarkdownView(reformatTables) },
-    { id: "format-bold", title: "Bold (surround with **…**)", run: onMarkdownView(toggleBold) },
-    { id: "format-italic", title: "Italic (surround with *…*)", run: onMarkdownView(toggleItalic) },
+    { id: "copy-file-path", title: "Copy File Path", action: "copyFilePath", run: copyActivePath },
+    { id: "copy-file-name", title: "Copy File Name", action: "copyFileName", run: copyActiveName },
+    { id: "renumber-list", title: "Renumber Ordered List", action: "renumberList", run: onMarkdownView(renumberOrderedList) },
+    { id: "reformat-tables", title: "Reformat Markdown Table(s)", action: "reformatTable", run: onMarkdownView(reformatTables) },
+    { id: "format-bold", title: "Bold (surround with **…**)", action: "bold", run: onMarkdownView(toggleBold) },
+    { id: "format-italic", title: "Italic (surround with *…*)", action: "italic", run: onMarkdownView(toggleItalic) },
     {
       // Pull every cited @key's raw BibTeX out of the configured .bib into a .bib scratch
       // buffer — same key detection as the linter (CITE_RE, prose-only, crossrefs skipped).
       id: "extract-refs",
-      title: "Extract Citations to .bib (scratch)",
+      title: "Extract Citations to .bib (temporary file)",
       run: () => {
         const { activePath } = useStore.getState();
         const view = getActiveView();
@@ -210,12 +208,27 @@ export function appCommands(): Command[] {
           keys.push(k);
         }
         if (keys.length === 0) {
-          useStore.setState({ configError: "extract refs — no citation keys in document" });
+          useStore.setState({ lastError: "extract refs — no citation keys in document" });
           return;
         }
         void extractBibEntries(keys)
           .then((bib) => useStore.getState().newScratch({ content: bib, ext: "bib" }))
-          .catch((e) => useStore.setState({ configError: `extract refs — ${String(e)}` }));
+          .catch((e) => useStore.setState({ lastError: `extract refs — ${String(e)}` }));
+      },
+    },
+    {
+      // Insert `@` and open the bibliography picker. Its former key, Ctrl+Shift+C, is now
+      // Copy File Path (issue G.16); typing `@` opens the same picker, and the action is
+      // in the registry so [keys] can bind it again.
+      id: "insert-citation",
+      title: "Insert: Citation… (opens the @ picker)",
+      action: "insertCitation",
+      run: () => {
+        const { activePath } = useStore.getState();
+        const view = getActiveView();
+        if (!view || !activePath || !isMarkdownDoc(activePath)) return;
+        view.focus();
+        openCitationPicker(view);
       },
     },
     {
@@ -235,10 +248,13 @@ export function appCommands(): Command[] {
       // Issue D.12. Searches the Unicode name, the LaTeX command, emoji keywords and our
       // aliases at once — "tick" finds ✓ even though no Unicode name contains the word.
       id: "insert-symbol",
-      title: "Insert: Unicode Character… (Ctrl+Shift+U)",
+      title: "Insert: Unicode Character…",
+      action: "insertSymbol",
       run: () => s().openPalette("symbols"),
     },
-    { id: "spell-toggle", title: "Toggle Spell Check", run: () => s().toggleSpell() },
+    // Explicit On/Off, not "Toggle": a verb must not change meaning with state.
+    { id: "spell-on", title: "Spell Check: On", action: "toggleSpell", run: () => useStore.setState({ spellOn: true }) },
+    { id: "spell-off", title: "Spell Check: Off", action: "toggleSpell", run: () => useStore.setState({ spellOn: false }) },
     {
       id: "spell-add-word",
       title: "Add Word to Dictionary",
@@ -253,7 +269,7 @@ export function appCommands(): Command[] {
             .catch((e) => {
               // Surface it — swallowing this is why "add word" appeared not to work.
               void logError("add to dictionary failed: " + String(e));
-              useStore.setState({ configError: String(e) });
+              useStore.setState({ lastError: String(e) });
             });
       },
     },
@@ -274,32 +290,38 @@ export function appCommands(): Command[] {
     {
       id: "spell-open-dictionary",
       title: "Open Personal Dictionary",
+      action: "openSpellDictionary",
       run: () => void s().openPersonalDictionary(),
     },
     {
       id: "spell-reload-dictionary",
       title: "Reload Personal Dictionary",
+      action: "reloadSpellDictionary",
       run: () => void s().reloadPersonalDictionary(),
     },
-    { id: "refresh-tree", title: "Refresh File Tree", run: () => void s().refreshTree() },
-    // Explicit Show/Hide verbs (no state-flipping labels); Ctrl+K Ctrl+B / Ctrl+K Ctrl+O toggle.
-    { id: "sidebar-show", title: "Show Sidebar (F10 toggles)", run: () => s().setSidebarVisible(true) },
-    { id: "sidebar-hide", title: "Hide Sidebar (F10 toggles)", run: () => s().setSidebarVisible(false) },
-    { id: "outline-show", title: "Show Outline (F11 toggles)", run: () => s().setOutlineVisible(true) },
-    { id: "outline-hide", title: "Hide Outline (F11 toggles)", run: () => s().setOutlineVisible(false) },
-    { id: "fullscreen-enter", title: "Enter Full Screen (Ctrl+F11 toggles)", run: () => s().setWindowFullscreen(true) },
-    { id: "fullscreen-exit", title: "Exit Full Screen (Ctrl+F11 toggles)", run: () => s().setWindowFullscreen(false) },
-    { id: "distraction-enter", title: "Enter Distraction Free (Ctrl+Shift+F11 toggles)", run: () => s().enterDistractionFree() },
-    { id: "distraction-exit", title: "Exit Distraction Free (Ctrl+Shift+F11 toggles)", run: () => s().exitDistractionFree() },
-    { id: "plain-enter", title: "Enter Plain View — editor only, no sidebars or preview", run: () => s().enterLayoutMode("plain") },
-    { id: "plain-exit", title: "Exit Plain View", run: () => s().exitLayoutMode() },
-    { id: "preview-zoom-in", title: "Preview: Zoom In", run: () => s().setPreviewZoom(1) },
-    { id: "preview-zoom-out", title: "Preview: Zoom Out", run: () => s().setPreviewZoom(-1) },
-    { id: "preview-zoom-reset", title: "Preview: Reset Zoom", run: () => s().setPreviewZoom("reset") },
-    { id: "toggle-word-wrap", title: "Toggle Word Wrap", run: () => toggleWordWrap() },
-    { id: "toggle-preview", title: "Toggle Preview (editor / split / preview)", run: () => s().cycleView() },
+    { id: "refresh-tree", title: "Refresh File Tree", key: "F5", run: () => void s().refreshTree() },
+    // Explicit Show/Hide verbs (no state-flipping labels); the shown key toggles.
+    { id: "sidebar-show", title: "Show Sidebar", action: "toggleSidebar", run: () => s().setSidebarVisible(true) },
+    { id: "sidebar-hide", title: "Hide Sidebar", action: "toggleSidebar", run: () => s().setSidebarVisible(false) },
+    { id: "outline-show", title: "Show Outline", action: "toggleOutline", run: () => s().setOutlineVisible(true) },
+    { id: "outline-hide", title: "Hide Outline", action: "toggleOutline", run: () => s().setOutlineVisible(false) },
+    { id: "fullscreen-enter", title: "Enter Full Screen", action: "toggleFullscreen", run: () => s().setWindowFullscreen(true) },
+    { id: "fullscreen-exit", title: "Exit Full Screen", action: "toggleFullscreen", run: () => s().setWindowFullscreen(false) },
+    { id: "distraction-enter", title: "Enter Distraction Free", action: "toggleDistractionFree", run: () => s().enterDistractionFree() },
+    { id: "distraction-exit", title: "Exit Distraction Free", action: "toggleDistractionFree", run: () => s().exitDistractionFree() },
+    { id: "plain-enter", title: "Enter Plain View — editor only, no sidebars or preview", action: "plainView", run: () => s().enterLayoutMode("plain") },
+    { id: "plain-exit", title: "Exit Plain View", action: "plainView", run: () => s().exitLayoutMode() },
+    { id: "preview-zoom-in", title: "Preview: Zoom In", action: "zoomPreviewIn", run: () => s().setPreviewZoom(1) },
+    { id: "preview-zoom-out", title: "Preview: Zoom Out", action: "zoomPreviewOut", run: () => s().setPreviewZoom(-1) },
+    { id: "preview-zoom-reset", title: "Preview: Reset Zoom", action: "zoomPreviewReset", run: () => s().setPreviewZoom("reset") },
+    { id: "wrap-on", title: "Word Wrap: On", action: "toggleWordWrap", run: () => setWordWrap(true) },
+    { id: "wrap-off", title: "Word Wrap: Off", action: "toggleWordWrap", run: () => setWordWrap(false) },
+    // The three layouts by name; the key (Ctrl+Shift+L) cycles them.
+    { id: "view-editor", title: "View: Editor Only", action: "togglePreview", run: () => useStore.setState({ viewMode: "editor" }) },
+    { id: "view-split", title: "View: Editor and Preview (split)", action: "togglePreview", run: () => useStore.setState({ viewMode: "split" }) },
+    { id: "view-preview", title: "View: Preview Only", action: "togglePreview", run: () => useStore.setState({ viewMode: "preview" }) },
     { id: "open-help", title: "Open Help (help.md)", run: () => void s().openHelp() },
-    { id: "help-shortcuts", title: "Help: Keyboard Shortcuts", run: () => s().toggleHelp() },
+    { id: "help-shortcuts", title: "Help: Keyboard Shortcuts", key: "F1", run: () => s().toggleHelp() },
     { id: "about", title: "About Writedown", run: () => s().toggleAbout() },
     {
       id: "open-shell",
@@ -310,11 +332,11 @@ export function appCommands(): Command[] {
         const st = s();
         const a = st.activePath;
         const dir = a && !isScratch(a) ? a.replace(/[\\/][^\\/]*$/, "") : st.root;
-        if (dir) void openShell(dir).catch((e) => useStore.setState({ configError: String(e) }));
+        if (dir) void openShell(dir).catch((e) => useStore.setState({ lastError: String(e) }));
       },
     },
-    { id: "render-doc", title: "Render Document (run code cells)", run: () => void s().renderActive() },
-    { id: "render-cell", title: "Run This Cell (Ctrl+Enter — live kernel state)", run: () => void s().renderCell() },
+    { id: "render-doc", title: "Render Document (run code cells)", action: "render", run: () => void s().renderActive() },
+    { id: "render-cell", title: "Run This Cell (live kernel state)", action: "renderCell", run: () => void s().renderCell() },
     // A view setting, not a YAML edit: front matter is preserved byte-for-byte (spec §2).
     { id: "number-sections-on", title: "Preview: Number Sections", run: () => s().setNumberSections(true) },
     { id: "number-sections-off", title: "Preview: Don't Number Sections", run: () => s().setNumberSections(false) },
@@ -341,7 +363,7 @@ export function appCommands(): Command[] {
       // keymap without a command silently rewriting your config file (paste the
       // block into [keys] yourself if you want to customize).
       id: "keys-write-scratch",
-      title: "Keybindings: Write All Shortcuts to Scratch File",
+      title: "Keybindings: Write All Shortcuts to Temporary File",
       run: () =>
         s().newScratch({
           content:
@@ -359,15 +381,15 @@ export function appCommands(): Command[] {
       },
     },
     {
-      // Issue D.13: real files only. Scratch buffers stay open by decision — their text
+      // Issue D.13: real files only. Temporary files stay open by decision — their text
       // exists nowhere but the session, so closing one would destroy it outright.
       id: "close-all",
-      title: "Close All Files (keeps unsaved scratch buffers)",
+      title: "Close All Files (keeps unsaved temporary files)",
       run: () => void s().closeAllTabs(),
     },
-    { id: "next-tab", title: "Next Tab", run: () => s().nextTab(1) },
-    { id: "prev-tab", title: "Previous Tab", run: () => s().nextTab(-1) },
-    { id: "reopen-tab", title: "Reopen Closed Tab", run: () => void s().reopenClosed() },
+    { id: "next-tab", title: "Next Tab", action: "nextTab", run: () => s().nextTab(1) },
+    { id: "prev-tab", title: "Previous Tab", action: "prevTab", run: () => s().nextTab(-1) },
+    { id: "reopen-tab", title: "Reopen Closed Tab", key: "Ctrl+Shift+T", run: () => void s().reopenClosed() },
     // ---- Projects (ST-style) ----
     {
       id: "proj-add-folder",
@@ -375,25 +397,24 @@ export function appCommands(): Command[] {
       run: () => void s().addFolderToProject(),
     },
     { id: "proj-new", title: "Project: New Project…", run: () => s().newProject() },
-    { id: "proj-quick-switch", title: "Project: Quick Switch… (Ctrl+Alt+P)", run: () => s().openPalette("projects") },
+    { id: "proj-quick-switch", title: "Project: Quick Switch…", key: "Ctrl+Alt+P", run: () => s().openPalette("projects") },
     { id: "proj-save", title: "Project: Save / Rename Project…", run: () => s().saveRenameProject() },
     { id: "proj-open", title: "Project: Open Project…", run: () => void s().openProject() },
     { id: "proj-close", title: "Project: Close Project", run: () => s().closeProject() },
     {
-      // Removes a folder from the project — never touches the folder on disk (spec §2).
-      // The store action existed since projects shipped but nothing ever called it (A.02).
       id: "proj-open-file",
       title: "Project: Edit Project File (.wdproj)",
       run: () => {
         const f = s().projectFile;
         if (!f) {
-          useStore.setState({ configError: "open project file — no project open" });
+          useStore.setState({ lastError: "open project file — no project open" });
           return;
         }
         void s().openFile(f, false);
       },
     },
     ...projectFolderRemovals(),
+    ...projectFolderLabels(),
     // ---- Editor font (config [editor] font_choices) — session-only overrides ----
     ...fontCommands(),
     // ---- Insert snippets (built-ins + config [snippets]) ----
@@ -405,7 +426,39 @@ export function appCommands(): Command[] {
     ...projectSwitches(),
     // Delete: managed projects only (the Rust guard refuses anything else).
     ...projectDeletes(),
+    // Every remaining registry action, so nothing bindable is unreachable from here.
+    ...registryCommands(),
   ];
+}
+
+/** Registry actions that already have an explicit verb above (or are not verbs at all —
+ *  `continueList` is what Enter does in a list). Everything else is generated. */
+const COVERED_ACTIONS = new Set([
+  "togglePreview", "zoomPreviewIn", "zoomPreviewOut", "zoomPreviewReset", "plainView",
+  "insertSymbol", "toggleWordWrap", "toggleSpell", "toggleSidebar", "toggleOutline",
+  "toggleFullscreen", "toggleDistractionFree", "openSpellDictionary", "reloadSpellDictionary",
+  "render", "renderCell", "build", "nextTab", "prevTab", "commandPalette", "bold", "italic",
+  "reformatTable", "renumberList", "insertDateTime", "continueList", "copyFilePath",
+  "copyFileName", "insertCitation",
+]);
+
+/** One palette verb per registry action without an explicit entry (issue G.05): Find,
+ *  Go to Line, folds, editor zoom, case changes, sort lines, cursors, … — with the live
+ *  key beside it. Runs against the editor after giving it focus, as the key would. */
+function registryCommands(): Command[] {
+  return Object.entries(COMMAND_REGISTRY)
+    .filter(([name]) => !COVERED_ACTIONS.has(name))
+    .map(([name, entry]) => ({
+      id: `action-${name}`,
+      title: entry.label,
+      action: name,
+      run: () => {
+        const view = getActiveView();
+        if (!view || !view.dom.isConnected) return;
+        view.focus();
+        entry.run(view);
+      },
+    }));
 }
 
 /** "Insert: <name>" palette entries — defaults overlaid with config [snippets]. */
@@ -445,9 +498,31 @@ function projectSwitches(): Command[] {
 function projectFolderRemovals(): Command[] {
   return useStore.getState().projFolders.map((folder, i) => ({
     id: `proj-remove-folder-${i}`,
-    title: `Project: Remove Folder “${folder.replace(/[\\/]+$/, "").split(/[\\/]/).pop()}” (${folder})`,
+    title: `Project: Remove Folder “${baseName(folder)}” (${folder})`,
     run: () => useStore.getState().removeProjectFolder(folder),
   }));
+}
+
+/** "Project: Label Folder" verbs, one per root (issue G.14): an optional string shown as
+ *  "dir (label)" in the sidebar, stored in the .wdproj. An empty answer clears it. */
+function projectFolderLabels(): Command[] {
+  const st = useStore.getState();
+  return st.projFolders.map((folder, i) => {
+    const dir = baseName(folder);
+    return {
+      id: `proj-label-folder-${i}`,
+      title: `Project: Label Folder “${dir}”… (${folder})`,
+      run: () =>
+        useStore
+          .getState()
+          .openPrompt(
+            `Label for “${dir}” — shown as “${dir} (label)”; leave empty to remove`,
+            "papers",
+            (v) => useStore.getState().setFolderLabel(folder, v.trim()),
+            st.projLabels[folder] ?? "",
+          ),
+    };
+  });
 }
 
 /** "Font: <name>" verbs from `[editor] font_choices`, plus a reset. Session-only: the

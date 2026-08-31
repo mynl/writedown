@@ -58,7 +58,7 @@ const spellLint = linter(
                 .catch((e) => {
                   // Surface it — a silent failure is exactly why "add word" looked broken.
                   void logError("add to dictionary failed: " + String(e));
-                  useStore.setState({ configError: String(e) });
+                  useStore.setState({ lastError: String(e) });
                 });
             },
           },

@@ -29,6 +29,7 @@ import { Resizer } from "./Resizer";
 import { Palette } from "./Palette";
 import { Versions } from "./Versions";
 import { Prompt } from "./Prompt";
+import { ErrorBar } from "./ErrorBar";
 import { Help } from "./Help";
 import { About } from "./About";
 import "./App.css";
@@ -229,6 +230,7 @@ function App() {
   const splitRatio = useStore((s) => s.splitRatio);
   const setSplitRatio = useStore((s) => s.setSplitRatio);
   const configError = useStore((s) => s.configError);
+  const lastError = useStore((s) => s.lastError);
   const wordWrap = useStore((s) => s.wordWrap);
   const spellOn = useStore((s) => s.spellOn);
   const toggleSpell = useStore((s) => s.toggleSpell);
@@ -422,17 +424,24 @@ function App() {
   return (
     <div className={"app" + (dropActive ? " drop-active" : "")}>
       {configError && (
-        <button
-          className="config-error-bar"
-          title="Open config.toml"
+        <ErrorBar
+          kind="config"
+          text={configError}
+          hint="config.toml — the settings above fell back to their defaults. Click the message to open the file; saving it re-reads everything."
           onClick={() => {
             const cf = useStore.getState().configFile;
             if (cf) void useStore.getState().openFile(cf, false);
           }}
-        >
-          ⚠ config.toml didn’t parse — fonts &amp; bibliography fell back to defaults.{" "}
-          {configError} — click to edit.
-        </button>
+          onDismiss={() => useStore.setState({ configError: null })}
+        />
+      )}
+      {lastError && (
+        <ErrorBar
+          kind="general"
+          text={lastError}
+          hint="Also written to the log. × dismisses; palette → Show Last Error brings it back."
+          onDismiss={() => useStore.getState().dismissError()}
+        />
       )}
       <div className="panes">
         {sidebarVisible && (<>

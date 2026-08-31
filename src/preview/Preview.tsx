@@ -904,7 +904,7 @@ export function Preview({
       const act = isBinaryExt(p)
         ? openExternal(p)
         : useStore.getState().openFile(p);
-      void act.catch((err) => useStore.setState({ configError: String(err) }));
+      void act.catch((err) => useStore.setState({ lastError: String(err) }));
     }
   }
 

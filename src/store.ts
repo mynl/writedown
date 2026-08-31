@@ -102,15 +102,26 @@ const applyWatch = (roots: string[]) => {
   void watchWorkspace(roots).catch(() => {});
 };
 
-/** Focus the live editor once it has mounted for a just-opened/created document. */
+/** Focus the live editor once it has mounted for a just-opened/created document. The
+ *  view can be gone by the time the frames elapse (preview-only mode unmounts it). */
 function focusEditorSoon() {
-  requestAnimationFrame(() => requestAnimationFrame(() => getActiveView()?.focus()));
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      const view = getActiveView();
+      if (view?.dom.isConnected) view.focus();
+    }),
+  );
 }
 
-// Window title mirrors ST: "name — Writedown" when a project is open.
+/** The last path segment: "D:\projects\AI\" → "AI". */
+const baseName = (p: string) => p.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || p;
+
+// Window title = the project name alone (a folder workspace shows its folder name),
+// "Writedown" with nothing open. No " — Writedown" suffix: with several instances open the
+// project name is the only thing worth reading in a caption (issue G.15).
 function setTitle(project: string | null) {
   void getCurrentWindow()
-    .setTitle(project ? `${project} — Writedown` : "Writedown")
+    .setTitle(project || "Writedown")
     .catch(() => {});
 }
 
@@ -153,7 +164,7 @@ const parentDir = (p: string) => p.replace(/[\\/][^\\/]*$/, "");
 
 /** A folder root as a tree row: the top node of each tree, and what `visibleRows` walks. */
 export const rootEntry = (path: string): Entry => ({
-  name: path.replace(/[\\/]+$/, "").split(/[\\/]/).pop() ?? path,
+  name: baseName(path),
   path,
   is_dir: true,
   ext: null,
@@ -405,6 +416,19 @@ type AppState = {
   /** Non-null when config.toml failed to parse — surfaced in the UI (fonts + bibliography
    *  silently fall back to defaults otherwise). Cleared on a successful load. */
   configError: string | null;
+  /** The general error strip (anything that is not a config.toml parse problem). Kept
+   *  apart from configError so a later unrelated error cannot erase the config one
+   *  (issue G.06). Both are logged from one subscriber at the foot of this file. */
+  lastError: string | null;
+  /** What × last dismissed, so "Show Last Error" can bring it back. */
+  dismissedError: string | null;
+  dismissError: () => void;
+  showLastError: () => void;
+  /** Optional per-root display label from the .wdproj (issue G.14): path → label, drawn
+   *  as "dir (label)". Empty for unsaved projects and plain folders. */
+  projLabels: Record<string, string>;
+  /** Set (or, with "", clear) a root's label and write the project file. */
+  setFolderLabel: (folder: string, label: string) => void;
   /** Points added to the editor's configured font size (Ctrl+=/Ctrl+-/Ctrl+0). Global
    *  UI preference, persisted in localStorage. */
   editorZoom: number;
@@ -673,6 +697,9 @@ export const useStore = create<AppState>((set, get) => ({
   personalDictFile: null,
   statusMessage: null,
   configError: null,
+  lastError: null,
+  dismissedError: null,
+  projLabels: {},
   editorZoom: (() => {
     const v = Number(localStorage.getItem("wd.editorZoom"));
     return Number.isFinite(v) ? v : 0;
@@ -716,6 +743,7 @@ export const useStore = create<AppState>((set, get) => ({
         await get().setRoot(ws);
         await get().setFolderRoot(ws);
         await get().restoreSession(ws);
+        setTitle(baseName(ws)); // a folder workspace is titled like an unsaved project
       } catch {
         /* workspace no longer exists — fall through to the folder-tab restore */
       }
@@ -784,13 +812,13 @@ export const useStore = create<AppState>((set, get) => ({
   openQuickFile: async () => {
     const qf = get().editorSettings?.quick_file;
     if (!qf) {
-      set({ configError: "quick file — set quick_file under [files] in config.toml" });
+      set({ lastError: "quick file — set quick_file under [files] in config.toml" });
       return;
     }
     try {
       await get().openFile(qf, false);
     } catch (e) {
-      set({ configError: `quick file ${qf} — ${String(e)}` });
+      set({ lastError: `quick file ${qf} — ${String(e)}` });
     }
   },
 
@@ -798,7 +826,7 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       await get().openFile(await personalDictionaryPath(), false);
     } catch (e) {
-      set({ configError: `personal dictionary — ${String(e)}` });
+      set({ lastError: `personal dictionary — ${String(e)}` });
     }
   },
 
@@ -806,7 +834,7 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       await get().openFile(await helpPath(), false);
     } catch (e) {
-      set({ configError: `help — ${String(e)}` });
+      set({ lastError: `help — ${String(e)}` });
     }
   },
 
@@ -816,7 +844,7 @@ export const useStore = create<AppState>((set, get) => ({
       const v = getActiveView(); // re-lint so reloaded words clear their squiggles at once
       if (v) forceLinting(v);
     } catch (e) {
-      set({ configError: `reload dictionary — ${String(e)}` });
+      set({ lastError: `reload dictionary — ${String(e)}` });
     }
   },
 
@@ -1028,6 +1056,23 @@ export const useStore = create<AppState>((set, get) => ({
 
   toggleSpell: () => set((s) => ({ spellOn: !s.spellOn })),
 
+  dismissError: () =>
+    set((s) => ({ lastError: null, dismissedError: s.lastError ?? s.dismissedError })),
+  showLastError: () => {
+    const d = get().dismissedError;
+    if (d) set({ lastError: d });
+    else get().showStatusMessage("no error to show");
+  },
+
+  setFolderLabel: (folder, label) => {
+    const labels = { ...get().projLabels };
+    if (label) labels[folder] = label;
+    else delete labels[folder];
+    set({ projLabels: labels });
+    if (get().projectFile) get().persistProject();
+    else get().showStatusMessage("label kept for this session — save the project to keep it");
+  },
+
   ignoreWord: (word) =>
     set((s) => {
       const next = new Set(s.spellIgnore);
@@ -1041,7 +1086,7 @@ export const useStore = create<AppState>((set, get) => ({
     // Failures (viewer not configured) surface on the app error bar, since several
     // call sites invoke openFile fire-and-forget.
     if (isExternalDoc(path)) {
-      await openExternal(path).catch((e) => set({ configError: String(e) }));
+      await openExternal(path).catch((e) => set({ lastError: String(e) }));
       return;
     }
     const existing = get().tabs.find((t) => t.path === path);
@@ -1061,6 +1106,9 @@ export const useStore = create<AppState>((set, get) => ({
               : s.tabs,
       }));
       if (dropPreview) get().syncExtraWatch(); // a dropped preview may hold a watch
+      // Already the active document: the editor's own focus-on-path effect sees no
+      // change, so hand the keyboard over from here (issue G.03).
+      focusEditorSoon();
       return;
     }
     // Images: a normal tab, but no text is read — the viewer streams the bytes via the
@@ -1515,7 +1563,7 @@ export const useStore = create<AppState>((set, get) => ({
       }
     } catch (e) {
       get().showStatusMessage(`Build: ${pick} — could not start`);
-      set({ configError: `build "${pick}": ${String(e)}` });
+      set({ lastError: `build "${pick}": ${String(e)}` });
     }
   },
 
@@ -1597,7 +1645,7 @@ export const useStore = create<AppState>((set, get) => ({
         ? activePath.replace(/[\\/][^\\/]*$/, "")
         : root ?? undefined;
     const picked = await pickOpenPaths(near ?? undefined).catch((e) => {
-      set({ configError: `open file — ${String(e)}` });
+      set({ lastError: `open file — ${String(e)}` });
       return null;
     });
     if (!picked || picked.length === 0) return;
@@ -1762,7 +1810,7 @@ export const useStore = create<AppState>((set, get) => ({
         viewMode: s.viewMode === "editor" ? "split" : s.viewMode,
       }));
     } catch (e) {
-      set({ configError: `run cell — ${String(e)}` });
+      set({ lastError: `run cell — ${String(e)}` });
     } finally {
       set({ renderBusy: false });
     }
@@ -1804,7 +1852,7 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       info = await statPaths(paths);
     } catch (e) {
-      set({ configError: `drop — ${String(e)}` });
+      set({ lastError: `drop — ${String(e)}` });
       return;
     }
     const dirs = info.filter((i) => i.exists && i.is_dir).map((i) => i.path);
@@ -1830,7 +1878,7 @@ export const useStore = create<AppState>((set, get) => ({
       // Same guards as a tree click: images get the viewer, PDFs the external one,
       // known binaries are never read as text.
       if (isBinaryExt(f)) continue;
-      await get().openFile(f, false).catch((e) => set({ configError: String(e) }));
+      await get().openFile(f, false).catch((e) => set({ lastError: String(e) }));
     }
     if (files.length > open.length) {
       // Neutral wording: the Open File dialog reuses this path too (issue B.01).
@@ -2030,7 +2078,7 @@ export const useStore = create<AppState>((set, get) => ({
         await get().openFile(path, false);
         focusEditorSoon();
       } catch (e) {
-        set({ configError: String(e) });
+        set({ lastError: String(e) });
       }
     });
   },
@@ -2043,7 +2091,7 @@ export const useStore = create<AppState>((set, get) => ({
         await createDirectory(path);
         await get().refreshTree([parentDir(path)]);
       } catch (e) {
-        set({ configError: String(e) });
+        set({ lastError: String(e) });
       }
     });
   },
@@ -2057,7 +2105,7 @@ export const useStore = create<AppState>((set, get) => ({
       try {
         await renamePath(entry.path, to);
       } catch (e) {
-        set({ configError: String(e) });
+        set({ lastError: String(e) });
         return;
       }
       // Rebind any open tab that pointed at the old path (or lived under a renamed folder).
@@ -2090,7 +2138,7 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       await deletePath(entry.path);
     } catch (e) {
-      set({ configError: String(e) });
+      set({ lastError: String(e) });
       return;
     }
     // Close any tab that pointed at the deleted path (or lived under a deleted folder).
@@ -2145,7 +2193,7 @@ export const useStore = create<AppState>((set, get) => ({
       async (name) => {
         const trimmed = name.trim();
         if (!trimmed) return;
-        const path = await saveManagedProject(trimmed, folders, get().projectFile);
+        const path = await saveManagedProject(trimmed, folders, get().projectFile, get().projLabels);
         set({ projFolders: folders, projectFile: path, projectName: trimmed, panelTab: "project" });
         void addRecentProject(path).then(() => get().loadRecentProjects());
         void saveLastWorkspace(path);
@@ -2165,7 +2213,7 @@ export const useStore = create<AppState>((set, get) => ({
       const { projFolders, folderRoot, root } = get();
       const seed =
         projFolders.length > 0 ? projFolders : folderRoot ? [folderRoot] : root ? [root] : [];
-      const path = await newProjectApi(trimmed, seed);
+      const path = await newProjectApi(trimmed, seed, get().projLabels);
       // Like "Save Project As", this names the current workspace — keep the open tabs.
       set({ projFolders: seed, projectFile: path, projectName: trimmed, panelTab: "project" });
       if (seed.length > 0) {
@@ -2200,6 +2248,7 @@ export const useStore = create<AppState>((set, get) => ({
     if (oldKey) await saveSession(oldKey, sessionSnapshot(get())).catch(() => {});
     set({
       projFolders: proj.folders,
+      projLabels: proj.labels ?? {},
       projectFile: file,
       projectName: proj.name,
       panelTab: "project",
@@ -2236,11 +2285,16 @@ export const useStore = create<AppState>((set, get) => ({
     } catch (e) {
       // A .wdproj mid-edit is very often invalid JSON. Say so and KEEP the current
       // folders — a half-typed file must never empty the sidebar.
-      set({ configError: `project ${file} — ${String(e)}` });
+      set({ lastError: `project ${file} — ${String(e)}` });
       return;
     }
     const before = get().projFolders;
-    set({ projFolders: proj.folders, projectName: proj.name, configError: null });
+    set({
+      projFolders: proj.folders,
+      projLabels: proj.labels ?? {},
+      projectName: proj.name,
+      lastError: null,
+    });
     setTitle(proj.name);
     if (proj.folders.length === 0) return; // valid: an empty project gets folders later
     const same =
@@ -2257,7 +2311,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   closeProject: () => {
     const { root } = get();
-    set({ projFolders: [], projectFile: null, projectName: "", panelTab: "folder" });
+    set({ projFolders: [], projLabels: {}, projectFile: null, projectName: "", panelTab: "folder" });
     setTitle(null);
     if (root) {
       void saveLastWorkspace(root);
@@ -2276,7 +2330,7 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       await deleteProjectApi(path);
     } catch (e) {
-      set({ configError: String(e) });
+      set({ lastError: String(e) });
       return;
     }
     // Deleting the open project tidies up: close it (adopts the folder root into the tree).
@@ -2287,7 +2341,9 @@ export const useStore = create<AppState>((set, get) => ({
 
   removeProjectFolder: (path) => {
     const folders = get().projFolders.filter((f) => f !== path);
-    set({ projFolders: folders });
+    const labels = { ...get().projLabels };
+    delete labels[path];
+    set({ projFolders: folders, projLabels: labels });
     // Emptying a project leaves the previous watcher live (there is nothing to re-arm),
     // so watchedRoots deliberately keeps describing what is still being watched.
     if (folders.length > 0) applyWatch(folders);
@@ -2299,10 +2355,14 @@ export const useStore = create<AppState>((set, get) => ({
   // project should never silently lose changes. Unsaved (ad-hoc) projects have no file
   // yet; Save/Rename Project creates one. Write failures surface in the footer.
   persistProject: () => {
-    const { projectFile, projectName, projFolders } = get();
+    const { projectFile, projectName, projFolders, projLabels } = get();
     if (!projectFile) return;
-    void saveProject(projectFile, { name: projectName, folders: projFolders }).catch((e) =>
-      set({ configError: `project save failed — ${String(e)}` }),
+    void saveProject(projectFile, {
+      name: projectName,
+      folders: projFolders,
+      labels: projLabels,
+    }).catch((e) =>
+      set({ lastError: `project save failed — ${String(e)}` }),
     );
   },
 
@@ -2347,6 +2407,7 @@ export const useStore = create<AppState>((set, get) => ({
     const name = dirs[0].replace(/[\\/]+$/, "").split(/[\\/]/).pop() || dirs[0];
     set({
       projFolders: dirs,
+      projLabels: {},
       projectFile: null, // unsaved: persistProject no-ops, nothing is written to disk
       projectName: name,
       panelTab: "project",
@@ -2440,3 +2501,11 @@ export const sessionFingerprint = (s: AppState): string =>
     ob: s.outlineVisible,
     v: s.scratchRev,
   });
+
+// Every error that reaches a strip also reaches the log, from ONE place. The sites that
+// set these are many (~30), and a strip that is dismissed or overwritten was otherwise
+// the only record (issue G.06).
+useStore.subscribe((s, prev) => {
+  if (s.configError && s.configError !== prev.configError) void logError("config: " + s.configError);
+  if (s.lastError && s.lastError !== prev.lastError) void logError("error: " + s.lastError);
+});

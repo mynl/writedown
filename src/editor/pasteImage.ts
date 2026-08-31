@@ -94,7 +94,7 @@ async function handlePaste(event: ClipboardEvent, view: EditorView): Promise<voi
     st.showStatusMessage(`saved ${scratch ? saved : `img/${name}`}`);
   } catch (e) {
     // Surfaced, never swallowed — a paste that quietly did nothing would be maddening.
-    useStore.setState({ configError: `paste image — ${String(e)}` });
+    useStore.setState({ lastError: `paste image — ${String(e)}` });
   }
 }
 

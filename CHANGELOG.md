@@ -5,6 +5,45 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [2.15.0] - 2026-08-31
+
+### Fixed
+
+- **Unicode picker: the selection stays visible and Enter works while you type** (G.01,
+  G.11). The 2.14.2 fix was undone on every keystroke by a second effect that put the
+  selection back on the "Recent" heading. Recents are now split out *before* the 60-row
+  cap, matched letters in names are highlighted, the arrow keys no longer fight a
+  stationary mouse, and PageUp / PageDown / Home / End work.
+- **Opening a file puts the cursor in the editor** (G.03) — from the tree, the pickers,
+  Ctrl+Shift+Q, tab clicks, Ctrl+Tab and project switches. From the tree the keyboard
+  used to stay in the tree, where the first Delete deletes the file. The editor handle is
+  now cleared when the editor unmounts (preview-only mode), so nothing targets a dead view.
+- **Errors are readable** (G.06): the message comes first, wraps, and sits in the tooltip;
+  × dismisses; palette "Show Last Error" brings it back; every strip is also logged.
+  config.toml problems and other errors have separate strips, so one no longer erases the
+  other.
+
+### Changed
+
+- **The window title is the project name alone** (G.15) — no " — Writedown" suffix. A
+  folder workspace restored at launch is titled too (it was not).
+- **Ctrl+Shift+C copies the active file's path** (G.16); Copy Path is on the tree's
+  right-click menu. The citation picker is now the palette's "Insert: Citation…" and the
+  rebindable `insertCitation` action; typing `@` opens it as before.
+- **Every editor action is a palette verb** (G.05): Find, Go to Line, folds, editor zoom,
+  case changes, sort lines, cursors and the rest are generated from the command registry,
+  and each verb shows its live key (a `[keys]` rebind updates the hint). "New Temporary
+  File" now matches "Name Temporary File". Toggle Spell Check / Word Wrap / Preview
+  became explicit Spell Check: On / Off, Word Wrap: On / Off, View: Editor / Split /
+  Preview — no verb changes meaning with state.
+
+### Added
+
+- **Project folder labels** (G.14): "Project: Label Folder …" (or a `labels` map in the
+  `.wdproj`) shows a root as `docs (papers)`, so same-named folders can be told apart.
+  Rust struct field — rebuild.
+- HELP.md documents the `[window]` title-bar colour settings (G.02) and the error strips.
+
 ## [2.14.4] - 2026-08-28
 
 ### Fixed
