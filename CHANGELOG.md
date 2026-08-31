@@ -5,6 +5,30 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [2.17.0] - 2026-08-31
+
+### Added
+
+- **Identify character** (G.09): palette → "Identify character at cursor" (rebindable as
+  `identifyCharacter`) shows the code point, Unicode name, LaTeX command and UTF-8 bytes
+  in the status bar. Selected character wins; a bare cursor reads the character after it;
+  characters outside the 2,322-entry table still get code point and bytes.
+- **Set Syntax** (G.10): the footer's "Syntax: X" button and the palette's "Syntax:
+  Markdown / Python / JSON / YAML / TOML / LaTeX / DecL / Plain Text" verbs recolor the
+  active document for this session only — nothing is written to the file, the config, or
+  the session; "Syntax: Auto (by file extension)" restores. Coloring alone: spelling,
+  math, citations and the CSV rainbow still follow the real extension. The footer button
+  opens the palette pre-filtered (openPalette grew an initial-query argument).
+
+### Fixed
+
+- **Editor chords work from the preview** (G.13). A modified key pressed with focus on the
+  preview (or nowhere) is offered to the editor keymap — Ctrl+F, Ctrl+G, folds, zoom, and
+  the Ctrl+K chord family, whose two-keystroke state CodeMirror carries itself. Plain
+  typing is never forwarded, and the editor takes focus only when a command actually ran,
+  so Ctrl+C still copies the preview's own selection. In preview-only view, Ctrl+F
+  switches to split and opens Find there.
+
 ## [2.16.0] - 2026-08-31
 
 ### Fixed

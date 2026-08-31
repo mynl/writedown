@@ -2,7 +2,7 @@
 // user types in config [keys], and what the F1 help shows) to a CodeMirror command. A StateCommand
 // is usable where a Command is expected (a view supplies { state, dispatch }).
 import { EditorSelection, type StateCommand } from "@codemirror/state";
-import { type Command } from "@codemirror/view";
+import { EditorView, type Command } from "@codemirror/view";
 import {
   copyLineDown,
   cursorLineEnd,
@@ -37,6 +37,7 @@ import {
 import { toggleWordWrap } from "./wrap";
 import { openCitationPicker } from "./citations";
 import { copyActiveName, copyActivePath } from "../clipboardOps";
+import { codePointLabel, loadSymbols } from "./symbols";
 import { useStore } from "../store";
 
 // Add a cursor on the line above (-1) / below (+1) each cursor, same column. Lives here (not
@@ -62,6 +63,41 @@ function addCursorVertically(dir: -1 | 1): StateCommand {
     );
     return true;
   };
+}
+
+// Identify the character at the cursor (issue G.09): code point, Unicode name, LaTeX
+// command(s), UTF-8 bytes — shown in the status bar. A selected character wins; a bare
+// cursor reads the character after it. The table carries 2,322 characters; anything else
+// still gets its code point and bytes. The reverse of the picker's u+XXXX prefill.
+async function describeCharAt(v: EditorView): Promise<void> {
+  const st = useStore.getState();
+  const sel = v.state.selection.main;
+  // Slice a few units, not the whole selection (which can be megabytes); [...] respects
+  // surrogate pairs so an emoji reads as one character.
+  const capped = v.state.sliceDoc(
+    sel.empty ? sel.head : sel.from,
+    Math.min(sel.empty ? sel.head + 4 : sel.to, (sel.empty ? sel.head : sel.from) + 40),
+  );
+  const ch = [...capped][0];
+  if (!ch) {
+    st.showStatusMessage("identify — no character at the cursor");
+    return;
+  }
+  const cp = ch.codePointAt(0) ?? 0;
+  const bytes = [...new TextEncoder().encode(ch)]
+    .map((b) => b.toString(16).toUpperCase().padStart(2, "0"))
+    .join(" ");
+  const { entries } = await loadSymbols();
+  const e = entries.find((x) => x.char === ch);
+  const parts = [e ? codePointLabel(e) : "U+" + cp.toString(16).toUpperCase().padStart(4, "0")];
+  if (e) parts.push(e.name.toUpperCase());
+  if (e && e.latex.length) parts.push(e.latex.map((l) => "\\" + l).join(" "));
+  parts.push("UTF-8 " + bytes);
+  const selChars = sel.empty ? 1 : [...capped].length;
+  const extra = !sel.empty && (selChars > 1 || sel.to - sel.from > capped.length)
+    ? " (first of the selection)"
+    : "";
+  st.showStatusMessage(`“${ch}”  ${parts.join(" · ")}${extra}`);
 }
 
 // Wrap a zero-arg store/UI action as a CM Command (always reports "handled").
@@ -135,6 +171,14 @@ export const COMMAND_REGISTRY: Record<string, RegistryEntry> = {
   zoomPreviewReset: { run: act(() => s().setPreviewZoom("reset")), label: "Preview zoom reset", category: "View" },
   plainView: { run: act(() => s().togglePlainView()), label: "Toggle plain view (editor only, no sidebars/preview)", category: "View" },
   insertSymbol: { run: act(() => s().openPalette("symbols")), label: "Insert a Unicode character (search by name, \\latex or u+XXXX)", category: "Edit" },
+  identifyCharacter: {
+    run: (v) => {
+      void describeCharAt(v);
+      return true;
+    },
+    label: "Identify character at cursor (code point, name, LaTeX, UTF-8)",
+    category: "Edit",
+  },
   toggleWordWrap: { run: act(() => toggleWordWrap()), label: "Toggle word wrap", category: "View" },
   toggleSpell: { run: act(() => s().toggleSpell()), label: "Toggle spell check", category: "View" },
   toggleSidebar: { run: act(() => s().setSidebarVisible(!s().sidebarVisible)), label: "Toggle sidebar", category: "View" },

@@ -63,6 +63,50 @@ const yamlExt = yaml();
 const tomlExt = StreamLanguage.define(toml);
 const stexExt = StreamLanguage.define(stex);
 
+// Wire the choice table (declared above languageForPath, filled here where the singletons
+// exist). Same objects as the by-extension path, so a "Syntax: Python" override on a .py
+// file is the identity and reconfigures nothing.
+{
+  const fill = (name: string, ext: Extension | null) => {
+    const c = SYNTAX_CHOICES.find((x) => x.name === name);
+    if (c) c.ext = ext;
+  };
+  fill("Markdown", markdownExt);
+  fill("Python", pythonExt);
+  fill("JSON", jsonExt);
+  fill("YAML", yamlExt);
+  fill("TOML", tomlExt);
+  fill("LaTeX", stexExt);
+  fill("DecL", declSupport);
+}
+
+/** The syntaxes offered by the "Syntax: …" verbs (issue G.10): display name → the shared
+ *  singleton extension. First-class types only; everything else stays extension-driven
+ *  through the language-data registry. Coloring only — the markdown feature set
+ *  (math, citations, spelling) and the CSV rainbow remain keyed on the file's extension. */
+export const SYNTAX_CHOICES: { name: string; ext: Extension | null }[] = [
+  { name: "Markdown", ext: null /* markdownExt, set below — declared before use */ },
+  { name: "Python", ext: null },
+  { name: "JSON", ext: null },
+  { name: "YAML", ext: null },
+  { name: "TOML", ext: null },
+  { name: "LaTeX", ext: null },
+  { name: "DecL", ext: null },
+  { name: "Plain Text", ext: null },
+];
+
+export function languageForName(name: string): Extension | null {
+  return SYNTAX_CHOICES.find((c) => c.name === name)?.ext ?? null;
+}
+
+/** Display name of the syntax a path gets by extension — for the footer's "Syntax: X". */
+export function syntaxNameForPath(path: string): string {
+  const sync = languageForPath(path);
+  if (sync) return SYNTAX_CHOICES.find((c) => c.ext === sync)?.name ?? "Plain Text";
+  const filename = path.split(/[\\/]/).pop() ?? path;
+  return LanguageDescription.matchFilename(languages, filename)?.name ?? "Plain Text";
+}
+
 export function languageForPath(path: string): Extension | null {
   const ext = path.split(".").pop()?.toLowerCase() ?? "";
   switch (ext) {
@@ -95,11 +139,18 @@ export function languageForPath(path: string): Extension | null {
 /** Language for the editor: the first-class types above resolve synchronously; anything
  *  else (rst, C/C++, R, PowerShell, JS/TS, …) falls back to language-data, whose support
  *  loads lazily as a Vite chunk. The description memoizes its own load, so each language
- *  pays the (ms) import once per app run; the hook re-renders when the chunk arrives. */
-export function useLanguageFor(path: string): Extension | null {
-  const sync = languageForPath(path);
+ *  pays the (ms) import once per app run; the hook re-renders when the chunk arrives.
+ *
+ *  `override` (issue G.10) names a SYNTAX_CHOICES entry and wins outright — including
+ *  "Plain Text", which must not fall through to the filename match. A changed override
+ *  hands Editor.tsx a different singleton, so the one full reconfigure it costs happens
+ *  exactly when the user asks to recolor, the same price as switching to a tab of
+ *  another language. */
+export function useLanguageFor(path: string, override?: string | null): Extension | null {
+  const sync = override != null ? languageForName(override) : languageForPath(path);
   const filename = path.split(/[\\/]/).pop() ?? path;
-  const desc = sync ? null : LanguageDescription.matchFilename(languages, filename);
+  const desc =
+    sync || override != null ? null : LanguageDescription.matchFilename(languages, filename);
   const [, bump] = useState(0);
   useEffect(() => {
     if (!desc || desc.support) return;

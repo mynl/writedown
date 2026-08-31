@@ -427,6 +427,13 @@ type AppState = {
   /** Optional per-root display label from the .wdproj (issue G.14): path → label, drawn
    *  as "dir (label)". Empty for unsaved projects and plain folders. */
   projLabels: Record<string, string>;
+  /** Session-only syntax override per document path (issue G.10): a SYNTAX_CHOICES name.
+   *  Colouring alone — never written to the file, the config, or the session snapshot. */
+  syntaxOverride: Record<string, string>;
+  /** Set (or, with null, clear back to by-extension) the active recolour for a path. */
+  setSyntaxOverride: (path: string, name: string | null) => void;
+  /** Query pre-filled into the palette by openPalette's second argument, consumed once. */
+  paletteQuery: string | null;
   /** Set (or, with "", clear) a root's label and write the project file. */
   setFolderLabel: (folder: string, label: string) => void;
   /** Points added to the editor's configured font size (Ctrl+=/Ctrl+-/Ctrl+0). Global
@@ -543,7 +550,7 @@ type AppState = {
    *  command via pwsh from its folder, report exit/timing in the status bar, and open
    *  captured output in a scratch tab on failure. No name → the last-run or first one. */
   runBuild: (name?: string) => Promise<void>;
-  openPalette: (mode: PaletteMode) => void;
+  openPalette: (mode: PaletteMode, initialQuery?: string) => void;
   closePalette: () => void;
   /** Toggle the keyboard-shortcuts help overlay (F1). */
   toggleHelp: () => void;
@@ -700,6 +707,8 @@ export const useStore = create<AppState>((set, get) => ({
   lastError: null,
   dismissedError: null,
   projLabels: {},
+  syntaxOverride: {},
+  paletteQuery: null,
   editorZoom: (() => {
     const v = Number(localStorage.getItem("wd.editorZoom"));
     return Number.isFinite(v) ? v : 0;
@@ -1062,6 +1071,13 @@ export const useStore = create<AppState>((set, get) => ({
     const d = get().dismissedError;
     if (d) set({ lastError: d });
     else get().showStatusMessage("no error to show");
+  },
+
+  setSyntaxOverride: (path, name) => {
+    const cur = { ...get().syntaxOverride };
+    if (name) cur[path] = name;
+    else delete cur[path];
+    set({ syntaxOverride: cur });
   },
 
   setFolderLabel: (folder, label) => {
@@ -1711,7 +1727,8 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  openPalette: (mode) => set({ palette: mode }),
+  openPalette: (mode, initialQuery) =>
+    set({ palette: mode, paletteQuery: initialQuery ?? null }),
   closePalette: () => set({ palette: null }),
   toggleHelp: () => set((s) => ({ helpOpen: !s.helpOpen })),
   toggleAbout: () => set((s) => ({ aboutOpen: !s.aboutOpen })),

@@ -144,7 +144,11 @@ export function Palette() {
   const lastMouse = useRef({ x: -1, y: -1 });
 
   useEffect(() => {
-    setQuery("");
+    // A caller can pre-fill the query (openPalette's second argument) — the footer's
+    // "Syntax: X" opens the command palette already filtered to the Syntax verbs.
+    const initial = useStore.getState().paletteQuery;
+    setQuery(initial ?? "");
+    if (initial) useStore.setState({ paletteQuery: null });
     setSel(0);
     inputRef.current?.focus();
     // Quick-open spans every project folder (one pool), or the single root.

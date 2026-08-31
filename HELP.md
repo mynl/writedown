@@ -200,6 +200,23 @@ words and short words are skipped. Toggle for the session from the status bar.
 - Writedown never renames or reorganizes files, never touches YAML front matter
   formatting, and works fully offline.
 
+**Editor shortcuts work from the preview too.** With focus on the preview (or nowhere in
+particular), a modified chord — Ctrl+F, Ctrl+G, the Ctrl+K family, folds, zoom — is handed
+to the editor as if it were focused; plain typing is never forwarded, and Ctrl+C still
+copies whatever is selected in the preview. In preview-only view, Ctrl+F switches to split
+and opens Find there.
+
+**Syntax coloring** follows the file extension. The footer's **Syntax: X** button (or the
+palette's **Syntax: Python / JSON / TOML / …** verbs) recolors the active document for this
+session only — nothing is written anywhere, and **Syntax: Auto (by file extension)**
+restores the default. Coloring only: spelling, math and citations still follow the real
+file type.
+
+**Identify a character**: palette → **Identify character at cursor** shows its code point,
+Unicode name, LaTeX command and UTF-8 bytes in the status bar (rebindable in `[keys]` as
+`identifyCharacter`). Ctrl+Shift+U with one character selected still opens the picker on
+that character for the fuller view.
+
 ## View modes
 
 **Ctrl+F11** full screen; **Ctrl+Shift+F11** distraction-free (full screen, sidebars

@@ -27,6 +27,7 @@ import {
 import { setWordWrap } from "./editor/wrap";
 import { keymapConfigBlock } from "./editor/keymap";
 import { COMMAND_REGISTRY } from "./editor/commandRegistry";
+import { SYNTAX_CHOICES } from "./editor/languages";
 import { copyActiveName, copyActivePath } from "./clipboardOps";
 import { insertSnippet, mergedSnippets } from "./editor/snippets";
 
@@ -415,6 +416,8 @@ export function appCommands(): Command[] {
     },
     ...projectFolderRemovals(),
     ...projectFolderLabels(),
+    // ---- Syntax recolor (issue G.10) — session-only, coloring alone ----
+    ...syntaxCommands(),
     // ---- Editor font (config [editor] font_choices) — session-only overrides ----
     ...fontCommands(),
     // ---- Insert snippets (built-ins + config [snippets]) ----
@@ -459,6 +462,26 @@ function registryCommands(): Command[] {
         entry.run(view);
       },
     }));
+}
+
+/** "Syntax: <name>" verbs (issue G.10): recolor the ACTIVE document as another
+ *  first-class language, for this session only — never written to the file, the config,
+ *  or the session. Coloring alone: markdown features (math, citations, spelling) and the
+ *  CSV rainbow stay keyed on the extension. "Auto" restores the by-extension choice. */
+function syntaxCommands(): Command[] {
+  if (!useStore.getState().activePath) return [];
+  const setFor = (name: string | null) => () => {
+    const p = useStore.getState().activePath;
+    if (p) useStore.getState().setSyntaxOverride(p, name);
+  };
+  return [
+    ...SYNTAX_CHOICES.map((c, i) => ({
+      id: `syntax-${i}`,
+      title: `Syntax: ${c.name}`,
+      run: setFor(c.name),
+    })),
+    { id: "syntax-auto", title: "Syntax: Auto (by file extension)", run: setFor(null) },
+  ];
 }
 
 /** "Insert: <name>" palette entries — defaults overlaid with config [snippets]. */

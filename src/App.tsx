@@ -21,8 +21,10 @@ import { Preview } from "./preview/Preview";
 import { CsvPreview } from "./preview/CsvPreview";
 import { ImageViewer } from "./preview/ImageViewer";
 import { Outline } from "./outline/Outline";
-import { isCsv, isImageDoc, isMarkdownDoc } from "./editor/languages";
+import { isCsv, isImageDoc, isMarkdownDoc, syntaxNameForPath } from "./editor/languages";
 import { getActiveView } from "./editor/editorView";
+import { runScopeHandlers } from "@codemirror/view";
+import { openSearchPanel } from "@codemirror/search";
 import { reformatTables } from "./editor/tables";
 import { toggleWordWrap } from "./editor/wrap";
 import { Resizer } from "./Resizer";
@@ -231,6 +233,7 @@ function App() {
   const setSplitRatio = useStore((s) => s.setSplitRatio);
   const configError = useStore((s) => s.configError);
   const lastError = useStore((s) => s.lastError);
+  const syntaxOverride = useStore((s) => s.syntaxOverride);
   const wordWrap = useStore((s) => s.wordWrap);
   const spellOn = useStore((s) => s.spellOn);
   const toggleSpell = useStore((s) => s.toggleSpell);
@@ -295,6 +298,42 @@ function App() {
       if (e.defaultPrevented) return; // already handled by the editor keymap
       const mod = e.ctrlKey || e.metaKey;
       const k = e.key.toLowerCase();
+      // Editor chords work from anywhere sensible (issue G.13): when focus is not in a
+      // text control, the tree, or the editor itself — clicking the preview leaves it on
+      // <body> — offer MODIFIED keys to the editor keymap. Ctrl+F finds, Ctrl+K Ctrl+U
+      // upper-cases (CodeMirror's own chord state spans the two keystrokes). Unmodified
+      // keys are never forwarded: typing must not silently edit a document you are not
+      // looking at. And the editor is focused only AFTER a command actually ran — a bare
+      // Ctrl+C must keep copying the preview's own selection, not the editor's.
+      const tgt = e.target as HTMLElement | null;
+      if (
+        (e.ctrlKey || e.metaKey || e.altKey || /^F\d+$/.test(e.key)) &&
+        !tgt?.closest("input, textarea, [contenteditable], .cm-editor, .tree-body")
+      ) {
+        const view = getActiveView();
+        if (view?.dom.isConnected) {
+          if (runScopeHandlers(view, e, "editor")) {
+            e.preventDefault();
+            view.focus();
+            return;
+          }
+        } else if (mod && !e.shiftKey && !e.altKey && k === "f") {
+          // Preview-only mode has no editor mounted to search in. The minimal honest
+          // answer: flip to split and open Find there once the editor exists.
+          e.preventDefault();
+          useStore.setState({ viewMode: "split" });
+          requestAnimationFrame(() =>
+            requestAnimationFrame(() => {
+              const v = getActiveView();
+              if (v?.dom.isConnected) {
+                v.focus();
+                openSearchPanel(v);
+              }
+            }),
+          );
+          return;
+        }
+      }
       if (mod && !e.shiftKey && k === "s") {
         e.preventDefault();
         void saveActive();
@@ -679,6 +718,22 @@ function App() {
           {midStatus}
         </span>
         <span className="status-right">
+          {activeDoc && !isImageDoc(activeDoc.path) && (
+            <>
+              <button
+                className="status-item"
+                title={
+                  syntaxOverride[activeDoc.path]
+                    ? "Syntax coloring set for this session — Syntax: Auto restores the extension's"
+                    : "Syntax coloring for this file — click to choose another (session only)"
+                }
+                onClick={() => openPalette("commands", "Syntax: ")}
+              >
+                Syntax: {syntaxOverride[activeDoc.path] ?? syntaxNameForPath(activeDoc.path)}
+              </button>
+              <span className="status-sep">·</span>
+            </>
+          )}
           <button
             className="status-item"
             title="Toggle word wrap (session) — also in the command palette"

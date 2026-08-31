@@ -131,7 +131,12 @@ export function Editor({ path, content }: { path: string; content: string }) {
     else root.removeProperty("--wd-editor-font-family");
   }, [fontSize, effectiveFamily]);
 
-  const lang = useLanguageFor(path);
+  // "Syntax: …" recolor (issue G.10): a session-only per-path override; the language
+  // singleton changes, the extension memo below sees a new `lang`, and the one full
+  // reconfigure happens exactly when the user asked to recolor. isMd/csvDialect stay
+  // path-derived on purpose — the override changes coloring, not the feature set.
+  const syntaxOverride = useStore((s) => s.syntaxOverride);
+  const lang = useLanguageFor(path, syntaxOverride[path] ?? null);
 
   // The extension set depends on the document's SHAPE, not its path (issue A.29). Keying
   // the memo below on `path` meant switching between two markdown files produced a new
