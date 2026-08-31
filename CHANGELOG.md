@@ -5,544 +5,6 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
-## [1.81.0] - 2026-07-18
-
-### Fixed
-
-- **A document's edits can no longer land in another document's file** (issue 12:
-  index.qmd twice overwritten wholesale by other tabs' buffers). Root cause: one
-  CodeMirror view serves all tabs, the active path flips synchronously on a tab
-  click, but the react-codemirror wrapper defers the actual document swap behind a
-  ~200 ms typing latch — so edits made in that beat were attributed, and then
-  autosaved, to the newly active file. Three-part fix: (a) the controlled value is
-  now applied to the view synchronously (layout effect) the moment it diverges, so
-  the view can never show one document while another is active — this also stops the
-  wrapper's deferred whole-document replace, the prime suspect for "jumps to top on
-  paste" (issue 9); (b) editor changes are written to the tab the editor was
-  rendered for (new `editTab` store action), never to whatever is active when the
-  event fires; (c) the swap transaction is excluded from undo history (undo can no
-  longer resurrect a previous tab's text) and from cursor/scroll recording, and a
-  programmatic scroll-to-0 straight after a swap is no longer recorded as the
-  document's remembered position (the "sticky" jump amplifier). Frontend only.
-
-## [1.81.1] - 2026-07-18
-
-### Fixed
-
-- **Delete asks for confirmation again.** Tauri swaps `window.confirm` for an async
-  IPC dialog call: the un-awaited Promise is always truthy, so the guard in Delete
-  never blocked — and in the packaged exe the dialog permission was also denied by
-  the ACL (the "plugin:dialog|confirm not allowed" log lines), so files went to the
-  Recycle Bin with no prompt at all. Delete now uses the dialog plugin's `confirm`
-  properly awaited, and the capability grants it. Requires a backend rebuild (the
-  capability file is compiled in).
-
-## [1.81.2] - 2026-07-18
-
-### Fixed
-
-- **The preview-mode Open Files row can no longer balloon** (third time's the charm).
-  The 1.76.1 font-size/line-height pins treated the wrong disease: line-height is a
-  floor for the line box, not a ceiling, so an italic fallback face with tall
-  metrics still inflated the row. The tab strip never ballooned because it is
-  clipped, not because of its pins — the Open Files rows now get the same cure: a
-  pinned row height (scaled from the [tree] font size, floored at the close
-  button's 18 px) plus overflow:hidden, making the row immune to whatever face the
-  italic resolves to. CSS only.
-
-## [1.81.3] - 2026-07-18
-
-### Fixed
-
-- **Saving personal-dictionary.txt now takes effect immediately** (issue 3). The
-  palette "Add Word" always worked, but words typed into the dictionary file
-  itself sat on disk while the checker kept its startup snapshot — the file lives
-  in the app-config dir outside every watched root, and only config.toml saves
-  reloaded spelling. The store now learns the resolved dictionary path (re-resolved
-  when config changes it) and a save of that file mirrors the config branch:
-  reload the word set, clear the caches, re-lint the open document. Path
-  comparison is case- and separator-insensitive.
-
-## [1.81.4] - 2026-07-18
-
-### Fixed
-
-- **Outline clicks land on the first try** (issue 1). The editor-side jump computed
-  its target from CodeMirror's estimated heights for never-drawn lines and scrolled
-  once — the scroll forced real measurement, so only a second identical click
-  landed. The jump now re-derives the target for up to 8 frames after scrolling
-  (superseded by any newer jump), converging as measurements arrive — the editor
-  twin of the settle loop the preview jump gained in 1.73.2. Click-time only.
-
-## [1.81.5] - 2026-07-18
-
-### Fixed
-
-- **Scroll sync stands down while the preview is behind the buffer** (issues 6 and,
-  with 1.81.0, the rest of 9). While typing, the rendered blocks lag the editor by
-  the 200 ms render debounce plus render time; syncing against those stale line
-  ranges walked off the end of the block list and clamped the preview to the
-  bottom — and the settle loop then held it there (worst inside big display math,
-  where one block spans many source lines and a transiently unbalanced $$ swallows
-  the document). Both sync directions, and the settle loop, now check that the
-  rendered source IS the live buffer before moving anything; preview DOM churn in
-  the 150 ms after a patch is likewise ignored, so patch-induced scroll events can
-  no longer rewrite the editor's position. Sync resumes by itself once the render
-  catches up. No cost outside the sync handlers.
-
-## [1.82.0] - 2026-07-18
-
-### Added
-
-- **Type to wrap the selection** (issue 5, ST muscle memory). With text selected,
-  typing `"` `'` `` ` `` `*` `(` `[` `{` surrounds the selection (paired for
-  brackets, doubled for the symmetric characters) and keeps it selected, so wraps
-  nest. Empty cursors in a multi-selection still type the character; with nothing
-  selected the handler declines entirely, so ordinary typing is untouched and
-  nothing auto-inserts at a bare caret (closeBrackets stays off, as decided).
-  Works in every file type, multicursor-aware.
-
-## [1.83.0] - 2026-07-18
-
-### Added
-
-- **The command palette remembers what you ran** (issue 10, ST behaviour). Opening
-  it with an empty query lists commands most-recently-used first with the last one
-  preselected — so Ctrl+Shift+P, Enter reruns the previous command. Typing any
-  query switches back to pure fuzzy ranking. The MRU (last 50, in localStorage)
-  survives restarts; ids that no longer exist — say a config snippet you removed —
-  just rank nowhere. Palette-time only.
-
-## [1.84.0] - 2026-07-18
-
-### Added
-
-- **Locate File in Sidebar** (issue 8): a palette command that reveals the active
-  document — picks whichever panel's root contains it (preferring the one already
-  showing), expands its ancestor folders, switches to that panel (showing the
-  sidebar if hidden), and scrolls the highlighted row into view once the lazy
-  per-level listings settle. Containment is case- and separator-insensitive. If
-  the file is under no root — a quick-opened stray, a scratch — the status bar's
-  left slot shows "name (not found in sidebar)" for ~20 s instead of the path;
-  that transient-message slot is new and reusable. Command-time only.
-
-## [1.85.0] - 2026-07-18
-
-### Fixed
-
-- **Files opened from outside the workspace now see external edits** (issue 11 —
-  "this file is not refreshing"). The watcher only ever covered workspace roots, so
-  a quick-opened stray (the issues file being Exhibit A) never received change
-  events: clean tabs didn't refresh, dirty tabs never learned they were in
-  conflict. A second, independent watcher now covers exactly the open tabs that
-  live under no root — per-file, non-recursive, re-pointed as tabs open/close and
-  when roots change, dropped when no strays remain. The existing rules are
-  unchanged: clean tab → auto-reload, dirty tab → conflict flag (never a silent
-  clobber), own saves suppressed. Requires a backend rebuild.
-
-## [1.86.0] - 2026-07-18
-
-### Fixed
-
-- **The Rendered view now speaks your document's coordinates** (issue 4). The build
-  splices cell output, a title, and a References section into the markdown, so the
-  rendered blocks' line numbers referred to the expanded document — scroll sync ran
-  in the wrong coordinate system (drifting further as outputs accumulated) and a
-  build always opened at the top. The renderer now emits a line map alongside the
-  markdown (one entry per expanded line: its source line, or 0 for synthetic
-  content — built during assembly, zero extra passes), and everything hangs off
-  it: editor↔rendered scroll sync translates in both directions, outline clicks
-  land correctly in the rendered pane, and after a build the rendered view opens
-  at the editor's current location instead of the top. Spliced cell output anchors
-  to its cell's line, so scrolling through results tracks the producing cell.
-  Requires a backend rebuild.
-
-## [1.86.1] - 2026-07-20
-
-### Fixed
-
-- **Insert Date-Time no longer loses editor focus** (issue 1). The stamp was
-  inserted correctly and the caret already sat after it (`replaceSelection`), but the
-  palette command never returned focus to the editor — when the palette closed, focus
-  fell to the page body, so the caret went inert and you had to click back in. The
-  command now refocuses the view after inserting, matching the snippet-insert path.
-  Frontend only.
-
-## [1.86.2] - 2026-07-20
-
-### Fixed
-
-- **@-citations (and spellcheck) work in an indented footnote definition** (issue 7).
-  The editor's markdown grammar has no footnote rule, so a footnote definition
-  `[^key]: …` indented by a tab (or 4+ spaces) parsed as an indented code block — and
-  the shared prose gate rejects anything inside code, so the `@` citation popup and
-  spellcheck went silent on that line. Unindented footnotes were unaffected (they
-  parse as a paragraph); the failure appeared only once the key was tabbed in. The
-  prose gate now recognizes an indented-code line that is really a footnote definition
-  and treats it as prose. Frontend only.
-
-## [1.86.3] - 2026-07-20
-
-### Fixed
-
-- **Ctrl+D selections are boldly visible** (issue 4). Selecting a word shows a bright
-  green match highlight, but Ctrl+D ("select next occurrence") converts the matches
-  into real selection ranges — at which point CodeMirror drops the green highlight and
-  paints every range with the theme's faint translucent selection colour, so the
-  selection nearly vanished. All real selections now use a bold green in the match
-  highlight's family (still translucent, so the text reads), so single- and
-  multi-selection look consistent and stay clearly visible. The colour is an
-  overridable CSS variable (`--cm-sel-strong`). Frontend only.
-
-## [1.86.4] - 2026-07-20
-
-### Fixed
-
-- **No more duplicate project in quick-switch** (issue 13). The recent-projects list
-  de-duplicated by exact byte match, so the same `.wdproj` added via two spellings —
-  the managed path vs. the native Open dialog, a differing drive-letter case, `\` vs
-  `/`, or a trailing slash — stacked up as two rows. De-dup now uses a normalized key
-  (case- and separator-insensitive, trailing slash stripped) that mirrors the frontend
-  normalizer, both when adding and when reading, so an existing duplicate collapses on
-  next load. Genuinely distinct project files are unaffected. Requires a backend rebuild.
-
-## [1.87.0] - 2026-07-20
-
-### Added
-
-- **Project quick-switch dropdown in the panel footer** (issue 3). The Project panel
-  now has a select box pinned to its bottom listing your projects most-recently-used
-  first (the same deduped, disambiguated set the palette quick-switch uses); picking one
-  switches workspace. Projects only — the Folder panel is unchanged. Frontend only.
-
-## [1.88.0] - 2026-07-20
-
-### Added
-
-- **Delete a project from the palette** (issue 12). "Project: Delete <name>…" entries
-  (one per managed project under `~/.writedown/projects/`) recycle the `.wdproj` file to
-  the Recycle Bin after a confirmation dialog; if it is the open project it is closed
-  afterward (the folder root is adopted into the Folder tab). Guarded end to end — only
-  a managed `.wdproj` can be deleted, and the folders a project references are never
-  touched (spec §2). The recent-projects list self-prunes the vanished entry. Requires a
-  backend rebuild.
-
-## [1.89.0] - 2026-07-20
-
-### Added
-
-- **Per-document Python interpreter via `wd-python:`** (issue 9). A document's YAML front
-  matter can name the interpreter for its `{python}` cells — `wd-python: C:/env/python.exe`
-  — overriding the `[render] python` config for that document. Absolute paths only: a
-  relative value is ignored (with a render-summary warning) rather than guessed at, and a
-  bad absolute path surfaces the usual "python failed to start" warning. Requires a backend
-  rebuild.
-
-## [1.89.1] - 2026-07-20
-
-### Fixed
-
-- **Preview syncs to the editor's spot on a tab switch and a Preview↔Rendered switch**
-  (issues 6 & 8). Editor↔preview scroll sync was driven only by live scroll events, so
-  switching tabs left the preview pinned at the top until you scrolled (the tab switch's
-  own scroll event fires before the new document has rendered, so it is correctly dropped
-  as stale), and switching between the Preview and Rendered tabs remounted the pane at the
-  top. A single one-shot now runs once the switched-to document's render is patched in,
-  scrolling the preview to the editor's current top line. The "a build opens at your Ctrl+B
-  spot" behavior is preserved — it now survives a Preview↔Rendered switch instead of
-  replaying the stale build position. Frontend only.
-
-## [1.90.0] - 2026-07-20
-
-### Added
-
-- **Ctrl+MouseWheel font-size zoom** (issue 11). Hold Ctrl and spin the wheel over the
-  editor to grow/shrink the font, like Sublime. It is transient (the same session-only,
-  never-config `editorZoom` that Ctrl+= / Ctrl+- / Ctrl+0 use) and bounded by a hard px
-  floor and cap (6–40) so it can't shrink to nothing or blow up — unlike editors that
-  leave it unbounded. Wheel deltas are accumulated so one physical notch steps once on any
-  device, and WebView2's page-zoom is suppressed. Frontend only.
-
-## [1.91.0] - 2026-07-20
-
-### Added
-
-- **Sublime-style Tab word-completion** (issue 5). Type the first letter(s) of a long word
-  and press Tab: the nearest matching longer word from nearby in the buffer is inserted;
-  Tab again cycles through the other matches, then back to what you typed. It fires whenever
-  a word character sits right before the caret; at line start or after whitespace Tab now
-  indents (and Shift+Tab dedents), which it didn't before. Candidates are words of at least
-  `[editor] tab_complete_min_len` characters (default 5) — short words aren't worth a Tab —
-  harvested from a window around the caret and ranked by distance, so it stays instant even
-  on large documents. It yields to an open @-citation popup and to snippet tab-through, and
-  runs only on an explicit Tab (zero baseline cost). Requires a backend rebuild (new config
-  key).
-
-## [1.91.1] - 2026-07-20
-
-### Fixed
-
-- **The editor no longer drifts on a tab switch** (issue 8 follow-up). The 1.89.1
-  sync-on-switch scrolled the preview to the editor's line, but that programmatic scroll
-  fired the preview's own scroll handler, which echoed back and nudged the editor — the
-  editor is the anchor and must not move. A short guard now marks `scrollPreviewToLine`'s
-  own scrolls (across the whole settle) so the preview→editor half ignores them: the
-  editor stays put, other views sync to it. Also stops the build-time scroll from tugging
-  the editor. Frontend only.
-
-## [1.91.2] - 2026-07-20
-
-### Fixed
-
-- **Project quick-switch dropdown is readable in dark mode** (issue 3 follow-up). The
-  `<select>` had a transparent background, so it fell back to the native (light) control
-  background while its text used the theme foreground — light-on-light in dark mode. It
-  now uses the theme's `--bg`/`--fg` for both the closed control and the option list, with
-  `color-scheme` so the native popup follows the theme. Frontend only.
-
-## [1.92.0] - 2026-07-20
-
-### Changed
-
-- **Font-zoom bounds are configurable** (issue 11 follow-up). The Ctrl+wheel / Ctrl+= zoom
-  floor and cap moved from a hardcoded 6–40 px to `[editor] font_size_min` /
-  `font_size_max` (defaults 6 / 24). Edit them in `config.toml` and save — the bounds apply
-  live (a config save re-reads `[editor]` settings; a current size outside the new range
-  snaps in at once, otherwise the new range takes effect on the next zoom). Requires a
-  backend rebuild (new config keys).
-
-## [1.93.0] - 2026-07-20
-
-### Changed
-
-- **Tab word-completion now shows a sorted popup list** (issue 5 follow-up). The 1.91.0
-  version inserted the nearest match inline and cycled on repeated Tab; you wanted to see
-  and pick from the candidates. Tab now opens the autocomplete popup with the matching
-  longer words ranked by proximity to the caret (nearest first) — arrows to choose, Enter
-  or Tab to accept, and it narrows as you type more. In markdown it shares the @-citation
-  popup (the word source self-gates to an explicit Tab and declines the @ context); other
-  languages get a word-only popup. Side effect: Tab now also accepts a highlighted citation.
-  Config `[editor] tab_complete_min_len` (default 5) still sets the shortest word offered.
-  Runs only on an explicit Tab (zero baseline cost). Frontend only.
-
-## [1.93.1] - 2026-07-20
-
-### Fixed
-
-- **`{python}` (and other) code-cell highlighting is stable** (colorization side-find). A
-  ```{python} cell resolved its language through the asynchronous language-data registry
-  rather than the statically-imported `python()` that `.py` files use, so the live editor's
-  incremental, viewport-bounded highlight pass captured only a partial nested tree — lines
-  flipped between colored and white depending on parse timing, and the pattern shifted with
-  every keystroke (the "striped colouring" that changed as the cell grew). Fenced blocks of
-  the statically-imported languages (python, json, yaml, toml, latex) now nest synchronously
-  via pre-loaded descriptions, so highlighting is deterministic; other languages still
-  lazy-load. Frontend only.
-
-## [1.93.2] - 2026-07-21
-
-### Fixed
-
-- **A YAML front-matter block no longer kills all highlighting below it** (issue Sa 14).
-  Root cause, verified against the repro file's bytes: the closing `---` carried a
-  trailing space, and lang-yaml's front-matter grammar accepts only an exact `---` — so
-  the block never closed and parser error-recovery swallowed the entire rest of the
-  document as YAML (the `#` heading after the block read as a YAML comment; every code
-  fence below went uncolored). The preview's strip regex tolerated the space, which is
-  why the preview looked right while the editor was broken. The yamlFrontmatter wrapper
-  is replaced by an in-repo tolerant parser (same node names, same DashLine styling,
-  same YAML/markdown nesting): trailing blanks are legal on both delimiters, and a
-  block that never closes is treated as NO front matter rather than swallowing the
-  document. The preview's strip is rewritten on the same shared delimiter shapes (also
-  fixing an empty `---`/`---` block, a mid-line `---foo` false close, and its
-  line-offset math), so the two panes can never again disagree about the same document.
-  The 1.93.1 static-language change was chasing this symptom but is an independent,
-  real fix for async-load striping — it stays. Removed as actually-unnecessary: the
-  dead frontmatterHighlight decoration plugin (superseded by the real YAML parser back
-  in Phase 4), its orphaned CSS, and the Sublime-theme CSS-variable plumbing that fed
-  it. Frontend only.
-
-## [1.93.3] - 2026-07-21
-
-### Fixed
-
-- **Switching tabs into a long document no longer sends the panes flying** (issue Sa 8,
-  the "disaster"; third attempt, structural this time). Why the first two failed: on a
-  200 KB doc CodeMirror keeps re-measuring estimated line heights for ~a second after
-  the swap, and the preview streams its blocks across many frames — but every guard was
-  a 40–200 ms timing window stamped at stream START. Once they lapsed, editor
-  measurement drift fed the preview, preview churn wrote back into the editor's
-  scrollTop (the one preview→editor writer), and the panes chased each other; each
-  drift also overwrote the doc's remembered position, so the corruption stuck. Three
-  origin-based changes replace the timers: (1) preview→editor sync now requires a real
-  user gesture on the preview (wheel/pointer/touch/keys, refreshed while that scroll
-  flows) — programmatic churn can never open the gate, so it can never move the editor;
-  editor→preview stays ungated (outline jumps still drag the preview). (2) The editor's
-  restore is line-anchored — a scrollSnapshot captured on switch-away replays exactly
-  and CM's own scroll anchoring holds it through re-measure (raw-px + one-frame
-  re-assert before); the scroll RECORDER arms only on a user gesture or outline jump,
-  so drift can no longer corrupt the memory. (3) The in-sync stamps moved from stream
-  start to stream completion — the staleness guard now covers the whole stream — and
-  the once-per-doc sync fires after the blocks have finished landing, reading the
-  editor's settled top line: one close-enough go, no settle fight. Cursor and remembered
-  position survive rapid tab cycling. Frontend only; all changes are event-time.
-
-## [1.94.0] - 2026-07-21
-
-### Changed
-
-- **Preview tabs now mirror Sublime Text fully** (issue Fr 2, re-specced). The pieces
-  that already existed: a single preview slot (previewing another file reuses the same
-  tab) and edit-promotes-to-permanent. New: the transient preview no longer appears in
-  the sidebar's Open Files list at all — the italic tab is the only clue, and the file
-  joins Open Files the moment an edit promotes it; and single-clicking a file that
-  already has a real tab focuses that tab and CLOSES the preview slot (a preview exists
-  to peek at files you have NOT got open — and it is always pristine, since any edit
-  promotes it first, so discarding is lossless). Open Files drag-reorder translates its
-  row indices past the hidden preview tab so reordering stays exact. This also retires
-  the ballooning preview-row saga (1.76.1, 1.81.2) for good: the row that ballooned no
-  longer exists, and its italic CSS is deleted. Frontend only.
-
-## [1.95.0] - 2026-07-21
-
-### Changed
-
-- **Tab completions respect the case of the typed stem** (issue Sa 5a). Matching was
-  already case-insensitive, but the popup inserted the candidate exactly as it appears
-  in the buffer — typing "Lognorm" with "lognormal" nearby completed to lowercase
-  "lognormal". Now the inserted word adapts to what YOU typed: log→lognormal,
-  Log→Lognormal, LOG→LOGNORMAL (interior caps like "LaTeX" are preserved when only the
-  first letter changes), the popup shows exactly what will be inserted, and buffer
-  duplicates differing only in case collapse to the nearest single entry. Known limits:
-  a mixed-interior-case stem ("LogN") follows the first-letter rule, and labels are
-  cased at popup-open time. Runs only on an explicit Tab — zero baseline cost.
-  Frontend only.
-
-## [1.96.0] - 2026-07-21
-
-### Added
-
-- **Tab completion learns your vocabulary** (issue Sa 5b — the "killer" half). Every
-  document you open or save is scanned in the background (~1 s after the event, off
-  the keystroke path) for words of 5+ letters (config `[editor]
-  tab_complete_dict_min_len`); counts are kept PER FILE in
-  `~/.writedown/word-frequency.json` — re-opening a file replaces its entry, so
-  nothing is ever double-counted — capped at the top 250 words per file across the 50
-  most-recent files, all derived/disposable app state. Tab completion then offers
-  nearby-in-buffer words first (exactly as before) followed by your most frequent
-  words, both adapted to your typed case — and the popup now opens even when the word
-  you want is NOT nearby, which is the point: type "hete", Tab, "heteroscedasticity".
-  `[editor] tab_complete_dict = false` turns the dictionary off. A missing or corrupt
-  dictionary file just starts empty (logged, never an error). Zero baseline editing
-  cost: scans are debounced background work, the lookup runs only on an explicit Tab.
-  Rust (two new load/store commands + two config keys) + frontend; needs a dev-app
-  restart to pick up the new backend commands.
-
-## [1.97.0] - 2026-07-21
-
-### Changed
-
-- **"Keybindings: Write All Shortcuts" now writes a scratch file, never config.toml.**
-  The old command surgically rewrote your config's [keys] table in place — safe in
-  implementation, unwise in principle (a palette command silently editing the config
-  file). It now opens a new scratch buffer (TOML-highlighted) containing the complete
-  effective keymap with a one-line header; paste the block into [keys] yourself if you
-  want to customize. The config-rewriting store action and its table-splicing helper
-  are deleted. Frontend only.
-
-## [1.98.0] - 2026-07-21
-
-### Added
-
-- **Trailing whitespace is trimmed on save** — `[editor] trim_trailing_whitespace`,
-  default true (the space that caused the Sa 14 front-matter bug would never have
-  survived a save again). Deliberately surgical: it only runs when a save is happening
-  anyway (a clean file is never rewritten just to trim); Markdown hard breaks —
-  two-plus pure spaces after text — are preserved exactly, as promised; CSV/TSV are
-  never trimmed (trailing spaces can be field data). For the document in the live view
-  the trim is applied as a real editor edit — per-line deletions, so the cursor is
-  mapped, undo works, and the incremental parser never sees a whole-document replace —
-  while background saves (tab-switch/blur autosave of inactive tabs) transform the
-  text directly. Set `trim_trailing_whitespace = false` to keep every byte you type.
-  Config key is read by the Rust backend (dev restart to change it); the trim itself
-  is frontend, on by default immediately.
-
-## [1.98.1] - 2026-07-21
-
-### Fixed
-
-- **CSV rainbow respects quoted fields and the file's real delimiter** — the column
-  colorizer used to split every line on every comma AND tab with no quote awareness,
-  so `"Smith, John"` bled across two column colours. Now `.csv` scans RFC-4180 style —
-  a field starting with `"` runs to its closing quote, `""` inside is an escaped
-  quote, an unclosed quote runs to end of line — and `.tsv` splits on tabs only with
-  no quoting (the Sublime RainbowCSV convention), so commas inside TSV fields and
-  tabs inside CSV fields no longer break columns either. Same single pass and
-  5,000-line cap as before — no perf change.
-
-## [1.99.0] - 2026-07-21
-
-### Added
-
-- **Full screen and distraction-free modes**, Sublime's pair: **F11** toggles true
-  window fullscreen; **Shift+F11** toggles distraction-free — fullscreen with the
-  sidebar and outline hidden, previous layout restored on exit. The two are
-  independent (leaving fullscreen with F11 does not restore hidden panels). The
-  palette gets explicit verbs — Enter/Exit Full Screen, Enter/Exit Distraction
-  Free — and both keys are rebindable in `[keys]` (actions `toggleFullscreen`,
-  `toggleDistractionFree`), listed in the F1 help. Like all editor keys they fire
-  when the editor has focus; the palette covers the rest. Fullscreen state is
-  queried live from the window, so the toggle stays correct even when
-  window-state restore starts the app fullscreen. Requires the new window
-  permission, so the app (or `tauri dev`) must restart once to pick it up.
-
-## [2.0.0] - 2026-07-21
-
-### Changed
-
-- **Trailing-whitespace trim now trims everything — the Sublime semantics** (and the
-  contract change behind the round number: 1.98.0 promised hard breaks were safe;
-  2.0.0 retires that promise by author decision). `trim_trailing_whitespace = true`
-  (the default) removes ALL line-end spaces and tabs on save, markdown two-space hard
-  breaks included — exactly what ST's `trim_trailing_white_space_on_save` does. Need
-  a line break that survives trimming? End the line with a backslash — CommonMark's
-  hard break, understood by the preview and by Pandoc/Quarto. Want the old cautious
-  behavior back? `trim_trailing_whitespace = "keep-hard-breaks"` spares two-plus-space
-  breaks; `false` switches trimming off. CSV/TSV files are still never trimmed
-  (trailing spaces can be data). The trim-all default is frontend and live
-  immediately; *reading* the new config values ("keep-hard-breaks"/"off") needs the
-  restarted backend.
-
-## [2.1.0] - 2026-07-22
-
-### Added
-
-- **Help system (We 2).** `HELP.md` — a user guide checked into the repo and embedded
-  in the exe — is rewritten to `~/.writedown/help.md` at every launch, so the in-app
-  copy always matches the running build. Three ways in: palette **"Open Help
-  (help.md)"**, the new **?** button to the right of the Split toggle, and a pointer
-  in the footer of the F1 shortcuts overlay. It opens as a normal markdown tab, so
-  the preview renders it. The README links the same file on GitHub.
-- **The file tree lists every file (We 3)**, not just the supported-extension
-  whitelist — previously anything else (even LICENSE, extensionless) was silently
-  omitted. Files Writedown has no syntax for appear muted and still open as plain
-  text; obviously-binary files (exe/dll/msi/zip/archives/fonts/media …) are muted
-  and inert, with right-click → Open Externally. Zips deliberately stay closed
-  (browsing inside archives: juice not worth the squeeze — author decision).
-  Quick-open (Ctrl+Shift+Q) keeps its whitelist so it stays free of noise. Listing
-  is still lazy per level; muting is pure CSS — no baseline cost.
-- **In-app image viewer (We 3).** png/jpg/jpeg/gif/webp/svg/bmp/ico/avif open in a
-  tab (single-click previews, double-click pins, like any file) shown full-pane.
-  The bytes stream through the Tauri asset protocol, never the text pipeline, and
-  save paths refuse image docs outright — an image on disk can never be written by
-  the app (spec §2). External-change auto-refresh of an open image is out of scope
-  this pass (close/reopen refreshes); images stay out of quick-open.
-
-### Changed
-
-- Backend `DirEntry` gained a `supported` flag and `list_directory` no longer drops
-  unsupported files. Rust changed — `tauri dev` needs a restart, not just HMR.
-
 ## [2.14.4] - 2026-08-28
 
 ### Fixed
@@ -1016,6 +478,75 @@ change must never be missed or silently overwritten".
 - Rust changed (`file_stamp` added, `write_file` now takes an optional expected stamp and
   returns the new one) — a `tauri dev` restart or a rebuild is required, not just HMR.
 
+## [2.11.0] - 2026-08-03
+
+Batch B: File → Open, order-free palette matching, and the two halves of "an external
+change must never be missed or silently overwritten".
+
+### Added
+
+- **File → Open (issue B.01).** A native open dialog on **Ctrl+O** and the palette verb
+  "Open File…" — until now the only ways to open a file outside the workspace were
+  drag-and-drop, `[files] quick_file`, or launching the exe with a path. Multi-select;
+  the picks go through the same route as a drop, so image/PDF/binary guards, the 20-file
+  cap and its overflow message all apply unchanged. Defaults to the active document's
+  folder. App-level binding (works with tree or preview focus, like Ctrl+P) and therefore
+  listed in the F1 help rather than remappable via `[keys]`.
+- **Two explicit conflict verbs (issue B.04):** "Reload from Disk (discard my edits)" and
+  "Overwrite Disk with My Version". Two labelled actions rather than one button whose
+  meaning depends on state, and no modal — a dialog would pop *after* you had already
+  switched to another application.
+- **A conflicted tab now says so in the tab strip** — a bold `!` in place of the dirty
+  dot, the name in the warning colour, and the explanation in the tab's tooltip. The
+  footer line stays, but it is easy to miss.
+- **Palette: "Diagnostics: File Watch Status"** — opens a scratch listing the watched
+  roots, which open files are covered by which, and which hold their own individual
+  watch. Every open file must show one or the other; this is the report that would have
+  turned B.03 from a dig into one line.
+
+### Fixed
+
+- **Palette matching is no longer order-sensitive (issue B.02).** The matcher required
+  your letters as an in-order subsequence, so `config edit` could never match
+  "Edit Config (config.toml)" — not a ranking quirk, simply no match. Now fzf's
+  extended-search rule: a space splits the query into terms, each term must match, but
+  the order *between* terms no longer matters. A query with no space takes the old path
+  and ranks exactly as before. Trailing or doubled spaces stop killing a query, and a
+  quick-open `store ts` now matches `src/store.ts` at all (a space previously had to be
+  matched literally in the path). Note what this does *not* change: the greedy scan still
+  takes the first occurrence of each character, so `store` scores `src/store.ts` on the
+  `s` of `src/` rather than on the `store` run — a pre-existing ranking quirk, verified
+  identical before and after this change.
+- **A file opened from the Folder tab while a project is open is watched again
+  (issue B.03).** `syncExtraWatch` skipped per-file watching for anything under the
+  Folder-tab root — but that root is only ever listed and drawn, never watched
+  (`setFolderRoot` does no watching, and `openFolder` skips `setRoot` while a project is
+  open). So such a file was excluded by a root that watched nothing and ended up covered
+  by nobody: no reload, no conflict flag, no message. The exclusion list is now derived
+  from the roots actually armed (`applyWatch` records them), which makes that state
+  unrepresentable. This is *not* a regression of A.28 — that fixed the path-spelling
+  comparison; no event was reaching it at all.
+- **An external change can no longer be silently overwritten (issue B.04).** Saving never
+  looked at the conflict flag, and autosave fires on editor blur, window blur, tab switch
+  and close — so a correctly-flagged conflict was overwritten the moment you clicked
+  away. Now: autosave refuses a conflicted tab (and says so in the status bar), and
+  **every save is a check-and-set** — Rust `write_file` takes the stamp (mtime + size)
+  the file had when we read it and refuses the write if disk has moved on since. That
+  guarantee does not depend on the watcher noticing, which is exactly the weakness B.03
+  exposed, and it covers two Writedown instances on one file (We 4). A stamp that moved
+  without the content changing (a sync client rewriting identical bytes) is resolved by
+  one read and the save proceeds, so a false alarm never costs a save. Quitting still
+  force-saves: at that point refusing would lose your typing for good, while writing
+  keeps both versions — theirs goes to the backup store.
+- **Insurance for an event that never arrives:** on window focus the active document is
+  re-stamped against disk and reloaded (clean) or flagged (dirty). Covers sleep/resume,
+  network shares and any watcher gap we have not thought of.
+
+### Changed
+
+- Rust changed (`file_stamp` added, `write_file` now takes an optional expected stamp and
+  returns the new one) — a `tauri dev` restart or a rebuild is required, not just HMR.
+
 ## [2.10.1] - 2026-08-03
 
 ### Fixed
@@ -1333,6 +864,544 @@ Batch A, release 1 of 5: the two integrity bugs plus the cheapest daily-use fixe
   target is resolved before sanitizing and stashed in a `data-` attribute, because a
   bare drive-letter href (`C:\…`) would otherwise be stripped as an unknown URL scheme;
   no new permissions are needed and there is no cost on the typing path.
+
+## [2.1.0] - 2026-07-22
+
+### Added
+
+- **Help system (We 2).** `HELP.md` — a user guide checked into the repo and embedded
+  in the exe — is rewritten to `~/.writedown/help.md` at every launch, so the in-app
+  copy always matches the running build. Three ways in: palette **"Open Help
+  (help.md)"**, the new **?** button to the right of the Split toggle, and a pointer
+  in the footer of the F1 shortcuts overlay. It opens as a normal markdown tab, so
+  the preview renders it. The README links the same file on GitHub.
+- **The file tree lists every file (We 3)**, not just the supported-extension
+  whitelist — previously anything else (even LICENSE, extensionless) was silently
+  omitted. Files Writedown has no syntax for appear muted and still open as plain
+  text; obviously-binary files (exe/dll/msi/zip/archives/fonts/media …) are muted
+  and inert, with right-click → Open Externally. Zips deliberately stay closed
+  (browsing inside archives: juice not worth the squeeze — author decision).
+  Quick-open (Ctrl+Shift+Q) keeps its whitelist so it stays free of noise. Listing
+  is still lazy per level; muting is pure CSS — no baseline cost.
+- **In-app image viewer (We 3).** png/jpg/jpeg/gif/webp/svg/bmp/ico/avif open in a
+  tab (single-click previews, double-click pins, like any file) shown full-pane.
+  The bytes stream through the Tauri asset protocol, never the text pipeline, and
+  save paths refuse image docs outright — an image on disk can never be written by
+  the app (spec §2). External-change auto-refresh of an open image is out of scope
+  this pass (close/reopen refreshes); images stay out of quick-open.
+
+### Changed
+
+- Backend `DirEntry` gained a `supported` flag and `list_directory` no longer drops
+  unsupported files. Rust changed — `tauri dev` needs a restart, not just HMR.
+
+## [2.0.0] - 2026-07-21
+
+### Changed
+
+- **Trailing-whitespace trim now trims everything — the Sublime semantics** (and the
+  contract change behind the round number: 1.98.0 promised hard breaks were safe;
+  2.0.0 retires that promise by author decision). `trim_trailing_whitespace = true`
+  (the default) removes ALL line-end spaces and tabs on save, markdown two-space hard
+  breaks included — exactly what ST's `trim_trailing_white_space_on_save` does. Need
+  a line break that survives trimming? End the line with a backslash — CommonMark's
+  hard break, understood by the preview and by Pandoc/Quarto. Want the old cautious
+  behavior back? `trim_trailing_whitespace = "keep-hard-breaks"` spares two-plus-space
+  breaks; `false` switches trimming off. CSV/TSV files are still never trimmed
+  (trailing spaces can be data). The trim-all default is frontend and live
+  immediately; *reading* the new config values ("keep-hard-breaks"/"off") needs the
+  restarted backend.
+
+## [1.99.0] - 2026-07-21
+
+### Added
+
+- **Full screen and distraction-free modes**, Sublime's pair: **F11** toggles true
+  window fullscreen; **Shift+F11** toggles distraction-free — fullscreen with the
+  sidebar and outline hidden, previous layout restored on exit. The two are
+  independent (leaving fullscreen with F11 does not restore hidden panels). The
+  palette gets explicit verbs — Enter/Exit Full Screen, Enter/Exit Distraction
+  Free — and both keys are rebindable in `[keys]` (actions `toggleFullscreen`,
+  `toggleDistractionFree`), listed in the F1 help. Like all editor keys they fire
+  when the editor has focus; the palette covers the rest. Fullscreen state is
+  queried live from the window, so the toggle stays correct even when
+  window-state restore starts the app fullscreen. Requires the new window
+  permission, so the app (or `tauri dev`) must restart once to pick it up.
+
+## [1.98.1] - 2026-07-21
+
+### Fixed
+
+- **CSV rainbow respects quoted fields and the file's real delimiter** — the column
+  colorizer used to split every line on every comma AND tab with no quote awareness,
+  so `"Smith, John"` bled across two column colours. Now `.csv` scans RFC-4180 style —
+  a field starting with `"` runs to its closing quote, `""` inside is an escaped
+  quote, an unclosed quote runs to end of line — and `.tsv` splits on tabs only with
+  no quoting (the Sublime RainbowCSV convention), so commas inside TSV fields and
+  tabs inside CSV fields no longer break columns either. Same single pass and
+  5,000-line cap as before — no perf change.
+
+## [1.98.0] - 2026-07-21
+
+### Added
+
+- **Trailing whitespace is trimmed on save** — `[editor] trim_trailing_whitespace`,
+  default true (the space that caused the Sa 14 front-matter bug would never have
+  survived a save again). Deliberately surgical: it only runs when a save is happening
+  anyway (a clean file is never rewritten just to trim); Markdown hard breaks —
+  two-plus pure spaces after text — are preserved exactly, as promised; CSV/TSV are
+  never trimmed (trailing spaces can be field data). For the document in the live view
+  the trim is applied as a real editor edit — per-line deletions, so the cursor is
+  mapped, undo works, and the incremental parser never sees a whole-document replace —
+  while background saves (tab-switch/blur autosave of inactive tabs) transform the
+  text directly. Set `trim_trailing_whitespace = false` to keep every byte you type.
+  Config key is read by the Rust backend (dev restart to change it); the trim itself
+  is frontend, on by default immediately.
+
+## [1.97.0] - 2026-07-21
+
+### Changed
+
+- **"Keybindings: Write All Shortcuts" now writes a scratch file, never config.toml.**
+  The old command surgically rewrote your config's [keys] table in place — safe in
+  implementation, unwise in principle (a palette command silently editing the config
+  file). It now opens a new scratch buffer (TOML-highlighted) containing the complete
+  effective keymap with a one-line header; paste the block into [keys] yourself if you
+  want to customize. The config-rewriting store action and its table-splicing helper
+  are deleted. Frontend only.
+
+## [1.96.0] - 2026-07-21
+
+### Added
+
+- **Tab completion learns your vocabulary** (issue Sa 5b — the "killer" half). Every
+  document you open or save is scanned in the background (~1 s after the event, off
+  the keystroke path) for words of 5+ letters (config `[editor]
+  tab_complete_dict_min_len`); counts are kept PER FILE in
+  `~/.writedown/word-frequency.json` — re-opening a file replaces its entry, so
+  nothing is ever double-counted — capped at the top 250 words per file across the 50
+  most-recent files, all derived/disposable app state. Tab completion then offers
+  nearby-in-buffer words first (exactly as before) followed by your most frequent
+  words, both adapted to your typed case — and the popup now opens even when the word
+  you want is NOT nearby, which is the point: type "hete", Tab, "heteroscedasticity".
+  `[editor] tab_complete_dict = false` turns the dictionary off. A missing or corrupt
+  dictionary file just starts empty (logged, never an error). Zero baseline editing
+  cost: scans are debounced background work, the lookup runs only on an explicit Tab.
+  Rust (two new load/store commands + two config keys) + frontend; needs a dev-app
+  restart to pick up the new backend commands.
+
+## [1.95.0] - 2026-07-21
+
+### Changed
+
+- **Tab completions respect the case of the typed stem** (issue Sa 5a). Matching was
+  already case-insensitive, but the popup inserted the candidate exactly as it appears
+  in the buffer — typing "Lognorm" with "lognormal" nearby completed to lowercase
+  "lognormal". Now the inserted word adapts to what YOU typed: log→lognormal,
+  Log→Lognormal, LOG→LOGNORMAL (interior caps like "LaTeX" are preserved when only the
+  first letter changes), the popup shows exactly what will be inserted, and buffer
+  duplicates differing only in case collapse to the nearest single entry. Known limits:
+  a mixed-interior-case stem ("LogN") follows the first-letter rule, and labels are
+  cased at popup-open time. Runs only on an explicit Tab — zero baseline cost.
+  Frontend only.
+
+## [1.94.0] - 2026-07-21
+
+### Changed
+
+- **Preview tabs now mirror Sublime Text fully** (issue Fr 2, re-specced). The pieces
+  that already existed: a single preview slot (previewing another file reuses the same
+  tab) and edit-promotes-to-permanent. New: the transient preview no longer appears in
+  the sidebar's Open Files list at all — the italic tab is the only clue, and the file
+  joins Open Files the moment an edit promotes it; and single-clicking a file that
+  already has a real tab focuses that tab and CLOSES the preview slot (a preview exists
+  to peek at files you have NOT got open — and it is always pristine, since any edit
+  promotes it first, so discarding is lossless). Open Files drag-reorder translates its
+  row indices past the hidden preview tab so reordering stays exact. This also retires
+  the ballooning preview-row saga (1.76.1, 1.81.2) for good: the row that ballooned no
+  longer exists, and its italic CSS is deleted. Frontend only.
+
+## [1.93.3] - 2026-07-21
+
+### Fixed
+
+- **Switching tabs into a long document no longer sends the panes flying** (issue Sa 8,
+  the "disaster"; third attempt, structural this time). Why the first two failed: on a
+  200 KB doc CodeMirror keeps re-measuring estimated line heights for ~a second after
+  the swap, and the preview streams its blocks across many frames — but every guard was
+  a 40–200 ms timing window stamped at stream START. Once they lapsed, editor
+  measurement drift fed the preview, preview churn wrote back into the editor's
+  scrollTop (the one preview→editor writer), and the panes chased each other; each
+  drift also overwrote the doc's remembered position, so the corruption stuck. Three
+  origin-based changes replace the timers: (1) preview→editor sync now requires a real
+  user gesture on the preview (wheel/pointer/touch/keys, refreshed while that scroll
+  flows) — programmatic churn can never open the gate, so it can never move the editor;
+  editor→preview stays ungated (outline jumps still drag the preview). (2) The editor's
+  restore is line-anchored — a scrollSnapshot captured on switch-away replays exactly
+  and CM's own scroll anchoring holds it through re-measure (raw-px + one-frame
+  re-assert before); the scroll RECORDER arms only on a user gesture or outline jump,
+  so drift can no longer corrupt the memory. (3) The in-sync stamps moved from stream
+  start to stream completion — the staleness guard now covers the whole stream — and
+  the once-per-doc sync fires after the blocks have finished landing, reading the
+  editor's settled top line: one close-enough go, no settle fight. Cursor and remembered
+  position survive rapid tab cycling. Frontend only; all changes are event-time.
+
+## [1.93.2] - 2026-07-21
+
+### Fixed
+
+- **A YAML front-matter block no longer kills all highlighting below it** (issue Sa 14).
+  Root cause, verified against the repro file's bytes: the closing `---` carried a
+  trailing space, and lang-yaml's front-matter grammar accepts only an exact `---` — so
+  the block never closed and parser error-recovery swallowed the entire rest of the
+  document as YAML (the `#` heading after the block read as a YAML comment; every code
+  fence below went uncolored). The preview's strip regex tolerated the space, which is
+  why the preview looked right while the editor was broken. The yamlFrontmatter wrapper
+  is replaced by an in-repo tolerant parser (same node names, same DashLine styling,
+  same YAML/markdown nesting): trailing blanks are legal on both delimiters, and a
+  block that never closes is treated as NO front matter rather than swallowing the
+  document. The preview's strip is rewritten on the same shared delimiter shapes (also
+  fixing an empty `---`/`---` block, a mid-line `---foo` false close, and its
+  line-offset math), so the two panes can never again disagree about the same document.
+  The 1.93.1 static-language change was chasing this symptom but is an independent,
+  real fix for async-load striping — it stays. Removed as actually-unnecessary: the
+  dead frontmatterHighlight decoration plugin (superseded by the real YAML parser back
+  in Phase 4), its orphaned CSS, and the Sublime-theme CSS-variable plumbing that fed
+  it. Frontend only.
+
+## [1.93.1] - 2026-07-20
+
+### Fixed
+
+- **`{python}` (and other) code-cell highlighting is stable** (colorization side-find). A
+  ```{python} cell resolved its language through the asynchronous language-data registry
+  rather than the statically-imported `python()` that `.py` files use, so the live editor's
+  incremental, viewport-bounded highlight pass captured only a partial nested tree — lines
+  flipped between colored and white depending on parse timing, and the pattern shifted with
+  every keystroke (the "striped colouring" that changed as the cell grew). Fenced blocks of
+  the statically-imported languages (python, json, yaml, toml, latex) now nest synchronously
+  via pre-loaded descriptions, so highlighting is deterministic; other languages still
+  lazy-load. Frontend only.
+
+## [1.93.0] - 2026-07-20
+
+### Changed
+
+- **Tab word-completion now shows a sorted popup list** (issue 5 follow-up). The 1.91.0
+  version inserted the nearest match inline and cycled on repeated Tab; you wanted to see
+  and pick from the candidates. Tab now opens the autocomplete popup with the matching
+  longer words ranked by proximity to the caret (nearest first) — arrows to choose, Enter
+  or Tab to accept, and it narrows as you type more. In markdown it shares the @-citation
+  popup (the word source self-gates to an explicit Tab and declines the @ context); other
+  languages get a word-only popup. Side effect: Tab now also accepts a highlighted citation.
+  Config `[editor] tab_complete_min_len` (default 5) still sets the shortest word offered.
+  Runs only on an explicit Tab (zero baseline cost). Frontend only.
+
+## [1.92.0] - 2026-07-20
+
+### Changed
+
+- **Font-zoom bounds are configurable** (issue 11 follow-up). The Ctrl+wheel / Ctrl+= zoom
+  floor and cap moved from a hardcoded 6–40 px to `[editor] font_size_min` /
+  `font_size_max` (defaults 6 / 24). Edit them in `config.toml` and save — the bounds apply
+  live (a config save re-reads `[editor]` settings; a current size outside the new range
+  snaps in at once, otherwise the new range takes effect on the next zoom). Requires a
+  backend rebuild (new config keys).
+
+## [1.91.2] - 2026-07-20
+
+### Fixed
+
+- **Project quick-switch dropdown is readable in dark mode** (issue 3 follow-up). The
+  `<select>` had a transparent background, so it fell back to the native (light) control
+  background while its text used the theme foreground — light-on-light in dark mode. It
+  now uses the theme's `--bg`/`--fg` for both the closed control and the option list, with
+  `color-scheme` so the native popup follows the theme. Frontend only.
+
+## [1.91.1] - 2026-07-20
+
+### Fixed
+
+- **The editor no longer drifts on a tab switch** (issue 8 follow-up). The 1.89.1
+  sync-on-switch scrolled the preview to the editor's line, but that programmatic scroll
+  fired the preview's own scroll handler, which echoed back and nudged the editor — the
+  editor is the anchor and must not move. A short guard now marks `scrollPreviewToLine`'s
+  own scrolls (across the whole settle) so the preview→editor half ignores them: the
+  editor stays put, other views sync to it. Also stops the build-time scroll from tugging
+  the editor. Frontend only.
+
+## [1.91.0] - 2026-07-20
+
+### Added
+
+- **Sublime-style Tab word-completion** (issue 5). Type the first letter(s) of a long word
+  and press Tab: the nearest matching longer word from nearby in the buffer is inserted;
+  Tab again cycles through the other matches, then back to what you typed. It fires whenever
+  a word character sits right before the caret; at line start or after whitespace Tab now
+  indents (and Shift+Tab dedents), which it didn't before. Candidates are words of at least
+  `[editor] tab_complete_min_len` characters (default 5) — short words aren't worth a Tab —
+  harvested from a window around the caret and ranked by distance, so it stays instant even
+  on large documents. It yields to an open @-citation popup and to snippet tab-through, and
+  runs only on an explicit Tab (zero baseline cost). Requires a backend rebuild (new config
+  key).
+
+## [1.90.0] - 2026-07-20
+
+### Added
+
+- **Ctrl+MouseWheel font-size zoom** (issue 11). Hold Ctrl and spin the wheel over the
+  editor to grow/shrink the font, like Sublime. It is transient (the same session-only,
+  never-config `editorZoom` that Ctrl+= / Ctrl+- / Ctrl+0 use) and bounded by a hard px
+  floor and cap (6–40) so it can't shrink to nothing or blow up — unlike editors that
+  leave it unbounded. Wheel deltas are accumulated so one physical notch steps once on any
+  device, and WebView2's page-zoom is suppressed. Frontend only.
+
+## [1.89.1] - 2026-07-20
+
+### Fixed
+
+- **Preview syncs to the editor's spot on a tab switch and a Preview↔Rendered switch**
+  (issues 6 & 8). Editor↔preview scroll sync was driven only by live scroll events, so
+  switching tabs left the preview pinned at the top until you scrolled (the tab switch's
+  own scroll event fires before the new document has rendered, so it is correctly dropped
+  as stale), and switching between the Preview and Rendered tabs remounted the pane at the
+  top. A single one-shot now runs once the switched-to document's render is patched in,
+  scrolling the preview to the editor's current top line. The "a build opens at your Ctrl+B
+  spot" behavior is preserved — it now survives a Preview↔Rendered switch instead of
+  replaying the stale build position. Frontend only.
+
+## [1.89.0] - 2026-07-20
+
+### Added
+
+- **Per-document Python interpreter via `wd-python:`** (issue 9). A document's YAML front
+  matter can name the interpreter for its `{python}` cells — `wd-python: C:/env/python.exe`
+  — overriding the `[render] python` config for that document. Absolute paths only: a
+  relative value is ignored (with a render-summary warning) rather than guessed at, and a
+  bad absolute path surfaces the usual "python failed to start" warning. Requires a backend
+  rebuild.
+
+## [1.88.0] - 2026-07-20
+
+### Added
+
+- **Delete a project from the palette** (issue 12). "Project: Delete <name>…" entries
+  (one per managed project under `~/.writedown/projects/`) recycle the `.wdproj` file to
+  the Recycle Bin after a confirmation dialog; if it is the open project it is closed
+  afterward (the folder root is adopted into the Folder tab). Guarded end to end — only
+  a managed `.wdproj` can be deleted, and the folders a project references are never
+  touched (spec §2). The recent-projects list self-prunes the vanished entry. Requires a
+  backend rebuild.
+
+## [1.87.0] - 2026-07-20
+
+### Added
+
+- **Project quick-switch dropdown in the panel footer** (issue 3). The Project panel
+  now has a select box pinned to its bottom listing your projects most-recently-used
+  first (the same deduped, disambiguated set the palette quick-switch uses); picking one
+  switches workspace. Projects only — the Folder panel is unchanged. Frontend only.
+
+## [1.86.4] - 2026-07-20
+
+### Fixed
+
+- **No more duplicate project in quick-switch** (issue 13). The recent-projects list
+  de-duplicated by exact byte match, so the same `.wdproj` added via two spellings —
+  the managed path vs. the native Open dialog, a differing drive-letter case, `\` vs
+  `/`, or a trailing slash — stacked up as two rows. De-dup now uses a normalized key
+  (case- and separator-insensitive, trailing slash stripped) that mirrors the frontend
+  normalizer, both when adding and when reading, so an existing duplicate collapses on
+  next load. Genuinely distinct project files are unaffected. Requires a backend rebuild.
+
+## [1.86.3] - 2026-07-20
+
+### Fixed
+
+- **Ctrl+D selections are boldly visible** (issue 4). Selecting a word shows a bright
+  green match highlight, but Ctrl+D ("select next occurrence") converts the matches
+  into real selection ranges — at which point CodeMirror drops the green highlight and
+  paints every range with the theme's faint translucent selection colour, so the
+  selection nearly vanished. All real selections now use a bold green in the match
+  highlight's family (still translucent, so the text reads), so single- and
+  multi-selection look consistent and stay clearly visible. The colour is an
+  overridable CSS variable (`--cm-sel-strong`). Frontend only.
+
+## [1.86.2] - 2026-07-20
+
+### Fixed
+
+- **@-citations (and spellcheck) work in an indented footnote definition** (issue 7).
+  The editor's markdown grammar has no footnote rule, so a footnote definition
+  `[^key]: …` indented by a tab (or 4+ spaces) parsed as an indented code block — and
+  the shared prose gate rejects anything inside code, so the `@` citation popup and
+  spellcheck went silent on that line. Unindented footnotes were unaffected (they
+  parse as a paragraph); the failure appeared only once the key was tabbed in. The
+  prose gate now recognizes an indented-code line that is really a footnote definition
+  and treats it as prose. Frontend only.
+
+## [1.86.1] - 2026-07-20
+
+### Fixed
+
+- **Insert Date-Time no longer loses editor focus** (issue 1). The stamp was
+  inserted correctly and the caret already sat after it (`replaceSelection`), but the
+  palette command never returned focus to the editor — when the palette closed, focus
+  fell to the page body, so the caret went inert and you had to click back in. The
+  command now refocuses the view after inserting, matching the snippet-insert path.
+  Frontend only.
+
+## [1.86.0] - 2026-07-18
+
+### Fixed
+
+- **The Rendered view now speaks your document's coordinates** (issue 4). The build
+  splices cell output, a title, and a References section into the markdown, so the
+  rendered blocks' line numbers referred to the expanded document — scroll sync ran
+  in the wrong coordinate system (drifting further as outputs accumulated) and a
+  build always opened at the top. The renderer now emits a line map alongside the
+  markdown (one entry per expanded line: its source line, or 0 for synthetic
+  content — built during assembly, zero extra passes), and everything hangs off
+  it: editor↔rendered scroll sync translates in both directions, outline clicks
+  land correctly in the rendered pane, and after a build the rendered view opens
+  at the editor's current location instead of the top. Spliced cell output anchors
+  to its cell's line, so scrolling through results tracks the producing cell.
+  Requires a backend rebuild.
+
+## [1.85.0] - 2026-07-18
+
+### Fixed
+
+- **Files opened from outside the workspace now see external edits** (issue 11 —
+  "this file is not refreshing"). The watcher only ever covered workspace roots, so
+  a quick-opened stray (the issues file being Exhibit A) never received change
+  events: clean tabs didn't refresh, dirty tabs never learned they were in
+  conflict. A second, independent watcher now covers exactly the open tabs that
+  live under no root — per-file, non-recursive, re-pointed as tabs open/close and
+  when roots change, dropped when no strays remain. The existing rules are
+  unchanged: clean tab → auto-reload, dirty tab → conflict flag (never a silent
+  clobber), own saves suppressed. Requires a backend rebuild.
+
+## [1.84.0] - 2026-07-18
+
+### Added
+
+- **Locate File in Sidebar** (issue 8): a palette command that reveals the active
+  document — picks whichever panel's root contains it (preferring the one already
+  showing), expands its ancestor folders, switches to that panel (showing the
+  sidebar if hidden), and scrolls the highlighted row into view once the lazy
+  per-level listings settle. Containment is case- and separator-insensitive. If
+  the file is under no root — a quick-opened stray, a scratch — the status bar's
+  left slot shows "name (not found in sidebar)" for ~20 s instead of the path;
+  that transient-message slot is new and reusable. Command-time only.
+
+## [1.83.0] - 2026-07-18
+
+### Added
+
+- **The command palette remembers what you ran** (issue 10, ST behaviour). Opening
+  it with an empty query lists commands most-recently-used first with the last one
+  preselected — so Ctrl+Shift+P, Enter reruns the previous command. Typing any
+  query switches back to pure fuzzy ranking. The MRU (last 50, in localStorage)
+  survives restarts; ids that no longer exist — say a config snippet you removed —
+  just rank nowhere. Palette-time only.
+
+## [1.82.0] - 2026-07-18
+
+### Added
+
+- **Type to wrap the selection** (issue 5, ST muscle memory). With text selected,
+  typing `"` `'` `` ` `` `*` `(` `[` `{` surrounds the selection (paired for
+  brackets, doubled for the symmetric characters) and keeps it selected, so wraps
+  nest. Empty cursors in a multi-selection still type the character; with nothing
+  selected the handler declines entirely, so ordinary typing is untouched and
+  nothing auto-inserts at a bare caret (closeBrackets stays off, as decided).
+  Works in every file type, multicursor-aware.
+
+## [1.81.5] - 2026-07-18
+
+### Fixed
+
+- **Scroll sync stands down while the preview is behind the buffer** (issues 6 and,
+  with 1.81.0, the rest of 9). While typing, the rendered blocks lag the editor by
+  the 200 ms render debounce plus render time; syncing against those stale line
+  ranges walked off the end of the block list and clamped the preview to the
+  bottom — and the settle loop then held it there (worst inside big display math,
+  where one block spans many source lines and a transiently unbalanced $$ swallows
+  the document). Both sync directions, and the settle loop, now check that the
+  rendered source IS the live buffer before moving anything; preview DOM churn in
+  the 150 ms after a patch is likewise ignored, so patch-induced scroll events can
+  no longer rewrite the editor's position. Sync resumes by itself once the render
+  catches up. No cost outside the sync handlers.
+
+## [1.81.4] - 2026-07-18
+
+### Fixed
+
+- **Outline clicks land on the first try** (issue 1). The editor-side jump computed
+  its target from CodeMirror's estimated heights for never-drawn lines and scrolled
+  once — the scroll forced real measurement, so only a second identical click
+  landed. The jump now re-derives the target for up to 8 frames after scrolling
+  (superseded by any newer jump), converging as measurements arrive — the editor
+  twin of the settle loop the preview jump gained in 1.73.2. Click-time only.
+
+## [1.81.3] - 2026-07-18
+
+### Fixed
+
+- **Saving personal-dictionary.txt now takes effect immediately** (issue 3). The
+  palette "Add Word" always worked, but words typed into the dictionary file
+  itself sat on disk while the checker kept its startup snapshot — the file lives
+  in the app-config dir outside every watched root, and only config.toml saves
+  reloaded spelling. The store now learns the resolved dictionary path (re-resolved
+  when config changes it) and a save of that file mirrors the config branch:
+  reload the word set, clear the caches, re-lint the open document. Path
+  comparison is case- and separator-insensitive.
+
+## [1.81.2] - 2026-07-18
+
+### Fixed
+
+- **The preview-mode Open Files row can no longer balloon** (third time's the charm).
+  The 1.76.1 font-size/line-height pins treated the wrong disease: line-height is a
+  floor for the line box, not a ceiling, so an italic fallback face with tall
+  metrics still inflated the row. The tab strip never ballooned because it is
+  clipped, not because of its pins — the Open Files rows now get the same cure: a
+  pinned row height (scaled from the [tree] font size, floored at the close
+  button's 18 px) plus overflow:hidden, making the row immune to whatever face the
+  italic resolves to. CSS only.
+
+## [1.81.1] - 2026-07-18
+
+### Fixed
+
+- **Delete asks for confirmation again.** Tauri swaps `window.confirm` for an async
+  IPC dialog call: the un-awaited Promise is always truthy, so the guard in Delete
+  never blocked — and in the packaged exe the dialog permission was also denied by
+  the ACL (the "plugin:dialog|confirm not allowed" log lines), so files went to the
+  Recycle Bin with no prompt at all. Delete now uses the dialog plugin's `confirm`
+  properly awaited, and the capability grants it. Requires a backend rebuild (the
+  capability file is compiled in).
+
+## [1.81.0] - 2026-07-18
+
+### Fixed
+
+- **A document's edits can no longer land in another document's file** (issue 12:
+  index.qmd twice overwritten wholesale by other tabs' buffers). Root cause: one
+  CodeMirror view serves all tabs, the active path flips synchronously on a tab
+  click, but the react-codemirror wrapper defers the actual document swap behind a
+  ~200 ms typing latch — so edits made in that beat were attributed, and then
+  autosaved, to the newly active file. Three-part fix: (a) the controlled value is
+  now applied to the view synchronously (layout effect) the moment it diverges, so
+  the view can never show one document while another is active — this also stops the
+  wrapper's deferred whole-document replace, the prime suspect for "jumps to top on
+  paste" (issue 9); (b) editor changes are written to the tab the editor was
+  rendered for (new `editTab` store action), never to whatever is active when the
+  event fires; (c) the swap transaction is excluded from undo history (undo can no
+  longer resurrect a previous tab's text) and from cursor/scroll recording, and a
+  programmatic scroll-to-0 straight after a swap is no longer recorded as the
+  document's remembered position (the "sticky" jump amplifier). Frontend only.
 
 ## [1.80.0] - 2026-07-16
 

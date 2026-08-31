@@ -1,42 +1,30 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import { readFileSync, realpathSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
-// Real (junction-resolved) project path. Used ONLY for `build`: when launched via the
-// `C:\S` junction, vite resolves index.html to its real path but leaves root as the
-// junction, producing a cross-path asset name rollup rejects. For `serve`, overriding root
-// upsets vite's dep optimizer, so we leave the default (cwd) there.
-//
-// Use realpathSync.NATIVE: plain realpathSync preserves the cwd's casing (e.g. lowercase
-// `c:\users` when launched from a lowercase-drive shell), but vite resolves index.html to its
-// OS-canonical casing (`C:\Users`). The two must match, or the html-inline-proxy plugin can't
-// find the inline-CSS module for the `<style>` in index.html — "No matching HTML proxy module".
-const realRoot = (() => {
-  try {
-    // @ts-expect-error process is a nodejs global
-    return realpathSync.native(process.cwd());
-  } catch {
-    // @ts-expect-error process is a nodejs global
-    return process.cwd();
-  }
-})();
+// The project root is wherever the dev server was launched — always the real checkout
+// (`V:\dev\writedown` on the author's machine). There used to be junction-resolution code here
+// for a launch through a `C:\S\dev` symlink; that launch path is not supported (decision
+// 2026-08-31), so the root is simply the cwd and Vite's own resolution is left alone.
+// @ts-expect-error process is a nodejs global
+const root: string = process.cwd();
 
 // CsvGrid (the CSV preview control) is consumed straight from the SIBLING repo's committed
 // dist — a build-level link, never a copy: rebuilding csv-grid there flows into writedown on
-// the next reload. Both repos ride the same synced tree, so the relative path holds on every
-// machine. If the checkout is missing, the build fails loudly with this path.
-const csvGridDist = resolve(realRoot, "../csv-viewer/dist");
+// the next reload. The sibling checkout is expected beside this one (`../csv-viewer`), so the
+// relative path holds on every machine. If it is missing, the build fails loudly with this path.
+const csvGridDist = resolve(root, "../csv-viewer/dist");
 
 // CsvGrid's version, baked in at config time for the About dialog (the dist build exports
 // no version marker; the sibling repo's package.json is its authoritative statement).
 // Picked up on dev-server (re)start — version changes there are rare and low-stakes.
 const csvGridVersion = (() => {
   try {
-    const pkg = readFileSync(resolve(realRoot, "../csv-viewer/package.json"), "utf-8");
+    const pkg = readFileSync(resolve(root, "../csv-viewer/package.json"), "utf-8");
     return String(JSON.parse(pkg).version ?? "?");
   } catch {
     return "?";
@@ -44,8 +32,7 @@ const csvGridVersion = (() => {
 })();
 
 // https://vite.dev/config/
-export default defineConfig(async ({ command }) => ({
-  ...(command === "build" ? { root: realRoot } : {}),
+export default defineConfig(async () => ({
   plugins: [react()],
   define: {
     __CSVGRID_VERSION__: JSON.stringify(csvGridVersion),
@@ -85,13 +72,10 @@ export default defineConfig(async ({ command }) => ({
       ignored: ["**/src-tauri/**", "**/target/**"],
     },
     // The dev server refuses files outside the project root by default, and setting
-    // `allow` REPLACES the default list — so it must contain the project root in BOTH
-    // forms: the raw cwd (the C:\S junction path requests actually arrive under when dev
-    // is launched from there) and the junction-resolved real path, plus the sibling
-    // csv-grid dist (production build is unaffected — rollup just reads the file).
+    // `allow` REPLACES the default list — so it must name the project root itself plus the
+    // sibling csv-grid dist (production build is unaffected — rollup just reads the file).
     fs: {
-      // @ts-expect-error process is a nodejs global
-      allow: [process.cwd(), realRoot, csvGridDist],
+      allow: [root, csvGridDist],
     },
   },
 }));

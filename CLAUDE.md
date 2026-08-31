@@ -1,238 +1,139 @@
 # Writedown
 
-A fast, local, predictable Markdown and Quarto editor for Windows. Joplin-style
-navigation, Sublime-style editing, Markdown/Quarto preview, first-class BibTeX
-citations. **Ordinary files on disk are the source of truth** — no vault, no
-hidden database, no automatic renaming, no cloud, no telemetry.
+Adds to `V:\dev\CLAUDE.md` (house rules). Project detail only — see **Deltas** at the foot.
 
-Full requirements: `writedown-spec.md` (authoritative). This file is the standing
-instructions; the spec is the contract.
+A fast, local, predictable Markdown and Quarto editor for Windows. Joplin-style navigation,
+Sublime-style editing, Markdown/Quarto preview, first-class BibTeX citations. **Ordinary files on
+disk are the source of truth** — no vault, no hidden database, no automatic renaming, no cloud,
+no telemetry.
 
-Author: Stephen J. Mildenhall — PhD in math, actuary, geeky. Lead with the
-mathematical framing where relevant; quantitative formulations (optimization,
-probability, risk measures) are welcome and often the intended design language.
+`writedown-spec.md` is authoritative and is the contract. This file is the standing instructions.
+`CHANGELOG.md` is the record of what has been built — read it for current state rather than
+expecting a status section here.
 
-## READ THIS FIRST — critical constraints
+## READ THIS FIRST — never rewrite the user's files (spec §2, §8)
 
-One non-negotiable, and one rule about paths. Everything else bends before these.
+Writedown's whole reason to exist is that it does **not** touch files behind the user's back.
+Enforce this everywhere; everything else bends before it.
 
-### 1. Never name a machine's paths in the repo (2026-08-28)
+- Files on disk are the source of truth; `.md` / `.qmd` stay ordinary UTF-8 text.
+- **Never rename, move, reorganise, or reformat a file except on an explicit user command.**
+- A YAML `title` or first heading is **never** a filename. Saving, tab switches, and preview must
+  never rename anything.
+- YAML front matter is preserved exactly — order, comments, scalar styles, spacing. Never
+  reorder, alphabetise, or reflow it.
+- Any index or cache under `~/.writedown/` is disposable and reconstructible from source. User
+  documents are never copied into `~/.writedown/`.
+- No network requests by default; works fully offline; no telemetry, accounts, or updater.
+- The authoritative `.bib` (~7,000 entries) is **read-only** — never rewritten or reformatted.
+- Save failures, conflicts, and parse failures are **surfaced**, never swallowed.
 
-The project lives on the dedicated dev drive `V:\dev\writedown` on **DOOB**. It is
-**not** synced by anything. Build churn (`target/`, `node_modules/`) belongs right
-here in the checkout, gitignored, and needs no relocation.
+## Build paths (the concrete form of the house no-hard-coded-paths rule)
 
-That is a change. The tree used to sit inside `C:\Users\steve\Documents\CloudStation\...`
-under continuous Synology Drive sync, so the churn was firewalled off to `V:` by
-absolute path — `target-dir = "V:/dev/writedown/target"` plus a `node_modules` junction,
-re-established after each install by `scripts/dev-setup.ps1`. On DOOB that absolute path
-resolves *inside* the project root, which is how a hard-coded path turns into a bug:
-Vite's watcher walked `target/`, hit a cargo build-script `.exe` that Windows had locked,
-threw `EBUSY`, and killed `tauri dev` on startup. The junction script became a
-`robocopy`-onto-itself that would have deleted `node_modules`. Both are gone —
-`target-dir` is now `"../target"` and `dev-setup.ps1` is deleted.
+Build output lives in the checkout, gitignored: `target/`, `node_modules/`, `dist/`.
 
-The standing rule that survives: **paths in this repo are derived, never hard-coded.**
-Scripts derive from `$PSScriptRoot`/repo root; cargo and Vite config use relative paths.
-No drive letters, no `C:\Users\steve`, no machine names. A path that is merely *correct
-on this machine* is a latent bug — it will be wrong on the next one.
+- `src-tauri/.cargo/config.toml` sets `target-dir = "../target"` — relative, resolving to
+  `<repo>/target`. **Cargo reads that file from the current directory, not the manifest's, so
+  always run cargo with its cwd inside `src-tauri/`, never `--manifest-path` from the repo root.**
+- There is no junction, no symlink, and no `dev-setup.ps1`. `npm install` is a plain install with
+  nothing to re-establish afterwards.
+- **Always build and run from `V:\dev\writedown`.** The `C:\S\dev` symlink to `V:\dev` exists on
+  DOOB but is not a supported launch path (decision 2026-08-31); `vite.config.ts` takes the
+  project root as the plain cwd and carries no path-resolution code for it. Do not re-add any.
 
-If the tree ever moves back under a synced folder, the firewall has to come back with
-it: sync clients sync the filesystem, not git, so `.gitignore` will not save you.
+This is the rule the house file cites as written in blood: the old absolute `V:` target-dir
+resolved *inside* the project root on this machine, Vite's watcher walked `target/`, hit a cargo
+build-script `.exe` that Windows had locked, threw `EBUSY`, and killed `tauri dev` on startup.
+The junction script had become a `robocopy`-onto-itself that would have deleted `node_modules`.
 
-### 2. Never rename, move, or rewrite the user's files (spec §2, §8)
+## Locked decisions
 
-Writedown's whole reason to exist is that it does **not** touch files behind the
-user's back. Enforce, everywhere:
+Each is a decision with its rejected alternative; revisit only with cause.
 
-- Files on disk are the source of truth; `.md`/`.qmd` stay ordinary UTF-8 text.
-- Never rename/move/reorganise/reformat a file except on an **explicit** user command.
-- A YAML `title` or first heading is **never** a filename. Saving, tab switches, and
-  preview must never rename anything.
-- YAML front matter is preserved exactly — order, comments, scalar styles, spacing.
-  Never reorder, alphabetise, or reflow it.
-- Any index/cache under `~/.writedown/` is disposable and reconstructible from source.
-  User documents are never copied into `~/.writedown/`.
-- No network requests by default; works fully offline; no telemetry/accounts/updater.
-- The authoritative `.bib` (~7,000 entries) is read-only — never rewritten or reformatted.
+- **Stack = Tauri 2 + Rust backend + TypeScript + React + CodeMirror 6** (2026-07-06). React over
+  Svelte for the deepest CodeMirror 6 / command-palette / autocomplete ecosystem, given how
+  editor-heavy this app is. Not a pure browser app — the filesystem goes through Rust so there
+  are no recurring browser permission prompts.
+- **Preview renderer = markdown-it** — fast, plugin-rich, for the internal preview. Exact
+  rendering via an explicit `quarto render` only, never automatic. (Evaluated unified/remark:
+  heavier; revisit if plugin needs demand it.)
+- **Config = TOML** at `~/.writedown/config.toml` (spec §5); session in `session.json`. App
+  state, caches, index, logs, and themes all live under `~/.writedown/` — derived and disposable
+  only, never user documents.
+- **Versioning = SemVer.** The version is **shown in the app footer** because the author reads it
+  to know which build he is running.
+- **Editing is plain-text only** — no rich-text, no Obsidian-style live preview. Rendering stays
+  separate from the editable representation.
+- **Before building a feature, state crisply what it will and won't deliver** — scope, failure
+  modes, external dependencies — so the author can make an eyes-open build/skip decision. Adopted
+  after Quarto render was built and then removed for environment-coupling reasons that should
+  have been visible up front.
 
-Save failures, conflicts, and parse failures must be **surfaced**, never swallowed.
-
-## Working with the author
-
-These rules apply in every project — follow them without being re-asked.
-
-- **No coding until explicitly told.** Never write or edit code or project files until the
-  author says to proceed ("go ahead", "do it", "build it"). Default mode is diagnose /
-  design / propose. This holds even for trivial, obviously-helpful fixes, and even when only
-  part of a punch list has been discussed — finishing the list and deciding is the author's
-  call, not mine. "Can you see the issue?" / "what's the fix?" mean explain, not fix.
-  Reading, searching, and planning are always fine.
-- Environment is **PowerShell on Windows**. No `awk`/`sed`/`head`/`tail` (even via the
-  Bash tool). Use `rg` + the Read/Edit/Write tools.
-- Prefer explicit, documented recipes over magic / auto-install behavior.
-- **UI: no buttons that change meaning with state** (the infamous play/pause) — use
-  separate, explicitly-labeled actions instead.
-- **YELL if a request is involved.** The author assumes his asks are easy. If one
-  implies a big increase in code size or a decrease in speed, do NOT just build it —
-  say so first and let him decide. His need for speed outweighs his occasional whims.
-- Keep rendered output tight — no gratuitous blank lines in blocks.
-- US spelling throughout (prose, docstrings, comments, identifiers). (The *spec* uses
-  UK spelling; match the spec when quoting it, US spelling in our own prose/code.)
-- Periodically remind the author to stop biting his tongue.
-
-## Steve-terminology
-
-- **SWIM** — "see what I mean": you have enough context; fill remaining gaps sensibly
-  rather than asking.
-- **AQIN** — "ask questions if needed": on genuine ambiguity, ask rather than guess.
-- **gummage** — is or would be perfection. From Chandler Bing, offered gum in a dark
-  vestibule: "gum would be perfection." High praise: "that's gummage" = exactly right.
-
-## Locked decisions (2026-07-06)
-
-Each is a decision with its rejected alternative in parens; revisit only with cause.
-
-- **Stack = Tauri 2 + Rust backend + TypeScript + React + CodeMirror 6.** React chosen
-  over Svelte for the deepest CodeMirror 6 / command-palette / autocomplete ecosystem
-  given how editor-heavy this app is. (Not a pure browser app — filesystem goes through
-  Rust so there are no recurring browser permission prompts.)
-- **Preview renderer = markdown-it** (fast, plugin-rich) for the internal preview;
-  exact rendering via an explicit `quarto render` only, never automatic. (Evaluated
-  unified/remark — heavier; can revisit if plugin needs demand it.)
-- **Config = TOML** at `~/.writedown/config.toml` (spec §5). Session = `session.json`.
-  App state, caches, index, logs, themes all under `~/.writedown/` — **derived/disposable
-  only**, never user documents.
-- **Git commits ARE allowed on this project** (this inverts the author's usual "Claude
-  never commits" rule — he enabled it here explicitly). Commit messages are **terse**;
-  detail lives in `CHANGELOG.md`, not the commit body. Pushing to GitHub is allowed.
-- **Versioning = SemVer, starting at `1.0.0`.** The author reads the version to know
-  which build he's running, so it climbs visibly as we develop and is **shown in the
-  app footer**. Single-source it (see Versioning) — no hand-synced copies.
-- **Editing is plain-text only** in the first draft — no rich-text, no Obsidian-style
-  live preview. Rendering stays separate from the editable representation.
-
-## Architecture / layout (proposed — confirm before building out)
+## Layout
 
 ```
 CLAUDE.md              standing instructions (this file)
-README.md              stable front page — touch only when that material changes
-CHANGELOG.md           Keep-a-Changelog; one section per version bump
 writedown-spec.md      the authoritative spec
-dev/                   plan docs (plan-<version>-<desc>.md); move to dev/done/ when
-                       the author declares done (not when the code lands)
+CHANGELOG.md           Keep-a-Changelog; the project's memory
+README.md / HELP.md    front page; in-app help
+dev/                   plan docs; dev/done/ when the author declares done
 assets/                branding, icons (committed, small)
+scripts/               .ps1 helpers — notices, release publishing, shell registration
 src/                   TypeScript + React frontend
   editor/              CodeMirror 6 setup, Sublime keymap, multicursor commands
-  tree/                file tree
-  preview/             markdown-it preview + outline
-  cite/                citation index client, fzf matching, popup
-  state/               app/session state
+  tree/                file tree          outline/   document outline
+  preview/             markdown-it preview
+  store.ts, api.ts     app state; the Rust command surface
 src-tauri/             Rust backend + Tauri config
-  src/                 commands: workspace, files, atomic save, watch, quarto, bib, config
-  .cargo/config.toml   target-dir → V: (churn firewall)
-tests/                 automated tests (config parse, atomic save, whitespace, YAML
-                       preservation, bib parse, fuzzy scoring, session restore, …)
+  src/                 files, watch, config, session, project, bib, check, render, spelling, …
+  .cargo/config.toml   target-dir → ../target
+tests/                 config parse, atomic save, whitespace, YAML preservation, bib parse,
+                       fuzzy scoring, session restore
 ```
 
-`node_modules/` and `src-tauri/target/` are **on `V:`** (junction / target-dir), not here.
-
-## Versioning & release workflow
-
-Standing rules — follow without being re-asked.
-
-- **Single source of version truth: `src-tauri/Cargo.toml` — and ONLY it.** Since
-  2026-07-18, `tauri.conf.json` omits `version` (Tauri 2 falls back to the Cargo
-  version; verified: exe/installer stamp and `getVersion()` both report it) and
-  `package.json` (private) has no version field. A release bump edits exactly one
-  line, in Cargo.toml (Cargo.lock follows on the next build). The footer reads it at
-  runtime via `@tauri-apps/api/app` `getVersion()` — do **not** hard-code a second
-  copy in a JS constant, and do not re-add version fields to the other two files.
-- **Every feature-bearing change bumps the version** (SemVer: MAJOR breaking, MINOR
-  features, PATCH fixes). Pure tidying does not bump.
-- **`CHANGELOG.md` is current at every bump** — a `## [x.y.z] - YYYY-MM-DD` section,
-  newest first, [Keep a Changelog] groups (`Added` / `Changed` / `Fixed`), prose-rich
-  bullets. The changelog carries the detail the terse commit omits.
-- **Commit style:** terse subject, optionally version-prefixed (e.g. `1.2.0 outline
-  click-to-jump`); no long body. One shippable change ≈ one commit ≈ one CHANGELOG entry.
-- **One commit per point release.** Commit each point release (x.y.z) as its own commit —
-  never batch several version bumps into a single commit, and don't push several releases
-  together. So history stays bisectable and any one release can be reverted alone.
-- **Batch items per release (2026-07-22).** Group a batch of issue items (typically a
-  day's approved work) into ONE version bump — one commit, one CHANGELOG section listing
-  all items — instead of a point release per item. One-commit-per-point-release still
-  holds; there are simply fewer, fatter point releases. Refresh the GitHub Release per
-  batch, not per version.
-- **`README.md`** is the stable front page; touch it only when that material changes.
-- **Work proceeds from plan docs** in `dev/`; move a plan to `dev/done/` only when the
-  author says it's done.
+Icons are generated from `assets/writedown-logo.png` (padded square) into `src-tauri/icons/`.
+The author cares about icons — keep the app recognizable in window, taskbar, installer, and tray.
 
 ## Commands
 
-Build output (`target/`, `node_modules/`, `dist/`) stays in the checkout, gitignored.
-
 ```
-npm install                       # plain install; nothing to re-establish afterwards
-npm run tauri dev                 # dev build + hot reload (opens the window)
-npm run tauri build               # production writedown.exe + installer
-npm run build                     # frontend only (tsc + vite → dist/)
-cargo check   (in src-tauri/)     # backend typecheck; target-dir is ../target (repo root)
-cargo test    (in src-tauri/)     # backend tests
+npm install                        # plain install
+npm run tauri dev                  # dev build + hot reload (opens the window)
+npm run tauri build                # production writedown.exe + installer
+npm run build                      # frontend only (tsc + vite → dist/)
+cargo check   (cwd = src-tauri/)   # backend typecheck
+cargo test    (cwd = src-tauri/)   # backend tests
 npm run tauri -- icon <square.png> # regenerate app icons from a square master
 ```
 
-Icons are generated from `assets/writedown-logo.png` (padded square) into
-`src-tauri/icons/`; the author cares about icons — keep the app recognizable
-(window, taskbar, installer, tray).
+Final visual polish runs as an **interactive look-and-feel loop**: keep `npm run tauri dev` open,
+let Vite HMR hot-reload frontend and CSS edits live, make small changes, get feedback, repeat.
 
-## Non-goals (first draft, spec §29)
+## Non-goals (spec §29)
 
-No cloud sync, mobile, collaboration, accounts, plugins, graph/canvas view, rich-text,
-live preview, automatic renaming/link-rewriting/folder-org, embedded browser, AI
-features, automatic code execution, bibliography editing forms, publishing, or theme
-marketplace. Light theme + dark theme + imported Sublime-derived theme is enough.
+No cloud sync, mobile, collaboration, accounts, plugins, graph/canvas view, rich-text, live
+preview, automatic renaming or link-rewriting or folder-org, embedded browser, AI features,
+automatic code execution, bibliography editing forms, publishing, or theme marketplace. Light
+theme + dark theme + imported Sublime-derived theme is enough.
 
-## Status
+## Deltas from house rules
 
-**Phase 1 complete** (spec §30), shipped as v1.0.0 → v1.3.0 on `mynl/writedown`:
-workspace open, lazy file tree, resizable panes, tabs, editing, atomic save, config
-directory, and session restore. Editor is a plain textarea for now.
-
-**Phases 1–3 complete; Phase 4 underway** (through v1.14.0). Beyond the editor + Sublime
-theme import: config-selectable font + Edit Config command; YAML front-matter, LaTeX
-math, and CSV-rainbow highlighting; multi-language open (py/json/yaml/toml/tex/…) with
-Quarto `{python}` code cells; **autosave** (focus-loss/idle/tab-switch); **per-workspace
-session**.
-
-**Phases 1–6 complete** (through v1.21.0). The editor + Sublime theme; multi-language open;
-CSV rainbow; YAML/LaTeX-math/TeX highlighting; config-selectable fonts + Edit Config;
-autosave; per-workspace session; file watching + conflict; **preview pane** (KaTeX math,
-DOMPurify, sync scroll); **outline**; and **BibTeX** — parsed/indexed/**watched**, `@`
-autocomplete ranked by Rust **SkimMatcherV2**, hover-for-title, Ctrl+Shift+C.
-
-**Phase 7 (Quarto render) was built (1.23.x) then REMOVED in v1.24.0** at the author's
-decision — environment/config coupling (conda, `_quarto.yml` discovery, opener scopes) made
-it juice-not-worth-the-squeeze. Lesson adopted as a standing rule: **before building a
-feature, state crisply what it will and won't deliver** (scope, failure modes, external
-dependencies) so the author can make an eyes-open build/skip decision.
-
-**v1.25.0: document checks** — Python syntax of `{python}` cells (rustpython-parser
-in-process, no external Python) + duplicate Quarto label detection, surfaced as CM lint
-squiggles/gutter, auto after ~½s idle.
-
-**v1.26–1.28: punch-up batch** — py/toml/yaml outlines (capped children); New File/Folder;
-window-geometry restore; smart TOC-click scroll; **ST-style projects** (`.wdproj`, palette
-verbs, MRU quick-switch, multi-root watch/quick-open, per-project session, title bar);
-Folder|Project panel tabs; `[tree]` font config + quiet-chrome baseline (thin tabs, small
-muted headers).
-
-Roadmap: **next** = final visual polish against `st-screenshot.png` — run as an
-**interactive look-and-feel loop**: keep `npm run tauri dev` open (Vite HMR hot-reloads
-frontend/CSS edits live), make small changes, get feedback, repeat.
-
-Backlog / refinements: matched-char highlighting in the citation popup (needs custom
-render — `filter:false` drops CM's highlight); bracketed `[@key]` insertion forms;
-document-YAML `bibliography:` override; relative-image resolution + preview code
-highlighting; save-on-close, configurable idle timeout, logging; ST tree/tab fonts;
-Sublime-project multi-folder browser; Ctrl+M / Ctrl+K Ctrl+D. (ST has only Loudoun — md/qmd
-differ by syntax.)
+- **Overrides the stack default.** Tauri 2 + Rust + TypeScript + React + CodeMirror 6, not
+  Python/Flask. Frontend is Vite-built; this project genuinely has a build step.
+- **Overrides the config-format default.** Config is **TOML**, not YAML (spec §5).
+- **Version single-sourcing, concretely:** `src-tauri/Cargo.toml` is the **only** place the
+  version lives. Since 2026-07-18 `tauri.conf.json` omits `version` (Tauri 2 falls back to the
+  Cargo version — verified: the exe/installer stamp and `getVersion()` both report it) and
+  `package.json` is private with no version field. A release bump edits exactly one line;
+  `Cargo.lock` follows on the next build. The footer reads it at runtime via
+  `@tauri-apps/api/app` `getVersion()`. **Do not hard-code a second copy in a JS constant, and do
+  not re-add version fields to the other two files.**
+- **Push permission revoked (2026-08-29).** This project previously allowed Claude to push to
+  GitHub. It no longer does — the house rule applies without exception: commit, never push. The
+  author pushes and runs `scripts/publish-release.ps1` himself, refreshing the GitHub Release per
+  batch of work rather than per version.
+- **Batched releases.** A batch of approved items — typically a day's work — is grouped into ONE
+  version bump: one commit, one CHANGELOG section listing the items. One-commit-per-version still
+  holds; there are simply fewer, fatter versions.
+- **Spelling:** our own prose and code use US spelling per house rules, but the *spec* uses UK
+  spelling — match the spec when quoting it.

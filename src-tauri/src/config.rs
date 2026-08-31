@@ -135,7 +135,7 @@ skip_proper_nouns = true
 # personal_dictionary: file for words you add via "Add to dictionary". Defaults to
 # %APPDATA%\com.mynl.writedown\personal-dictionary.txt. Point it at a synced folder to
 # carry your added words across machines.
-# personal_dictionary = "C:/Users/steve/Documents/CloudStation/writedown-personal.dic"
+# personal_dictionary = "D:/notes/writedown-personal-dictionary.txt"
 
 # ── Per-file-type editor fonts ───────────────────────────────────────────────────────────────
 # Extension (lowercase, no dot) → font family. Overrides [editor] font_family for those files;

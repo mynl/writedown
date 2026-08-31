@@ -32,8 +32,8 @@ pub struct DirEntry {
 ///
 /// `FileType::is_dir()` on Windows is `!is_symlink() && is_directory()`, and `is_symlink()`
 /// counts BOTH `IO_REPARSE_TAG_SYMLINK` and `IO_REPARSE_TAG_MOUNT_POINT` — a junction. So
-/// `C:\S` (a junction to `…\Documents\CloudStation`) came back `is_dir: false` and drew as a
-/// dim, unexpandable file row: present, but useless. The extra `metadata()` — which DOES
+/// `C:\S` (on the previous machine a junction into a synced folder; the example stands)
+/// came back `is_dir: false` and drew as a dim, unexpandable file row: present, but useless. The extra `metadata()` — which DOES
 /// follow the link — is paid only for reparse-point entries, so an ordinary folder costs
 /// nothing. A dangling link stays a file, which is the right failure.
 fn is_dir_following_links(ft: &std::fs::FileType, full: &std::path::Path) -> bool {
