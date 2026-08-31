@@ -15,7 +15,9 @@ pub struct Diagnostic {
     pub severity: &'static str, // "error" | "warning"
 }
 
-#[tauri::command]
+// `async`: off the UI thread. It shares the ½ s lint tick with spell_check and the citation
+// check, and all three used to serialize on the thread the keyboard lives on (issue G.04).
+#[tauri::command(async)]
 pub fn check_document(text: String) -> Vec<Diagnostic> {
     check(&text)
 }

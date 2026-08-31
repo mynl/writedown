@@ -246,6 +246,7 @@ pub fn run() {
             check::check_document,
             labels::document_labels,
             spelling::spell_check,
+            spelling::spell_suggest,
             spelling::add_to_dictionary,
             spelling::spell_reload,
             spelling::personal_dictionary_path,

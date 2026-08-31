@@ -544,7 +544,7 @@ pub fn get_citation(key: String, state: tauri::State<BibState>) -> Option<BibEnt
 /// Given the `@keys` a document references, return those with no match in the
 /// bibliography (so the editor can flag them). Returns empty when nothing is loaded —
 /// a missing/empty `.bib` must never make every citation look broken.
-#[tauri::command]
+#[tauri::command(async)] // off the UI thread, like the other lint-tick commands (G.04)
 pub fn check_citation_keys(keys: Vec<String>, state: tauri::State<BibState>) -> Vec<String> {
     let entries = state.entries.lock().unwrap();
     if entries.is_empty() {

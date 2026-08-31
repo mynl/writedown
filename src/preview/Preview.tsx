@@ -291,7 +291,8 @@ function setLineAttrs(el: HTMLElement, b: RenderedBlock) {
   el.dataset.lineTo = String(b.lineTo);
 }
 
-function makeBlockNode(block: RenderedBlock, baseDir?: string): HTMLElement {
+/** Sanitized HTML for a block, memoized per (folder, content hash). */
+function cleanHtml(block: RenderedBlock, baseDir?: string): string {
   const ck = (baseDir ?? "") + "\n" + block.key;
   let clean = sanitizedCache.get(ck);
   if (clean === undefined) {
@@ -301,11 +302,20 @@ function makeBlockNode(block: RenderedBlock, baseDir?: string): HTMLElement {
     }
     sanitizedCache.set(ck, clean);
   }
+  return clean;
+}
+
+/** Point an existing block node at new content: key, line range, HTML. */
+function fillBlockNode(el: HTMLElement, block: RenderedBlock, baseDir?: string): void {
+  el.dataset.key = block.key;
+  setLineAttrs(el, block);
+  el.innerHTML = cleanHtml(block, baseDir);
+}
+
+function makeBlockNode(block: RenderedBlock, baseDir?: string): HTMLElement {
   const div = document.createElement("div");
   div.className = "wd-block";
-  div.dataset.key = block.key;
-  setLineAttrs(div, block);
-  div.innerHTML = clean;
+  fillBlockNode(div, block, baseDir);
   return div;
 }
 
@@ -336,12 +346,32 @@ function patchBlocks(
     oEnd--;
     nEnd--;
   }
-  for (let k = oEnd; k >= p; k--) kids[k].remove();
   // Stable nodes keep their DOM identity, but an edit above them shifts their source
   // lines — refresh the anchors the outline jump relies on.
   for (let k = 0; k < p; k++) setLineAttrs(kids[k], blocks[k]);
   const suffixCount = blocks.length - 1 - nEnd;
-  for (let k = 0; k < suffixCount; k++) setLineAttrs(kids[p + k], blocks[nEnd + 1 + k]);
+  for (let k = 0; k < suffixCount; k++) setLineAttrs(kids[oEnd + 1 + k], blocks[nEnd + 1 + k]);
+
+  // The middle: the same number of nodes out as in — the every-keystroke case, one block
+  // edited — is updated IN PLACE (issue G.17). Removing and re-inserting a block gave the
+  // new node no remembered size, so `content-visibility: auto` laid it out as its 60 px
+  // placeholder for a frame and everything below lurched up and back; with the block that
+  // held the scroll anchor just deleted, the browser could not compensate. Keeping the node
+  // keeps its size and its anchor, and an in-place fill is strictly less work.
+  if (oEnd - p === nEnd - p) {
+    if (isStale()) return;
+    for (let k = p; k <= nEnd; k++) {
+      fillBlockNode(kids[k], blocks[k], baseDir);
+      upgrade(kids[k]);
+    }
+    onDone();
+    return;
+  }
+  // Counts differ (a block split or merged): the outgoing nodes' heights seed the incoming
+  // ones' placeholder size, so the frame before they render is the right height.
+  const heights: number[] = [];
+  for (let k = p; k <= oEnd; k++) heights.push(kids[k].offsetHeight);
+  for (let k = oEnd; k >= p; k--) kids[k].remove();
 
   const anchor = kids[p] ?? null; // first suffix node; null appends
   let idx = p;
@@ -350,6 +380,8 @@ function patchBlocks(
     const start = performance.now();
     while (idx <= nEnd) {
       const node = makeBlockNode(blocks[idx], baseDir);
+      const h = heights[idx - p];
+      if (h) node.style.containIntrinsicSize = `auto ${h}px`;
       container.insertBefore(node, anchor);
       upgrade(node);
       idx++;

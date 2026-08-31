@@ -5,6 +5,31 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [2.16.0] - 2026-08-31
+
+### Fixed
+
+- **The one-time freeze shortly after the first edit of a document** (G.04). Measured
+  (release build, new `suggest_speed` benchmark): one spelling suggestion costs ~11 ms,
+  and the first lint pass computed up to 64 of them — ~0.7 s — on the UI thread, where
+  every non-async Tauri command runs, with the python/label check and the citation check
+  serialized on the same ½ s tick. Suggestions are now fetched per word when a
+  misspelling is opened (tooltip or lint panel), and the six hot commands — spell_check,
+  spell_suggest, check_document, check_citation_keys, read_file, write_file,
+  list_all_files — run off the UI thread, so typing stays live even while a pass runs.
+  The check itself is effectively free (4,450 words in 0.2 ms).
+- **The preview no longer jumps while editing a table** (G.17). An edit re-created the
+  whole block as a new DOM node, which `content-visibility: auto` laid out as its 60 px
+  placeholder for a frame — a tall table collapsed and re-expanded under the viewport
+  with its scroll anchor just deleted. A one-for-one replacement now updates the existing
+  node in place; when block counts change, the outgoing nodes' heights seed the incoming
+  placeholders.
+
+### Changed
+
+- Rust changed (async commands, `spell_suggest`) — rebuild. The benchmark stays:
+  `cargo test --release -- --ignored --nocapture suggest_speed`.
+
 ## [2.15.0] - 2026-08-31
 
 ### Fixed

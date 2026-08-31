@@ -150,7 +150,7 @@ const SKIP_DIRS: &[&str] = &["node_modules", "target", ".git", "__pycache__", ".
 ///
 /// Only LINKS pay the `canonicalize` syscall: a plain subdirectory cannot introduce a cycle
 /// or a duplicate, so the common path is exactly as fast as before.
-#[tauri::command]
+#[tauri::command(async)] // a recursive walk of every root, on every Ctrl+P — not on the UI thread
 pub fn list_all_files(app: tauri::AppHandle, root: String) -> Result<Vec<FileItem>, String> {
     let root_path = std::path::Path::new(&root);
     let show_dots = show_hidden(&app);
@@ -338,7 +338,7 @@ pub fn delete_path(path: String) -> Result<(), String> {
 }
 
 /// Read a UTF-8 text file. Returns the content verbatim (no normalisation).
-#[tauri::command]
+#[tauri::command(async)] // disk I/O off the UI thread (G.04)
 pub fn read_file(path: String) -> Result<String, String> {
     std::fs::read_to_string(&path).map_err(|e| format!("read {path}: {e}"))
 }
@@ -386,7 +386,9 @@ pub fn file_stamp(path: String) -> Option<FileStamp> {
 /// not depend on the file watcher noticing, which is exactly the weakness B.03 exposed.
 /// `None` means "write regardless" (an explicit overwrite, or a caller with no stamp).
 /// Returns the stamp of what we just wrote, so the caller can keep checking.
-#[tauri::command]
+// `async`: the write, its fsync and the backup copy it takes first all happen on a blur
+// or a tab switch — off the UI thread they no longer hitch the pane you just moved to.
+#[tauri::command(async)]
 pub fn write_file(
     app: tauri::AppHandle,
     path: String,

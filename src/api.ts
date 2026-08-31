@@ -29,11 +29,11 @@ export const checkDocument = (text: string) =>
   invoke<CheckDiagnostic[]>("check_document", { text });
 
 // Prose spellcheck (English US, offline; dictionary lives in Rust). Send a deduped word
-// list; get back only the misspelled ones, each with up to five suggestions.
-export type SpellResult = { word: string; suggestions: string[] };
-
-export const spellCheck = (words: string[]) =>
-  invoke<SpellResult[]>("spell_check", { words });
+// list; get back only the misspelled ones. Suggestions are a separate per-word call, made
+// when the user opens a misspelling — they cost ~11 ms each, so computing them for every
+// misspelling in a document up front was the first-edit freeze (issue G.04).
+export const spellCheck = (words: string[]) => invoke<string[]>("spell_check", { words });
+export const spellSuggest = (word: string) => invoke<string[]>("spell_suggest", { word });
 
 /** Append a word to the personal dictionary (durable plain-text file) — makes it correct. */
 export const addToDictionary = (word: string) =>

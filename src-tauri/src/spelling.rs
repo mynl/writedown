@@ -6,7 +6,6 @@
 //! mean?". Words the user adds live in an ordinary plain-text file the user owns (durable —
 //! NOT under the disposable `~/.writedown/` tree), so they are never lost.
 
-use serde::Serialize;
 use spellbook::Dictionary;
 use std::collections::{HashMap, HashSet};
 use std::io::Write;
@@ -102,9 +101,6 @@ fn dict() -> Option<&'static Dictionary> {
     .as_ref()
 }
 
-/// At most this many distinct misspelled words get suggestions computed per call (suggestions
-/// are the expensive part). Beyond it, the word is still underlined — just without quick-fixes.
-const MAX_SUGGEST_WORDS: usize = 64;
 /// Suggestions offered per misspelled word.
 const MAX_SUGGESTIONS: usize = 5;
 
@@ -118,12 +114,6 @@ pub struct SpellState {
     check_cache: Mutex<HashMap<String, bool>>,
     /// misspelled word -> suggestions (the costly result). Cleared on add/reload.
     suggest_cache: Mutex<HashMap<String, Vec<String>>>,
-}
-
-#[derive(Serialize)]
-pub struct SpellResult {
-    word: String,
-    suggestions: Vec<String>,
 }
 
 fn is_correct(dict: &Dictionary, personal: &HashSet<String>, word: &str) -> bool {
@@ -153,22 +143,26 @@ fn is_correct(dict: &Dictionary, personal: &HashSet<String>, word: &str) -> bool
     false
 }
 
-/// Check a deduped word list; return ONLY the misspelled ones, each with up to five
-/// suggestions. Correct words are omitted (like `check_citation_keys` returns only the misses).
-#[tauri::command]
+/// Check a deduped word list; return ONLY the misspelled ones. Correct words are omitted
+/// (like `check_citation_keys` returns only the misses).
+///
+/// Suggestions are NOT computed here — see `spell_suggest`. `check` is effectively free
+/// (4,450 words in 0.2 ms, release), but `suggest` is ~11 ms per word; computing it for up
+/// to 64 misspellings on the first pass over a fresh document was a ~0.7 s stall, and every
+/// non-async command runs on the UI thread, so the keyboard went dead with it (issue G.04,
+/// numbers from `suggest_speed` below). `async` moves the call off the UI thread as well.
+#[tauri::command(async)]
 pub fn spell_check(
     words: Vec<String>,
     state: tauri::State<SpellState>,
-) -> Result<Vec<SpellResult>, String> {
+) -> Result<Vec<String>, String> {
     let Some(dict) = dict() else {
         return Err("spell dictionary unavailable".into());
     };
     let personal = state.personal.lock().unwrap();
     let mut check_cache = state.check_cache.lock().unwrap();
-    let mut suggest_cache = state.suggest_cache.lock().unwrap();
 
     let mut out = Vec::new();
-    let mut suggested = 0usize;
     for w in words {
         let ok = match check_cache.get(&w) {
             Some(&c) => c,
@@ -178,24 +172,30 @@ pub fn spell_check(
                 c
             }
         };
-        if ok {
-            continue;
+        if !ok {
+            out.push(w);
         }
-        let suggestions = if let Some(s) = suggest_cache.get(&w) {
-            s.clone()
-        } else if suggested < MAX_SUGGEST_WORDS {
-            suggested += 1;
-            let mut s = Vec::new();
-            dict.suggest(&w, &mut s);
-            s.truncate(MAX_SUGGESTIONS);
-            suggest_cache.insert(w.clone(), s.clone());
-            s
-        } else {
-            Vec::new()
-        };
-        out.push(SpellResult { word: w, suggestions });
     }
     Ok(out)
+}
+
+/// Up to five suggestions for one misspelled word, computed when the user opens that
+/// misspelling rather than for every misspelling in the document. Memoized until the
+/// personal dictionary changes. The suggest runs outside the cache lock so two hovers
+/// never serialize on it.
+#[tauri::command(async)]
+pub fn spell_suggest(word: String, state: tauri::State<SpellState>) -> Result<Vec<String>, String> {
+    let Some(dict) = dict() else {
+        return Err("spell dictionary unavailable".into());
+    };
+    if let Some(s) = state.suggest_cache.lock().unwrap().get(&word) {
+        return Ok(s.clone());
+    }
+    let mut s = Vec::new();
+    dict.suggest(&word, &mut s);
+    s.truncate(MAX_SUGGESTIONS);
+    state.suggest_cache.lock().unwrap().insert(word, s.clone());
+    Ok(s)
 }
 
 /// Append a word to the personal dictionary and make it count as correct immediately.
@@ -391,6 +391,78 @@ mod tests {
         let mut personal = HashSet::new();
         personal.insert("mesokurty".to_string()); // synthetic -y stem, not in en_US
         assert!(is_correct(d, &personal, "mesokurties"));
+    }
+
+    /// The cost of the first spell pass on a fresh document (issue G.04), as numbers rather
+    /// than a guess: `cargo test --release -- --ignored --nocapture suggest_speed`. Not part
+    /// of the normal suite. Reports dictionary parse, `check` throughput, and cold vs warm
+    /// `suggest` over 80 plausible misspellings (real words with two letters swapped).
+    #[test]
+    #[ignore]
+    fn suggest_speed() {
+        use std::time::Instant;
+        let t = Instant::now();
+        let fresh = Dictionary::new(AFF, DIC).expect("parses");
+        println!("dictionary parse: {:.0} ms", t.elapsed().as_secs_f64() * 1e3);
+        let d = &fresh;
+
+        const BASE: &str = "the house quantile actuary reinsurance distribution premium \
+            severity frequency aggregate portfolio capital allocation coherent measure \
+            expected shortfall variance moment generating function convolution simulation \
+            parameter estimate likelihood posterior prior bayesian regression correlation \
+            copula dependence marginal conditional independent identical random variable \
+            probability density cumulative percentile quantile median average deviation \
+            standard normal lognormal gamma pareto weibull exponential poisson binomial \
+            negative geometric mixture compound layer excess retention limit attachment \
+            treaty facultative catastrophe hurricane earthquake flood wildfire liability \
+            property casualty commercial personal automobile homeowners workers claim \
+            reserve development triangle chain ladder bornhuetter ferguson ultimate";
+        let words: Vec<String> = BASE
+            .split_whitespace()
+            .filter(|w| w.len() >= 5)
+            .take(80)
+            .map(|w| {
+                // Swap the 2nd and 3rd letters: "house" -> "huose". A typo shape, not gibberish.
+                let mut c: Vec<char> = w.chars().collect();
+                c.swap(1, 2);
+                c.into_iter().collect::<String>()
+            })
+            .filter(|w| !d.check(w))
+            .collect();
+        println!("{} misspellings", words.len());
+
+        let t = Instant::now();
+        for _ in 0..50 {
+            for w in BASE.split_whitespace() {
+                std::hint::black_box(d.check(w));
+            }
+        }
+        let n = 50 * BASE.split_whitespace().count();
+        println!("check: {n} words in {:.1} ms", t.elapsed().as_secs_f64() * 1e3);
+
+        let mut per: Vec<f64> = Vec::new();
+        let t = Instant::now();
+        for w in &words {
+            let t1 = Instant::now();
+            let mut s = Vec::new();
+            d.suggest(w, &mut s);
+            per.push(t1.elapsed().as_secs_f64() * 1e3);
+        }
+        let total = t.elapsed().as_secs_f64() * 1e3;
+        per.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        println!(
+            "suggest cold: {} words, total {:.0} ms, median {:.1} ms, max {:.1} ms",
+            words.len(),
+            total,
+            per[per.len() / 2],
+            per[per.len() - 1]
+        );
+        let t = Instant::now();
+        for w in &words {
+            let mut s = Vec::new();
+            d.suggest(w, &mut s);
+        }
+        println!("suggest again (no app cache — spellbook itself): {:.0} ms", t.elapsed().as_secs_f64() * 1e3);
     }
 
     #[test]

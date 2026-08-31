@@ -53,6 +53,8 @@ For each row in the table add a new row below it for your input, item is ">>CC".
 
 **Shipped: G.01, G.03, G.05, G.06, G.11, G.14, G.15, G.16 and the G.02 documentation in 2.15.0 (2026-08-31) — none yet confirmed in daily use.** G.14 changed Rust, so rebuild. G.04 (2.16.0) and G.09 / G.10 / G.13 (2.17.0) follow; G.07 and G.12 pended; G.17 triaged 2026-08-31, proposed for 2.16.0.
 
+**Shipped: G.04 and G.17 in 2.16.0 (2026-08-31) — Rust changed, rebuild.** Measured: one suggestion costs ~11 ms, 64 of them cold was the ~0.7 s freeze; suggestions now load when a misspelling is opened, and the six hot commands left the UI thread. Table edits update the preview block in place. Remaining: G.09 / G.10 / G.13 (2.17.0); G.07 and G.12 pended.
+
 **Release batching, revised 2026-08-31 after the author's `==>` comments. Plan: `dev/plan-2.15.0-batch-g.md`. Nothing built yet.**
 
 - **2.15.0 — confirmed fixes, frontend only:** G.01, G.11, G.03, G.05 (rename + registry-generated verbs, after the inventory review below), G.06, G.14 (explicit folder label), G.15, G.16 (Ctrl+Shift+C → Copy File Path; citation picker unbound but rebindable), G.02 (HELP.md documentation only — author experimenting with the colours).
