@@ -136,6 +136,26 @@ a selection wraps the selection — press `$` twice for `$$…$$`.
 - Font size: **Ctrl+wheel** or Ctrl+= / Ctrl+- (session-only zoom, with configured
   min/max bounds); "Set as Default" bakes it into config.
 
+## Find in files
+
+**Ctrl+Shift+F** (palette → **Find in Files…**) runs ripgrep over the project's folders
+(or the open folder, or the current file's folder). The line you type is `rg`'s argument
+line, so it takes whatever `rg` takes:
+
+- `TODO` — every hit, grouped by file, the match highlighted. **Enter** on a row (or a
+  click) opens the file with the cursor on the match.
+- `-c TODO` — hits per file, most first; `-l amsmath` — the files that mention it.
+- `-i "risk measure" -g *.qmd` — case-insensitive, `.qmd` only. Your own `-g` / `-t`
+  replaces the default file globs (`[search] globs` in config.toml: md, qmd, py, bib,
+  toml, txt, yaml). Smart case is on unless you say `-s`.
+
+**Enter runs the search** when the line has changed; once results are up, Enter opens
+the selected row and **Ctrl+Enter** re-runs. Esc cancels a running search. A selection
+in the editor pre-fills the line. The last query and results stay for the session.
+Hard caps: 500 hits and 5 seconds (`[search] max_hits`, `timeout_ms`) — the list says
+when it was cut. Flags that read files or run programs (`--pre`, `-f`, `--files`) are
+refused; nothing here ever writes to a file (no replace — that is Sublime's job).
+
 ## Preview and rendering
 
 - The right-hand pane shows a live preview (markdown-it + KaTeX math, footnotes,

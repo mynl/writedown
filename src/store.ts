@@ -25,6 +25,12 @@ import {
   pickProjectOpenPath,
   saveManagedProject,
   saveSession,
+  searchWorkspace,
+  cancelSearch as cancelSearchApi,
+  DEFAULT_SEARCH_GLOBS,
+  DEFAULT_SEARCH_MAX_HITS,
+  DEFAULT_SEARCH_TIMEOUT_MS,
+  type SearchResult,
   pickSavePath,
   openExternal,
   buildFile,
@@ -133,7 +139,7 @@ let layoutRestore: { sidebar: boolean; outline: boolean; view: ViewMode } | null
 
 /** Which list the command palette is showing. `quickfiles` = the `[files] quick_files`
  *  pick-list (D.04); `symbols` = the Unicode character picker (D.12). */
-export type PaletteMode = "files" | "commands" | "projects" | "quickfiles" | "symbols";
+export type PaletteMode = "files" | "commands" | "projects" | "quickfiles" | "symbols" | "search";
 
 // Paths Writedown just saved — used to ignore the watcher event our own write triggers.
 // Keyed by normPath: the watcher reports a path spelled from the WATCHED ROOT, which need
@@ -158,6 +164,8 @@ const DIR_BATCH_CAP = 60;
 /** Folder listings in flight, so a fast collapse/expand can't fire two fetches. */
 const inflightDirs = new Set<string>();
 let lastVisibleRefresh = 0;
+/** Bumped per Find in Files run; a result arriving for an older generation is dropped. */
+let searchGeneration = 0;
 
 /** Containing folder of a path (no trailing separator) — the folder a file op has to re-list. */
 const parentDir = (p: string) => p.replace(/[\\/][^\\/]*$/, "");
@@ -434,6 +442,16 @@ type AppState = {
   setSyntaxOverride: (path: string, name: string | null) => void;
   /** Query pre-filled into the palette by openPalette's second argument, consumed once. */
   paletteQuery: string | null;
+  /** Find in Files (issue A.08): the last ripgrep argument line, its result, and whether
+   *  a search is running. Session-only — Ctrl+Shift+F reopens on the last results. */
+  searchQuery: string;
+  searchResult: SearchResult | null;
+  searchBusy: boolean;
+  /** Folders a search covers: the project's, else the open folder, else the active
+   *  file's folder. Empty means there is nothing to search. */
+  searchRoots: () => string[];
+  runSearch: (line: string) => Promise<void>;
+  cancelSearch: () => void;
   /** Set (or, with "", clear) a root's label and write the project file. */
   setFolderLabel: (folder: string, label: string) => void;
   /** Points added to the editor's configured font size (Ctrl+=/Ctrl+-/Ctrl+0). Global
@@ -709,6 +727,9 @@ export const useStore = create<AppState>((set, get) => ({
   projLabels: {},
   syntaxOverride: {},
   paletteQuery: null,
+  searchQuery: "",
+  searchResult: null,
+  searchBusy: false,
   editorZoom: (() => {
     const v = Number(localStorage.getItem("wd.editorZoom"));
     return Number.isFinite(v) ? v : 0;
@@ -1730,6 +1751,55 @@ export const useStore = create<AppState>((set, get) => ({
   openPalette: (mode, initialQuery) =>
     set({ palette: mode, paletteQuery: initialQuery ?? null }),
   closePalette: () => set({ palette: null }),
+
+  // ---- Find in Files (issue A.08) ----
+  searchRoots: () => {
+    const { projFolders, root, activePath } = get();
+    if (projFolders.length > 0) return projFolders;
+    if (root) return [root];
+    if (activePath && !isExternalDoc(activePath) && /[\\/]/.test(activePath)) {
+      return [parentDir(activePath)];
+    }
+    return [];
+  },
+  runSearch: async (line) => {
+    const roots = get().searchRoots();
+    const es = get().editorSettings;
+    const gen = ++searchGeneration; // a newer search supersedes this one's result
+    set({ searchQuery: line, searchBusy: true, searchResult: null });
+    const failed = (error: string): SearchResult => ({
+      mode: "hits",
+      hits: [],
+      summary: [],
+      total: 0,
+      files: 0,
+      truncated: false,
+      timed_out: false,
+      elapsed_ms: 0,
+      error,
+      warning: null,
+    });
+    try {
+      const r = await searchWorkspace(
+        line,
+        roots,
+        es?.search_globs ?? DEFAULT_SEARCH_GLOBS,
+        es?.search_max_hits ?? DEFAULT_SEARCH_MAX_HITS,
+        es?.search_timeout_ms ?? DEFAULT_SEARCH_TIMEOUT_MS,
+      );
+      if (gen !== searchGeneration) return;
+      set({ searchResult: r, searchBusy: false });
+    } catch (e) {
+      if (gen !== searchGeneration) return;
+      set({ searchResult: failed(String(e)), searchBusy: false });
+    }
+  },
+  cancelSearch: () => {
+    if (!get().searchBusy) return;
+    searchGeneration++; // whatever the killed process returns is discarded
+    void cancelSearchApi().catch(() => {});
+    set({ searchBusy: false });
+  },
   toggleHelp: () => set((s) => ({ helpOpen: !s.helpOpen })),
   toggleAbout: () => set((s) => ({ aboutOpen: !s.aboutOpen })),
 

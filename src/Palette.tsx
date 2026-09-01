@@ -1,9 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { listAllFiles, type FileItem } from "./api";
+import {
+  listAllFiles,
+  type FileItem,
+  type SearchHit,
+  type SearchResult,
+  type SearchSummary,
+} from "./api";
 import { appCommands, type Command } from "./commands";
 import { fuzzyMatch, fuzzyRank, type Ranked } from "./fuzzy";
 import { mergedProjects, useStore, type PaletteMode } from "./store";
-import { getActiveView } from "./editor/editorView";
+import {
+  clearPendingJump,
+  getActiveView,
+  jumpToLine,
+  setPendingJump,
+} from "./editor/editorView";
 import { keyForAction } from "./editor/keymap";
 import {
   applyUserSymbols,
@@ -18,12 +29,96 @@ import {
 } from "./editor/symbols";
 
 type ProjItem = { name: string; path: string };
-/** A kit heading in the symbol list — a label, not something you can choose. */
-type KitHeading = { heading: string };
-type PaletteItem = FileItem | Command | ProjItem | SymbolEntry | KitHeading;
+/** A kit heading in the symbol list — a label, not something you can choose. `file`
+ *  marks a Find in Files group heading (a path: drawn without the uppercase transform). */
+type KitHeading = { heading: string; file?: boolean };
+/** A Find in Files row: one match, or one file in summary (`-c` / `-l`) mode. */
+type SearchRow = { hit: SearchHit } | { sum: SearchSummary };
+/** A non-selectable message row in the search list: running, capped, error, hint. */
+type InfoRow = { info: string; error?: boolean };
+type PaletteItem = FileItem | Command | ProjItem | SymbolEntry | KitHeading | SearchRow | InfoRow;
 
 const isSymbol = (i: PaletteItem): i is SymbolEntry => "char" in i;
 const isHeading = (i: PaletteItem): i is KitHeading => "heading" in i;
+const isInfo = (i: PaletteItem): i is InfoRow => "info" in i;
+const isHit = (i: PaletteItem): i is { hit: SearchHit } => "hit" in i;
+const isSum = (i: PaletteItem): i is { sum: SearchSummary } => "sum" in i;
+/** Rows the selection skips over: headings and info lines. */
+const isPassive = (i: PaletteItem) => isHeading(i) || isInfo(i);
+
+/** A hit's path relative to the search roots — `rel` under one root, `root/rel` under
+ *  several (the quick-open convention) — and the full path when it is under none. */
+function relPath(p: string, roots: string[]): string {
+  const norm = (s: string) => s.replace(/\//g, "\\").toLowerCase();
+  const np = norm(p);
+  for (const r of roots) {
+    const nr = norm(r).replace(/\\+$/, "");
+    if (np.startsWith(nr + "\\")) {
+      const rel = p.slice(nr.length + 1);
+      if (roots.length === 1) return rel;
+      const base = r.replace(/[\\/]+$/, "").split(/[\\/]/).pop() ?? r;
+      return `${base}/${rel}`;
+    }
+  }
+  return p;
+}
+
+/** The search list: a message while nothing has run, results grouped by file (hits
+ *  mode) or `count  path` rows (summary mode), and a trailing note when capped. */
+function searchRows(
+  result: SearchResult | null,
+  busy: boolean,
+  roots: string[],
+  scope: string,
+): Ranked<PaletteItem>[] {
+  const row = (item: PaletteItem) => ({ item, positions: [], score: 0 });
+  if (busy) return [row({ info: "Searching… (Esc cancels)" })];
+  if (!result) {
+    return [
+      row({
+        info: `Enter runs ripgrep over ${scope} — e.g.  TODO  ·  -c TODO  ·  -l amsmath  ·  -i "risk measure" -g *.qmd`,
+      }),
+    ];
+  }
+  if (result.error) return [row({ info: result.error, error: true })];
+  const out: Ranked<PaletteItem>[] = [];
+  const ms = `${result.elapsed_ms} ms`;
+  // rg complained but still delivered — say so above the rows rather than hiding it:
+  // the common case is an unquoted second word taken as a path.
+  if (result.warning) out.push(row({ info: `rg: ${result.warning}`, error: true }));
+  if (result.mode === "summary") {
+    if (result.summary.length === 0) return [row({ info: `No matches · ${ms}` })];
+    const counted = result.summary.some((s) => s.count != null);
+    out.push(
+      row({
+        info: counted
+          ? `${result.files} files · ${result.total} hits · ${ms}`
+          : `${result.files} files · ${ms}`,
+      }),
+    );
+    for (const s of result.summary) out.push(row({ sum: s }));
+  } else {
+    if (result.hits.length === 0) return [row({ info: `No matches · ${ms}` })];
+    out.push(row({ info: `${result.total} hits in ${result.files} files · ${ms}` }));
+    let last: string | null = null;
+    for (const h of result.hits) {
+      if (h.path !== last) {
+        out.push(row({ heading: relPath(h.path, roots), file: true }));
+        last = h.path;
+      }
+      // Expand [start, end) spans into the per-character positions Highlight draws.
+      const positions: number[] = [];
+      for (const [s, e] of h.spans) for (let i = s; i < e; i++) positions.push(i);
+      out.push({ item: { hit: h }, positions, score: 0 });
+    }
+  }
+  if (result.timed_out) {
+    out.push(row({ info: `Stopped at the time limit — narrow the query (or raise [search] timeout_ms)` }));
+  } else if (result.truncated) {
+    out.push(row({ info: `${result.total}+ — capped; narrow the query (or raise [search] max_hits)` }));
+  }
+  return out;
+}
 
 const PLACEHOLDER: Record<NonNullable<PaletteMode>, string> = {
   files: "Go to file…",
@@ -31,6 +126,7 @@ const PLACEHOLDER: Record<NonNullable<PaletteMode>, string> = {
   projects: "Switch project…",
   commands: "Run a command…",
   symbols: "Search characters — name, \\latex, emoji keyword, or u+2299…",
+  search: "Find in files — ripgrep arguments, Enter to run…",
 };
 
 // Most-recently-used command ordering (ST behaviour): with an empty query the last-run
@@ -126,6 +222,10 @@ export function Palette() {
   const openFile = useStore((s) => s.openFile);
 
   const editorSettings = useStore((s) => s.editorSettings);
+  const searchQuery = useStore((s) => s.searchQuery);
+  const searchResult = useStore((s) => s.searchResult);
+  const searchBusy = useStore((s) => s.searchBusy);
+  const activePath = useStore((s) => s.activePath);
 
   const [query, setQuery] = useState("");
   const [files, setFiles] = useState<FileItem[]>([]);
@@ -149,6 +249,18 @@ export function Palette() {
     const initial = useStore.getState().paletteQuery;
     setQuery(initial ?? "");
     if (initial) useStore.setState({ paletteQuery: null });
+    if (mode === "search" && !initial) {
+      // Reopen on the last argument line (and, below, its results); a fresh selection in
+      // the editor replaces it, quoted if it has spaces — ST's Ctrl+Shift+F prefill.
+      const view = getActiveView();
+      const s = view?.state.selection.main;
+      const picked = view && s && !s.empty ? view.state.sliceDoc(s.from, s.to) : "";
+      if (picked && !picked.includes("\n") && picked.length <= 200) {
+        setQuery(/[\s"]/.test(picked) ? `"${picked.replace(/"/g, "")}"` : picked);
+      } else {
+        setQuery(useStore.getState().searchQuery);
+      }
+    }
     setSel(0);
     inputRef.current?.focus();
     // Quick-open spans every project folder (one pool), or the single root.
@@ -239,8 +351,20 @@ export function Palette() {
       return fuzzyRank(query, commands, (c) => c.title);
     }
     if (mode === "projects") return fuzzyRank(query, projectItems, (p) => p.name);
+    if (mode === "search") {
+      // Never fuzzy-filtered by the query: the query is what RAN, the rows are its output.
+      const roots = useStore.getState().searchRoots();
+      const scope =
+        roots.length === 0
+          ? "nothing (open a folder or project)"
+          : roots.length === 1
+            ? roots[0]
+            : `${roots.length} project folders`;
+      return searchRows(searchResult, searchBusy, roots, scope);
+    }
     return [];
-  }, [mode, query, commands, files, projectItems, quickFiles, symbols, recentChars]);
+    // activePath/root/projFolders: the scope label and relative paths follow the workspace.
+  }, [mode, query, commands, files, projectItems, quickFiles, symbols, recentChars, searchResult, searchBusy, activePath, root, projFolders]);
 
   // Anchor the selection on the first CHOOSABLE row whenever the results change — a new
   // query, the symbol table arriving, an Alt+Enter re-rank. The symbol list can start
@@ -250,7 +374,7 @@ export function Palette() {
   // back on the heading on every keystroke — the fix only ever worked for the empty
   // query (issue G.01).
   useEffect(() => {
-    const first = results.findIndex((r) => !isHeading(r.item));
+    const first = results.findIndex((r) => !isPassive(r.item));
     setSel(Math.max(first, 0));
   }, [results]);
   useEffect(() => {
@@ -290,9 +414,28 @@ export function Palette() {
       closePalette();
       return;
     }
-    if (isHeading(r.item)) return; // a kit label: not selectable, and Enter must not close
+    if (isPassive(r.item)) return; // a heading or info line: not selectable, and Enter must not close
     if (mode === "symbols") {
       insertSymbol(r.item as SymbolEntry, opts?.latex ? "latex" : "char", !!opts?.stay);
+      return;
+    }
+    if (mode === "search") {
+      const it = r.item;
+      if (isHit(it)) {
+        const { path, line, col } = it.hit;
+        closePalette();
+        if (useStore.getState().activePath === path) {
+          jumpToLine(line, col); // already on screen: the editor view is the right one
+        } else {
+          // The jump waits for the doc swap (Editor.tsx's restore effect consumes it);
+          // a failed open must not leave it lying in wait for a later visit.
+          setPendingJump(path, line, col);
+          void openFile(path, false).catch(() => clearPendingJump());
+        }
+      } else if (isSum(it)) {
+        closePalette();
+        void openFile(it.sum.path, false);
+      }
       return;
     }
     if (mode === "files" || mode === "quickfiles") {
@@ -315,7 +458,7 @@ export function Palette() {
   /** Skip kit headings when arrowing through the symbol list. */
   function step(from: number, dir: 1 | -1): number {
     let i = from + dir;
-    while (i >= 0 && i < results.length && isHeading(results[i].item)) i += dir;
+    while (i >= 0 && i < results.length && isPassive(results[i].item)) i += dir;
     if (i < 0 || i >= results.length) return from;
     return i;
   }
@@ -337,7 +480,7 @@ export function Palette() {
     return Math.max(1, Math.floor(list.clientHeight / row.offsetHeight) - 1);
   }
   function lastChoosable(): number {
-    for (let i = results.length - 1; i >= 0; i--) if (!isHeading(results[i].item)) return i;
+    for (let i = results.length - 1; i >= 0; i--) if (!isPassive(results[i].item)) return i;
     return 0;
   }
 
@@ -354,8 +497,23 @@ export function Palette() {
   function onKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Escape") {
       e.preventDefault();
+      if (mode === "search" && searchBusy) {
+        useStore.getState().cancelSearch(); // first Esc stops the search, the palette stays
+        return;
+      }
       closePalette();
       if (mode === "symbols") getActiveView()?.focus(); // nothing inserted, caret restored
+    } else if (mode === "search" && e.key === "Enter") {
+      e.preventDefault();
+      // Enter RUNS when the line differs from what last ran (or nothing has), and OPENS the
+      // selected row otherwise; Ctrl+Enter always re-runs. So: type, Enter, arrow, Enter.
+      const line = query.trim();
+      const changed = line !== searchQuery.trim() || searchResult === null;
+      if (e.ctrlKey || changed) {
+        if (line) void useStore.getState().runSearch(line);
+      } else {
+        choose(sel);
+      }
     } else if (e.key === "ArrowDown") {
       e.preventDefault();
       setSel((s) => step(s, 1));
@@ -372,7 +530,7 @@ export function Palette() {
       setSel((s) => stepMany(s, -1, n));
     } else if (e.key === "Home") {
       e.preventDefault();
-      setSel(Math.max(0, results.findIndex((r) => !isHeading(r.item))));
+      setSel(Math.max(0, results.findIndex((r) => !isPassive(r.item))));
     } else if (e.key === "End") {
       e.preventDefault();
       setSel(lastChoosable());
@@ -399,8 +557,52 @@ export function Palette() {
           {results.map((r, i) => {
             if (isHeading(r.item)) {
               return (
-                <div key={"h:" + r.item.heading} className="palette-heading">
+                <div
+                  key={"h:" + i + r.item.heading}
+                  className={"palette-heading" + (r.item.file ? " search-file" : "")}
+                  title={r.item.file ? r.item.heading : undefined}
+                >
                   {r.item.heading}
+                </div>
+              );
+            }
+            if (isInfo(r.item)) {
+              return (
+                <div key={"i:" + i} className={"palette-info" + (r.item.error ? " error" : "")}>
+                  {r.item.info}
+                </div>
+              );
+            }
+            if (isHit(r.item)) {
+              const h = r.item.hit;
+              return (
+                <div
+                  key={`${h.path}:${h.line}:${h.col}`}
+                  className={"palette-item" + (i === sel ? " active" : "")}
+                  onMouseMove={(ev) => hover(i, ev)}
+                  onClick={() => choose(i)}
+                  title={`${h.path}:${h.line}:${h.col}`}
+                >
+                  <span className="search-loc">{h.line}</span>
+                  <span className="palette-label">
+                    <Highlight text={h.text} positions={r.positions} />
+                  </span>
+                </div>
+              );
+            }
+            if (isSum(r.item)) {
+              const sm = r.item.sum;
+              const roots = useStore.getState().searchRoots();
+              return (
+                <div
+                  key={"sum:" + sm.path}
+                  className={"palette-item" + (i === sel ? " active" : "")}
+                  onMouseMove={(ev) => hover(i, ev)}
+                  onClick={() => choose(i)}
+                  title={sm.path}
+                >
+                  {sm.count != null && <span className="search-count">{sm.count}</span>}
+                  <span className="palette-label">{relPath(sm.path, roots)}</span>
                 </div>
               );
             }
@@ -468,6 +670,12 @@ export function Palette() {
             </div>
           )}
         </div>
+        {mode === "search" && (
+          <div className="palette-hint">
+            Enter runs · Enter on a row opens at the match · Ctrl+Enter re-runs · Esc cancels ·
+            <code>-c</code> counts · <code>-l</code> files · <code>-g *.qmd</code> · <code>-i</code>
+          </div>
+        )}
         {mode === "symbols" && (
           <div className="palette-hint">
             Enter insert · Shift+Enter insert <code>\name</code> · Alt+Enter insert and stay ·

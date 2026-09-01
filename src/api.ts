@@ -346,9 +346,47 @@ export type EditorSettings = {
   snippets: Record<string, string> | null;
   /** Sublime-style build commands from `[build]`: name → command line (run via pwsh). */
   build: Record<string, string> | null;
+  /** `[search]` (Find in Files): default `-g` globs and the two hard caps. */
+  search_globs: string[] | null;
+  search_max_hits: number | null;
+  search_timeout_ms: number | null;
 };
 
 export const loadEditorSettings = () => invoke<EditorSettings>("load_editor_settings");
+
+// ---- Find in Files (Ctrl+Shift+F) -------------------------------------------------------
+/** One match line. `spans` are [start, end) character offsets into `text`. */
+export type SearchHit = { path: string; line: number; col: number; text: string; spans: [number, number][] };
+/** One file in summary mode (`-c`, `-l`): `count` is null for the file-list flags. */
+export type SearchSummary = { path: string; count: number | null };
+export type SearchResult = {
+  mode: "hits" | "summary";
+  hits: SearchHit[];
+  summary: SearchSummary[];
+  total: number;
+  files: number;
+  truncated: boolean;
+  timed_out: boolean;
+  elapsed_ms: number;
+  /** ripgrep's own message when it exited with an error (bad regex, unknown flag). */
+  error: string | null;
+  /** ripgrep's complaint when it errored but still produced results — an unquoted second
+   *  word taken as a path (`-i risk measure`), an unreadable file. Shown, not fatal. */
+  warning: string | null;
+};
+export const DEFAULT_SEARCH_GLOBS = ["*.md", "*.qmd", "*.py", "*.bib", "*.toml", "*.txt", "*.yaml", "*.yml"];
+export const DEFAULT_SEARCH_MAX_HITS = 500;
+export const DEFAULT_SEARCH_TIMEOUT_MS = 5000;
+/** Run ripgrep with `line` as its argument line over `roots`; capped, off the UI thread. */
+export const searchWorkspace = (
+  line: string,
+  roots: string[],
+  globs: string[],
+  maxHits: number,
+  timeoutMs: number,
+) => invoke<SearchResult>("search_workspace", { line, roots, globs, maxHits, timeoutMs });
+/** Kill the running search, if any. */
+export const cancelSearch = () => invoke<void>("cancel_search");
 
 /** Raw JSON of the Tab-completion frequency dictionary ("" when absent) — the format
  *  is owned by src/editor/wordFreq.ts; the file is derived, disposable app state. */

@@ -246,6 +246,13 @@ export function appCommands(): Command[] {
       run: stampCommand(dateFormat()),
     },
     {
+      // Issue A.08: ripgrep over the project, results in the palette, Enter to jump.
+      id: "find-in-files",
+      title: "Find in Files… (ripgrep, project-wide)",
+      action: "findInFiles",
+      run: () => s().openPalette("search"),
+    },
+    {
       // Issue D.12. Searches the Unicode name, the LaTeX command, emoji keywords and our
       // aliases at once — "tick" finds ✓ even though no Unicode name contains the word.
       id: "insert-symbol",

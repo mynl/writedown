@@ -34,6 +34,8 @@ import {
   setActiveView,
   takeReloadAnchor,
   userNavAt,
+  jumpToLine,
+  takePendingJump,
 } from "./editorView";
 import { wrapCompartment, wrapExtension } from "./wrap";
 import { cssFontWeight } from "../fontWeight";
@@ -326,7 +328,11 @@ export function Editor({ path, content }: { path: string; content: string }) {
     if (!view) return;
     const pos = docPosition(path);
     const effectStart = performance.now();
-    if (pos) {
+    // A Find in Files hit opened this document: land on the hit, not the remembered spot.
+    const jump = takePendingJump(path);
+    if (jump) {
+      jumpToLine(jump.line, jump.col);
+    } else if (pos) {
       const len = view.state.doc.length;
       view.dispatch({
         selection: { anchor: Math.min(pos.anchor, len), head: Math.min(pos.head, len) },

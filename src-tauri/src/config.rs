@@ -137,6 +137,15 @@ skip_proper_nouns = true
 # carry your added words across machines.
 # personal_dictionary = "D:/notes/writedown-personal-dictionary.txt"
 
+[search]
+# Find in Files (Ctrl+Shift+F) runs ripgrep over the project's folders. The palette line is
+# rg's argument line: `TODO`, `-c TODO` (counts per file), `-l amsmath` (file list),
+# `-i "risk measure" -g *.qmd`. These globs are passed as -g unless the line has its own
+# -g / -t; max_hits and timeout_ms are hard caps (the search stops and says so).
+globs = ["*.md", "*.qmd", "*.py", "*.bib", "*.toml", "*.txt", "*.yaml", "*.yml"]
+max_hits = 500
+timeout_ms = 5000
+
 # ── Per-file-type editor fonts ───────────────────────────────────────────────────────────────
 # Extension (lowercase, no dot) → font family. Overrides [editor] font_family for those files;
 # every other type keeps font_family. NOTE this is a TOML sub-table, so it must stay BELOW all
@@ -352,6 +361,11 @@ pub struct EditorSettings {
     /// Sublime-style build commands from `[build]`: name → command line (run through pwsh
     /// against the current file). Each becomes a "Build: <name>" palette verb.
     build: Option<HashMap<String, String>>,
+    /// `[search]` (Find in Files, Ctrl+Shift+F): default file globs handed to ripgrep as
+    /// `-g` unless the query brings its own, and the two hard caps.
+    search_globs: Option<Vec<String>>,
+    search_max_hits: Option<u64>,
+    search_timeout_ms: Option<u64>,
 }
 
 /// Parse `[editor]`/`[outline]`/`[tree]` font settings from `config.toml` (spec §5).
@@ -484,6 +498,23 @@ pub fn load_editor_settings(app: tauri::AppHandle) -> Result<EditorSettings, Str
                 .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
                 .collect()
         }),
+        search_globs: val
+            .get("search")
+            .and_then(|s| s.get("globs"))
+            .and_then(|v| v.as_array())
+            .map(|a| a.iter().filter_map(|v| v.as_str().map(str::to_string)).collect()),
+        search_max_hits: val
+            .get("search")
+            .and_then(|s| s.get("max_hits"))
+            .and_then(|v| v.as_integer())
+            .filter(|n| *n > 0)
+            .map(|n| n as u64),
+        search_timeout_ms: val
+            .get("search")
+            .and_then(|s| s.get("timeout_ms"))
+            .and_then(|v| v.as_integer())
+            .filter(|n| *n > 0)
+            .map(|n| n as u64),
     })
 }
 
@@ -501,6 +532,7 @@ mod tests {
         assert!(v.get("spelling").and_then(|s| s.get("skip_proper_nouns")).is_some());
         assert!(v.get("render").and_then(|r| r.get("figure_dpi")).is_some());
         assert!(v.get("bibliography").and_then(|b| b.get("default_file")).is_some());
+        assert!(v.get("search").and_then(|s| s.get("globs")).is_some());
         // Inert keys/sections the tidy removed must not reappear (the template only
         // advertises options the code actually reads).
         assert!(v.get("preview").is_none(), "[preview] is decorative");

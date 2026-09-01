@@ -7,6 +7,7 @@ mod files;
 mod labels;
 mod project;
 mod render;
+mod search;
 mod session;
 mod spelling;
 mod sublime;
@@ -224,6 +225,8 @@ pub fn run() {
             external::open_default,
             external::open_shell,
             external::run_build,
+            search::search_workspace,
+            search::cancel_search,
             backup::list_backups,
             backup::read_backup,
             config::load_config,

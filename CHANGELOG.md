@@ -5,6 +5,18 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [2.19.0] - 2026-09-01
+
+### Added
+
+- **Find in Files — Ctrl+Shift+F** (issue A.08, reopened). The palette line is ripgrep's
+  argument line: `TODO`, `-c TODO` (counts per file, most first), `-l amsmath`,
+  `-i "risk measure" -g *.qmd`. Enter runs the search; Enter or a click on a hit opens
+  the file with the cursor on the match; Ctrl+Enter re-runs; Esc cancels. Searches the
+  project's folders (else the open folder, else the file's folder), default globs and
+  the hard caps — 500 hits, 5 s — under `[search]` in config.toml. No replace-in-files.
+- `findInFiles` in the command registry, so `[keys]` can rebind it; F1 lists it.
+
 ## [2.18.0] - 2026-09-01
 
 ### Added

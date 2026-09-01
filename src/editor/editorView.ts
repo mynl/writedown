@@ -44,6 +44,25 @@ export function docPosition(path: string): DocPosition | undefined {
   return docPositions.get(path);
 }
 
+/** A jump to perform once `path` becomes the active document. Find in Files opens a
+ *  file and lands on the hit in one motion: the cursor restore in Editor.tsx runs after
+ *  the doc swap and consumes this INSTEAD of the remembered position, which is the only
+ *  moment the new document's view is guaranteed to be the one on screen. */
+let pendingJump: { path: string; line: number; col?: number } | null = null;
+export function setPendingJump(path: string, line: number, col?: number) {
+  pendingJump = { path, line, col };
+}
+export function clearPendingJump() {
+  pendingJump = null;
+}
+/** The pending jump for `path`, if any — cleared on the way out. */
+export function takePendingJump(path: string): { line: number; col?: number } | null {
+  if (!pendingJump || pendingJump.path !== path) return null;
+  const { line, col } = pendingJump;
+  pendingJump = null;
+  return { line, col };
+}
+
 /** Where the viewport was, in LINE terms, so a spot survives the document being replaced
  *  wholesale by an external-change reload (issue A.28b). Character offsets are useless here
  *  — an edit above the viewport shifts every one of them — and the scroll snapshot is
@@ -145,12 +164,15 @@ let jumpSeq = 0; // supersedes an in-flight settle when a newer jump starts
  *  If the target sits below the viewport midpoint (or above the viewport), it is
  *  brought near the TOP of the page — clicking an outline entry means "show me this
  *  section", not "barely reveal its first line at the bottom". */
-export function jumpToLine(line: number) {
+export function jumpToLine(line: number, col?: number) {
   const view = activeView;
   if (!view) return;
   lastUserNavAt = performance.now();
   const n = Math.min(Math.max(line, 1), view.state.doc.lines);
-  const pos = view.state.doc.line(n).from;
+  const ln = view.state.doc.line(n);
+  // Optional 1-based column (Find in Files lands ON the match, not at the line start);
+  // clamped so a column past the end still selects the line's last position.
+  const pos = ln.from + (col ? Math.min(Math.max(col - 1, 0), ln.length) : 0);
   view.dispatch({ selection: { anchor: pos } });
 
   const sc = view.scrollDOM;

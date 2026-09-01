@@ -71,6 +71,7 @@ export const DEFAULT_KEYS: { key: string; action: string }[] = [
   { key: "Ctrl+F", action: "find" },
   { key: "Ctrl+H", action: "replace" },
   { key: "Ctrl+G", action: "gotoLine" },
+  { key: "Ctrl+Shift+F", action: "findInFiles" },
   { key: "Ctrl+Tab", action: "nextTab" },
   { key: "Ctrl+Shift+Tab", action: "prevTab" },
   { key: "Ctrl+P", action: "filePalette" },

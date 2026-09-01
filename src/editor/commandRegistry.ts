@@ -199,6 +199,7 @@ export const COMMAND_REGISTRY: Record<string, RegistryEntry> = {
   find: { run: openSearchPanel, label: "Find", category: "Search" },
   replace: { run: openSearchPanel, label: "Replace", category: "Search" },
   gotoLine: { run: gotoLine, label: "Go to line", category: "Search" },
+  findInFiles: { run: act(() => s().openPalette("search")), label: "Find in files (ripgrep, project-wide)", category: "Search" },
 
   // Tabs & palette
   nextTab: { run: act(() => s().nextTab(1)), label: "Next tab", category: "Tabs & palette" },

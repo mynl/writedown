@@ -379,6 +379,11 @@ function App() {
       } else if (mod && e.shiftKey && k === "p") {
         e.preventDefault();
         openPalette("commands");
+      } else if (mod && e.shiftKey && !e.altKey && k === "f") {
+        // Find in Files (issue A.08) — app-level too, so it works from the tree; the
+        // editor keymap binds the same key to findInFiles for `[keys]` rebinding.
+        e.preventDefault();
+        openPalette("search");
       } else if (mod && !e.shiftKey && !e.altKey && k === "p") {
         e.preventDefault(); // also suppresses the browser print dialog
         openPalette("files");
