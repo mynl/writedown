@@ -11,44 +11,79 @@ For each row in the table add a new row below it for your input, item is ">>CC".
 ***
 
 
-## Batch G: Tuesday 2026-08-11
-
+## Batch H: Monday 2026-08-31
 
 | Item | Effort HML | Status/Impact | Description |
 |--:|:---:|:---:|:-------------------------|
-| **G.01** | | | Unicode inserter: it is not searching RECENT first! And why no colored results in search? |
+| **H.01** | | | Insert date swallows preceding space. It should not. If there is no preceeding space it should add one.  |
+| >>CC | L | None | **Confirmed, and not the verb's fault: opening the palette blurs the editor, save-on-blur autosaves, and the save trims trailing whitespace — the space you just typed at line end is gone before the stamp lands.** The trim stays (it is right); the stamp verb will add one space when the character before the cursor is not whitespace and it is not at line start. One function, covers both verbs and the key. |
+| **H.02** | | | Quite common to edit project file -> link or button to do that lower left (to right of drop down, add a small one-char button that opens the project config file (with the file-open symbol. |
+| >>CC | L | None | **Straightforward: the verb already exists ("Project: Edit Project File (.wdproj)"); this adds a 📂 button right of the dropdown that calls it, greyed when a folder is open without a project.** Footer becomes a flex row so the dropdown shrinks and the button never wraps. Plan: `dev/plan-2.18.0-batch-h.md`. |
+
+Pended and waiting are G.07 (read-only split pane), G.12 (highlight-ahead — measure first).
+
+## Batch G: Tuesday 2026-08-11
+
+New config and project syntax.
+
+```toml
+[window]
+titlebar_color = '#DD9536'       # the bar itself
+titlebar_text_color = '#15385D'  # the caption text; white is not so clear!
+```
+
+```json
+{
+  "name": "DOOB",
+  "folders": [
+    "D:\\Projects\\notes\\DOOB-setup",
+    "V:\\dev\\great-backup",
+    "C:\\Users\\steve\\.great-backup",
+    "D:\\Settings",
+    "V:\\dev"
+  ],
+  "labels": {
+    "V:\\dev\\great-backup": "repo",
+    "C:\\Users\\steve\\.great-backup": "config"
+  }
+}
+```
+
+| Item | Effort HML | Status/Impact | Description |
+|--:|:---:|:---:|:-------------------------|
+| **G.01** | | ✅✓| Unicode inserter: it is not searching RECENT first! And why no colored results in search? |
 | >>CC | L | None | **Confirmed — two bugs, both mine, both live in the exe you run. (1) The 2.14.2 fix is undone the moment you type: a second effect resets the selection to row 0, which is the "Recent" heading, so no row is highlighted and Enter does nothing until you press Down. (2) The search cuts to the top 60 BEFORE splitting out recents, so a recent match ranked 61st for "arrow" vanishes.** "No colored results": symbol rows never went through the match highlighter and carry no match positions. All three are small, one file each. |
-| **G.02** | | | Orange bar: can color be a config setting? What about height? Can the text [Project name] - Writedown be white and a config setting to ensure good contrast |
+| **G.02** | |✅ | Orange bar: can color be a config setting? What about height? Can the text [Project name] - Writedown be white and a config setting to ensure good contrast |
 | >>CC | L | None | **Color: already a setting since 2.14.3 — `[window] titlebar_color` and `titlebar_text_color`; white text is one line, `titlebar_text_color = '#FFFFFF'`. The real bug is that neither key is in HELP.md.** Height: not adjustable — Windows owns the caption height; changing it means drawing our own title bar, which I recommend against. CHALLENGE on white: navy-on-orange measures 4.8:1 contrast (passes AA), white-on-orange 2.5:1 (fails). Try it via config; I would not make it the default. ==>AGREE; i will experiment |
-| **G.03** | | | When a file opens (eg quick file) the cursor needs to go in the edit window. This occurs all the time now. First edit of file.  |
+| **G.03** | |✅ | When a file opens (eg quick file) the cursor needs to go in the edit window. This occurs all the time now. First edit of file.  |
 | >>CC | L | None | **Confirmed: no open path focuses the editor — only New File, Scratch and Save As do. From the palette, focus falls to the page body; from the tree it STAYS in the tree, where your first Delete deletes the file.** Fix: one focus-on-open effect in the editor, plus clearing the stale editor handle on unmount (a latent bug in its own right, also behind G.13). |
-| **G.04** | | | Open a new file...edit...couple of seconds later-> ~2 second delay, no response from keyboard? Some background task. Investigate if there is anything obvious going on. |
+| **G.04** | |✅?Atlas | Open a new file...edit...couple of seconds later-> ~2 second delay, no response from keyboard? Some background task. Investigate if there is anything obvious going on. |
 | >>CC | M | **Big win** | **Found, with high confidence. Every backend command except render and build runs on the UI thread, and the first spell-check of a freshly opened document computes suggestions for up to 64 misspellings cold — tens of ms each. That is a one-time 1–2 s freeze, 500 ms after you pause typing, exactly your symptom; it never repeats because the suggestions are cached.** Fix: run the three check commands off the UI thread (one keyword each) and compute suggestions lazily. I have an estimate, not a number — the plan measures first. |
-| **G.05** | | | New temp file (Ctl+Shft+N) appear not to have a palette options; All commands hould be accessible from palette. |
+| **G.05** | |✅ | New temp file (Ctl+Shft+N) appear not to have a palette options; All commands hould be accessible from palette. |
 | >>CC | L | None | **It exists — as "New Scratch File (unsaved)". You call it a temporary file, and so does its own sibling verb "Name Temporary File…", so searching "temp" finds one and not the other. Same disease as 2.14.1's quick-files rename: one vocabulary.** Audit result: about 35 editor keys (Find, Replace, Go to Line, fold, zoom, case, sort, Copy Path…) have no palette verb at all; they can be generated from the command registry in one pass. ==> Yes several palette things don't quite live where i expect! Pls add below table list of current palette commands so i can review.  |
-| **G.06** | | |Error in config are reported at the top of the program but they are overwritten (line row height is too small) and it cannot be read! |
+| **G.06** | | ✅ nice!|Error in config are reported at the top of the program but they are overwritten (line row height is too small) and it cannot be read! |
 | >>CC | L | None | **Confirmed. The error bar is one line, no-wrap, ellipsized, with 68 characters of boilerplate BEFORE the error text, no tooltip carrying the text, and nothing written to the log. Worse, it is the app's general error slot — any later error silently replaces the config error.** Fix: error text first, wrap, full text in the tooltip, log it, and a dismiss. |
-| **G.07** | | | You said multi window not possible; what about side by side tabs: both code view (in JLab) and  ST support this. Just *viewing* the two side by side. Could take over the space used by preview/render.  |
+| **G.07** | |PEND | You said multi window not possible; what about side by side tabs: both code view (in JLab) and  ST support this. Just *viewing* the two side by side. Could take over the space used by preview/render.  |
 | >>CC | M | None at rest | **Feasible for exactly what you asked — a DIFFERENT open tab, read-only, in the preview slot, reusing the existing splitter: ~300 lines, no refactor of the editor. YELL: the same file in both panes, or an editable second pane, is L — 25 places assume one editor, and it re-opens the 1.81.0 edits-land-in-the-wrong-file bug. Read-only-other-tab or nothing; your call.** ==>Pend for now; do nothing  |
-| **G.08** | | | ~~Can ctrl+space sp be the auto complete for large words? Or infact as an alternative for any compeletion situation.~~ appears to work already. |
+| **G.08** | | ✅ | ~~Can ctrl+space sp be the auto complete for large words? Or infact as an alternative for any compeletion situation.~~ appears to work already. |
 | >>CC | — | — | Nothing to do. |
-| **G.09** | | | select a character then palette->identify = unicode info of selected glyph |
+| **G.09** | |✅ | select a character then palette->identify = unicode info of selected glyph |
 | >>CC | L | None | **Half exists: Ctrl+Shift+U with one character selected already prefills its code point. Proposal: an "Identify Character" verb showing code point, Unicode name, LaTeX name and UTF-8 bytes in the status bar, working from a bare cursor too.** Limit: a character outside our 2,322-entry table gets a code point but no name — shipping the full Unicode name list is ~1 MB and not worth it. ==>Agree |
-| **G.10** | | | Can we set the "type" of the file for coloring? (cf ST lower right, scope).   |
+| **G.10** | | ✅ | Can we set the "type" of the file for coloring? (cf ST lower right, scope).   |
 | >>CC | L | None | **Doable: syntax is chosen by extension only today. Proposal: "Syntax: Python / Markdown / TOML…" palette verbs plus a clickable "Syntax: X" item in the footer, session-only — never written to the file or config. Coloring only in v1**; Markdown-specific features (math, citations, spelling) stay extension-driven, and making those follow the override is what would turn this into M. |
-| **G.11** | | | Mouse arrows in the unicode select box do not work well. |
+| **G.11** | | ✅ | Mouse arrows in the unicode select box do not work well. |
 | >>CC | L | None | **Confirmed, two bugs: (1) the mouse fights the arrows — any mouse-move event reselects the row under the pointer, and scrolling the list under a stationary mouse generates one, so Up/Down snap back; (2) PageUp/PageDown/Home/End do nothing.** Plus G.01(1) hides the selection while you type. One file, shared with G.01. |
-| **G.12** | | | colorization lag on scrolling - white then colored. Can we "color ahead" a bit so that is smoother? |
+| **G.12** | | PEND | colorization lag on scrolling - white then colored. Can we "color ahead" a bit so that is smoother? |
 | >>CC | L | **Risk** | **Not our code: nothing Writedown adds does any work on scroll. It is CodeMirror's parser scheduling — it starts at least 100 ms after the viewport moves, and for .agg/.toml/.tex files it never parses past the visible area at all. Mitigation: a ~20-line "parse ahead on scroll" nudge. Trade-off: it could turn "white then colored" into "colored but stuttery", so the plan measures on a big .qmd and a big .agg before deciding.** ==>PEND |
-| **G.13** | | | several commands (eg ctrl k, ctrl f) depend on which window you are in - they do not work in the preview window. That is confusing. Anything we can do about that? |
+| **G.13** | | ✅| several commands (eg ctrl k, ctrl f) depend on which window you are in - they do not work in the preview window. That is confusing. Anything we can do about that? |
 | >>CC | L | None | **Confirmed. Clicking the preview blurs the editor (focus goes to the page body), and Ctrl+F and the whole Ctrl+K family live in the editor's keymap, so they die there. Fix: the existing global key handler forwards editor chords to the editor whenever focus is nowhere useful — CodeMirror's own chord state handles Ctrl+K Ctrl+x for free.** Preview-ONLY mode has no editor to forward to; Ctrl+F there needs its own small handler. |
-| **G.14** | | | New issue: i've just made a project that has three directories with the same name... we need a way to decorate them or distinguish them. Ideas?  |
+| **G.14** | |✅ | New issue: i've just made a project that has three directories with the same name... we need a way to decorate them or distinguish them. Ideas?  |
 | >>CC | L | None | **Roots show the folder name only; the full path is already in the hover tooltip. Proposal: when root names collide, label them "name — parent" (and one more level if the parents collide too). The project switcher already does exactly this for same-named projects, so it is a reuse, not an invention.** Optional later: an explicit per-folder name in the .wdproj, Sublime-style.==>I'd like to be able to set an optional str that is shown after the folder name in the config - rather than guess from the folder name, format as dir (str) with the parens. Default '' which is just dir (no parens empty string obvs). ad |
-| **G.15** | | | App title bar - can we change to JUST be the project name or just Writedown if there is no project open. Ie omit the - Writedown? I have made the header bar orange to make it stand out, and run with several instances open. I just want to see the project name. It is really helpful and the - writedown part just confuses me.  |
+| **G.15** | |✅ | App title bar - can we change to JUST be the project name or just Writedown if there is no project open. Ie omit the - Writedown? I have made the header bar orange to make it stand out, and run with several instances open. I just want to see the project name. It is really helpful and the - writedown part just confuses me.  |
 | >>CC | L | None | **One line. Also found while looking: a plain folder workspace restored at launch never sets a title at all — it shows "Writedown" until you open a project. Fix together.** |
-| **G.16** | | | Ctrl+Shift+C as shortcut for copy full file path and name (like OneCommander |
+| **G.16** | | ✅ | Ctrl+Shift+C as shortcut for copy full file path and name (like OneCommander) V:/dev/writedown/writedown-issues.md |
 | >>CC | L | None | **"Copy File Path" already exists as a palette verb with no key. CHALLENGE: Ctrl+Shift+C is the citation picker, documented in HELP. Options: (a) move citations elsewhere and give C to copy-path ==> yes I never knew about that or used it!; (b) copy-path on a free key — Ctrl+Shift+Y or Ctrl+Shift+M. I lean (b): a bib-first editor should keep its citation key. Also worth adding: Copy Path on the tree right-click menu, which is the OneCommander gesture.** |
-| **G.17** | | | **NEW** when I edit this table the preview flies off to another part of the doc...can we have more stability. |
+| **G.17** | | ✅ | **NEW** when I edit this table the preview flies off to another part of the doc...can we have more stability. |
 | >>CC | L | None | **Confirmed by reading, not yet reproduced. Preview blocks are keyed by a hash of their rendered HTML, so one edit in a table re-creates the WHOLE table as a new DOM node; new nodes start as a 60 px placeholder (`content-visibility: auto`) for a frame before laying out at full height. A tall table collapsing and re-expanding under the viewport, with its scroll anchor just deleted, is the jump.** Fix: update a replaced block in place (same node, new contents) and carry the old height over as the size hint. One function. Proposed for 2.16.0. |
 
 **Shipped: G.01, G.03, G.05, G.06, G.11, G.14, G.15, G.16 and the G.02 documentation in 2.15.0 (2026-08-31) — none yet confirmed in daily use.** G.14 changed Rust, so rebuild. G.04 (2.16.0) and G.09 / G.10 / G.13 (2.17.0) follow; G.07 and G.12 pended; G.17 triaged 2026-08-31, proposed for 2.16.0.

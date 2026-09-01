@@ -553,6 +553,24 @@ function App() {
                   </option>
                 ))}
               </select>
+              {/* Issue H.02: the .wdproj is edited often enough to earn a one-click
+                  button — the same call as the palette's "Project: Edit Project File",
+                  greyed (never hidden, never re-purposed) when a folder is open without a
+                  project. */}
+              <button
+                className="proj-edit"
+                title={
+                  projectFile
+                    ? "Edit project file (.wdproj)"
+                    : "Edit project file — no project open"
+                }
+                disabled={!projectFile}
+                onClick={() => {
+                  if (projectFile) void useStore.getState().openFile(projectFile, false);
+                }}
+              >
+                📂
+              </button>
             </div>
           )}
         </aside>

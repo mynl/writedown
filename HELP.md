@@ -24,8 +24,9 @@ overwritten). The canonical copy is `HELP.md` in the repository.
 - **Open Folder** (palette) makes a folder the sidebar's file explorer.
 - **Projects** are Sublime-style `.wdproj` files: a named set of folders. Create,
   switch (MRU quick-switch), save, and delete them from the palette; the sidebar's
-  Folder/Project tabs and the dropdown at the bottom switch between them. Project
-  files are fully managed — you are never asked where to save one.
+  Folder/Project tabs and the dropdown at the bottom switch between them; the 📂 button
+  beside the dropdown opens the current `.wdproj` for editing. Project files are fully
+  managed — you are never asked where to save one.
 - **Same-named folders** in a project can carry a label, shown as `docs (papers)`:
   palette → **Project: Label Folder "docs"…**, or add a `labels` map to the `.wdproj`
   (`"labels": { "D:\\b\\docs": "papers" }`, keyed by the path as written in `folders`) —

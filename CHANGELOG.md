@@ -5,6 +5,21 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [2.18.0] - 2026-09-01
+
+### Added
+
+- **📂 button beside the project dropdown** (issue H.02) opens the current `.wdproj` for
+  editing — the same action as the palette's "Project: Edit Project File", one click away.
+  Greyed when a folder is open without a project.
+
+### Fixed
+
+- **Insert Date / Insert Date-Time no longer land flush against the preceding word** (issue
+  H.01). Opening the palette autosaves, and the save trims the trailing space you just
+  typed; the stamp now adds one space of its own when the character before the cursor is not
+  whitespace. Nothing is added at line start or after an existing space.
+
 ## [2.17.1] - 2026-08-31
 
 ### Fixed

@@ -169,9 +169,21 @@ export const DEFAULT_DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S";
 export function insertStamp(pattern: string): StateCommand {
   return ({ state, dispatch }) => {
     const stamp = formatStamp(new Date(), pattern);
-    dispatch(
-      state.update(state.replaceSelection(stamp), { scrollIntoView: true, userEvent: "input" }),
-    );
+    // Issue H.01: the stamp must not land flush against the preceding word. From the
+    // palette it always did — opening the palette blurs the editor, save-on-blur autosaves,
+    // and the save's trailing-whitespace trim deletes the space just typed at line end. So
+    // judge the character before each cursor here: not at line start and not whitespace
+    // means the stamp brings its own space. Nothing is ever added at line start or after
+    // an existing space/tab, so a deliberate double space stays as typed.
+    const tr = state.changeByRange((range) => {
+      const before = range.from > 0 ? state.sliceDoc(range.from - 1, range.from) : "\n";
+      const insert = /\s/.test(before) ? stamp : " " + stamp;
+      return {
+        changes: { from: range.from, to: range.to, insert },
+        range: EditorSelection.cursor(range.from + insert.length),
+      };
+    });
+    dispatch(state.update(tr, { scrollIntoView: true, userEvent: "input" }));
     return true;
   };
 }

@@ -1034,11 +1034,15 @@ body {
 /* Project quick-switch dropdown pinned to the bottom of the Project panel (issue 3). */
 .pane-footer {
   flex: 0 0 auto;
+  display: flex; /* dropdown + the edit-project button (issue H.02) on one row */
+  gap: 4px;
+  align-items: stretch;
   padding: 4px 6px;
   border-top: 1px solid var(--border);
 }
 .proj-switch {
-  width: 100%;
+  flex: 1;
+  min-width: 0; /* the dropdown shrinks in a narrow panel; the button never wraps */
   font: inherit;
   font-size: 11px;
   color: var(--fg);
@@ -1053,6 +1057,28 @@ body {
 .proj-switch option {
   background: var(--bg);
   color: var(--fg);
+}
+/* One-character "open the .wdproj" button beside the dropdown (issue H.02): styled as the
+   dropdown's sibling — same border, radius, size — so the row reads as one control. */
+.proj-edit {
+  flex: 0 0 auto;
+  width: 26px;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0;
+  cursor: pointer;
+}
+.proj-edit:hover:not(:disabled) {
+  background: var(--pane-header-bg);
+}
+.proj-edit:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 /* One-line input prompt (new file / folder) */
