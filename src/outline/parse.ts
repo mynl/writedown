@@ -5,7 +5,13 @@ import { AGG_DECL_RE } from "../editor/decl";
 // and YAML (mapping keys). A parent with an absurd number of children has them dropped —
 // the outline is a summary, not a mirror.
 
-export type Heading = { level: number; text: string; line: number };
+export type Heading = {
+  level: number;
+  text: string;
+  line: number;
+  /** "label" marks a Quarto `#| label:` cell row (issue I.04) — rendered dimmed/italic. */
+  kind?: "label";
+};
 
 /** Options for the structural (non-Markdown) outlines, from config `[outline]`. */
 export type OutlineOpts = {
@@ -76,6 +82,7 @@ function parseMarkdown(src: string): Heading[] {
   let inFence = false;
   let fenceChar = "";
   let inComment = false;
+  let lastLevel = 0; // level of the most recent real heading — labels nest one below it
   for (; i < lines.length; i++) {
     let line = lines[i];
 
@@ -105,7 +112,14 @@ function parseMarkdown(src: string): Heading[] {
       }
       continue;
     }
-    if (inFence) continue;
+    if (inFence) {
+      // Quarto cell labels (`#| label: fig-x`) become navigable outline rows one level
+      // under the current heading (issue I.04). `#|` is cell-option syntax in python, r,
+      // and julia cells alike, so this is language-agnostic by construction.
+      const lab = /^#\|\s*label:\s*(\S+)/.exec(line);
+      if (lab) out.push({ level: lastLevel + 1, text: lab[1], line: i + 1, kind: "label" });
+      continue;
+    }
 
     const h = /^(#{1,6})\s+(.*?)\s*$/.exec(line);
     if (h) {
@@ -113,7 +127,8 @@ function parseMarkdown(src: string): Heading[] {
         .replace(/\s*\{#[^}]*\}\s*$/, "") // {#sec-id}
         .replace(/\s*#+\s*$/, "") // closing ###
         .trim();
-      out.push({ level: h[1].length, text, line: i + 1 });
+      lastLevel = h[1].length;
+      out.push({ level: lastLevel, text, line: i + 1 });
     }
   }
   return out;

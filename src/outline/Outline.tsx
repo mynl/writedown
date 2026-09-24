@@ -53,7 +53,9 @@ export function Outline() {
       {headings.map((h, i) => (
         <div
           key={`${h.line}-${i}`}
-          className={"outline-item" + (i === active ? " active" : "")}
+          className={
+            "outline-item" + (i === active ? " active" : "") + (h.kind === "label" ? " label" : "")
+          }
           style={
             {
               paddingLeft: 8 + (h.level - 1) * 12,

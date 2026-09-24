@@ -87,6 +87,10 @@ export const DEFAULT_KEYS: { key: string; action: string }[] = [
   { key: "Ctrl+K Ctrl+T", action: "titleCase" },
   { key: "Ctrl+T", action: "transposeChars" },
   { key: "Alt+T", action: "transposeWords" },
+  // Sublime's sort-lines pair. Case-insensitive and numeric ("item2" before "item10");
+  // the case-sensitive and from-caret-column variants are palette-only.
+  { key: "F9", action: "sortLines" },
+  { key: "Shift+F9", action: "sortLinesReverse" },
   { key: "Ctrl+Shift+[", action: "foldCode" },
   { key: "Ctrl+Shift+]", action: "unfoldCode" },
   // Copy the active document's full path (issue G.16; OneCommander muscle memory). This

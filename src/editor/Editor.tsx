@@ -166,7 +166,10 @@ export function Editor({ path, content }: { path: string; content: string }) {
       // overrides basicSetup's default of 2; tabSize sets how wide any existing "\t" renders.
       Prec.highest(indentUnit.of(" ".repeat(tabSize))),
       EditorState.tabSize.of(tabSize),
-      search({ top: true }),
+      // Center matches on search navigation (issue I.05): the default scrolls a forward
+      // match to the bottom viewport edge; y:"center" lands it mid-view and leaves an
+      // already-near-center match alone, so short documents don't twitch.
+      search({ top: true, scrollToMatch: (range) => EditorView.scrollIntoView(range, { y: "center" }) }),
       ...editingExtras,
       // Editing keymap in a Compartment so config [keys] changes reconfigure it live (see the
       // effect below). Non-reactive read, like word wrap, so a reconfigure never rebuilds here.

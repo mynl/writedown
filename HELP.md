@@ -102,6 +102,9 @@ a selection wraps the selection — press `$` twice for `$$…$$`.
   With no match, Tab does nothing and says so in the status bar; it never indents
   the paragraph. (Tab at the start of a line, or after whitespace, still indents.)
 - **Ctrl+Shift+D** duplicates the selection when there is one, otherwise the line.
+- **F9** sorts the selected lines — case-insensitive and numeric, so `item2` sorts before
+  `item10`; **Shift+F9** sorts in reverse. The palette adds case-sensitive and
+  from-caret-column variants (the latter pairs with Alt+drag column selection).
 - **Quotes close themselves in code** — inside `{python}` cells and code spans, and in
   code files: `"` gives you `""` with the caret between, and a third quote completes a
   `"""` docstring pair. Same for `'`. Prose is untouched (apostrophes stay apostrophes),

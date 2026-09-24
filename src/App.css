@@ -544,6 +544,11 @@ body {
 .outline-item:hover {
   background-color: var(--pane-header-bg);
 }
+/* Quarto `#| label:` cell rows (issue I.04) — visibly not headings: italic and dimmed. */
+.outline-item.label {
+  font-style: italic;
+  opacity: 0.65;
+}
 .outline-item.active {
   border-left-color: var(--accent, #4a90d9);
   color: var(--accent, #4a90d9);

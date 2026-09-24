@@ -51,8 +51,11 @@ const WORD_RE = /[\p{L}\p{N}_]+(?:'[\p{L}\p{N}_]+)*/gu;
 // How far around the caret to look for the two words (crosses newlines, like emacs).
 const TRANSPOSE_WINDOW = 500;
 
-// Emacs M-t: swap the word at/before the caret with the word after it; the caret ends after
-// the pair (so repeated presses drag a word rightward). Multi-cursor aware.
+// Swap the word at/before the caret with the word after it. The caret lands BETWEEN the
+// swapped pair (at the end of the new first word), so the command is an involution:
+// pressing it twice restores the original text. This is deliberate (issue I.08) — do not
+// "fix" it back to Emacs M-t semantics, where the caret follows the pair and repeated
+// presses drag a word rightward. Multi-cursor aware.
 export const transposeWords: StateCommand = ({ state, dispatch }) => {
   const changes = [];
   const ends: number[] = [];
@@ -76,7 +79,7 @@ export const transposeWords: StateCommand = ({ state, dispatch }) => {
     if (!a || !b) continue;
     changes.push({ from: base + a.from, to: base + a.to, insert: b.text });
     changes.push({ from: base + b.from, to: base + b.to, insert: a.text });
-    ends.push(base + b.to); // total region length is unchanged by the swap
+    ends.push(base + a.from + b.text.length); // end of the new first word — between the pair
   }
   if (changes.length === 0) return false;
   dispatch(
@@ -90,17 +93,41 @@ export const transposeWords: StateCommand = ({ state, dispatch }) => {
   return true;
 };
 
-// Sort the lines spanned by the primary selection (or the whole document region it covers).
-export const sortLines: StateCommand = ({ state, dispatch }) => {
-  const sel = state.selection.main;
-  const from = state.doc.lineAt(sel.from).from;
-  const to = state.doc.lineAt(sel.to).to;
-  if (from === to) return false;
-  const lines = state.sliceDoc(from, to).split("\n");
-  lines.sort((a, b) => a.localeCompare(b));
-  dispatch(state.update({ changes: { from, to, insert: lines.join("\n") }, userEvent: "sort.lines" }));
-  return true;
-};
+/** The Sublime sort-lines family (issue I.03): sort the whole lines spanned by the primary
+ *  selection, one undo step. Numeric collation is deliberate — `item2` sorts before `item10`.
+ *  Default comparison is case-insensitive (sensitivity "base"); `caseSensitive` restores
+ *  case-aware ordering. `fromColumn` sorts by each line's tail from the caret's column
+ *  (selection START), pairing naturally with Alt+drag column selection; lines shorter than
+ *  that column yield the empty key and sort first. */
+function makeSortLines(opts: {
+  reverse?: boolean;
+  caseSensitive?: boolean;
+  fromColumn?: boolean;
+}): StateCommand {
+  return ({ state, dispatch }) => {
+    const sel = state.selection.main;
+    const startLine = state.doc.lineAt(sel.from);
+    const from = startLine.from;
+    const to = state.doc.lineAt(sel.to).to;
+    if (from === to) return false;
+    const col = opts.fromColumn ? sel.from - startLine.from : 0;
+    const lines = state.sliceDoc(from, to).split("\n");
+    lines.sort((a, b) =>
+      a.slice(col).localeCompare(b.slice(col), undefined, {
+        numeric: true,
+        sensitivity: opts.caseSensitive ? "variant" : "base",
+      }),
+    );
+    if (opts.reverse) lines.reverse();
+    dispatch(state.update({ changes: { from, to, insert: lines.join("\n") }, userEvent: "sort.lines" }));
+    return true;
+  };
+}
+
+export const sortLines = makeSortLines({});
+export const sortLinesReverse = makeSortLines({ reverse: true });
+export const sortLinesFromColumn = makeSortLines({ fromColumn: true });
+export const sortLinesCaseSensitive = makeSortLines({ caseSensitive: true });
 
 // Open a new (indent-matched) line below / above each cursor and move there — regardless of the
 // caret's column (Sublime's Ctrl+Enter / Ctrl+Shift+Enter).

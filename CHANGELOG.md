@@ -5,6 +5,24 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [2.20.0] - 2026-09-24
+
+### Added
+
+- **Sort lines family** (issue I.03): **F9** sorts the selected lines, **Shift+F9**
+  reverses; palette-only "Sort lines (case sensitive)" and "Sort lines (from caret
+  column)" variants. Sorting is now numeric and case-insensitive by default, so `item2`
+  sorts before `item10`.
+- **Quarto cell labels in the outline** (issue I.04): `#| label:` lines appear as
+  italic, dimmed rows nested under their heading; clicking one jumps to the cell.
+
+### Changed
+
+- **Search matches center in the viewport** (issue I.05): F3 / Shift+F3 / Enter land the
+  match mid-view instead of at the bottom edge; matches already near center don't scroll.
+- **Alt+T (transpose words) is an involution** (issue I.08): the caret lands between the
+  swapped pair, so a second Alt+T swaps them back instead of dragging a word rightward.
+
 ## [2.19.0] - 2026-09-01
 
 ### Added
