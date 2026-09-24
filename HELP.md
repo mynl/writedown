@@ -40,8 +40,12 @@ overwritten). The canonical copy is `HELP.md` in the repository.
   `writedown --version`, `writedown --help`. A folder argument opens as **its own
   project**, replacing the restored workspace rather than joining it — and its tabs and
   layout are remembered against that folder, so running it again resumes where you were.
-  Nothing is written to disk; the project stays unsaved until you name it. Every
-  invocation opens a **new window** — running several at once is supported.
+  Nothing is written to disk; the project stays unsaved until you name it.
+- **Which window?** Double-clicking (or `writedown file.md`) prefers an existing window:
+  the one whose project contains the file — current virtual desktop first — else any
+  open window as a loose tab; with none open, a new window starts. A **folder** argument
+  and a **bare launch** always open a new window (that is how project instances are
+  started). Running several windows at once is supported.
 - Palette **Close All Files** saves and closes every real file. Unsaved scratch buffers
   are deliberately left alone: their text exists nowhere but the session.
 - The file tree lists **every** file. Muted entries are files Writedown has no

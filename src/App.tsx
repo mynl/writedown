@@ -74,6 +74,14 @@ function App() {
     return () => void p.then((un) => un());
   }, [onFsChange]);
 
+  // Paths routed here from a fresh Writedown launch (issue I.07): another process found
+  // this window owns the file's project, handed the paths over WM_COPYDATA, and exited.
+  // They feed the ordinary launch-file logic.
+  useEffect(() => {
+    const p = listen<string[]>("open-paths", (e) => void useStore.getState().openPaths(e.payload));
+    return () => void p.then((un) => un());
+  }, []);
+
   // Drop files or folders onto the window to open them (issue A.04). Tauri intercepts OS
   // drags at the webview (dragDropEnabled), which SUPPRESSES the HTML5 drag events — so
   // this window-level listener is the only route, and it hands us real absolute paths.

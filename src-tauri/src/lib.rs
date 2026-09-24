@@ -5,6 +5,7 @@ mod config;
 mod external;
 mod files;
 mod git;
+mod instance;
 mod labels;
 mod project;
 mod render;
@@ -117,8 +118,11 @@ OPTIONS:
     -V, --version    Print the version and exit
     --               Treat every remaining argument as a path
 
-Each invocation opens a NEW window; Writedown does not hand files to a running
-instance. Running several at once is supported and expected.
+Opening FILES prefers an existing window: the window whose project contains the
+file (current virtual desktop first), else any open window; with none open, a new
+window starts. A folder argument, and the bare launch, ALWAYS open a new window —
+that is how project instances are started. Running several windows at once is
+supported and expected.
 ";
 
 /// Attach to the launching terminal's console so `--version` / `--help` have somewhere to
@@ -170,6 +174,12 @@ fn cli_paths_or_exit() -> Vec<String> {
 pub fn run() {
     // First thing, before any window or plugin exists: --version / --help print and exit.
     let launch_paths = cli_paths_or_exit();
+    // One window per file's project (issue I.07): a pure-file launch is offered to an
+    // existing window and this process exits if one takes it. Best-effort by design —
+    // any failure inside falls through to the ordinary new window below.
+    if instance::route_to_existing(&launch_paths) {
+        return;
+    }
     tauri::Builder::default()
         .manage(LaunchArgs(std::sync::Mutex::new(launch_paths)))
         .plugin(tauri_plugin_opener::init())
@@ -206,6 +216,9 @@ pub fn run() {
             // of the bib load, so neither waits on the other).
             let sp_handle = app.handle().clone();
             std::thread::spawn(move || spelling::warm(&sp_handle));
+            // Window routing (issue I.07): stamp the HWND marker, accept WM_COPYDATA,
+            // and write this window's instance registry entry.
+            instance::register(&app.handle());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -270,6 +283,7 @@ pub fn run() {
             wordfreq::word_freq_save,
             git::git_status,
             git::git_show_index,
+            instance::set_instance_roots,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
@@ -277,6 +291,7 @@ pub fn run() {
             // Kill the python kernel on exit (its stdin-EOF self-exit is the backstop).
             if matches!(event, tauri::RunEvent::Exit) {
                 render::shutdown_kernel(handle);
+                instance::cleanup(); // drop this window's routing-registry entry
             }
         });
 }

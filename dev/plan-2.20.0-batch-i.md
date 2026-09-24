@@ -331,3 +331,35 @@ look-and-feel loop applies); 2.23.0 and 2.24.0 change Rust — rebuild, run `car
 `cargo check` from `src-tauri/`, and smoke-boot the built bundle before handover. The author
 kicks the tires per version; tweaks are ordinary further work. Move this plan to `dev/done/`
 only when the author declares the batch done.
+
+---
+
+## Execution log — 2026-09-24
+
+All five bumps landed, in order, one commit each. Gates per bump: `npm run build`
+(tsc + vite) every time; `cargo test` from `src-tauri/` wherever Rust changed (2.21.0's
+config.rs parse, 2.23.0, 2.24.0); import-cycle check (`npx madge --circular`) and a
+headless smoke-boot of `dist/` after the Rust versions. Divergences, all small:
+
+- **[quick-wins] HELP.md has no static key list** (F1 is generated live), so the sort
+  family and reflow were documented as prose bullets in the Editing section instead.
+- **[reflow] `src/store.ts` needed no settings-type edit** — the store imports
+  `EditorSettings` from `api.ts`, where `fill_column` was added.
+- **[reflow] wrapping collapses every whitespace run**, not only runs at join points
+  (standard fill behavior; undo restores the original byte-for-byte either way).
+- **[diff-pane] the store shape gained two fields** beyond the plan's
+  `{kind, path?, millis?}`: `for` (the document the diff was opened on — the pane shows
+  only while that tab is active and comes back on switch-back) and `base` (the static
+  snapshot, fetched in the store rather than the component).
+- **[diff-pane] "Diff: Against Open Tab…" is one verb per other open tab** — the palette
+  has no submenus; this is the projectSwitches pattern.
+- **[git-marks] untracked directories stay one collapsed entry** (porcelain default
+  `--untracked-files=normal`): the folder tints and dots, files inside it are not
+  individually marked. Cheap by construction; revisit only if it grates.
+- **[window-routing] stale-entry validation is the HWND marker check alone**
+  (`IsWindow` + `GetPropW`): a dead pid's window is gone and a recycled HWND cannot
+  carry the property, so no separate `OpenProcess` liveness probe was needed.
+- **Left for the author:** re-register the freshly built exe via
+  `scripts/windows-register.ps1` and double-click-test routing end to end (dev builds
+  cannot exercise Explorer routing); kick the tires on each version; declare the batch
+  done to retire this plan.

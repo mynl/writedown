@@ -5,6 +5,21 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [2.24.0] - 2026-09-24
+
+### Changed
+
+- **One window per file's project** (issue I.07): double-clicking a file in Explorer (or
+  `writedown file.md`) now prefers an existing window — the one whose project contains
+  the file, current virtual desktop first, then front-most; otherwise any open window
+  takes it as a loose tab. No windows → a new one, as before. A folder argument and the
+  bare launch ALWAYS open a new window (that is how project instances are started).
+  Routing is best-effort: any failure falls back to a new window, so the file always
+  opens. Windows-only, compile-gated; known edges (elevation, foreground denial) fall
+  back to a new window or a taskbar flash.
+- Each window records `{ pid, hwnd, roots }` under `~/.writedown/instances/` — derived
+  and disposable; stale entries from killed processes are detected and ignored.
+
 ## [2.23.0] - 2026-09-24
 
 ### Added

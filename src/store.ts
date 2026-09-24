@@ -39,6 +39,7 @@ import {
   gitStatus,
   readBackup,
   readFile,
+  setInstanceRoots,
   recentProjects as fetchRecentProjects,
   reloadSpelling,
   renamePath,
@@ -669,6 +670,9 @@ type AppState = {
   openDropped: (paths: string[]) => Promise<void>;
   /** Open the files Writedown was launched with, after session restore (issue A.03). */
   openLaunchFiles: () => Promise<void>;
+  /** Open launch-style paths: dirs become the workspace, files become tabs. Shared by
+   *  openLaunchFiles and the window-routing WM_COPYDATA event (issue I.07). */
+  openPaths: (paths: string[]) => Promise<void>;
   /** Adopt `dirs` as an UNSAVED project, replacing the current workspace — what
    *  `writedown .` does. Nothing is written to disk; the layout is remembered against the
    *  folder path, so running it again picks up where you left off. */
@@ -2586,6 +2590,12 @@ export const useStore = create<AppState>((set, get) => ({
     } catch {
       return; // older backend / no args — nothing to do
     }
+    await get().openPaths(paths);
+  },
+
+  // Shared tail of the two launch routes (issue I.07): the paths this process was started
+  // with, and the paths another Writedown launcher routed here over WM_COPYDATA.
+  openPaths: async (paths) => {
     if (paths.length === 0) return;
     let info;
     try {
@@ -2720,8 +2730,13 @@ useStore.subscribe((s, prev) => {
   if (s.lastError && s.lastError !== prev.lastError) void logError("error: " + s.lastError);
 });
 
-// Git tree marks (issue I.02): re-status whenever the workspace roots change — folder
-// open, project open/switch/close, session restore. Debounced inside refreshGitStatus.
+// Whenever the workspace roots change — folder open, project open/switch/close, session
+// restore — re-run git status (issue I.02, debounced inside) and re-record this window's
+// roots in the routing registry (issue I.07) so Explorer launches land in the right window.
 useStore.subscribe((s, prev) => {
-  if (s.projFolders !== prev.projFolders || s.root !== prev.root) s.refreshGitStatus();
+  if (s.projFolders !== prev.projFolders || s.root !== prev.root) {
+    s.refreshGitStatus();
+    const roots = s.projFolders.length ? s.projFolders : s.root ? [s.root] : [];
+    void setInstanceRoots(roots).catch(() => {}); // older backend — routing simply absent
+  }
 });

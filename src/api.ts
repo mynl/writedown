@@ -178,6 +178,10 @@ export const gitStatus = (root: string) => invoke<GitStatus>("git_status", { roo
  *  off), "" = untracked (every buffer line counts as added). */
 export const gitShowIndex = (path: string) => invoke<string | null>("git_show_index", { path });
 
+/** Report this window's workspace roots to the routing registry (issue I.07), so a
+ *  fresh Explorer launch can hand a file to the window whose project owns it. */
+export const setInstanceRoots = (roots: string[]) => invoke<void>("set_instance_roots", { roots });
+
 export const createDirectory = (path: string) => invoke<void>("create_directory", { path });
 
 /** Rename/move a file or folder (explicit user command; refuses to clobber). */

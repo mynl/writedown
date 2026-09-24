@@ -1,6 +1,6 @@
 [package]
 name = "writedown"
-version = "2.23.0"
+version = "2.24.0"
 description = "A fast, local, predictable Markdown and Quarto editor for Windows"
 authors = ["Stephen J. Mildenhall"]
 edition = "2021"
@@ -31,4 +31,14 @@ regex = "1"
 rustpython-parser = "0.4"
 spellbook = "0.4"
 trash = "5"
+
+# Window routing (issue I.07): compile-time Win32 bindings only, no runtime dependency.
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = [
+    "Win32_Foundation",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_Shell",
+    "Win32_System_Com",
+    "Win32_System_DataExchange",
+] }
 
