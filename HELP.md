@@ -105,6 +105,11 @@ a selection wraps the selection — press `$` twice for `$$…$$`.
 - **F9** sorts the selected lines — case-insensitive and numeric, so `item2` sorts before
   `item10`; **Shift+F9** sorts in reverse. The palette adds case-sensitive and
   from-caret-column variants (the latter pairs with Alt+drag column selection).
+- **Alt+Q** reflows the paragraph at the caret (or every paragraph a selection touches):
+  hard-wraps at `[editor] fill_column` (default 80), one undo step, never automatic.
+  List items keep their marker with a hanging indent and never merge; `>` quotes keep
+  their prefix on every line. Fences, tables, headings, front matter and display math
+  are left alone (a status-bar note says so). Ctrl+Shift+J (join lines) is its inverse.
 - **Quotes close themselves in code** — inside `{python}` cells and code spans, and in
   code files: `"` gives you `""` with the caret between, and a third quote completes a
   `"""` docstring pair. Same for `'`. Prose is untouched (apostrophes stay apostrophes),

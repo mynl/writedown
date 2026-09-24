@@ -5,6 +5,18 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [2.21.0] - 2026-09-24
+
+### Added
+
+- **Reflow paragraph — Alt+Q** (issue I.06): hard-wraps the paragraph at the caret (or
+  each paragraph a selection touches) at `[editor] fill_column` (default 80). One undo
+  step; explicit command only, never automatic. List items keep their marker with a
+  hanging indent and never merge with neighbors; blockquote `>` prefixes (nested too)
+  are kept on every line. Inside a fence, table, heading, YAML front matter or display
+  math it changes nothing and says so in the status bar.
+- `[editor] fill_column` in config.toml; applies live on config save, like the rest.
+
 ## [2.20.0] - 2026-09-24
 
 ### Added

@@ -37,6 +37,7 @@ import {
   transposeWords,
   upperCase,
 } from "./textOps";
+import { reflowParagraph } from "./reflow";
 import { toggleWordWrap } from "./wrap";
 import { openCitationPicker } from "./citations";
 import { copyActiveName, copyActivePath } from "../clipboardOps";
@@ -136,6 +137,7 @@ export const COMMAND_REGISTRY: Record<string, RegistryEntry> = {
   moveLineUp: { run: moveLineUp, label: "Move line up", category: "Editing" },
   moveLineDown: { run: moveLineDown, label: "Move line down", category: "Editing" },
   joinLines: { run: joinLines, label: "Join lines", category: "Editing" },
+  reflowParagraph: { run: reflowParagraph, label: "Reflow paragraph (hard-wrap at fill column)", category: "Editing" },
   toggleComment: { run: toggleComment, label: "Toggle comment", category: "Editing" },
   killToLineEnd: { run: deleteToLineEnd, label: "Delete to end of line", category: "Editing" },
   killToLineStart: { run: deleteToLineStart, label: "Delete to start of line", category: "Editing" },

@@ -25,6 +25,8 @@ export const DEFAULT_KEYS: { key: string; action: string }[] = [
   { key: "Ctrl+Shift+Down", action: "moveLineDown" },
   { key: "Ctrl+/", action: "toggleComment" },
   { key: "Ctrl+Shift+J", action: "joinLines" },
+  // Reflow is join's complement: hard-wrap the paragraph at [editor] fill_column.
+  { key: "Alt+Q", action: "reflowParagraph" },
   { key: "Ctrl+Alt+Shift+T", action: "reformatTable" },
   { key: "Ctrl+=", action: "zoomIn" },
   { key: "Ctrl+Shift+=", action: "zoomIn" },

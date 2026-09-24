@@ -292,6 +292,8 @@ export type EditorSettings = {
   trim_trailing_whitespace: boolean | string | null;
   /** `[editor] tab_size`: editor indent width in spaces (default 4; spaces-only, never a tab). */
   tab_size: number | null;
+  /** `[editor] fill_column`: column Reflow Paragraph (Alt+Q) hard-wraps at (default 80). */
+  fill_column: number | null;
   /** `[editor] tab_complete_min_len`: shortest nearby word Tab word-completion offers (default 5). */
   tab_complete_min_len: number | null;
   /** `[editor] tab_complete_dict`: offer frequent words from the background dictionary (default true). */
