@@ -5,6 +5,18 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [2.22.0] - 2026-09-24
+
+### Added
+
+- **Read-only diff pane** (issue I.01), palette-only: **Diff: Against Saved File on
+  Disk**, **Diff: Against Previous Version…** (the Previous Versions list, now picking a
+  stamp to compare), and **Diff: Against Open Tab "name"**. The pane takes the preview
+  slot with the usual split resizer, follows typing (debounced), and closes on Esc or
+  **Diff: Close**. View-only by design: no merging, no per-hunk revert — restore stays
+  in Previous Versions. Never reopened by session restore.
+- New dependency `@codemirror/merge` (unified inline diff, same org as the editor).
+
 ## [2.21.0] - 2026-09-24
 
 ### Added

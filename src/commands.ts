@@ -12,7 +12,7 @@ import { forceLinting } from "@codemirror/lint";
 import { addToDictionary, configPath, extractBibEntries, logError, openShell, restartKernel } from "./api";
 import { SCRATCH_PREFIX, isScratch, mergedProjects, useStore } from "./store";
 import { getActiveView } from "./editor/editorView";
-import { isMarkdownDoc } from "./editor/languages";
+import { isCsv, isImageDoc, isMarkdownDoc } from "./editor/languages";
 import { CITE_RE, CROSSREF_PREFIX, openCitationPicker } from "./editor/citations";
 import { isProsePos } from "./editor/prose";
 import { renumberOrderedList } from "./editor/lists";
@@ -164,6 +164,8 @@ export function appCommands(): Command[] {
       run: () => void s().setSizeAsDefault(),
     },
     { id: "previous-versions", title: "Previous Versions…", run: () => s().openVersions() },
+    // ---- Read-only diff pane (issue I.01) — palette-only entry, no buttons or menus ----
+    ...diffCommands(),
     // Conflict resolution: two explicitly labelled verbs, never one button that changes
     // meaning with state (issue B.04).
     {
@@ -439,6 +441,40 @@ export function appCommands(): Command[] {
     // Every remaining registry action, so nothing bindable is unreachable from here.
     ...registryCommands(),
   ];
+}
+
+/** "Diff: …" verbs (issue I.01): open the read-only diff pane against the saved file, a
+ *  Previous Versions stamp, or another open tab; plus Close while one is up. Text documents
+ *  only — absent for images and the CSV grid (previewable-only), and the disk/backup bases
+ *  are absent for temporary files, which exist nowhere but the session. */
+function diffCommands(): Command[] {
+  const st = useStore.getState();
+  const a = st.activePath;
+  if (!a || isImageDoc(a) || isCsv(a)) return [];
+  const out: Command[] = [];
+  if (st.diffAgainst) out.push({ id: "diff-close", title: "Diff: Close", run: () => useStore.getState().closeDiff() });
+  if (!isScratch(a)) {
+    out.push({
+      id: "diff-disk",
+      title: "Diff: Against Saved File on Disk",
+      run: () => void useStore.getState().openDiff("disk"),
+    });
+    out.push({
+      id: "diff-backup",
+      title: "Diff: Against Previous Version…",
+      run: () => useStore.getState().openVersionsForDiff(),
+    });
+  }
+  for (const t of st.tabs) {
+    if (t.path === a || isImageDoc(t.path) || isCsv(t.path)) continue;
+    const name = isScratch(t.path) ? t.path.slice(SCRATCH_PREFIX.length) : baseName(t.path);
+    out.push({
+      id: `diff-tab-${t.path}`,
+      title: `Diff: Against Open Tab “${name}”`,
+      run: () => void useStore.getState().openDiff("tab", { path: t.path }),
+    });
+  }
+  return out;
 }
 
 /** Registry actions that already have an explicit verb above (or are not verbs at all —

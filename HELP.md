@@ -144,6 +144,14 @@ a selection wraps the selection — press `$` twice for `$$…$$`.
 - Font size: **Ctrl+wheel** or Ctrl+= / Ctrl+- (session-only zoom, with configured
   min/max bounds); "Set as Default" bakes it into config.
 
+## Diff (what changed?)
+
+Palette-only, read-only: **Diff: Against Saved File on Disk** shows your unsaved edits;
+**Diff: Against Previous Version…** picks a stamp from the Previous Versions list;
+**Diff: Against Open Tab "name"** compares two open tabs. The pane takes the preview's
+place and follows your typing; **Esc** in the pane (or **Diff: Close**) dismisses it.
+No merging and no per-hunk revert — restoring stays in Previous Versions.
+
 ## Find in files
 
 **Ctrl+Shift+F** (palette → **Find in Files…**) runs ripgrep over the project's folders

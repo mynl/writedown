@@ -36,6 +36,7 @@ import {
   buildFile,
   helpPath,
   personalDictionaryPath,
+  readBackup,
   readFile,
   recentProjects as fetchRecentProjects,
   reloadSpelling,
@@ -374,6 +375,19 @@ type AppState = {
   aboutOpen: boolean;
   /** Path whose Previous Versions picker is open (null = closed). */
   versionsFor: string | null;
+  /** What Enter/click in the Versions picker does: restore the version into the editor
+   *  (the original behavior) or open the read-only diff pane against it (issue I.01). */
+  versionsMode: "restore" | "diff";
+  /** Read-only diff pane (issue I.01): the active buffer against a static base snapshot.
+   *  `for` is the document the diff was opened on (the pane shows only while that tab is
+   *  active); `base` is fetched once at open. Transient — NEVER in the session snapshot. */
+  diffAgainst: {
+    kind: "disk" | "backup" | "tab";
+    for: string;
+    path?: string;
+    millis?: number;
+    base: string;
+  } | null;
   /** Small one-line input dialog (new file/folder names, etc.). `initial` prefills the
    *  input (selected, so typing replaces it) — used by rename-style prompts. */
   prompt: {
@@ -547,6 +561,12 @@ type AppState = {
   loadContent: (path: string, content: string) => void;
   openVersions: () => void;
   closeVersions: () => void;
+  /** Open the Versions picker in diff mode: choosing a stamp diffs against it (issue I.01). */
+  openVersionsForDiff: () => void;
+  /** Open the read-only diff pane: active buffer vs the file on disk, a backup stamp, or
+   *  another open tab's buffer. The base is fetched once, here; view-only, no merging. */
+  openDiff: (kind: "disk" | "backup" | "tab", opts?: { path?: string; millis?: number }) => Promise<void>;
+  closeDiff: () => void;
   /** `explicit` = the user asked (Ctrl+S / palette), so a flagged conflict is attempted
    *  rather than skipped; `force` also skips the disk check, overwriting deliberately.
    *  Plain autosave passes neither (issue B.04). */
@@ -702,6 +722,8 @@ export const useStore = create<AppState>((set, get) => ({
   helpOpen: false,
   aboutOpen: false,
   versionsFor: null,
+  versionsMode: "restore" as const,
+  diffAgainst: null,
   prompt: null,
   treeMenu: null,
   viewMode: "split",
@@ -1441,9 +1463,32 @@ export const useStore = create<AppState>((set, get) => ({
 
   openVersions: () => {
     const a = get().activePath;
-    if (a) set({ versionsFor: a });
+    if (a) set({ versionsFor: a, versionsMode: "restore" });
   },
   closeVersions: () => set({ versionsFor: null }),
+  openVersionsForDiff: () => {
+    const a = get().activePath;
+    if (a) set({ versionsFor: a, versionsMode: "diff" });
+  },
+
+  openDiff: async (kind, opts) => {
+    const a = get().activePath;
+    if (!a) return;
+    try {
+      let base: string;
+      if (kind === "disk") base = await readFile(a);
+      else if (kind === "backup") base = await readBackup(a, opts?.millis ?? 0);
+      else {
+        const t = get().tabs.find((x) => x.path === opts?.path);
+        if (!t) return;
+        base = t.content; // static snapshot of the other tab, taken now
+      }
+      set({ diffAgainst: { kind, for: a, path: opts?.path, millis: opts?.millis, base } });
+    } catch (e) {
+      set({ lastError: `diff — ${String(e)}` });
+    }
+  },
+  closeDiff: () => set({ diffAgainst: null }),
 
   saveDoc: async (path, opts) => {
     if (isScratch(path)) return; // untitled buffers have no disk path — use Save As

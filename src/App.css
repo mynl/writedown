@@ -808,6 +808,25 @@ body {
   display: flex;
   flex-direction: column;
 }
+/* Read-only diff pane (issue I.01): header strip + a CodeMirror that fills the rest and
+   scrolls itself. The @codemirror/merge chunk colors are the library defaults. */
+.diff-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.diff-head {
+  flex: 0 0 auto;
+}
+.diff-body {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+}
+.diff-body .cm-editor {
+  height: 100%;
+}
 .preview-pane .preview-scroll {
   height: auto;
   flex: 1 1 0;

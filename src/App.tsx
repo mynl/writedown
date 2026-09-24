@@ -19,6 +19,7 @@ import { Editor } from "./editor/Editor";
 import { EditorBoundary } from "./editor/EditorBoundary";
 import { Preview } from "./preview/Preview";
 import { CsvPreview } from "./preview/CsvPreview";
+import { DiffPane } from "./preview/DiffPane";
 import { ImageViewer } from "./preview/ImageViewer";
 import { Outline } from "./outline/Outline";
 import { isCsv, isImageDoc, isMarkdownDoc, syntaxNameForPath } from "./editor/languages";
@@ -230,6 +231,7 @@ function App() {
   const setTreeWidth = useStore((s) => s.setTreeWidth);
   const setOutlineWidth = useStore((s) => s.setOutlineWidth);
   const splitRatio = useStore((s) => s.splitRatio);
+  const diffAgainst = useStore((s) => s.diffAgainst);
   const setSplitRatio = useStore((s) => s.setSplitRatio);
   const configError = useStore((s) => s.configError);
   const lastError = useStore((s) => s.lastError);
@@ -279,7 +281,10 @@ function App() {
   const previewable = md || csv; // markdown gets the rendered preview, csv/tsv the grid
   const showEditor = !previewable || viewMode !== "preview";
   const showPreview = previewable && viewMode !== "editor";
-  const splitMode = showEditor && showPreview; // both panes mounted → show the drag divider
+  // Read-only diff pane (issue I.01): takes the preview slot ahead of the preview while
+  // the tab it was opened on is active. Text documents only — never images or the grid.
+  const diffOpen = !!diffAgainst && diffAgainst.for === activeDoc?.path && !img && !csv;
+  const splitMode = showEditor && (showPreview || diffOpen); // both panes mounted → show the drag divider
   const ren = activeDoc ? rendered[activeDoc.path] : undefined;
   // The doc's folder, so relative `![](img/…)` links resolve in the preview. Scratch
   // buffers have no folder on disk, so their relative images can't resolve.
@@ -634,7 +639,13 @@ function App() {
                     }}
                   />
                 )}
-                {showPreview && csv ? (
+                {diffOpen ? (
+                  <div className="split-pane preview-pane">
+                    <EditorBoundary>
+                      <DiffPane />
+                    </EditorBoundary>
+                  </div>
+                ) : showPreview && csv ? (
                   // CSV/TSV: the CsvGrid control fills the pane (fzf search, column
                   // filters, sort, expand/contract, copy/save all built in). Single
                   // static tab label — no live/rendered split for data files.

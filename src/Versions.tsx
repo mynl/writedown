@@ -23,6 +23,9 @@ function size(n: number): string {
 // disk write, and the current state gets backed up on the next save.
 export function Versions() {
   const path = useStore((s) => s.versionsFor);
+  // "restore" loads the version into the editor; "diff" opens the read-only diff pane
+  // against it instead (issue I.01) — same list, same keys, different Enter.
+  const mode = useStore((s) => s.versionsMode);
   const close = useStore((s) => s.closeVersions);
   const loadContent = useStore((s) => s.loadContent);
 
@@ -54,6 +57,11 @@ export function Versions() {
   async function restore(i: number) {
     const e = entries?.[i];
     if (!e || !path) return;
+    if (mode === "diff") {
+      close();
+      await useStore.getState().openDiff("backup", { millis: e.millis });
+      return;
+    }
     try {
       loadContent(path, await readBackup(path, e.millis));
     } catch {
@@ -89,8 +97,17 @@ export function Versions() {
         onKeyDown={onKeyDown}
       >
         <div className="versions-head">
-          Previous versions of <b>{name}</b> — restore loads into the editor as an unsaved
-          change to review, then save.
+          {mode === "diff" ? (
+            <>
+              Previous versions of <b>{name}</b> — pick one to diff the buffer against
+              (read-only).
+            </>
+          ) : (
+            <>
+              Previous versions of <b>{name}</b> — restore loads into the editor as an
+              unsaved change to review, then save.
+            </>
+          )}
         </div>
         <div className="palette-list" ref={listRef}>
           {entries === null && <div className="palette-empty">Loading…</div>}
