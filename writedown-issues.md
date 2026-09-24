@@ -1,15 +1,158 @@
 # Feature Ideas and Bugs
 ## Claude Rubric
 
-For each row in the table add a new row below it for your input, item is ">>CC".
+For each row in the table add a new row below it for your input, set item to ">>CC".
 
 * Enter low, medium or high effort
-* Enter None, ... as impact on "speed" = user feel for speed of application. MUST remain sprightly.  This is assessment of whether the feature would have any impact on baseline performance of the app in its core functions.
+* Enter None, ... as impact on "speed" = user feel for speed of application. App MUST remain sprightly.  This is assessment of whether the feature would have any impact on baseline performance of the app in its core functions.
 * Under description add a **human-understandable** **short one- or two-line** summary and diagnosis (existing examples were too detailed and too complicated for me to understand!). Flag any issues.
 * **BELOW** the table and with title the Item number, add your developer issues and implementation plan - this is "notes for Claude". Here lies comments more like the ones you have been producing.
 
 ***
 
+## Batch J: 2026-09-24
+
+| Item | Effort HML | Status/Impact | Description |
+|--:|:---:|:---:|:-------------------------|
+| **J.01** |✅| |  |
+| **J.02** |✅| |  |
+| **J.03** |✅| |  |
+| **J.04** |✅| |  |
+| **J.05** |✅| |  |
+| **J.06** |✅| |  |
+
+***
+
+## Batch I: 2026-09-01
+
+| Item | Effort HML | Status/Impact | Description |
+|--:|:---:|:---:|:-------------------------|
+| **I.01** |✅| | Diffs between tabs and past versions of files  |
+| >>CC | M | None at rest | **Both halves sit on things we already have: every save keeps the last 20 prior versions in the backup store, and CodeMirror's own diff package is a small add.** Proposal: a read-only diff pane in the preview slot — this tab vs another tab, vs a previous version, or vs the file as saved on disk. ==> Palette only Diff to ... |
+| **I.02** |✅| | Git gutters?! at least changed files    |
+| >>CC | M | None at rest | **Doable, but it is Writedown's first git dependency — shell out to git.exe when the folder is a repo, feature silently off when it isn't.** Changed-file marks in the tree are the easy half; per-line gutter marks against HEAD share the diff engine with I.01. Computed on open and save only, off the UI thread. ==> Palette to turn on / off. Default: off in text, on in the File folder listing (small marks like ST). If we need to specify location for git.exe put it in settings.  |
+| **I.03** |✅| | select region->sort lines - like ST (sort reversed, sort on col (from col onwards)  |
+| >>CC | L | None | **"Sort lines" already exists (palette only, no key, plain A–Z); reversed and from-column do not.** One function grows three verbs; F9 / Shift+F9 as in Sublime; the caret's column is where the sort key starts for the from-column variant. ==> Palette versions (sort lines (reverse)), caret behavior, and link to F9/Shift F9 |
+| **I.04** |✅| | TOC left bar: find and add #\| label: blocks in python code and add them toc (?italics or color)  |
+| >>CC | L | None | **Easy: the outline parser currently skips code fences entirely. It will collect `#\| label:` lines inside them and show each indented under its heading, styled italic/dim so they read as cells, not sections.** |
+| **I.05** |✅| | F3 on search: scroll answers more to middle of page (rather than bottom). |
+| >>CC | L | None | **One line: the search extension has a hook for exactly this (`scrollToMatch`); the default scrolls to the nearest edge, we set it to center.** Covers F3, Shift+F3 and Enter in the find panel. |
+| **I.06** |✅| | Break lines and reflow? What is standard here? Emacs esc q |
+| >>CC | M | None | **The standard is exactly your instinct — Emacs M-q, Sublime Alt+Q: hard-wrap the paragraph at the caret (or each selected paragraph) to a fill column, config default 80.** Markdown is what makes it M, not L: it must keep list indents and `>` prefixes and refuse to touch tables, fences, YAML and math. Explicit command only, never automatic. ==> palette command and link to Alt+Q to match ST. |
+| **I.07** | | | Proliferation of windows - using more and more - end up with multiple windows open. what can i do about that? Ideal behavior: if there is a window open in the current desktop just use that; otherwise open a new one. Is that possible?   |
+| >>CC | M | None | **Yes, exactly as you stated it — but it is real Win32 plumbing (Rust): a file launch looks for a Writedown window on the CURRENT virtual desktop, hands it the path, and exits; none there → new window as today.** Bare `writedown` with no file keeps opening a fresh window — that is how you open project instances. One decision for you below. ==> (a) can we make this a windows only feature so that on other platforms everything compiles and works and this is just missing?  (b) see detail section below.  |
+| **I.08** |✅| | Alt T transpose words should leave the cursor between the two words   |
+| >>CC | L | None | **One line to change — but CHALLENGE: the caret lands after the pair on purpose, so repeated Alt+T drags a word rightward. Between-the-words turns repeat into swap-back-and-forth.** Your call; both behaviors below. ==> I want and expect it to be an involution. |
+
+Pended and waiting are G.07 (read-only split pane), G.12 (highlight-ahead — measure first).
+
+Note: the table as filed had three rows numbered I.06 and empty placeholders I.07–I.09; the second and third I.06 are renumbered I.07 and I.08 above and the placeholders removed.
+
+---
+
+## Batch I — developer notes and implementation plans
+
+### I.01 — diff view (`src/Versions.tsx`, `src-tauri/src/backup.rs`, `src/App.tsx` preview slot; new dep `@codemirror/merge`)
+
+The pieces on hand: `backup.rs` keeps the last 20 pre-save versions per file under `~/.writedown/backups/`, already surfaced by `list_backups` / `read_backup` and the "Previous Versions…" picker (`Versions.tsx`) — which today can only *restore*, not *compare*. And G.07's analysis (kept, above) already designed a read-only pane in the preview slot.
+
+**Build:** add `@codemirror/merge` (same org as the editor, MIT) and render its unified merge view read-only in the preview slot, G.07-Design-A style — store gains `diffAgainst: {kind: "tab" | "backup" | "disk", …} | null`, never in the session snapshot, reusing `.split-pane`, the `Resizer` and `splitRatio`. Entry points: "Diff: Against Previous Version…" (reuses the Versions picker list), "Diff: Against Saved File on Disk" (the free win — "what have I changed since the last save"), "Diff: Against Open Tab…" (submenu of open tabs). Esc or the verb again closes it. The pane never calls `setActiveView`, so the 25 singleton call sites keep meaning "the editable pane" — same reasoning as G.07.
+
+Scope statement (locked decision — eyes open): read-only, view-only; no merging, no per-hunk revert in v1 (the merge package can do per-hunk accept later if wanted); restore stays where it is, in Previous Versions. Diff of two arbitrary *closed* files is out — open them as tabs first.
+
+**Resolved 2026-09-24 (author):** palette-only entry — the three "Diff: …" verbs, no buttons, no menus.
+
+### I.02 — git awareness (`src-tauri/src/` new `git.rs`; `src/tree/FileTree.tsx`; editor gutter)
+
+No git today anywhere in the backend, and no git library: the KISS route is shelling out to `git.exe` (`std::process::Command`, `#[tauri::command(async)]` — the G.04 lesson, never on the UI thread). If git is not on PATH or the folder is not a repo, the feature is simply off; a one-time footer note, never an error.
+
+Two independent halves, buildable separately:
+
+1. **Changed files in the tree** — `git status --porcelain -z` per project root, parsed to a path → state map (modified / added / untracked); the tree dots or tints the row. Refresh on save and on the existing file-watch events, debounced; one `git status` on a warm repo is ~10–30 ms, async, so speed at rest is untouched.
+2. **Gutter marks** — for the open file, `git show :0:<relpath>` fetches the index version; the frontend diffs it against the buffer with the diff function `@codemirror/merge` exports (fast Myers, ms-level on our file sizes) and paints a 3 px gutter stripe: changed / added / deleted-here. Recompute on open and on save in v1 — NOT per keystroke; live-while-typing is a follow-up only if on-save feels stale.
+
+External-dependency statement (locked decision): this is the first feature that runs another program. git.exe only, read-only invocations (`status`, `show`), never `git add/commit/anything`; no network (git status/show are local). Repos with thousands of files: `status` cost scales with the repo, which is why it is per-root, debounced, and async.
+
+Shared foundation with I.01: one `@codemirror/merge` dependency serves both; build I.01 first, I.02's gutter reuses its diff.
+
+**Resolved 2026-09-24 (author):** defaults are tree marks ON, editor gutter OFF (`[git] tree_marks` / `gutter_marks` in config); palette gets explicit On/Off verb pairs for each (session overrides, per the no-toggle-verbs rule); `[git] exe` optionally names git.exe when it is not on PATH.
+
+### I.03 — sort lines, the Sublime family (`src/editor/textOps.ts:93-103`, `commandRegistry.ts`, `keymap.ts`)
+
+`sortLines` exists: primary selection, whole lines, `localeCompare`, ascending, palette verb from the G.05 registry pass, no key. Grow it into one parameterized function and four registry entries:
+
+- **Sort Lines** (F9) — case-insensitive, like Sublime's F9; switch the comparator to `localeCompare(…, undefined, {numeric: true, sensitivity: "base"})` so `item2` sorts before `item10` (a strict improvement on today's behavior).
+- **Sort Lines (Case Sensitive)** (Ctrl+F9, Sublime's binding).
+- **Sort Lines Descending** — the "sort reversed" ask; same comparator, reversed.
+- **Sort Lines From Column** — key = each line from the primary caret's column onward (`line.slice(col)`); lines shorter than the column sort first. Pairs naturally with Alt+drag column selection, which already exists.
+
+All operate on the lines spanned by the primary selection, as today; single undo step; F1 and the palette list them for free via the registry. F9/F11 note: F9 is currently unbound; no conflict.
+
+**Resolved 2026-09-24 (author):** keys are **F9 = Sort Lines, Shift+F9 = Sort Lines (Reverse)**; from-column keys off the caret's column; case-sensitive variant stays palette-only (no key).
+
+### I.04 — cell labels in the outline (`src/outline/parse.ts:64-120`, `src/outline/Outline.tsx`)
+
+`parseMarkdown` tracks fences precisely (`parse.ts:97-108`) and skips everything inside them — that is where the change goes: inside a fence, match `/^#\|\s*label:\s*(\S+)/` and emit the label as a heading at `last heading level + 1`, with a new optional `kind: "label"` on the `Heading` type. `Outline.tsx` styles `kind === "label"` rows italic + dimmed (or the accent color — decide by eye in the HMR loop). Clicking jumps to the `#| label:` line like any heading. Works for python, r, julia cells alike — `#|` is Quarto's cell-option syntax regardless of language. The `MAX_CHILDREN` cap applies unchanged; a labels-only toggle is not needed in v1 (unlabeled cells contribute nothing, so noise stays low).
+
+### I.05 — center search matches (`src/editor/Editor.tsx:169`)
+
+Confirmed in the installed `@codemirror/search`: the default is `scrollToMatch: range => EditorView.scrollIntoView(range)` — nearest-edge, which for forward search means the bottom line. The fix is the config hook:
+
+```ts
+search({ top: true, scrollToMatch: (range) => EditorView.scrollIntoView(range, { y: "center" }) })
+```
+
+One line; applies to F3, Shift+F3, Enter/Shift+Enter in the panel, and select-all-matches. (`y: "center"` scrolls only when the match is off-center by more than the scroll margin, so short documents don't twitch.)
+
+### I.06 — reflow / fill paragraph (new `src/editor/reflow.ts`; `commandRegistry.ts`, `keymap.ts`; config `[editor] fill_column`)
+
+What the world does: Emacs `M-q` fill-paragraph at `fill-column`; Sublime `Alt+Q` wraps at the ruler; VS Code needs the Rewrap extension, also Alt+Q. So: **Reflow Paragraph on Alt+Q** (free key), fill column from `[editor] fill_column`, default 80.
+
+Mechanics: no selection → the blank-line-delimited paragraph at the caret; selection → each paragraph it touches. Join the lines, rewrap at the fill column breaking at spaces only. Markdown guards, which are the actual work:
+
+- **List items:** first-line prefix (`- `, `1. `, `> `) kept, continuation lines get matching hanging indent; a reflow never merges two list items.
+- **Blockquotes:** the `> ` prefix is stripped, wrapped, re-applied per line.
+- **Refuse, silently, with a status note:** inside fences, tables, headings, YAML front matter, and display math — reflowing those destroys them. The fence/front-matter detection in `outline/parse.ts` and the math regions in `editor/math.ts` already know how to find these.
+
+Never automatic, never on save — it is an editing command like any other, one undo step. (The inverse already exists: Ctrl+Shift+J joins lines.)
+
+**Resolved 2026-09-24 (author):** palette verb + Alt+Q, matching Sublime — as proposed.
+
+### I.07 — one window per desktop (`src-tauri/src/lib.rs:18-62, 152-171`; new `src-tauri/src/instance.rs`; `windows` crate)
+
+Today every launch is its own process (`cli_paths_or_exit` → its own window), so every Explorer double-click is a new window. The off-the-shelf fix (`tauri-plugin-single-instance`) is wrong for you: it forces ONE process total and would break the several-instances-one-per-project workflow the orange title bars exist for. So it is hand-rolled, and Windows makes your exact ideal behavior possible:
+
+1. Each Writedown window stamps itself with a window property (`SetPropW`, a named marker on the HWND) and subclasses its wndproc to accept `WM_COPYDATA`.
+2. A new launch **with file arguments** enumerates top-level windows, keeps those carrying the marker, asks `IVirtualDesktopManager::IsWindowOnCurrentVirtualDesktop` (documented COM API) for each, picks the front-most match, sends it the paths via `WM_COPYDATA`, calls `AllowSetForegroundWindow`, and exits. The receiving window raises itself and opens the tabs through the existing launch-file path.
+3. No match on this desktop → proceed as today: new window.
+4. **No file arguments → always a new window.** A bare launch is how you open another project instance; reusing there would make it impossible to open a second one.
+
+~200–300 lines of Rust plus the `windows` crate (Win32 bindings; compile-time only, no runtime dependency). Known edge: dev builds carry the same marker as the release exe, so a running `tauri dev` could catch your double-clicks — the marker will encode debug/release to keep them apart.
+
+**The one decision (AQIN):** when a double-clicked file lands in an existing window that has a *project* open, the file arrives as a loose tab in that project's window — almost certainly what you want for a stray `.md`, but say so. The alternative (only reuse windows with no project) would send most double-clicks to new windows again and defeat the point.
+
+==> Here's what would be perfect. If the file is in a folder in a project that is open use that window. If it is in multiple such take the first one found (that's kinda a user error - but today it is driven by the double click proliferation of windows, so I think this fix will make it go away). If it is not in a folder of an open window then take the first instance found and add it as a loose tab.
+
+**Resolved 2026-09-24 (author, above): routing is by PROJECT MEMBERSHIP first, not desktop.** (1) File under a folder of an open window's project → that window; several qualify → deterministic tie-break, current desktop then front-most. (2) Under no open window's folders → any existing window as a loose tab, same tie-break. (3) No Writedown windows at all → new window. Bare launch (no file) → always a new window. Routing needs the launcher to know each window's roots: each instance writes `~/.writedown/instances/<pid>.json` (pid, hwnd, roots), refreshed on project change, removed on exit; the launcher validates entries against the live HWND marker so stale files are ignored. **Also resolved: Windows-only, compile-gated** — `#[cfg(windows)]` with a no-op stub, the `titlebar.rs` pattern, so other platforms build and run with the feature simply absent.
+
+### I.08 — Alt+T caret position (`src/editor/textOps.ts:56-91`)
+
+The change itself is one line — `ends.push(base + a.from + b.text.length)` instead of `base + b.to` — plus the comment. The tradeoff to decide with eyes open:
+
+- **Today (Emacs semantics):** caret after the pair, so pressing Alt+T repeatedly drags a word rightward through the sentence. That was deliberate (`textOps.ts:54-55`).
+- **Your ask:** caret between the two words. A second press then finds the same pair and swaps them back — repeat becomes an undo-toggle, and drag-rightward is gone.
+
+If you use the drag, keep today and I close this. If you never drag and the caret position is what grates, I make the change — SWIM says the latter, since you noticed the caret and never mentioned the drag; flagging because it removes a documented behavior.
+
+**Resolved 2026-09-24 (author): "I want and expect it to be an involution."** Caret lands between the two words; Alt+T Alt+T is the identity. The drag-rightward behavior goes; the code comment will say involution so nobody restores Emacs semantics as a "fix".
+
+### Batch I — release grouping (2026-09-24). Plan: `dev/plan-2.20.0-batch-i.md`. Nothing built yet.
+
+- **2.20.0 — quick wins, frontend only:** I.03 (sort family, F9/Shift+F9), I.04 (labels in outline), I.05 (center search matches), I.08 (transpose involution).
+- **2.21.0 — I.06 reflow, frontend:** Alt+Q, `[editor] fill_column`, markdown-aware. Separate bump because it rewrites prose — easy to revert alone.
+- **2.22.0 — I.01 diff pane, frontend:** `@codemirror/merge` arrives; palette-only entry.
+- **2.23.0 — I.02 git marks, Rust + frontend:** first external program; tree marks on, gutter off by default.
+- **2.24.0 — I.07 window routing, Rust, Windows-only:** Win32 plumbing, biggest blast radius, last.
 
 ## Batch H: Monday 2026-08-31
 
@@ -22,7 +165,7 @@ For each row in the table add a new row below it for your input, item is ">>CC".
 | **H.03** | | | Ctrl+Shift+F find-in-files (A.08 reopened): ripgrep over the project, accept rg args (`-c` for counts), results in the palette, click through to the file and location. |
 | >>CC | M | None at rest | **Built as 2.19.0.** The palette line IS rg's argument line (`TODO`, `-c TODO`, `-l x`, `-i "a b" -g *.qmd`); `--json` for hits, plain lines for `-c`/`-l`; Enter runs, Enter/click on a row opens at the match column, Ctrl+Enter re-runs, Esc cancels. Caps 500 hits / 5 s and default globs under `[search]`. Found while testing: an unquoted two-word query makes rg treat the second word as a path — rg's complaint now shows as a red note above the rows instead of being swallowed. Plan: `dev/plan-2.19.0-find-in-files.md`. |
 
-Pended and waiting are G.07 (read-only split pane), G.12 (highlight-ahead — measure first).
+Added: Ctrl+Shift+F find in files.
 
 ## Batch G: Tuesday 2026-08-11
 
