@@ -364,6 +364,12 @@ headless smoke-boot of `dist/` after the Rust versions. Divergences, all small:
   Preview/Rendered so the preview stays reachable; routing rule 2 (loose tab) is now
   restricted to windows on the current virtual desktop — none there means a new window,
   never a jump to another desktop. Rule 1 (project membership) still crosses desktops.
+- **Second tweak round (2.25.0, author rulings 2026-09-24):** the diff collapses
+  unchanged stretches (`collapseUnchanged`) and its tab carries a close ×; a files-only
+  launch that opens a NEW window lands in the first managed project containing the file,
+  else a clean project-less window — the last-workspace restore no longer applies to it.
+  Patience diff was asked about: @codemirror/merge implements Myers only, no patience
+  option — collapse plus its word-level change highlighting is the achievable shape.
 - **Left for the author:** re-register the freshly built exe via
   `scripts/windows-register.ps1` and double-click-test routing end to end (dev builds
   cannot exercise Explorer routing); kick the tires on each version; declare the batch

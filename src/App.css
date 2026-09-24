@@ -1094,6 +1094,14 @@ body {
 .panel-tabs-spacer {
   flex: 1;
 }
+/* The Diff tab's own close ×: dismisses the diff without switching tabs. */
+.panel-tab-close {
+  margin-left: 6px;
+  opacity: 0.6;
+}
+.panel-tab-close:hover {
+  opacity: 1;
+}
 
 /* Project quick-switch dropdown pinned to the bottom of the Project panel (issue 3). */
 .pane-footer {

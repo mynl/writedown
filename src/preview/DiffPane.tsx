@@ -48,7 +48,14 @@ export function DiffPane() {
   const extensions = useMemo(
     () => [
       ...(lang ? [lang] : []),
-      unifiedMergeView({ original: diff?.base ?? "", mergeControls: false, gutter: true }),
+      // collapseUnchanged folds identical stretches into a clickable "⋯ n lines" bar
+      // (author tweak 2026-09-24 — the Sublime Merge shape: hunks, not the whole file).
+      unifiedMergeView({
+        original: diff?.base ?? "",
+        mergeControls: false,
+        gutter: true,
+        collapseUnchanged: { margin: 3, minSize: 4 },
+      }),
       EditorView.editable.of(false),
       EditorState.readOnly.of(true),
       EditorView.lineWrapping,

@@ -5,6 +5,18 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [2.25.0] - 2026-09-24
+
+### Changed
+
+- **Diff pane collapses unchanged stretches** into a clickable "⋯ n lines ⋯" bar —
+  hunks, not the whole file (the Sublime Merge shape).
+- **The Diff tab carries its own ×** to close it, alongside Esc and "Diff: Close".
+- **A file launch that opens a NEW window lands in the right workspace**: the first
+  managed project (list order) whose folders contain the file, else a clean
+  project-less window — never whatever workspace happened to be open last. Folder
+  launches and the bare launch keep the usual restore.
+
 ## [2.24.1] - 2026-09-24
 
 ### Fixed

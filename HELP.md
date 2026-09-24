@@ -44,9 +44,12 @@ overwritten). The canonical copy is `HELP.md` in the repository.
 - **Which window?** Double-clicking (or `writedown file.md`) prefers an existing window:
   the one whose project contains the file — on any desktop, current virtual desktop
   first — else a window **on the current desktop** as a loose tab; with neither, a new
-  window starts (a loose tab never yanks you to another desktop). A **folder** argument
-  and a **bare launch** always open a new window (that is how project instances are
-  started). Running several windows at once is supported.
+  window starts (a loose tab never yanks you to another desktop). A **new window opened
+  this way lands in the first project (list order) whose folders contain the file**, or
+  in a clean project-less window — never in whatever workspace happened to be open last.
+  A **folder** argument and a **bare launch** always open a new window with the usual
+  restore (that is how project instances are started). Running several windows at once
+  is supported.
 - Palette **Close All Files** saves and closes every real file. Unsaved scratch buffers
   are deliberately left alone: their text exists nowhere but the session.
 - The file tree lists **every** file. Muted entries are files Writedown has no
@@ -166,8 +169,10 @@ Palette-only, read-only: **Diff: Against Saved File on Disk** shows your unsaved
 **Diff: Against Previous Version…** picks a stamp from the Previous Versions list;
 **Diff: Against Open Tab "name"** compares two open tabs. The diff opens as a **Diff
 tab** beside Preview/Rendered in the right-hand pane — click Preview to go back, Diff to
-return — and follows your typing; **Esc** in the pane (or **Diff: Close**) dismisses it.
-No merging and no per-hunk revert — restoring stays in Previous Versions.
+return — and follows your typing. Unchanged stretches collapse into a clickable
+"⋯ n lines ⋯" bar, so you see hunks, not the whole file. Close it with the **×** on the
+tab, **Esc** in the pane, or **Diff: Close**. No merging and no per-hunk revert —
+restoring stays in Previous Versions.
 
 ## Find in files
 

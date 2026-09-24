@@ -166,6 +166,31 @@ const pendingDirRefresh = new Set<string>();
 // Git marks (issue I.02): the ~1 s status debounce and the once-per-session footer note.
 let gitStatusTimer: ReturnType<typeof setTimeout> | null = null;
 let gitStatusNoted = false;
+
+/** The first managed project (list order, name-sorted) whose folders contain `file` —
+ *  where a files-only launch that opens a NEW window lands (issue I.07, author ruling
+ *  2026-09-24). `known` is the already-loaded list; empty means the async load has not
+ *  finished yet, so fetch it directly. Unreadable .wdproj files are skipped. */
+async function firstProjectContaining(known: ProjectInfo[], file: string): Promise<string | null> {
+  let projects = known;
+  if (projects.length === 0) {
+    try {
+      projects = await listProjects();
+    } catch {
+      return null;
+    }
+  }
+  const f = normPath(file);
+  for (const p of projects) {
+    try {
+      const proj = await loadProject(p.path);
+      if (proj.folders.some((r) => f.startsWith(normPath(r) + "/"))) return p.path;
+    } catch {
+      /* unreadable project file — skip it */
+    }
+  }
+  return null;
+}
 /** Ceiling on one batched listing call — a session with hundreds of expanded folders falls
  *  back to the lazy per-folder path for the rest, which is still correct, just visible. */
 const DIR_BATCH_CAP = 60;
@@ -668,10 +693,8 @@ type AppState = {
   setSelectionStats: (chars: number, lines: number, ranges: number) => void;
   /** Open files/folders dropped onto the window (issue A.04). */
   openDropped: (paths: string[]) => Promise<void>;
-  /** Open the files Writedown was launched with, after session restore (issue A.03). */
-  openLaunchFiles: () => Promise<void>;
-  /** Open launch-style paths: dirs become the workspace, files become tabs. Shared by
-   *  openLaunchFiles and the window-routing WM_COPYDATA event (issue I.07). */
+  /** Open launch-style paths: dirs become the workspace, files become tabs. Used by
+   *  hydrate's launch handling and the window-routing WM_COPYDATA event (issue I.07). */
   openPaths: (paths: string[]) => Promise<void>;
   /** Adopt `dirs` as an UNSAVED project, replacing the current workspace — what
    *  `writedown .` does. Nothing is written to disk; the layout is remembered against the
@@ -802,6 +825,43 @@ export const useStore = create<AppState>((set, get) => ({
   hydrate: async () => {
     void get().loadRecentProjects();
     void get().loadProjects();
+    // Launch decision FIRST (issue I.07, author ruling 2026-09-24): a files-only launch
+    // that became a NEW window belongs to the FILE — open the first managed project
+    // (list order) whose folders contain it, else a clean project-less window. Never
+    // the last workspace: "Open with" must not resurrect whatever was open last.
+    // Folder launches and the bare launch keep the old restore behavior.
+    let launch: string[] = [];
+    try {
+      launch = await launchFiles();
+    } catch {
+      /* older backend — no launch args */
+    }
+    let filesOnly: string[] = [];
+    let pendingPaths: string[] = [];
+    if (launch.length) {
+      try {
+        const info = await statPaths(launch);
+        const dirs = info.filter((i) => i.exists && i.is_dir).map((i) => i.path);
+        const files = info.filter((i) => i.exists && !i.is_dir).map((i) => i.path);
+        if (dirs.length === 0 && files.length > 0) filesOnly = files;
+        else pendingPaths = [...dirs, ...files];
+      } catch {
+        /* stat failed — fall through to the plain restore */
+      }
+    }
+    if (filesOnly.length > 0) {
+      const proj = await firstProjectContaining(get().projects, filesOnly[0]);
+      if (proj) {
+        try {
+          await get().openProject(proj);
+        } catch {
+          /* project file unreadable — continue with the clean window */
+        }
+      }
+      // No owning project → stay clean: no last-workspace restore, no folder tab.
+      await get().openDropped(filesOnly);
+      return;
+    }
     let g: { workspace: string | null; folder_root: string | null; panel_tab: string | null };
     try {
       g = await loadGlobalState();
@@ -837,6 +897,9 @@ export const useStore = create<AppState>((set, get) => ({
       }
     }
     if (g.panel_tab === "folder" || g.panel_tab === "project") set({ panelTab: g.panel_tab });
+    // A launch that included a FOLDER replaces the restored workspace (old behavior,
+    // unchanged): run it after the restore so the switch wins.
+    if (pendingPaths.length > 0) await get().openPaths(pendingPaths);
   },
 
   // Restore tabs/pane-widths for a session key (a folder path or a project file path).
@@ -2593,18 +2656,8 @@ export const useStore = create<AppState>((set, get) => ({
   // Files Writedown was launched with — a double-click in Explorer on a registered type,
   // or a command-line path (issue A.03). Called AFTER the session is restored so the
   // launched file ends up active rather than buried under the restored tabs.
-  openLaunchFiles: async () => {
-    let paths: string[] = [];
-    try {
-      paths = await launchFiles();
-    } catch {
-      return; // older backend / no args — nothing to do
-    }
-    await get().openPaths(paths);
-  },
-
   // Shared tail of the two launch routes (issue I.07): the paths this process was started
-  // with, and the paths another Writedown launcher routed here over WM_COPYDATA.
+  // with (consumed by hydrate), and the paths another launcher routed here over WM_COPYDATA.
   openPaths: async (paths) => {
     if (paths.length === 0) return;
     let info;

@@ -170,9 +170,8 @@ function App() {
       if (ws) void saveSession(ws, sessionSnapshot(st));
     };
     void hydrate().finally(() => {
-      // Files we were launched with open AFTER the session restore, so a double-clicked
-      // document ends up active instead of buried under the restored tabs (issue A.03).
-      void useStore.getState().openLaunchFiles();
+      // Launch arguments are consumed INSIDE hydrate now (issue I.07 ruling): a files-only
+      // launch decides the workspace (owning project, else clean) before any restore.
       const hydrated = useStore.getState();
       lastFolder = hydrated.folderRoot + "|" + hydrated.panelTab; // no spurious launch write
       unsub = useStore.subscribe((state) => {
@@ -699,9 +698,19 @@ function App() {
                         <button
                           className={"panel-tab" + (effectiveTab === "diff" ? " active" : "")}
                           onClick={() => setPreviewTab("diff")}
-                          title="Read-only diff — Esc in the pane or palette “Diff: Close” dismisses it"
+                          title="Read-only diff — × / Esc / palette “Diff: Close” dismisses it"
                         >
                           Diff
+                          <span
+                            className="panel-tab-close"
+                            title="Close diff"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              useStore.getState().closeDiff();
+                            }}
+                          >
+                            ×
+                          </span>
                         </button>
                       )}
                       <span className="panel-tabs-spacer" />
