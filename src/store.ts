@@ -416,7 +416,7 @@ type AppState = {
   treeMenu: { x: number; y: number; entry: Entry } | null;
   viewMode: ViewMode;
   /** Which pane the preview column shows: the live preview or the last render snapshot. */
-  previewTab: "live" | "rendered";
+  previewTab: "live" | "rendered" | "diff";
   /** Completed renders by document path (in-memory only). */
   rendered: Record<string, Rendered>;
   renderBusy: boolean;
@@ -659,7 +659,7 @@ type AppState = {
   persistProject: () => void;
   loadRecentProjects: () => Promise<void>;
   cycleView: () => void;
-  setPreviewTab: (tab: "live" | "rendered") => void;
+  setPreviewTab: (tab: "live" | "rendered" | "diff") => void;
   /** Render the active markdown/quarto document (palette: "Render Document"). */
   renderActive: () => Promise<void>;
   /** Run just the {python} cell under the cursor, in the live kernel namespace (A.24). */
@@ -1512,12 +1512,22 @@ export const useStore = create<AppState>((set, get) => ({
         if (!t) return;
         base = t.content; // static snapshot of the other tab, taken now
       }
-      set({ diffAgainst: { kind, for: a, path: opts?.path, millis: opts?.millis, base } });
+      // The diff is a TAB in the preview pane (author tweak, 2026-09-24), so the preview
+      // stays one click away; opening lands on it.
+      set({
+        diffAgainst: { kind, for: a, path: opts?.path, millis: opts?.millis, base },
+        previewTab: "diff",
+      });
     } catch (e) {
       set({ lastError: `diff — ${String(e)}` });
     }
   },
-  closeDiff: () => set({ diffAgainst: null }),
+  closeDiff: () =>
+    set((s) => ({
+      diffAgainst: null,
+      // The Diff tab disappears with it — never leave the pane pointing at a gone tab.
+      previewTab: s.previewTab === "diff" ? "live" : s.previewTab,
+    })),
 
   refreshGitStatus: () => {
     if (gitStatusTimer) clearTimeout(gitStatusTimer);

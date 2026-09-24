@@ -3,9 +3,12 @@
 //! crate builds and runs everywhere with the feature simply absent.
 //!
 //! Routing, by PROJECT MEMBERSHIP first (author-specified 2026-09-24):
-//!   1. the file lies under an open window's project folders → open it THERE
-//!      (several qualify → current virtual desktop first, then front-most);
-//!   2. under no open window's folders → first existing window, same tie-break;
+//!   1. the file lies under an open window's project folders → open it THERE, on
+//!      whatever desktop (several qualify → current virtual desktop first, then
+//!      front-most);
+//!   2. under no open window's folders → front-most window ON THE CURRENT VIRTUAL
+//!      DESKTOP as a loose tab; no window on this desktop → a new window (author
+//!      tweak 2026-09-24: a loose tab must never yank you to another desktop);
 //!   3. no Writedown windows at all → a new window, as always;
 //!   4. a bare launch, or any directory argument → ALWAYS a new window (that is how
 //!      project instances are opened; never reuse).
@@ -216,8 +219,8 @@ mod win {
             return false; // rule 3: no windows → new window
         }
 
-        // Rule 1: windows whose project folders contain the first file; else rule 2: all.
-        // Multi-select races each route the same way, so keying on files[0] is stable.
+        // Rule 1: windows whose project folders contain a launched file; else rule 2.
+        // Multi-select races each route the same way, so keying on the files is stable.
         let under = |file: &str, root: &str| {
             let f = file.to_lowercase().replace('/', "\\");
             let mut r = root.to_lowercase().replace('/', "\\");
@@ -230,9 +233,8 @@ mod win {
             .iter()
             .filter(|e| e.roots.iter().any(|r| files.iter().any(|f| under(f, r))))
             .collect();
-        let pool: Vec<&Entry> = if owning.is_empty() { entries.iter().collect() } else { owning };
 
-        // Tie-break: current virtual desktop first (documented COM API), then z-order.
+        // Desktop check (documented COM API): rule 1's tie-break, and rule 2's FILTER.
         unsafe {
             let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
         }
@@ -241,9 +243,21 @@ mod win {
                 CoCreateInstance::<_, IVirtualDesktopManager>(&VirtualDesktopManager, None, CLSCTX_ALL)
                     .and_then(|vdm| vdm.IsWindowOnCurrentVirtualDesktop(HWND(e.hwnd as _)))
                     .map(|b| b.as_bool())
-                    .unwrap_or(true) // API unavailable → treat every window as eligible
+                    .unwrap_or(true) // API unavailable → desktops don't apply here
             }
         };
+        // Rule 2 (loose tab) never crosses virtual desktops (author tweak 2026-09-24):
+        // pulling focus to a window on another desktop reads as the app "reverting" to
+        // it. A project window (rule 1) is still found on any desktop — that window IS
+        // the file's home. No visible candidate → new window on this desktop.
+        let pool: Vec<&Entry> = if owning.is_empty() {
+            entries.iter().filter(|e| on_current(e)).collect()
+        } else {
+            owning
+        };
+        if pool.is_empty() {
+            return false;
+        }
         let z = z_order();
         let rank = |e: &Entry| z.iter().position(|h| *h == e.hwnd).unwrap_or(usize::MAX);
         let target = pool

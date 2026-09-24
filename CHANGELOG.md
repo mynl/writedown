@@ -5,6 +5,20 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [2.24.1] - 2026-09-24
+
+### Fixed
+
+- **Diff pane follows the editor theme** — it rendered a white background under
+  dark-theme text colors, barely readable in dark mode.
+- **The diff is now a "Diff" tab** beside Preview/Rendered instead of replacing the
+  pane, so the preview stays one click away; opening a diff lands on the tab, closing
+  it returns to Preview.
+- **A loose-tab launch never crosses virtual desktops**: a file outside every open
+  project now opens in a window on the current desktop, or a new window when this
+  desktop has none — it no longer yanks you to a window on another desktop. A project
+  window still claims its own files from any desktop.
+
 ## [2.24.0] - 2026-09-24
 
 ### Changed

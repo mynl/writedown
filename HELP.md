@@ -42,8 +42,9 @@ overwritten). The canonical copy is `HELP.md` in the repository.
   layout are remembered against that folder, so running it again resumes where you were.
   Nothing is written to disk; the project stays unsaved until you name it.
 - **Which window?** Double-clicking (or `writedown file.md`) prefers an existing window:
-  the one whose project contains the file — current virtual desktop first — else any
-  open window as a loose tab; with none open, a new window starts. A **folder** argument
+  the one whose project contains the file — on any desktop, current virtual desktop
+  first — else a window **on the current desktop** as a loose tab; with neither, a new
+  window starts (a loose tab never yanks you to another desktop). A **folder** argument
   and a **bare launch** always open a new window (that is how project instances are
   started). Running several windows at once is supported.
 - Palette **Close All Files** saves and closes every real file. Unsaved scratch buffers
@@ -163,8 +164,9 @@ on PATH.
 
 Palette-only, read-only: **Diff: Against Saved File on Disk** shows your unsaved edits;
 **Diff: Against Previous Version…** picks a stamp from the Previous Versions list;
-**Diff: Against Open Tab "name"** compares two open tabs. The pane takes the preview's
-place and follows your typing; **Esc** in the pane (or **Diff: Close**) dismisses it.
+**Diff: Against Open Tab "name"** compares two open tabs. The diff opens as a **Diff
+tab** beside Preview/Rendered in the right-hand pane — click Preview to go back, Diff to
+return — and follows your typing; **Esc** in the pane (or **Diff: Close**) dismisses it.
 No merging and no per-hunk revert — restoring stays in Previous Versions.
 
 ## Find in files

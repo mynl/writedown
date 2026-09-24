@@ -119,10 +119,10 @@ OPTIONS:
     --               Treat every remaining argument as a path
 
 Opening FILES prefers an existing window: the window whose project contains the
-file (current virtual desktop first), else any open window; with none open, a new
-window starts. A folder argument, and the bare launch, ALWAYS open a new window —
-that is how project instances are started. Running several windows at once is
-supported and expected.
+file (on any desktop; current virtual desktop first), else a window on the CURRENT
+desktop as a loose tab; with neither, a new window starts. A folder argument, and
+the bare launch, ALWAYS open a new window — that is how project instances are
+started. Running several windows at once is supported and expected.
 ";
 
 /// Attach to the launching terminal's console so `--version` / `--help` have somewhere to

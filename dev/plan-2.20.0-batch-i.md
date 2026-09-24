@@ -359,6 +359,11 @@ headless smoke-boot of `dist/` after the Rust versions. Divergences, all small:
 - **[window-routing] stale-entry validation is the HWND marker check alone**
   (`IsWindow` + `GetPropW`): a dead pid's window is gone and a recycled HWND cannot
   carry the property, so no separate `OpenProcess` liveness probe was needed.
+- **Tire-kicking tweaks (2.24.1, author rulings 2026-09-24):** the diff pane takes the
+  editor's theme (it was white under dark mode) and became a "Diff" TAB beside
+  Preview/Rendered so the preview stays reachable; routing rule 2 (loose tab) is now
+  restricted to windows on the current virtual desktop — none there means a new window,
+  never a jump to another desktop. Rule 1 (project membership) still crosses desktops.
 - **Left for the author:** re-register the freshly built exe via
   `scripts/windows-register.ps1` and double-click-test routing end to end (dev builds
   cannot exercise Explorer routing); kick the tires on each version; declare the batch

@@ -1,9 +1,10 @@
 // Read-only diff pane (issue I.01): the active buffer against a static base — the file as
-// saved on disk, a Previous Versions backup, or another open tab. Renders in the preview
-// slot (App.tsx) with the usual split resizer. View-only by design: no merging, no per-hunk
-// revert; restore stays in Previous Versions. Palette-only entry; Esc (pane focused) or the
-// palette's "Diff: Close" closes it. It never calls setActiveView, so the editor singleton
-// keeps meaning "the editable pane" (the G.07 invariant).
+// saved on disk, a Previous Versions backup, or another open tab. Renders as a "Diff" TAB
+// in the preview pane beside Preview/Rendered (author tweak 2026-09-24: the preview must
+// stay one click away), with the usual split resizer. View-only by design: no merging, no
+// per-hunk revert; restore stays in Previous Versions. Palette-only entry; Esc (pane
+// focused) or the palette's "Diff: Close" closes it. It never calls setActiveView, so the
+// editor singleton keeps meaning "the editable pane" (the G.07 invariant).
 import { useMemo } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { EditorState } from "@codemirror/state";
@@ -11,7 +12,8 @@ import { EditorView } from "@codemirror/view";
 import { syntaxHighlighting } from "@codemirror/language";
 import { unifiedMergeView } from "@codemirror/merge";
 import { useStore } from "../store";
-import { editorHighlight } from "../editor/theme";
+import { editorHighlight, editorTheme } from "../editor/theme";
+import { buildSublimeTheme } from "../editor/sublimeTheme";
 import { useLanguageFor } from "../editor/languages";
 import { useDebouncedValue } from "../useDebounced";
 
@@ -37,6 +39,12 @@ export function DiffPane() {
   const content = useDebouncedValue(doc?.content ?? "", 300, doc?.path);
   const lang = useLanguageFor(activePath ?? "");
 
+  // Same theme as the editor (author tweak, 2026-09-24): without it the pane rendered
+  // CodeMirror's white default under dark-theme token colors — barely readable. The
+  // Sublime theme's font-size/family CSS variables are global, so they apply here too.
+  const st = useStore((s) => s.sublimeTheme);
+  const built = useMemo(() => (st ? buildSublimeTheme(st, {}) : null), [st]);
+
   const extensions = useMemo(
     () => [
       ...(lang ? [lang] : []),
@@ -44,9 +52,9 @@ export function DiffPane() {
       EditorView.editable.of(false),
       EditorState.readOnly.of(true),
       EditorView.lineWrapping,
-      syntaxHighlighting(editorHighlight),
+      built ? built.highlight : syntaxHighlighting(editorHighlight),
     ],
-    [lang, diff?.base],
+    [lang, diff?.base, built],
   );
 
   if (!diff) return null;
@@ -64,7 +72,13 @@ export function DiffPane() {
         Diff — buffer vs {baseLabel(diff)}
       </div>
       <div className="diff-body">
-        <CodeMirror value={content} extensions={extensions} readOnly height="100%" />
+        <CodeMirror
+          value={content}
+          extensions={extensions}
+          theme={built ? built.theme : editorTheme}
+          readOnly
+          height="100%"
+        />
       </div>
     </div>
   );

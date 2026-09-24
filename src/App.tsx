@@ -302,7 +302,18 @@ function App() {
       : undefined;
   // The Rendered tab is per-document; fall back to the live Preview when the active doc
   // has no render (and none is in flight, so a first render still shows "Rendering…").
-  const effectiveTab = previewTab === "rendered" && !ren && !renderBusy ? "live" : previewTab;
+  // "diff" holds only while a diff is actually open; a non-previewable document (e.g.
+  // .py) can show nothing BUT the diff, so it is forced there.
+  const effectiveTab =
+    !previewable && diffOpen
+      ? "diff"
+      : previewTab === "diff"
+        ? diffOpen
+          ? "diff"
+          : "live"
+        : previewTab === "rendered" && !ren && !renderBusy
+          ? "live"
+          : previewTab;
 
   // App-level (non-editor) keybindings: save, tab close/reopen/switch (spec §10).
   // Editor-scoped Sublime bindings live in src/editor/keymap.ts.
@@ -647,13 +658,7 @@ function App() {
                     }}
                   />
                 )}
-                {diffOpen ? (
-                  <div className="split-pane preview-pane">
-                    <EditorBoundary>
-                      <DiffPane />
-                    </EditorBoundary>
-                  </div>
-                ) : showPreview && csv ? (
+                {showPreview && csv ? (
                   // CSV/TSV: the CsvGrid control fills the pane (fzf search, column
                   // filters, sort, expand/contract, copy/save all built in). Single
                   // static tab label — no live/rendered split for data files.
@@ -669,26 +674,43 @@ function App() {
                       name={activeDoc.path.split(/[\\/]/).pop()}
                     />
                   </div>
-                ) : showPreview ? (
+                ) : showPreview || diffOpen ? (
                   <div className="split-pane preview-pane">
                     <div className="pane-header panel-tabs">
-                      <button
-                        className={"panel-tab" + (effectiveTab === "live" ? " active" : "")}
-                        onClick={() => setPreviewTab("live")}
-                      >
-                        Preview
-                      </button>
-                      <button
-                        className={"panel-tab" + (effectiveTab === "rendered" ? " active" : "")}
-                        onClick={() => setPreviewTab("rendered")}
-                        disabled={!ren && !renderBusy}
-                        title={!ren && !renderBusy ? "Nothing rendered yet — press Ctrl+B" : undefined}
-                      >
-                        Rendered
-                      </button>
+                      {md && (
+                        <>
+                          <button
+                            className={"panel-tab" + (effectiveTab === "live" ? " active" : "")}
+                            onClick={() => setPreviewTab("live")}
+                          >
+                            Preview
+                          </button>
+                          <button
+                            className={"panel-tab" + (effectiveTab === "rendered" ? " active" : "")}
+                            onClick={() => setPreviewTab("rendered")}
+                            disabled={!ren && !renderBusy}
+                            title={!ren && !renderBusy ? "Nothing rendered yet — press Ctrl+B" : undefined}
+                          >
+                            Rendered
+                          </button>
+                        </>
+                      )}
+                      {diffOpen && (
+                        <button
+                          className={"panel-tab" + (effectiveTab === "diff" ? " active" : "")}
+                          onClick={() => setPreviewTab("diff")}
+                          title="Read-only diff — Esc in the pane or palette “Diff: Close” dismisses it"
+                        >
+                          Diff
+                        </button>
+                      )}
                       <span className="panel-tabs-spacer" />
                     </div>
-                    {effectiveTab === "live" ? (
+                    {effectiveTab === "diff" ? (
+                      <EditorBoundary>
+                        <DiffPane />
+                      </EditorBoundary>
+                    ) : effectiveTab === "live" ? (
                       <Preview content={activeDoc.content} baseDir={docDir} docKey={activeDoc.path} />
                     ) : ren ? (
                       <>
