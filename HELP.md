@@ -144,6 +144,17 @@ a selection wraps the selection — press `$` twice for `$$…$$`.
 - Font size: **Ctrl+wheel** or Ctrl+= / Ctrl+- (session-only zoom, with configured
   min/max bounds); "Set as Default" bakes it into config.
 
+## Git marks
+
+In a git repository, the file tree tints modified (amber), added/untracked (green) and
+deleted (red) files, and folders containing changes carry a small dot — on by default,
+`[git] tree_marks` in config, session verbs **Git: Tree Marks On / Off**. Per-line change
+stripes in the editor gutter are off by default (`[git] gutter_marks`, **Git: Gutter
+Marks On / Off**); they update on open and save. Everything is read-only `git status` /
+`git show` — Writedown never runs a mutating git command. Outside a repository (or with
+no git installed) the feature is silently off; `[git] exe` points at a git that is not
+on PATH.
+
 ## Diff (what changed?)
 
 Palette-only, read-only: **Diff: Against Saved File on Disk** shows your unsaved edits;

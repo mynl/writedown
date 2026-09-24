@@ -4,8 +4,9 @@ import { indentUnit, syntaxHighlighting } from "@codemirror/language";
 import { EditorView, type ViewUpdate } from "@codemirror/view";
 import { Annotation, EditorState, Prec, Transaction } from "@codemirror/state";
 import { search } from "@codemirror/search";
-import { useStore } from "../store";
+import { isScratch, useStore } from "../store";
 import { editorHighlight, editorTheme } from "./theme";
+import { gitGutterExtension, refreshGitGutter } from "./gitGutter";
 import { buildSublimeTheme } from "./sublimeTheme";
 import { csvRainbow } from "./csvRainbow";
 import { mathHighlight } from "./math";
@@ -102,6 +103,10 @@ export function Editor({ path, content }: { path: string; content: string }) {
   const fontWeight = cssFontWeight(settings?.font_weight);
   const tabSize = settings?.tab_size ?? 4; // [editor] tab_size — indent width in spaces
   const spellEnabled = useStore((s) => s.spellOn); // session toggle; default from config
+  // Git gutter marks (issue I.02): session override beats config; default OFF.
+  const gitGutterOn = useStore(
+    (s) => s.gitGutterOverride ?? s.editorSettings?.git_gutter_marks ?? false,
+  );
 
 
 
@@ -204,6 +209,9 @@ export function Editor({ path, content }: { path: string; content: string }) {
       if (lang) ext.push(...autoCloseQuotes("code"));
     }
     if (csvDialect) ext.push(csvRainbow(csvDialect));
+    // Per-line git change stripes (issue I.02) — a toggle is an explicit user action,
+    // so the full reconfigure it costs is fine (the spellEnabled pattern).
+    if (gitGutterOn) ext.push(...gitGutterExtension);
     // Font size/family reach the fallback theme through the same CSS variables, so only
     // weight needs a rule here (it is not on the per-keystroke/zoom path).
     if (!built && fontWeight) {
@@ -214,7 +222,16 @@ export function Editor({ path, content }: { path: string; content: string }) {
     // branch on. Two markdown files now yield the SAME array identity, so a tab switch
     // dispatches no reconfigure at all. `lang` is likewise a per-language singleton
     // (languages.ts), so two .py files are stable too.
-  }, [isMd, csvDialect, lang, built, fontWeight, spellEnabled, tabSize]);
+  }, [isMd, csvDialect, lang, built, fontWeight, spellEnabled, tabSize, gitGutterOn]);
+
+  // Git gutter marks refresh on document open (and on toggle-on). Saves repaint via
+  // store.saveDoc; between saves the painted marks ride along with edits — never a
+  // fetch or a diff on the typing path.
+  useEffect(() => {
+    if (!gitGutterOn || isScratch(path)) return;
+    const view = getActiveView();
+    if (view && view.dom.isConnected) void refreshGitGutter(view, path);
+  }, [path, gitGutterOn]);
 
   // Live-apply keybinding changes when config.toml is saved (loadTheme replaces editorSettings,
   // so `userKeys` gets a new identity). Reconfigure the Compartment in place — no rebuild — and

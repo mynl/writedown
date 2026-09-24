@@ -4,6 +4,7 @@ mod check;
 mod config;
 mod external;
 mod files;
+mod git;
 mod labels;
 mod project;
 mod render;
@@ -267,6 +268,8 @@ pub fn run() {
             project::add_recent_project,
             wordfreq::word_freq_load,
             wordfreq::word_freq_save,
+            git::git_status,
+            git::git_show_index,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

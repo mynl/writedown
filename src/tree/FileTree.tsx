@@ -129,6 +129,18 @@ function TreeNode({ entry, depth }: { entry: Entry; depth: number }) {
   const selectedPath = useStore((s) => s.treeSelected?.path ?? null);
   const isActive = !entry.is_dir && entry.path === activePath;
   const isSelected = entry.path === selectedPath;
+  // Git marks (issue I.02): files tint by state; a folder containing changes rolls up a
+  // small dot. String/boolean selectors, so rows re-render only when their mark changes.
+  const gitState = useStore((s) =>
+    (s.gitTreeOverride ?? s.editorSettings?.git_tree_marks ?? true) && !entry.is_dir
+      ? (s.gitMarks[entry.path] ?? null)
+      : null,
+  );
+  const gitDirDot = useStore((s) =>
+    (s.gitTreeOverride ?? s.editorSettings?.git_tree_marks ?? true) && entry.is_dir
+      ? !!s.gitDirMarks[entry.path]
+      : false,
+  );
 
   function onClick(e: React.MouseEvent) {
     // Ctrl+click = hand the path to Windows, for EVERY file type (issue A.17). Single
@@ -169,7 +181,8 @@ function TreeNode({ entry, depth }: { entry: Entry; depth: number }) {
           (entry.is_dir ? " folder" : " file") +
           (isActive ? " active" : "") +
           (isSelected ? " selected" : "") +
-          (!entry.is_dir && !entry.supported ? " unsupported" : "")
+          (!entry.is_dir && !entry.supported ? " unsupported" : "") +
+          (gitState ? ` git-${gitState}` : "")
         }
         style={{ paddingLeft: 6 + depth * 14 }}
         onClick={onClick}
@@ -187,6 +200,7 @@ function TreeNode({ entry, depth }: { entry: Entry; depth: number }) {
           {entry.name}
           {entry.label && <span className="tree-label"> ({entry.label})</span>}
         </span>
+        {gitDirDot && <span className="tree-git-dot" title="contains uncommitted changes" />}
       </div>
       {error && !children && (
         <div className="tree-error" style={{ paddingLeft: 6 + depth * 14 }}>{error}</div>

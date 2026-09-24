@@ -5,6 +5,21 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [2.23.0] - 2026-09-24
+
+### Added
+
+- **Git marks in the file tree** (issue I.02), on by default: modified/renamed files
+  amber, added/untracked green, deleted red; folders containing changes carry a small
+  dot. Config `[git] tree_marks`; palette **Git: Tree Marks On / Off** for the session.
+- **Git gutter marks**, off by default (`[git] gutter_marks`, **Git: Gutter Marks
+  On / Off**): 3 px per-line stripes — changed / added / deleted-here — against the git
+  index, updated on open and save, never per keystroke.
+- `[git] exe` in config points at a git.exe not on PATH.
+- First external-program feature, deliberately scoped: read-only `git status` /
+  `git show` / `git rev-parse` only, per-root, debounced, async. No repository or no
+  git → silently off, one footer note at most.
+
 ## [2.22.0] - 2026-09-24
 
 ### Added

@@ -36,6 +36,7 @@ import {
   buildFile,
   helpPath,
   personalDictionaryPath,
+  gitStatus,
   readBackup,
   readFile,
   recentProjects as fetchRecentProjects,
@@ -67,6 +68,7 @@ import {
   snapshotDocPositions,
 } from "./editor/editorView";
 import { isBinaryExt, isCsv, isExternalDoc, isImageDoc, isMarkdownDoc } from "./editor/languages";
+import { refreshGitGutter } from "./editor/gitGutter";
 import { scheduleScan } from "./editor/wordFreq";
 import { revealTreeRow } from "./tree/scrollRow";
 import { cssFontWeight } from "./fontWeight";
@@ -159,6 +161,10 @@ let projReloadTimer: ReturnType<typeof setTimeout> | undefined;
  *  re-list (issue C.01). Only folders already in `dirCache` are ever added, so a busy
  *  watcher can never fan out into listing work for folders nobody can see. */
 const pendingDirRefresh = new Set<string>();
+
+// Git marks (issue I.02): the ~1 s status debounce and the once-per-session footer note.
+let gitStatusTimer: ReturnType<typeof setTimeout> | null = null;
+let gitStatusNoted = false;
 /** Ceiling on one batched listing call — a session with hundreds of expanded folders falls
  *  back to the lazy per-folder path for the rest, which is still correct, just visible. */
 const DIR_BATCH_CAP = 60;
@@ -388,6 +394,15 @@ type AppState = {
     millis?: number;
     base: string;
   } | null;
+  /** Git tree marks (issue I.02): absolute file path → state (modified | added |
+   *  untracked | deleted | renamed), and the ancestor folders that roll a dot up.
+   *  Session-only, rebuilt by refreshGitStatus; never persisted. */
+  gitMarks: Record<string, string>;
+  gitDirMarks: Record<string, true>;
+  /** Session overrides from the palette's Git: … On/Off verbs; null = follow config
+   *  ([git] tree_marks default true, gutter_marks default false). */
+  gitTreeOverride: boolean | null;
+  gitGutterOverride: boolean | null;
   /** Small one-line input dialog (new file/folder names, etc.). `initial` prefills the
    *  input (selected, so typing replaces it) — used by rename-style prompts. */
   prompt: {
@@ -567,6 +582,9 @@ type AppState = {
    *  another open tab's buffer. The base is fetched once, here; view-only, no merging. */
   openDiff: (kind: "disk" | "backup" | "tab", opts?: { path?: string; millis?: number }) => Promise<void>;
   closeDiff: () => void;
+  /** Re-run `git status` over the workspace roots, debounced ~1 s (issue I.02). Called on
+   *  root changes, saves, and file-watch events; async and off the typing path. */
+  refreshGitStatus: () => void;
   /** `explicit` = the user asked (Ctrl+S / palette), so a flagged conflict is attempted
    *  rather than skipped; `force` also skips the disk check, overwriting deliberately.
    *  Plain autosave passes neither (issue B.04). */
@@ -724,6 +742,10 @@ export const useStore = create<AppState>((set, get) => ({
   versionsFor: null,
   versionsMode: "restore" as const,
   diffAgainst: null,
+  gitMarks: {},
+  gitDirMarks: {},
+  gitTreeOverride: null,
+  gitGutterOverride: null,
   prompt: null,
   treeMenu: null,
   viewMode: "split",
@@ -1270,6 +1292,9 @@ export const useStore = create<AppState>((set, get) => ({
   // folders stay open), reload unmodified open files, flag conflicts on modified ones.
   // Ignores the events our own saves trigger.
   onFsChange: (paths) => {
+    // Git tree marks follow the watcher too (issue I.02) — a checkout or an external
+    // edit changes status without any save of ours. Debounced inside.
+    get().refreshGitStatus();
     // Tree: re-list the folders the change actually TOUCHED (issue C.01). This used to
     // re-list exactly one directory — the Folder tab's root — whose result only ever reached
     // the root row, so nothing below any root, and nothing in the Project panel, could
@@ -1490,6 +1515,51 @@ export const useStore = create<AppState>((set, get) => ({
   },
   closeDiff: () => set({ diffAgainst: null }),
 
+  refreshGitStatus: () => {
+    if (gitStatusTimer) clearTimeout(gitStatusTimer);
+    gitStatusTimer = setTimeout(() => {
+      gitStatusTimer = null;
+      const s = get();
+      const treeOn = s.gitTreeOverride ?? s.editorSettings?.git_tree_marks ?? true;
+      if (!treeOn) {
+        if (Object.keys(s.gitMarks).length) set({ gitMarks: {}, gitDirMarks: {} });
+        return;
+      }
+      const roots = s.projFolders.length ? s.projFolders : s.root ? [s.root] : [];
+      if (roots.length === 0) return;
+      void (async () => {
+        const marks: Record<string, string> = {};
+        const dirs: Record<string, true> = {};
+        let anyRepo = false;
+        for (const root of roots) {
+          const res = await gitStatus(root).catch(() => null);
+          if (!res || !res.available) continue;
+          anyRepo = true;
+          for (const e of res.entries) {
+            marks[e.path] = e.state;
+            if (e.is_dir) dirs[e.path] = true;
+            // Roll a dot up the ancestor folders, from the same map — no extra git calls.
+            let p = e.path;
+            for (;;) {
+              const parent = p.replace(/[\\/][^\\/]+$/, "");
+              if (parent === p || parent.length < root.length) break;
+              dirs[parent] = true;
+              p = parent;
+            }
+          }
+        }
+        // One-line footer note the FIRST time git turns out unusable — never an error.
+        if (!anyRepo && !gitStatusNoted) {
+          gitStatusNoted = true;
+          get().showStatusMessage(
+            "git marks off — no repository here (or git not found; set [git] exe in config.toml)",
+          );
+        }
+        set({ gitMarks: marks, gitDirMarks: dirs });
+      })();
+    }, 1000);
+  },
+
   saveDoc: async (path, opts) => {
     if (isScratch(path)) return; // untitled buffers have no disk path — use Save As
     if (isImageDoc(path)) return; // viewer tabs hold no text — never write an image (spec §2)
@@ -1594,6 +1664,14 @@ export const useStore = create<AppState>((set, get) => ({
       const proj = get().projectFile;
       if (proj && samePath(path, proj)) void get().reloadProject();
       scheduleWordScan(path); // refresh this file's frequency-dictionary entry
+      // Git marks (issue I.02): tree status re-checks after every save (debounced), and
+      // the gutter repaints for the saved doc when it is the one on screen.
+      get().refreshGitStatus();
+      const gutterOn = get().gitGutterOverride ?? get().editorSettings?.git_gutter_marks ?? false;
+      if (gutterOn && path === get().activePath) {
+        const v = getActiveView();
+        if (v && v.dom.isConnected) void refreshGitGutter(v, path);
+      }
     } catch (e) {
       set((s) => ({
         tabs: s.tabs.map((t) => (t.path === path ? { ...t, saving: false, error: String(e) } : t)),
@@ -2640,4 +2718,10 @@ export const sessionFingerprint = (s: AppState): string =>
 useStore.subscribe((s, prev) => {
   if (s.configError && s.configError !== prev.configError) void logError("config: " + s.configError);
   if (s.lastError && s.lastError !== prev.lastError) void logError("error: " + s.lastError);
+});
+
+// Git tree marks (issue I.02): re-status whenever the workspace roots change — folder
+// open, project open/switch/close, session restore. Debounced inside refreshGitStatus.
+useStore.subscribe((s, prev) => {
+  if (s.projFolders !== prev.projFolders || s.root !== prev.root) s.refreshGitStatus();
 });

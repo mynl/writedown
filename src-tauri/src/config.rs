@@ -50,6 +50,15 @@ trim_trailing_whitespace = true
 # date_format = "%Y-%m-%d"
 # datetime_format = "%Y-%m-%d %H:%M:%S"
 
+[git]
+# Git marks (read-only `git status` / `git show`; never any mutating command, no network).
+# tree_marks tints changed/added/untracked files in the sidebar; gutter_marks adds per-line
+# change stripes in the editor (updated on open and save). Both silently off outside a repo.
+# exe: full path to git.exe when git is not on PATH.
+tree_marks = true
+gutter_marks = false
+# exe = "C:\\Program Files\\Git\\cmd\\git.exe"
+
 [outline]
 # Outline pane side: "left" (between the tree and editor) or "right" (far right, past the preview).
 position = "right"
@@ -370,6 +379,10 @@ pub struct EditorSettings {
     search_globs: Option<Vec<String>>,
     search_max_hits: Option<u64>,
     search_timeout_ms: Option<u64>,
+    /// `[git] tree_marks` (default true) / `gutter_marks` (default false), issue I.02.
+    /// The palette's Git: … On/Off verbs override these for the session only.
+    git_tree_marks: Option<bool>,
+    git_gutter_marks: Option<bool>,
 }
 
 /// Parse `[editor]`/`[outline]`/`[tree]` font settings from `config.toml` (spec §5).
@@ -523,6 +536,8 @@ pub fn load_editor_settings(app: tauri::AppHandle) -> Result<EditorSettings, Str
             .and_then(|v| v.as_integer())
             .filter(|n| *n > 0)
             .map(|n| n as u64),
+        git_tree_marks: val.get("git").and_then(|g| g.get("tree_marks")).and_then(|v| v.as_bool()),
+        git_gutter_marks: val.get("git").and_then(|g| g.get("gutter_marks")).and_then(|v| v.as_bool()),
     })
 }
 

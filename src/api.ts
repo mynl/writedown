@@ -167,6 +167,17 @@ export const readBackup = (path: string, millis: number) =>
 
 export const createFile = (path: string) => invoke<void>("create_file", { path });
 
+// ---- Git marks (issue I.02) — read-only `git` invocations only, off the UI thread ----
+/** One changed path from `git status`, absolute; state ∈ modified | added | untracked |
+ *  deleted | renamed. Untracked directories arrive as one collapsed entry (is_dir). */
+export type GitEntry = { path: string; state: string; is_dir: boolean };
+/** available=false means no git or not a repository — the feature is silently off. */
+export type GitStatus = { entries: GitEntry[]; available: boolean };
+export const gitStatus = (root: string) => invoke<GitStatus>("git_status", { root });
+/** The index version of `path` for the gutter diff: null = no git/not a repo (feature
+ *  off), "" = untracked (every buffer line counts as added). */
+export const gitShowIndex = (path: string) => invoke<string | null>("git_show_index", { path });
+
 export const createDirectory = (path: string) => invoke<void>("create_directory", { path });
 
 /** Rename/move a file or folder (explicit user command; refuses to clobber). */
@@ -352,6 +363,10 @@ export type EditorSettings = {
   search_globs: string[] | null;
   search_max_hits: number | null;
   search_timeout_ms: number | null;
+  /** `[git] tree_marks` (default true) / `gutter_marks` (default false) — issue I.02.
+   *  Session overrides come from the palette's Git: … On/Off verbs. */
+  git_tree_marks: boolean | null;
+  git_gutter_marks: boolean | null;
 };
 
 export const loadEditorSettings = () => invoke<EditorSettings>("load_editor_settings");

@@ -354,6 +354,46 @@ body {
   color: var(--muted);
 }
 
+/* Git marks in the tree (issue I.02): tint the filename by status, Sublime-sized; a
+   folder containing changes rolls up a small dot. The active row's white always wins. */
+.tree-row.git-modified .tree-name,
+.tree-row.git-renamed .tree-name {
+  color: #cf9247;
+}
+.tree-row.git-added .tree-name,
+.tree-row.git-untracked .tree-name {
+  color: #6fa356;
+}
+.tree-row.git-deleted .tree-name {
+  color: #c05b5b;
+}
+.tree-row.active .tree-name {
+  color: inherit;
+}
+.tree-git-dot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  margin-left: 4px;
+  border-radius: 50%;
+  background: #cf9247;
+  align-self: center;
+}
+
+/* Git gutter stripes (issue I.02): a 3 px per-line mark — changed / added / deleted-here. */
+.cm-git-gutter {
+  width: 3px;
+}
+.cm-git-gutter .cm-gutterElement.cm-git-changed {
+  background: #cf9247;
+}
+.cm-git-gutter .cm-gutterElement.cm-git-added {
+  background: #6fa356;
+}
+.cm-git-gutter .cm-gutterElement.cm-git-deleted {
+  background: #c05b5b;
+}
+
 .tree-loading,
 .tree-empty,
 .tree-error {
