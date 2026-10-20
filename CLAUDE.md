@@ -76,7 +76,7 @@ CLAUDE.md              standing instructions (this file)
 writedown-spec.md      the authoritative spec
 CHANGELOG.md           Keep-a-Changelog; the project's memory
 README.md / HELP.md    front page; in-app help
-dev/                   plan docs; dev/done/ when the author declares done
+dev/                   plan docs; dev/done/ once execution starts
 assets/                branding, icons (committed, small)
 scripts/               .ps1 helpers — notices, release publishing, shell registration
 src/                   TypeScript + React frontend
@@ -128,10 +128,10 @@ theme + dark theme + imported Sublime-derived theme is enough.
   `Cargo.lock` follows on the next build. The footer reads it at runtime via
   `@tauri-apps/api/app` `getVersion()`. **Do not hard-code a second copy in a JS constant, and do
   not re-add version fields to the other two files.**
-- **Push permission revoked (2026-08-29).** This project previously allowed Claude to push to
-  GitHub. It no longer does — the house rule applies without exception: commit, never push. The
-  author pushes and runs `scripts/publish-release.ps1` himself, refreshing the GitHub Release per
-  batch of work rather than per version.
+- **Pushes follow the house rule (restored 2026-10-20).** Claude pushes each commit as it lands.
+  Push permission had been revoked here on 2026-08-29; the relaxed house rule supersedes that.
+  `scripts/publish-release.ps1` and the GitHub Release stay the author's, refreshed per batch of
+  work rather than per version.
 - **Batched releases.** A batch of approved items — typically a day's work — is grouped into ONE
   version bump: one commit, one CHANGELOG section listing the items. One-commit-per-version still
   holds; there are simply fewer, fatter versions.
