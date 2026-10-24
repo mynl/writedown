@@ -379,6 +379,8 @@ One flag for documents: colored emoji render in the preview and in Quarto HTML. 
 
 **Question:** sweep all seven blocks (recommended), or only the colored shapes plus a curated few dozen.
 
+**Resolved 2026-10-24 (author, terminal):** all seven blocks, with the colored twins and the "Colors" kit.
+
 ### J.22: citation keys containing `&` (`src/editor/citePatterns.ts`, `src/editor/citations.ts`, `src-tauri/src/render.rs`)
 
 The key pattern allows letters, digits and `_ : . -` inside a key, so `@S&P2019` matches as `@S` and the not-found check flags it. Pandoc's rule for citation keys is wider: a key starts with a letter, digit or `_` and may contain the internal punctuation `: . # $ % & - + ? < > ~ /`. Five keys in the author's .bib contain `&`; none uses the rest of Pandoc's set. The .bib parser itself is fine: it takes the key up to the comma.
@@ -389,6 +391,8 @@ Four copies of the pattern need the change:
 - `cite_re()` in `render.rs`, the mirror used by the citation pass in Render.
 - The `@` completion's `matchBefore` pattern and the Tab re-trigger pattern in `citations.ts`, so typing `@S&` keeps the picker open.
 
+**Resolved 2026-10-24 (author, terminal):** `&` only, since it is the only such character in the author's keys. The recommendation below, Pandoc's full set, is declined.
+
 Recommendation: widen the internal class to Pandoc's full set rather than adding `&` alone, so the not-found check predicts exactly what Quarto will try to resolve. A key must still end on a letter or digit, so trailing sentence punctuation stays out. Add a test in `render.rs` beside the shared citation corpus (`@S&P2019` resolves and links), and check that the link jumps to its reference: the anchor `#ref-S&P2019` contains `&`, which HTML ids permit.
 
 ### J.xx update: grid renderer errors recur (`src/preview/CsvPreview.tsx`; the csv-viewer sibling library)
@@ -397,10 +401,13 @@ The log shows the grid's unhandled rejection (reading `[0]` of undefined in `get
 
 ### Batch J: proposed grouping (updated 2026-10-24 with the author's rulings)
 
-- **Quick fixes, frontend:** J.12 error strip, J.13 switcher order, J.15 red square in the tab plus the two key fixes, J.17 Python-cell wrap, J.06 definition lists, J.09 tables, J.22 citation keys with `&` (one Rust line and a test as well).
-- **Small Rust plus frontend:** J.01 zap, J.02 new window, J.04 browser-argument flag, J.10 update check, J.14 closed-tab picker, J.16 warnings, J.19 venvs, kernel pool and Which Python, J.20 open a citation's document, J.21 colored characters in the picker (generator only).
-- **Larger, one bump each:** J.07 tiered version history, line history, stats and prune; J.18 help tab; J.11 HTML outline and sealed preview.
-- **Still open:** J.21 all seven blocks or a curated subset (all recommended); J.22 Pandoc's full key punctuation or `&` alone (full set recommended).
+- **[quick-fixes]:** J.01 zap, J.06 definition lists, J.09 tables, J.12 error strip, J.13 switcher order, J.15 red square plus the two key fixes, J.17 Python-cell wrap, J.21 colored characters in the picker, J.22 citation keys with `&`.
+- **[windows-tabs-citations]:** J.02 new window, J.04 browser-argument flag, J.10 update check, J.14 closed-tab picker, J.20 open a citation's document.
+- **[python-environments]:** J.16 warnings; J.19 venvs, kernel pool and Which Python.
+- **[version-history]:** J.07 tiered history, stats, prune and line history.
+- **[python-help]:** J.18 help tab.
+- **[html-preview]:** J.11 HTML outline and sealed preview.
+- **Still open:** nothing. All rulings are in; the plan is `dev/plan-batch-j.md` (2026-10-24), six bumps in the order [quick-fixes], [windows-tabs-citations], [python-environments], [version-history], [python-help], [html-preview]. Nothing built yet.
 
 ***
 
