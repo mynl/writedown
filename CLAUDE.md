@@ -106,6 +106,20 @@ cargo test    (cwd = src-tauri/)   # backend tests
 npm run tauri -- icon <square.png> # regenerate app icons from a square master
 ```
 
+Publishing a GitHub Release (the author's step, per batch; the script tags HEAD as v<version> from
+Cargo.toml, pushes the tag, and attaches the installer, MSI and portable exe):
+
+```
+npm run tauri build                                    # fresh artifacts at the Cargo.toml version
+pwsh scripts/publish-release.ps1 -NotesFile notes.md   # or no -NotesFile: notes from commit subjects
+gh release view v<version> --web                       # check it in the browser
+```
+
+Release notes: paste the CHANGELOG sections since the last release into `notes.md`, with any
+first-launch warning on top. A release that already exists must be deleted first (the commands
+are in the script's header). Run from Claude Code's `!` prompt, paths need forward slashes: that
+shell is Bash, which eats backslashes.
+
 Final visual polish runs as an **interactive look-and-feel loop**: keep `npm run tauri dev` open,
 let Vite HMR hot-reload frontend and CSS edits live, make small changes, get feedback, repeat.
 
