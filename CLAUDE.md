@@ -116,7 +116,9 @@ gh release view v<version> --web                       # check it in the browser
 ```
 
 Release notes: paste the CHANGELOG sections since the last release into `notes.md`, with any
-first-launch warning on top. A release that already exists must be deleted first (the commands
+first-launch warning on top. Any `@name` must be in backticks: GitHub turns a bare one into an
+@-mention and lists that user as a contributor (2.31.1 credited a user named "key"). A release
+that already exists must be deleted first (the commands
 are in the script's header). Run from Claude Code's `!` prompt, paths need forward slashes: that
 shell is Bash, which eats backslashes.
 

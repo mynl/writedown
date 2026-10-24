@@ -118,7 +118,7 @@ whose browser arguments differ from those of a window already running.
   last 25 are saved with each project's session, so the picker and Ctrl+Shift+T survive a
   restart.
 - **Open a citation's document** (J.20): with `[bibliography] viewer_url` set (`{key}` in the
-  URL), right-click a key for *Open Document for @key* or *Copy @key*, use *Citation: Open
+  URL), right-click a key for *Open Document for `@key`* or *Copy `@key`*, use *Citation: Open
   Document (PDF/DjVu)*, or click *Open ↗* in the hover card. The browser opens the page; a
   DjVu document arrives as a download, since browsers cannot show DjVu.
 
@@ -156,7 +156,7 @@ Batch J, [quick-fixes].
   **Ctrl+Shift+B is Build everywhere**; from the file tree it used to render.
 - **Insert: Python Code Cell wraps whole lines verbatim** (J.17): fences on their own lines,
   backslashes (`\{`) and tabs in the selection unchanged, one undo step.
-- THIRD-PARTY-NOTICES.md regenerated: markdown-it-deflist, plus @codemirror/merge and the
+- THIRD-PARTY-NOTICES.md regenerated: markdown-it-deflist, plus `@codemirror/merge` and the
   windows 0.58 crates that had landed since July.
 
 ### Fixed
