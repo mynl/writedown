@@ -27,7 +27,7 @@ For each row in the table add a new row below it for your input, set item to ">>
 | **J.06** |✅| | Support Markdown definition list (blah\n: def of blah)  |
 | >>CC | L | None | **Easy: the official markdown-it definition-list plugin adds Pandoc's syntax (a term line, then `: definition`), so the preview matches what Quarto produces.** Plus a few lines of styling. The editor shows the `:` lines as plain text, with no special coloring. Found on the way: Alt+Q reflow would merge a term into its definition, so it must treat `: ` lines like list items. |
 | **J.07** |✅| | Diff against prev vesions -> add ability to pinpiont when selected line changed |
-| >>CC | M | None at rest | **Doable. Writedown keeps the last 20 saved versions of each file; the command follows the caret's line back through them, one diff at a time, to the save where it changed, then opens the diff pane on that save at that line.** Limit: 20 autosaves may cover only an hour or two. With git, the same question extends across all committed history. Your call below: saved versions, git, or both. >>PREV VERSIONS: Can we do the longer history keep (spaced out more) too? Like the synolgoy versioning. Maybe we do already. Git if file under git, else our saved versions.  >>CC: We don't today: it keeps the newest 20 and deletes the rest. Proposed: Synology-style thinning, keeping the newest 20 plus one per hour for a day, one per day for a month, one per week for a year, one per month after that. Git first for files in a repo, with saved versions for edits git has not seen yet. Details below. |
+| >>CC | M | None at rest | **Doable. Writedown keeps the last 20 saved versions of each file; the command follows the caret's line back through them, one diff at a time, to the save where it changed, then opens the diff pane on that save at that line.** Limit: 20 autosaves may cover only an hour or two. With git, the same question extends across all committed history. Your call below: saved versions, git, or both. >>PREV VERSIONS: Can we do the longer history keep (spaced out more) too? Like the synolgoy versioning. Maybe we do already. Git if file under git, else our saved versions.  >>CC: We don't today: it keeps the newest 20 and deletes the rest. Proposed: Synology-style thinning, keeping the newest 20 plus one per hour for a day, one per day for a month, one per week for a year, one per month after that. Git first for files in a repo, with saved versions for edits git has not seen yet. Details below. >>CC 2026-10-24: Ruled in the terminal: no skip for files in git. Added "Version History: Stats" and a narrow "Prune This Project…"; see notes. |
 | **J.08** |✅| DUPL | ~~When a project opens a new window and there are no files open we do not get the folder or project tabs~~ |
 | >>CC | n/a | n/a | Same as J.03; no action. |
 | **J.09** |✅| | ctrl+alt+shift+T table format: a) should format just the table surrounding the cursor and do nothing if not in a table but mention in the status bar; b) Use |--| or |:--| etc format (with no extra spaces), c) Cycle, first press make table "wide", second press cycle to narrow (all headers are --, cols are | content |, with just one space on either end). |
@@ -53,7 +53,11 @@ For each row in the table add a new row below it for your input, set item to ">>
 | **J.19** |✅| | Python execute cells: if there is a venv or .venv in the folder containing the file (or a parent directory), then use it for python evaluation. Add palette Which Python -> display the venv in use. |
 | >>CC | L | None | **Easy: at each render, look for `.venv` or `venv` in the document's folder, then in each parent folder, and use its Python.** Precedence: the document's own `wd-python`, then the nearest venv, then `[render] python`. A palette "Which Python" shows the interpreter for the current document and why it was chosen. Two side effects: switching between documents in different venvs restarts Python (seconds, for heavy imports), and a document that relied on the global Python's packages fails if its folder's venv lacks them. >>Understood on switching; can we cache them and swap?  >>CC: Yes. Keep up to three Python processes alive per window, one per interpreter, closing the least recently used. Switching back is instant and each one keeps its variables. The cost is memory, a few hundred MB per idle process with pandas loaded. |
 | **J.20** | | | Right click on @Ref -> open it via http://192.168.4.21:9124/view/@Ref; and palette -> open bibtex doc |
-| >>CC | L | None | **Easy: right-clicking a citation key brings up a small menu, "Open @key in Bibliography Viewer", which opens the viewer's page for that key in your browser. A palette verb does the same for the key at the caret, and the hover card that already describes the reference gains an "Open" link.** The address goes in config as a template, never in code. Recommend `127.0.0.1` rather than the LAN address, since the viewer runs on DOOB itself. One question below on what "open bibtex doc" means. |
+| >>CC | L | None | **Easy: right-clicking a citation key brings up a small menu, "Open @key in Bibliography Viewer", which opens the viewer's page for that key in your browser. A palette verb does the same for the key at the caret, and the hover card that already describes the reference gains an "Open" link.** The address goes in config as a template, never in code. Recommend `127.0.0.1` rather than the LAN address, since the viewer runs on DOOB itself. One question below on what "open bibtex doc" means. >>CC 2026-10-24: Ruled in the terminal: address in config; "open bibtex doc" means open the PDF or DjVu, which archivum's `/view` page already does, so menu and palette are one action. DjVu arrives as a browser download; see notes. |
+| **J.21** | | | (Author, in the terminal, 2026-10-24.) Why does the Unicode picker skip colored symbols? Most of what I want to find is colored. Can we add them? |
+| >>CC | L | None | **Skipped on purpose in August: the picker was scoped to math and technical symbols plus ten hand-picked emoji, and the colored characters sit in blocks that were never included.** Adding them is about 1,700 more rows, still loaded only when the picker first opens. One wrinkle: some symbols already in the picker (⚠ ❤ ✔ ☀) turn colored only when followed by an invisible selector character, so each needs a "color" twin in the list. Details below. |
+| **J.22** | | | (Author, in the terminal, 2026-10-24.) Citation keys such as `@S&P2019` show as not-found references although they are in the .bib; presumably the key matcher misses the `&`. Quick fix. |
+| >>CC | L | None | **Confirmed: the key matcher stops at `&`, so `@S&P2019` is read as `@S`, which is not in the bibliography.** The same pattern appears in four places (the not-found check, the hover card, the `@` completion, and the citation pass in Render), and all four get the fix. Five keys in your .bib contain `&`. |
 | **J.xx** | | Watch — revisit if it recurs | 2026-09-24 ~18:30, v2.25.0: a GREAT2 window wedged — webview/JS dead but native window alive. It silently swallowed every Explorer file launch routed to it (I.07) and would not close. Second GREAT2 instance was open on another desktop at the time. **HAS NOT RECURRED** |
 | >>CC | L | None | **No crash, no log, no dump — the wedge is invisible by construction: release build has no devtools, and the app's own error logging goes through the same IPC that died.** A wedged window still ACKs `WM_COPYDATA`, so routing delivers files into the void. If it recurs: capture a minidump BEFORE killing (`rundll32 comsvcs.dll, MiniDump <pid> <file> full`; `target/release/writedown.pdb` has the symbols). Hardening ready to build on request: (a) heartbeat `instances/<pid>.json` from the frontend, launcher skips stale entries — kills the black hole whatever the cause; (b) enable the `devtools` Cargo feature in release so F12 works in the packaged exe. Related: `writedown.log` shows two prior unhandled rejections in the grid renderer (`getFormattedRow` reading `[0]` of undefined, Sep 07 + Sep 20) — a standing bug and plausible cousin. |
 
@@ -146,6 +150,13 @@ One fix comes with it: `list_backups` reads every version in full to build its 1
 1. A file inside a repository folder is not necessarily tracked. Gitignored files (private notes, data, drafts) live inside repositories and have only saved versions to fall back on. Telling the two apart needs a git call on every save, on a path that today does no work beyond copying a file.
 2. Git holds committed states only. The days between commits, which in a writing project can be many, are covered by saved versions alone.
 3. The only saving is disk, and the store is disposable. If disk ever matters, a cap on the whole store with oldest-first eviction across files is the simpler control.
+
+**Resolved 2026-10-24 (author, terminal):** no skip; every file gets the tiered history.
+
+**Added 2026-10-24 (author): version history stats and prune.**
+
+- **"Version History: Stats"** (palette): a status message with two figures, for the current project and for the whole store, for example "This project: 143 files with history, 2,870 versions, 212 MB, oldest 2026-07-06. Whole store: 237 files, 31 MB." One Rust command, `backup_stats(roots)`: list the project's files (the walk Ctrl+P already uses), map each path to its history folder with `key_for`, and sum counts, sizes and the oldest stamp; then one pass over the whole store. On demand only; a large project takes a moment, like Ctrl+P's first listing. History folders are named by a hash of the path, so the history of a file since deleted or renamed belongs to no project and appears only in the whole-store figures.
+- **"Version History: Prune This Project…"** (palette): recommend a narrow form. It deletes the long tail (every version beyond the newest 20 per file) for the project's files, after a confirmation dialog stating the versions and MB it would free. It never touches the newest 20, so the safety net stays. With tiered thinning, growth is already bounded per file, so pruning is for reclaiming space, not routine housekeeping. Not offered: deleting all history, which removes the net; and orphan cleanup, which needs the original path stored beside each history folder (a small add if the stats ever show orphans matter).
 
 ### J.09: table formatter (`src/editor/tables.ts`, `src/App.tsx` Ctrl+Alt+Shift+T fallback)
 
@@ -329,16 +340,67 @@ The address: 192.168.4.21 is DOOB's own LAN address, and the viewer (a `python.e
 
 Recommend (a); the scratch form of (b) is a small add if wanted.
 
+**Resolved 2026-10-24 (author, terminal):** the address goes in config. The server's `0.0.0.0` binding is understood and out of scope. "Open bibtex doc" means open the reference's PDF or DjVu file, not the `.bib`.
+
+That is exactly what the viewer URL already does. Archivum's `/view/<tag>` route (`V:\dev\archivum\src\archivum\web\routes\documents.py`) finds the tag's primary document, opens a PDF in archivum's PDF.js reader, and sends any other format, DjVu included, as the raw file; it records a read either way. So the right-click menu, the palette verb and the hover link are one action, and Writedown needs nothing beyond the URL template. Names: menu item "Open Document for @key", palette verb "Citation: Open Document (PDF/DjVu)".
+
+- **DjVu caveat:** browsers cannot display DjVu, so a DjVu document arrives as a download, which you then open in SumatraPDF. If that grates, a later step: archivum gains a small endpoint returning the document's path, and Writedown opens it in `[tools] pdf_viewer` (SumatraPDF reads both formats). That is a change in two repositories and Writedown's first local HTTP call, so it is not in v1.
+- **The `@` in the URL:** archivum's route takes the tag exactly as written. Try one key in the browser and set the template to `/view/{key}` or `/view/@{key}` accordingly.
+
+### J.21: colored characters in the Unicode picker (`scripts/gen-symbols.py`, generated `src/editor/symbolData.ts`, `src/editor/symbols.ts`)
+
+Why they are missing: the generator sweeps a fixed list of blocks (Latin-1 symbols, Greek, punctuation, arrows, operators, box drawing, shapes, miscellaneous symbols, dingbats) and adds ten emoji by hand. Its own comment records the D.12 scope: "the picker is for symbols, not for browsing all of emoji". The colored characters sit almost entirely outside that list.
+
+| Block | Range | Named characters | Examples |
+|:--|:--|--:|:--|
+| Miscellaneous Symbols and Arrows | U+2B00 to U+2BFF | 253 | ⬛ ⬜ ⭐ ⭕ |
+| Miscellaneous Symbols and Pictographs | U+1F300 to U+1F5FF | 768 | 🔴 🔵 🔥 📌 📎 |
+| Emoticons | U+1F600 to U+1F64F | 80 | 😀 🙂 |
+| Transport and Map Symbols | U+1F680 to U+1F6FF | 118 | 🚀 🚧 🛑 |
+| Geometric Shapes Extended | U+1F780 to U+1F7FF | 103 | 🟥 🟧 🟨 🟩 🟦 🟪 🟫 🟠 🟡 🟢 🟣 🟤 |
+| Supplemental Symbols and Pictographs | U+1F900 to U+1F9FF | 256 | 🤔 🧮 🧪 |
+| Symbols and Pictographs Extended-A | U+1FA70 to U+1FAFF | 114 | 🪲 🫠 |
+| Total | | 1,692 | |
+
+Counts come from CPython's Unicode 16.0 data, the generator's own source.
+
+Colored characters come in two kinds:
+
+1. **Colored by default** (the Emoji_Presentation property): 🟥 🔴 ✅ ❌ 🚀. The generator already marks these, and the picker already draws them with the color font (2.13.1), so adding them is only a matter of widening the swept blocks.
+2. **Colored only with a selector:** roughly a hundred characters already in the picker, such as ⚠ ❤ ✔ ☑ ☀, are text-style by default and become the colored emoji only when followed by the invisible U+FE0F (VARIATION SELECTOR-16). Today the picker inserts the plain form. Proposed: each gets a twin row, "warning sign (color)", which inserts the character plus U+FE0F and is drawn with the color font. The list of such characters comes from Unicode's `emoji-data.txt` (the Emoji property); `unicodedata` does not expose it, so its ranges are copied into the generator, the way the Emoji_Presentation ranges already are.
+
+Also proposed: a "Colors" kit at the top of the empty-query browse list, with the colored squares, circles and hearts (🟥🟧🟨🟩🟦🟪🟫⬛⬜, 🔴🟠🟡🟢🔵🟣🟤⚫⚪, ❤️🧡💛💚💙💜🤎🖤🤍). Color words mostly come free from the Unicode names ("large red square", "large green circle"); a few names are odd (❤ is "heavy black heart"), and curated aliases fix those as they come up.
+
+Out of scope: multi-character emoji (flags, skin tones, joined sequences such as 🏳️‍🌈). The picker inserts single characters plus the optional selector, and these are rarely wanted in technical writing.
+
+Cost: the table grows from 2,322 to about 4,100 rows and from 90 KB to about 160 KB, still imported only when Ctrl+Shift+U is first pressed. Search per keystroke over 4,100 rows should stay at a few ms (an estimate; measure in the HMR loop). Speed at rest: none. Effort L: generator edits, regenerate, the twin-row insert in `symbols.ts`.
+
+One flag for documents: colored emoji render in the preview and in Quarto HTML. In Quarto PDF output through LaTeX they usually come out blank or as missing-glyph boxes unless the PDF engine has a color emoji font configured. Fine for notes and HTML; check before putting them in a paper headed for PDF.
+
+**Question:** sweep all seven blocks (recommended), or only the colored shapes plus a curated few dozen.
+
+### J.22: citation keys containing `&` (`src/editor/citePatterns.ts`, `src/editor/citations.ts`, `src-tauri/src/render.rs`)
+
+The key pattern allows letters, digits and `_ : . -` inside a key, so `@S&P2019` matches as `@S` and the not-found check flags it. Pandoc's rule for citation keys is wider: a key starts with a letter, digit or `_` and may contain the internal punctuation `: . # $ % & - + ? < > ~ /`. Five keys in the author's .bib contain `&`; none uses the rest of Pandoc's set. The .bib parser itself is fine: it takes the key up to the comma.
+
+Four copies of the pattern need the change:
+
+- `CITE_RE` in `citePatterns.ts`: the not-found check, the hover card, spelling exclusion, and "Extract Citations to .bib".
+- `cite_re()` in `render.rs`, the mirror used by the citation pass in Render.
+- The `@` completion's `matchBefore` pattern and the Tab re-trigger pattern in `citations.ts`, so typing `@S&` keeps the picker open.
+
+Recommendation: widen the internal class to Pandoc's full set rather than adding `&` alone, so the not-found check predicts exactly what Quarto will try to resolve. A key must still end on a letter or digit, so trailing sentence punctuation stays out. Add a test in `render.rs` beside the shared citation corpus (`@S&P2019` resolves and links), and check that the link jumps to its reference: the anchor `#ref-S&P2019` contains `&`, which HTML ids permit.
+
 ### J.xx update: grid renderer errors recur (`src/preview/CsvPreview.tsx`; the csv-viewer sibling library)
 
 The log shows the grid's unhandled rejection (reading `[0]` of undefined in `getFormattedRow`, called from `applyLayout`, `renderBody`, `_renderSlice`) 3 times on 2026-09-01, 12 on 2026-09-11 and 15 on 2026-10-11 (UTC dates). No wedge since. The likely cause is a layout pass, which Writedown triggers from a `ResizeObserver`, running while a debounced `setData` reparse has replaced the rows. Proposed as its own item: a guard in csv-viewer's layout during a load, and in `CsvPreview.tsx` skip `applyLayout` while a feed is pending.
 
 ### Batch J: proposed grouping (updated 2026-10-24 with the author's rulings)
 
-- **Quick fixes, frontend:** J.12 error strip, J.13 switcher order, J.15 red square in the tab plus the two key fixes, J.17 Python-cell wrap, J.06 definition lists, J.09 tables.
-- **Small Rust plus frontend:** J.01 zap, J.02 new window, J.04 browser-argument flag, J.10 update check, J.14 closed-tab picker, J.16 warnings, J.19 venvs, kernel pool and Which Python, J.20 bibliography viewer.
-- **Larger, one bump each:** J.07 tiered version history and line history; J.18 help tab; J.11 HTML outline and sealed preview.
-- **Still open:** J.07 tiered history for files in git too (recommended); J.20 the meaning of "open bibtex doc" (reading (a) assumed); J.15 colored squares and circles in the Unicode picker (optional).
+- **Quick fixes, frontend:** J.12 error strip, J.13 switcher order, J.15 red square in the tab plus the two key fixes, J.17 Python-cell wrap, J.06 definition lists, J.09 tables, J.22 citation keys with `&` (one Rust line and a test as well).
+- **Small Rust plus frontend:** J.01 zap, J.02 new window, J.04 browser-argument flag, J.10 update check, J.14 closed-tab picker, J.16 warnings, J.19 venvs, kernel pool and Which Python, J.20 open a citation's document, J.21 colored characters in the picker (generator only).
+- **Larger, one bump each:** J.07 tiered version history, line history, stats and prune; J.18 help tab; J.11 HTML outline and sealed preview.
+- **Still open:** J.21 all seven blocks or a curated subset (all recommended); J.22 Pandoc's full key punctuation or `&` alone (full set recommended).
 
 ***
 
