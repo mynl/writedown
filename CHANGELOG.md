@@ -5,6 +5,33 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [2.27.0] - 2026-10-24
+
+Batch J, [windows-tabs-citations]. **Close every Writedown window, dev and release, before
+first launching this build** (see the pointer fix below): WebView2 refuses to start a window
+whose browser arguments differ from those of a window already running.
+
+### Added
+
+- **Ctrl+Alt+Shift+N opens a new, empty window** with the project switcher up (J.02);
+  palette *Window: New Window*, or `writedown --blank` from a shell.
+- **Help: Check for Updates** (J.10) compares this build with the latest GitHub release and
+  opens the release page when a newer one exists. One request to `api.github.com`, only on
+  that verb; nothing is downloaded or installed. README's no-network wording now names it.
+- **Reopen Closed Tab…** (J.14), a palette picker over the closed tabs, newest first. The
+  last 25 are saved with each project's session, so the picker and Ctrl+Shift+T survive a
+  restart.
+- **Open a citation's document** (J.20): with `[bibliography] viewer_url` set (`{key}` in the
+  URL), right-click a key for *Open Document for @key* or *Copy @key*, use *Citation: Open
+  Document (PDF/DjVu)*, or click *Open ↗* in the hover card. The browser opens the page; a
+  DjVu document arrives as a download, since browsers cannot show DjVu.
+
+### Fixed
+
+- **The pointer no longer vanishes over the Save As dialog** (J.04), a WebView2 runtime bug
+  with Windows' "Hide pointer while typing" (WebView2Feedback #5687). The runtime feature is
+  turned off, so the pointer no longer hides while typing in the editor either.
+
 ## [2.26.0] - 2026-10-24
 
 Batch J, [quick-fixes].

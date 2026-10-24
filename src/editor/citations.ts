@@ -10,8 +10,10 @@ import {
   type CompletionContext,
   type CompletionResult,
 } from "@codemirror/autocomplete";
-import { EditorView, hoverTooltip, keymap } from "@codemirror/view";
-import { Prec } from "@codemirror/state";
+import { EditorView, closeHoverTooltips, hoverTooltip, keymap } from "@codemirror/view";
+import { Prec, type EditorState } from "@codemirror/state";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { useStore } from "../store";
 import { linter, type Diagnostic } from "@codemirror/lint";
 import { isProsePos } from "./prose";
 import { CITE_RE, CROSSREF_PREFIX } from "./citePatterns";
@@ -160,8 +162,15 @@ function renderLabel(completion: Completion): Node {
   return span;
 }
 
-const citeHover = hoverTooltip(async (view, pos) => {
-  const line = view.state.doc.lineAt(pos);
+/** The citation key at `pos`, `@` to the end of the key inclusive, or null. Quarto
+ *  crossrefs (`@fig-…`) are not citations and give null. Shared by the hover card, the
+ *  right-click menu and "Citation: Open Document" (issue J.20). No prose test here: the
+ *  hover has never had one; the menu and the verb add `isProsePos` themselves. */
+export function citeKeyAt(
+  state: EditorState,
+  pos: number,
+): { key: string; from: number; to: number } | null {
+  const line = state.doc.lineAt(pos);
   const rel = pos - line.from;
   // Fresh CITE_RE instance (avoid the shared lastIndex, as in prose.ts). Unlike the old
   // local pattern, CITE_RE requires the key to end alphanumeric, so a trailing `.`/`:`
@@ -173,27 +182,102 @@ const citeHover = hoverTooltip(async (view, pos) => {
     const e = s + m[0].length;
     if (rel < s || rel > e) continue;
     if (CROSSREF_PREFIX.test(m[1])) return null; // Quarto crossref — nothing to look up
-    let entry: BibEntry | null;
-    try {
-      entry = await getCitation(m[1]);
-    } catch {
-      return null;
-    }
-    if (!entry) return null;
-    const e2 = entry;
-    return {
-      pos: line.from + s,
-      end: line.from + e,
-      above: true,
-      create: () => {
-        const dom = document.createElement("div");
-        dom.className = "cite-tooltip";
-        dom.textContent = describe(e2);
-        return { dom };
-      },
-    };
+    return { key: m[1], from: line.from + s, to: line.from + e };
   }
   return null;
+}
+
+/** The document page for `key` from `[bibliography] viewer_url`, `{key}` replaced by the
+ *  URL-encoded key, or null when the setting is absent (issue J.20). */
+export function citationDocumentUrl(key: string): string | null {
+  const tpl = useStore.getState().editorSettings?.bibliography_viewer_url;
+  if (!tpl) return null;
+  return tpl.split("{key}").join(encodeURIComponent(key));
+}
+
+/** Open a citation's PDF or DjVu through the configured viewer page, in the default
+ *  browser. Writedown makes no request itself; the browser fetches the page. Unset, a
+ *  status note says which setting to add. */
+export function openCitationDocument(key: string): void {
+  const url = citationDocumentUrl(key);
+  if (!url) {
+    useStore
+      .getState()
+      .showStatusMessage(
+        'open document — set [bibliography] viewer_url in config.toml, e.g. "http://127.0.0.1:9124/view/{key}"',
+      );
+    return;
+  }
+  void openUrl(url).catch((e) => useStore.setState({ lastError: `open document @${key} — ${String(e)}` }));
+}
+
+/** "Citation: Open Document (PDF/DjVu)": the key at the caret (issue J.20). */
+export function openCitationDocumentAtCaret(view: EditorView): boolean {
+  const head = view.state.selection.main.head;
+  const hit = isProsePos(view.state, head) ? citeKeyAt(view.state, head) : null;
+  if (!hit) {
+    useStore.getState().showStatusMessage("open document — the caret is not on a citation key");
+    return true;
+  }
+  openCitationDocument(hit.key);
+  return true;
+}
+
+// Right-click over a citation key: Writedown's own small menu in place of WebView2's
+// (issue J.20). Only when `viewer_url` is set, and only in prose; anywhere else the
+// default menu appears as before.
+const citeContextMenu = EditorView.domEventHandlers({
+  contextmenu(e, view) {
+    if (!useStore.getState().editorSettings?.bibliography_viewer_url) return false;
+    const pos = view.posAtCoords({ x: e.clientX, y: e.clientY });
+    if (pos == null || !isProsePos(view.state, pos)) return false;
+    const hit = citeKeyAt(view.state, pos);
+    if (!hit) return false;
+    e.preventDefault();
+    useStore.getState().openCiteMenu(e.clientX, e.clientY, hit.key);
+    return true;
+  },
+});
+
+const citeHover = hoverTooltip(async (view, pos) => {
+  const hit = citeKeyAt(view.state, pos);
+  if (!hit) return null;
+  let entry: BibEntry | null;
+  try {
+    entry = await getCitation(hit.key);
+  } catch {
+    return null;
+  }
+  if (!entry) return null;
+  const e2 = entry;
+  return {
+    pos: hit.from,
+    end: hit.to,
+    above: true,
+    create: (v) => {
+      const dom = document.createElement("div");
+      dom.className = "cite-tooltip";
+      const text = document.createElement("div");
+      text.textContent = describe(e2);
+      dom.appendChild(text);
+      // "Open ↗" at the foot when a viewer is configured (issue J.20): opens the
+      // reference's document in the browser and closes the card.
+      if (citationDocumentUrl(hit.key)) {
+        const link = document.createElement("a");
+        link.className = "cite-open";
+        link.textContent = "Open ↗";
+        link.title = "Open the document for @" + hit.key;
+        link.addEventListener("mousedown", (ev) => ev.preventDefault()); // keep editor focus
+        link.addEventListener("click", (ev) => {
+          ev.preventDefault();
+          openCitationDocument(hit.key);
+          v.dispatch({ effects: closeHoverTooltips });
+        });
+        dom.appendChild(link);
+      }
+      return { dom };
+    },
+  };
 });
 
 /** Insert `@` and open the picker. A registry action (`insertCitation`), unbound by
@@ -269,6 +353,7 @@ export const citationExtensions = [
     addToOptions: [{ render: renderLabel, position: 20 }],
   }),
   citeHover,
+  citeContextMenu,
   citationLint,
   Prec.high(keymap.of([{ key: "Tab", run: retriggerTab }])),
 ];

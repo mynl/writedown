@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { saveFolderState, saveSession } from "./api";
+import { newWindow, saveFolderState, saveSession } from "./api";
 import {
   SCRATCH_PREFIX,
   isScratch,
@@ -13,6 +13,7 @@ import {
   projectsByRecency,
 } from "./store";
 import { FileTree, onTreeKeyDown, ProjectTree, TreeContextMenu } from "./tree/FileTree";
+import { CiteContextMenu } from "./ContextMenu";
 import { OpenFiles } from "./OpenFiles";
 import { Tabs } from "./Tabs";
 import { Editor } from "./editor/Editor";
@@ -442,6 +443,12 @@ function App() {
       } else if (mod && e.shiftKey && !e.altKey && k === "n") {
         e.preventDefault();
         useStore.getState().newScratch(); // focuses the editor itself
+      } else if (e.ctrlKey && e.altKey && e.shiftKey && e.code === "KeyN") {
+        // New window (issue J.02): a blank one, project switcher up. e.code, because
+        // WebView2 treats Ctrl+Alt as AltGr (the Ctrl+Alt+Shift+T precedent); the branch
+        // above requires !e.altKey, so the two never collide.
+        e.preventDefault();
+        void newWindow().catch((err) => useStore.setState({ lastError: String(err) }));
       }
     };
     window.addEventListener("keydown", onKey);
@@ -866,6 +873,7 @@ function App() {
       <Help />
       <About />
       <TreeContextMenu />
+      <CiteContextMenu />
     </div>
   );
 }

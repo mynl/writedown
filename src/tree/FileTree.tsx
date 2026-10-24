@@ -3,6 +3,7 @@ import { openDefault, openShell, type Entry } from "../api";
 import { isBinaryExt, isExternalDoc } from "../editor/languages";
 import { rootEntry, useStore } from "../store";
 import { copyText } from "../clipboardOps";
+import { ContextMenu, type MenuEntry } from "../ContextMenu";
 import { revealTreeRow, selectedTreeRow } from "./scrollRow";
 
 function icon(entry: Entry, expanded: boolean): string {
@@ -313,14 +314,6 @@ export function TreeContextMenu() {
   const saveAs = useStore((s) => s.saveAs);
   const hasActive = useStore((s) => s.activePath != null);
 
-  // Any click or Escape dismisses the menu.
-  useEffect(() => {
-    if (!menu) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [menu, close]);
-
   if (!menu) return null;
   const { entry } = menu;
   // New file/folder land inside a folder, or beside a file (its parent directory).
@@ -328,58 +321,36 @@ export function TreeContextMenu() {
     ? entry.path
     : entry.path.slice(0, entry.path.length - entry.name.length).replace(/[\\/]+$/, "");
 
-  const item = (label: string, run: () => void, disabled = false) => (
-    <div
-      className={"ctx-item" + (disabled ? " disabled" : "")}
-      onClick={() => {
-        if (disabled) return;
-        close();
-        run();
-      }}
-    >
-      {label}
-    </div>
-  );
-
-  return (
-    <>
-      <div className="ctx-backdrop" onClick={close} onContextMenu={(e) => { e.preventDefault(); close(); }} />
-      <div
-        className="context-menu"
-        style={{
-          left: Math.min(menu.x, window.innerWidth - 176),
-          top: Math.min(menu.y, window.innerHeight - 210),
-        }}
-      >
-        {item("New File…", () => newFileIn(dir))}
-        {item("New Folder…", () => newFolderIn(dir))}
-        {item("Open Shell Here", () =>
-          openShell(dir).catch((e) => useStore.setState({ lastError: String(e) })),
-        )}
-        <div className="ctx-sep" />
-        {item(
-          entry.is_dir ? "Open in Explorer" : "Open in Default App",
-          () =>
-            // PDF/DjVu keep going through openFile, which routes to [tools] pdf_viewer —
-            // that setting exists precisely so those land in Sumatra. EVERYTHING else now
-            // goes to Windows. Previously this item called openExternal for every type,
-            // i.e. it handed images, zips and executables to the PDF viewer (issue A.17).
-            isExternalDoc(entry.path)
-              ? void useStore.getState().openFile(entry.path, false)
-              : void openDefault(entry.path).catch((e) =>
-                  useStore.setState({ lastError: String(e) }),
-                ),
-        )}
-        {item("Copy Path", () => copyText(entry.path, "path"))}
-        <div className="ctx-sep" />
-        {item("Rename…", () => renameEntry(entry))}
-        {item("Delete", () => void deleteEntry(entry))}
-        <div className="ctx-sep" />
-        {item("Save", () => void saveActive(), !hasActive)}
-        {item("Save As…", () => void saveAs(), !hasActive)}
-      </div>
-    </>
-  );
+  // The markup, backdrop and dismissal are the shared ContextMenu's (issue J.20); the
+  // default size estimate is the one this menu always used.
+  const items: MenuEntry[] = [
+    { label: "New File…", run: () => newFileIn(dir) },
+    { label: "New Folder…", run: () => newFolderIn(dir) },
+    {
+      label: "Open Shell Here",
+      run: () => void openShell(dir).catch((e) => useStore.setState({ lastError: String(e) })),
+    },
+    "separator",
+    {
+      label: entry.is_dir ? "Open in Explorer" : "Open in Default App",
+      run: () =>
+        // PDF/DjVu keep going through openFile, which routes to [tools] pdf_viewer —
+        // that setting exists precisely so those land in Sumatra. EVERYTHING else now
+        // goes to Windows. Previously this item called openExternal for every type,
+        // i.e. it handed images, zips and executables to the PDF viewer (issue A.17).
+        isExternalDoc(entry.path)
+          ? void useStore.getState().openFile(entry.path, false)
+          : void openDefault(entry.path).catch((e) => useStore.setState({ lastError: String(e) })),
+    },
+    { label: "Copy Path", run: () => copyText(entry.path, "path") },
+    "separator",
+    { label: "Rename…", run: () => renameEntry(entry) },
+    { label: "Delete", run: () => void deleteEntry(entry) },
+    "separator",
+    { label: "Save", run: () => void saveActive(), disabled: !hasActive },
+    { label: "Save As…", run: () => void saveAs(), disabled: !hasActive },
+  ];
+  return <ContextMenu x={menu.x} y={menu.y} items={items} onClose={close} />;
 }
 
 /** Project view: every project folder as a collapsible root (ST's FOLDERS list). */

@@ -33,6 +33,10 @@ pub struct Session {
     /// Per-document cursor/scroll memory, keyed by tab path. Missing in old sessions.
     #[serde(default)]
     pub positions: std::collections::HashMap<String, DocPos>,
+    /// Recently closed tabs, oldest first, newest last, at most 25 (issue J.14): the
+    /// Reopen Closed Tab picker and Ctrl+Shift+T survive a restart. Missing in old sessions.
+    #[serde(default)]
+    pub closed_tabs: Vec<String>,
 }
 
 /// A remembered spot in a document: selection endpoints (char offsets) + scrollTop (px).

@@ -127,7 +127,11 @@ const PLACEHOLDER: Record<NonNullable<PaletteMode>, string> = {
   commands: "Run a command…",
   symbols: "Search characters — name, \\latex, emoji keyword, or u+2299…",
   search: "Find in files — ripgrep arguments, Enter to run…",
+  closed: "Reopen a closed tab…",
 };
+
+/** Modes whose rows are files ({ name, path, rel }), drawn and filtered alike. */
+const isFileMode = (m: PaletteMode | null) => m === "files" || m === "quickfiles" || m === "closed";
 
 // Most-recently-used command ordering (ST behaviour): with an empty query the last-run
 // commands float to the top, selection on the most recent — so Ctrl+Shift+P, Enter
@@ -340,12 +344,36 @@ export function Palette() {
     }));
   }, [mode, editorSettings]);
 
+  // Reopen Closed Tab… (issue J.14): the closed-tab stack newest first, each file once,
+  // minus files already open again. Read when the mode opens; Enter changes the stack but
+  // also closes the palette, so the list never needs to follow it live.
+  const closedFiles = useMemo<FileItem[]>(() => {
+    if (mode !== "closed") return [];
+    const st = useStore.getState();
+    const key = (p: string) => p.replace(/\\/g, "/").toLowerCase();
+    const open = new Set(st.tabs.map((t) => key(t.path)));
+    const seen = new Set<string>();
+    const out: FileItem[] = [];
+    for (let i = st.closedStack.length - 1; i >= 0; i--) {
+      const p = st.closedStack[i];
+      const k = key(p);
+      if (seen.has(k) || open.has(k)) continue;
+      seen.add(k);
+      out.push({ name: p.split(/[\\/]/).pop() ?? p, path: p, rel: p });
+    }
+    return out;
+  }, [mode]);
+
   const results = useMemo<Ranked<PaletteItem>[]>(() => {
     if (mode === "symbols") return symbolResults(query, symbols, recentChars);
     if (mode === "files") return fuzzyRank(query, files, (f) => f.rel);
     if (mode === "quickfiles") {
       if (query === "") return quickFiles.map((f) => ({ item: f, positions: [], score: 0 }));
       return fuzzyRank(query, quickFiles, (f) => f.rel);
+    }
+    if (mode === "closed") {
+      if (query === "") return closedFiles.map((f) => ({ item: f, positions: [], score: 0 }));
+      return fuzzyRank(query, closedFiles, (f) => f.rel);
     }
     if (mode === "commands") {
       if (query === "") {
@@ -374,7 +402,7 @@ export function Palette() {
     }
     return [];
     // activePath/root/projFolders: the scope label and relative paths follow the workspace.
-  }, [mode, query, commands, files, projectItems, quickFiles, symbols, recentChars, searchResult, searchBusy, activePath, root, projFolders]);
+  }, [mode, query, commands, files, projectItems, quickFiles, closedFiles, symbols, recentChars, searchResult, searchBusy, activePath, root, projFolders]);
 
   // Anchor the selection on the first CHOOSABLE row whenever the results change — a new
   // query, the symbol table arriving, an Alt+Enter re-rank. The symbol list can start
@@ -448,7 +476,9 @@ export function Palette() {
       }
       return;
     }
-    if (mode === "files" || mode === "quickfiles") {
+    if (mode === "closed") {
+      void useStore.getState().reopenClosedPath((r.item as FileItem).path);
+    } else if (mode === "files" || mode === "quickfiles") {
       void openFile((r.item as FileItem).path, false);
     } else if (mode === "projects") {
       void useStore.getState().openProject((r.item as ProjItem).path);
@@ -645,13 +675,13 @@ export function Palette() {
               );
             }
             const label =
-              mode === "files" || mode === "quickfiles"
+              isFileMode(mode)
                 ? (r.item as FileItem).rel
                 : mode === "projects"
                   ? (r.item as ProjItem).name
                   : (r.item as Command).title;
             const id =
-              mode === "files" || mode === "quickfiles"
+              isFileMode(mode)
                 ? (r.item as FileItem).path
                 : mode === "projects"
                   ? (r.item as ProjItem).path
@@ -676,7 +706,9 @@ export function Palette() {
             <div className="palette-empty">
               {mode === "quickfiles" && (editorSettings?.quick_files ?? []).length === 0
                 ? "No quick files — add a quick_files list under [files] in config.toml"
-                : "No matches"}
+                : mode === "closed" && query === ""
+                  ? "No closed tabs to reopen"
+                  : "No matches"}
             </div>
           )}
         </div>

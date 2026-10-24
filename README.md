@@ -20,11 +20,11 @@
 
 Writedown edits **ordinary files on disk**. There is no vault, no hidden database[^auto], and
 no proprietary format. It never renames, moves, or reformats your files unless you ask.
-It makes no network requests[^net], keeps no telemetry, needs no account, and works offline.
+It makes no network requests on its own[^net], keeps no telemetry, needs no account, and works offline.
 
 [^auto]: One nuance: the optional word-completion dictionary counts frequent long words from documents you open, in a small JSON file under `~/.writedown`. It never leaves your machine; switch it off in config or delete the file.
 
-[^net]: With one exception: the preview fetches a remote image if your document links one. Writedown itself never calls out — no updater, no analytics.
+[^net]: Two exceptions, both yours to trigger: the preview fetches a remote image if your document links one, and the palette's *Help: Check for Updates* asks GitHub for the latest release (one request to `api.github.com`, nothing about you or your files; it opens the release page and installs nothing). There is no updater and no analytics.
 
 > Status: **actively developed** — the core editor, live preview, outline, BibTeX
 > citations, projects, and a Python-executing Rendered view are all in place. The

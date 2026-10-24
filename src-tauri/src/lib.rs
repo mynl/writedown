@@ -14,6 +14,7 @@ mod session;
 mod spelling;
 mod sublime;
 mod titlebar;
+mod update;
 mod watch;
 mod wordfreq;
 
@@ -31,11 +32,40 @@ fn launch_files(state: tauri::State<LaunchArgs>) -> Vec<String> {
     state.0.lock().map(|mut v| std::mem::take(&mut *v)).unwrap_or_default()
 }
 
+/// `--blank` was on the command line (issue J.02): skip the workspace restore and open the
+/// project switcher. Taken once, like the launch paths, so a hot reload cannot re-apply it.
+#[derive(Default)]
+struct LaunchBlank(std::sync::atomic::AtomicBool);
+
+#[tauri::command]
+fn launch_blank(state: tauri::State<LaunchBlank>) -> bool {
+    state.0.swap(false, std::sync::atomic::Ordering::SeqCst)
+}
+
+/// Ctrl+Alt+Shift+N (issue J.02): start another Writedown process with `--blank`, so the new
+/// window opens empty with the project switcher up instead of restoring the workspace this
+/// window already shows. Window routing never intercepts it, because a launch without file
+/// arguments always opens a new window (I.07 rule 4). The child is not waited on; it
+/// outlives this process. A spawn failure is returned to the caller to surface.
+#[tauri::command]
+fn new_window() -> Result<(), String> {
+    let exe = std::env::current_exe().map_err(|e| format!("new window: {e}"))?;
+    std::process::Command::new(exe)
+        .arg("--blank")
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| format!("new window: {e}"))
+}
+
 /// What the command line asked for (issue D.02).
 #[derive(Debug, PartialEq)]
 enum Cli {
     /// Open these path candidates (existence is checked separately, so this stays pure).
-    Open(Vec<String>),
+    /// `blank`: `--blank` was given (issue J.02).
+    Open { paths: Vec<String>, blank: bool },
     Version,
     Help,
 }
@@ -47,6 +77,7 @@ enum Cli {
 /// parsing, so a file genuinely named `-notes.md` is still reachable.
 fn parse_args<I: IntoIterator<Item = String>>(args: I) -> Cli {
     let mut paths = Vec::new();
+    let mut blank = false;
     let mut literal = false;
     for a in args {
         if literal {
@@ -57,11 +88,12 @@ fn parse_args<I: IntoIterator<Item = String>>(args: I) -> Cli {
             "--" => literal = true,
             "--version" | "-V" => return Cli::Version,
             "--help" | "-h" | "-?" | "/?" => return Cli::Help,
+            "--blank" => blank = true,
             _ if a.starts_with('-') => {} // someone else's switch; not ours to judge
             _ => paths.push(a),
         }
     }
-    Cli::Open(paths)
+    Cli::Open { paths, blank }
 }
 
 /// Keep the candidates that exist — files **and directories** (D.02: a directory argument
@@ -116,6 +148,8 @@ ARGS:
 OPTIONS:
     -h, --help       Print this help and exit
     -V, --version    Print the version and exit
+    --blank          Open an empty window with the project switcher up, instead of
+                     restoring the last workspace (what Ctrl+Alt+Shift+N runs)
     --               Treat every remaining argument as a path
 
 Opening FILES prefers an existing window: the window whose project contains the
@@ -153,10 +187,10 @@ fn attach_parent_console() {
 fn attach_parent_console() {}
 
 /// Handle `--version` / `--help` and exit before any window exists; otherwise return the
-/// paths to open.
-fn cli_paths_or_exit() -> Vec<String> {
+/// paths to open and whether `--blank` was given.
+fn cli_paths_or_exit() -> (Vec<String>, bool) {
     match parse_args(std::env::args().skip(1)) {
-        Cli::Open(paths) => existing_paths(paths),
+        Cli::Open { paths, blank } => (existing_paths(paths), blank),
         Cli::Version => {
             attach_parent_console();
             println!("writedown {}", env!("CARGO_PKG_VERSION"));
@@ -173,15 +207,25 @@ fn cli_paths_or_exit() -> Vec<String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // First thing, before any window or plugin exists: --version / --help print and exit.
-    let launch_paths = cli_paths_or_exit();
+    let (launch_paths, blank) = cli_paths_or_exit();
     // One window per file's project (issue I.07): a pure-file launch is offered to an
     // existing window and this process exits if one takes it. Best-effort by design —
     // any failure inside falls through to the ordinary new window below.
     if instance::route_to_existing(&launch_paths) {
         return;
     }
+    // The window itself comes from tauri.conf.json, whose `additionalBrowserArgs` (issue
+    // J.04) disables WebView2's HideCursorWhileTyping: runtime 152 and later can leave the
+    // pointer hidden over a dialog opened straight after typing (WebView2Feedback #5687),
+    // and Windows has "Hide pointer while typing" on by default. Setting the field replaces
+    // wry's own defaults, so it restates them (msWebOOUI, msPdfOOUI, msSmartScreenProtection)
+    // in the same, single --disable-features list. Every instance shares one WebView2 data
+    // folder, which refuses a second environment with different arguments: close every
+    // window, dev and release, before first launching a build that changes this. Drop
+    // HideCursorWhileTyping once Microsoft ships a fix.
     tauri::Builder::default()
         .manage(LaunchArgs(std::sync::Mutex::new(launch_paths)))
+        .manage(LaunchBlank(std::sync::atomic::AtomicBool::new(blank)))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         // Remembers window position/size/maximized between launches (~/.writedown-adjacent
@@ -235,6 +279,9 @@ pub fn run() {
             files::stat_paths,
             files::save_pasted_image,
             launch_files,
+            launch_blank,
+            new_window,
+            update::check_for_update,
             external::open_external,
             external::open_default,
             external::open_shell,
@@ -304,12 +351,22 @@ mod tests {
         v.iter().map(|s| s.to_string()).collect()
     }
 
+    fn open(paths: &[&str], blank: bool) -> Cli {
+        Cli::Open { paths: args(paths), blank }
+    }
+
     #[test]
     fn plain_paths_are_collected() {
-        assert_eq!(
-            parse_args(args(&["a.md", "C:/docs"])),
-            Cli::Open(args(&["a.md", "C:/docs"]))
-        );
+        assert_eq!(parse_args(args(&["a.md", "C:/docs"])), open(&["a.md", "C:/docs"], false));
+    }
+
+    #[test]
+    fn blank_flag_is_recognized() {
+        // Issue J.02: Ctrl+Alt+Shift+N spawns `writedown --blank`.
+        assert_eq!(parse_args(args(&["--blank"])), open(&[], true));
+        assert_eq!(parse_args(args(&["--blank", "a.md"])), open(&["a.md"], true));
+        // After `--` it is a file name like any other.
+        assert_eq!(parse_args(args(&["--", "--blank"])), open(&["--blank"], false));
     }
 
     #[test]
@@ -326,7 +383,7 @@ mod tests {
         // WebView2 and Tauri inject their own; refusing to start over one would be awful.
         assert_eq!(
             parse_args(args(&["--webview-flag=1", "a.md", "-Xsomething"])),
-            Cli::Open(args(&["a.md"]))
+            open(&["a.md"], false)
         );
     }
 
@@ -334,7 +391,7 @@ mod tests {
     fn double_dash_makes_everything_a_path() {
         assert_eq!(
             parse_args(args(&["--", "-notes.md", "--version"])),
-            Cli::Open(args(&["-notes.md", "--version"]))
+            open(&["-notes.md", "--version"], false)
         );
     }
 

@@ -198,6 +198,25 @@ export const openExternal = (path: string) => invoke<void>("open_external", { pa
  *  command line). Consumed once, after session restore. */
 export const launchFiles = () => invoke<string[]>("launch_files");
 
+/** True once if this process was started with `--blank` (issue J.02): skip the workspace
+ *  restore and open the project switcher. */
+export const launchBlank = () => invoke<boolean>("launch_blank");
+
+/** Start another Writedown window with `--blank` (Ctrl+Alt+Shift+N, issue J.02). */
+export const newWindow = () => invoke<void>("new_window");
+
+/** The latest GitHub release compared with this build (issue J.10). The app's one network
+ *  request, made only by the explicit "Help: Check for Updates" verb. */
+export type UpdateInfo = {
+  current: string;
+  latest: string;
+  /** The latest release relative to this build. */
+  latest_is: "newer" | "same" | "older";
+  /** Its release page, always on github.com. */
+  url: string;
+};
+export const checkForUpdate = () => invoke<UpdateInfo>("check_for_update");
+
 /** Open anything with its Windows default app — what a double-click in Explorer does.
  *  This is the general "open externally"; openExternal above is the PDF viewer specifically. */
 export const openDefault = (path: string) => invoke<void>("open_default", { path });
@@ -248,6 +267,8 @@ export type Session = {
   positions?: Record<string, { anchor: number; head: number; scroll: number }> | null;
   /** Hot exit: untitled:// scratch text by sentinel path (order lives in open_tabs). */
   scratch_contents: Record<string, string>;
+  /** Recently closed tabs, newest last, at most 25 (issue J.14). Missing in old sessions. */
+  closed_tabs?: string[] | null;
 };
 
 // Session is keyed per workspace; session.json holds the cold-start state (last
@@ -371,6 +392,9 @@ export type EditorSettings = {
    *  Session overrides come from the palette's Git: … On/Off verbs. */
   git_tree_marks: boolean | null;
   git_gutter_marks: boolean | null;
+  /** `[bibliography] viewer_url` (issue J.20): template for a citation's document page,
+   *  `{key}` replaced by the URL-encoded key. Null when unset. */
+  bibliography_viewer_url: string | null;
 };
 
 export const loadEditorSettings = () => invoke<EditorSettings>("load_editor_settings");

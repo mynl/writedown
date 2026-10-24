@@ -46,6 +46,7 @@ import {
   renderDocument,
   runCell,
   launchFiles,
+  launchBlank,
   listDirectories,
   saveLastWorkspace,
   saveProject,
@@ -143,7 +144,14 @@ let layoutRestore: { sidebar: boolean; outline: boolean; view: ViewMode } | null
 
 /** Which list the command palette is showing. `quickfiles` = the `[files] quick_files`
  *  pick-list (D.04); `symbols` = the Unicode character picker (D.12). */
-export type PaletteMode = "files" | "commands" | "projects" | "quickfiles" | "symbols" | "search";
+export type PaletteMode =
+  | "files"
+  | "commands"
+  | "projects"
+  | "quickfiles"
+  | "symbols"
+  | "search"
+  | "closed";
 
 // Paths Writedown just saved — used to ignore the watcher event our own write triggers.
 // Keyed by normPath: the watcher reports a path spelled from the WATCHED ROOT, which need
@@ -439,6 +447,8 @@ type AppState = {
   } | null;
   /** Right-click file-tree context menu (null = closed). */
   treeMenu: { x: number; y: number; entry: Entry } | null;
+  /** Right-click menu over a citation key in the editor (issue J.20; null = closed). */
+  citeMenu: { x: number; y: number; key: string } | null;
   viewMode: ViewMode;
   /** Which pane the preview column shows: the live preview or the last render snapshot. */
   previewTab: "live" | "rendered" | "diff";
@@ -581,6 +591,8 @@ type AppState = {
    *  closing one would destroy text that exists nowhere else (issue D.13). */
   closeAllTabs: () => Promise<void>;
   reopenClosed: () => Promise<void>;
+  /** Reopen one entry of the closed-tab stack, chosen in the picker (issue J.14). */
+  reopenClosedPath: (path: string) => Promise<void>;
   nextTab: (dir: 1 | -1) => void;
   editActive: (content: string) => void;
   /** Write edited content to the tab at `path` — the document the editor view was
@@ -649,6 +661,8 @@ type AppState = {
   /** File-tree context menu + operations (all explicit user commands). */
   openTreeMenu: (x: number, y: number, entry: Entry) => void;
   closeTreeMenu: () => void;
+  openCiteMenu: (x: number, y: number, key: string) => void;
+  closeCiteMenu: () => void;
   /** Prompt for a name and create a new file/folder inside `dir`. */
   newFileIn: (dir: string) => void;
   newFolderIn: (dir: string) => void;
@@ -775,6 +789,7 @@ export const useStore = create<AppState>((set, get) => ({
   gitGutterOverride: null,
   prompt: null,
   treeMenu: null,
+  citeMenu: null,
   viewMode: "split",
   previewTab: "live",
   rendered: {},
@@ -848,6 +863,19 @@ export const useStore = create<AppState>((set, get) => ({
       } catch {
         /* stat failed — fall through to the plain restore */
       }
+    }
+    // `--blank` (Ctrl+Alt+Shift+N, issue J.02) with nothing to open: an empty window with
+    // the project switcher up. Without this the restore below reopens the workspace of the
+    // window the key was pressed in, so both windows would share one project's session.
+    let blank = false;
+    try {
+      blank = await launchBlank();
+    } catch {
+      /* older backend — no such flag */
+    }
+    if (blank && launch.length === 0) {
+      get().openPalette("projects");
+      return;
     }
     if (filesOnly.length > 0) {
       const proj = await firstProjectContaining(get().projects, filesOnly[0]);
@@ -948,6 +976,9 @@ export const useStore = create<AppState>((set, get) => ({
     if (s.active_tab && get().tabs.some((t) => t.path === s.active_tab)) {
       set({ activePath: s.active_tab });
     }
+    // This workspace's recently closed tabs (issue J.14). Every caller has just reset the
+    // stack for the workspace switch, so this replaces rather than merges.
+    set({ closedStack: (s.closed_tabs ?? []).filter((p) => typeof p === "string") });
   },
 
   openQuickFile: async () => {
@@ -1472,6 +1503,18 @@ export const useStore = create<AppState>((set, get) => ({
       await get().openFile(path);
     } catch {
       /* file no longer exists */
+    }
+  },
+
+  // The Reopen Closed Tab picker's Enter (issue J.14): open the chosen file and take every
+  // entry for it off the stack. A file that has gone is dropped with a status note.
+  reopenClosedPath: async (path) => {
+    const k = normPath(path);
+    set((s) => ({ closedStack: s.closedStack.filter((p) => normPath(p) !== k) }));
+    try {
+      await get().openFile(path, false);
+    } catch {
+      get().showStatusMessage(`${baseName(path)} no longer exists (removed from closed tabs)`);
     }
   },
 
@@ -2354,6 +2397,8 @@ export const useStore = create<AppState>((set, get) => ({
   // ---- File-tree context menu + operations --------------------------------------
   openTreeMenu: (x, y, entry) => set({ treeMenu: { x, y, entry } }),
   closeTreeMenu: () => set({ treeMenu: null }),
+  openCiteMenu: (x, y, key) => set({ citeMenu: { x, y, key } }),
+  closeCiteMenu: () => set({ citeMenu: null }),
 
   newFileIn: (dir) => {
     get().openPrompt("New file", "name.md", async (name) => {
@@ -2781,7 +2826,25 @@ export const sessionSnapshot = (s: AppState): Session => ({
   // Deliberately NOT in the fingerprint (it would change on every cursor move) — positions
   // ride along whenever something else triggers a write, plus the close-time flush.
   positions: snapshotDocPositions(s.tabs.filter((t) => !t.preview).map((t) => t.path)),
+  closed_tabs: recentClosed(s.closedStack),
 });
+
+/** How many recently closed tabs a session keeps (issue J.14). */
+const CLOSED_TABS_KEPT = 25;
+
+/** The closed-tab stack as persisted: each path once (its latest close wins), newest last,
+ *  at most CLOSED_TABS_KEPT. */
+export function recentClosed(stack: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (let i = stack.length - 1; i >= 0 && out.length < CLOSED_TABS_KEPT; i--) {
+    const k = normPath(stack[i]);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(stack[i]);
+  }
+  return out.reverse();
+}
 
 /** O(1) change fingerprint for the debounced session save — scratch text is represented
  *  by scratchRev rather than inlined, so typing never stringifies the buffer. */
@@ -2795,6 +2858,9 @@ export const sessionFingerprint = (s: AppState): string =>
     sb: s.sidebarVisible,
     ob: s.outlineVisible,
     v: s.scratchRev,
+    // A close changes this, so it triggers the debounced save (issue J.14). Bounded: the
+    // stack only grows by closes, and only its persisted tail matters.
+    c: s.closedStack.slice(-CLOSED_TABS_KEPT),
   });
 
 // Every error that reaches a strip also reaches the log, from ONE place. The sites that

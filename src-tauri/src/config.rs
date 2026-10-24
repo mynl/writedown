@@ -81,6 +81,11 @@ font_size = 10
 
 [bibliography]
 default_file = ""
+# viewer_url: where right-click "Open Document for @key", the palette's "Citation: Open
+# Document (PDF/DjVu)" and the hover card's Open link send a citation key. {key} is replaced
+# by the URL-encoded key; the default browser opens the page (Writedown makes no request).
+# Unset: those entries are absent.
+# viewer_url = "http://127.0.0.1:9124/view/{key}"
 
 [render]
 # Render Document: run {python} cells through this interpreter (explicit path — no
@@ -383,6 +388,11 @@ pub struct EditorSettings {
     /// The palette's Git: … On/Off verbs override these for the session only.
     git_tree_marks: Option<bool>,
     git_gutter_marks: Option<bool>,
+    /// `[bibliography] viewer_url` (issue J.20): a URL template for a citation's document,
+    /// `{key}` replaced by the URL-encoded key in the frontend. Unset, the "Open Document"
+    /// menu item and hover link are absent. Writedown makes no request: the default browser
+    /// opens the URL.
+    bibliography_viewer_url: Option<String>,
 }
 
 /// Parse `[editor]`/`[outline]`/`[tree]` font settings from `config.toml` (spec §5).
@@ -538,6 +548,11 @@ pub fn load_editor_settings(app: tauri::AppHandle) -> Result<EditorSettings, Str
             .map(|n| n as u64),
         git_tree_marks: val.get("git").and_then(|g| g.get("tree_marks")).and_then(|v| v.as_bool()),
         git_gutter_marks: val.get("git").and_then(|g| g.get("gutter_marks")).and_then(|v| v.as_bool()),
+        bibliography_viewer_url: val
+            .get("bibliography")
+            .and_then(|b| b.get("viewer_url"))
+            .and_then(string)
+            .filter(|s| !s.trim().is_empty()),
     })
 }
 

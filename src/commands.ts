@@ -9,11 +9,27 @@
 import { type StateCommand } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { forceLinting } from "@codemirror/lint";
-import { addToDictionary, configPath, extractBibEntries, logError, openShell, restartKernel } from "./api";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import {
+  addToDictionary,
+  checkForUpdate,
+  configPath,
+  extractBibEntries,
+  logError,
+  newWindow,
+  openShell,
+  restartKernel,
+  type UpdateInfo,
+} from "./api";
 import { SCRATCH_PREFIX, isScratch, mergedProjects, useStore } from "./store";
 import { getActiveView } from "./editor/editorView";
 import { isCsv, isImageDoc, isMarkdownDoc } from "./editor/languages";
-import { CITE_RE, CROSSREF_PREFIX, openCitationPicker } from "./editor/citations";
+import {
+  CITE_RE,
+  CROSSREF_PREFIX,
+  openCitationDocumentAtCaret,
+  openCitationPicker,
+} from "./editor/citations";
 import { isProsePos } from "./editor/prose";
 import { renumberOrderedList } from "./editor/lists";
 import { reformatTables } from "./editor/tables";
@@ -416,6 +432,38 @@ export function appCommands(): Command[] {
     { id: "next-tab", title: "Next Tab", action: "nextTab", run: () => s().nextTab(1) },
     { id: "prev-tab", title: "Previous Tab", action: "prevTab", run: () => s().nextTab(-1) },
     { id: "reopen-tab", title: "Reopen Closed Tab", key: "Ctrl+Shift+T", run: () => void s().reopenClosed() },
+    {
+      // Issue J.14: pick from the closed tabs, newest first; they persist with the session.
+      id: "reopen-tab-picker",
+      title: "Reopen Closed Tab…",
+      action: "reopenClosedPicker",
+      run: () => s().openPalette("closed"),
+    },
+    {
+      // Issue J.02: a separate Writedown process, started with --blank.
+      id: "new-window",
+      title: "Window: New Window",
+      key: "Ctrl+Alt+Shift+N",
+      run: () => void newWindow().catch((e) => useStore.setState({ lastError: String(e) })),
+    },
+    {
+      // Issue J.20: the reference's PDF or DjVu, through [bibliography] viewer_url.
+      id: "citation-open-document",
+      title: "Citation: Open Document (PDF/DjVu)",
+      action: "openCitationDocument",
+      run: () => {
+        const { activePath } = useStore.getState();
+        const view = getActiveView();
+        if (!view || !activePath || !isMarkdownDoc(activePath)) return;
+        openCitationDocumentAtCaret(view);
+      },
+    },
+    {
+      // Issue J.10: the app's one network request, on this explicit verb only.
+      id: "check-for-updates",
+      title: "Help: Check for Updates",
+      run: () => void checkForUpdates(),
+    },
     // ---- Projects (ST-style) ----
     {
       id: "proj-add-folder",
@@ -501,8 +549,31 @@ const COVERED_ACTIONS = new Set([
   "toggleFullscreen", "toggleDistractionFree", "openSpellDictionary", "reloadSpellDictionary",
   "render", "renderCell", "build", "nextTab", "prevTab", "commandPalette", "bold", "italic",
   "reformatTable", "renumberList", "insertDateTime", "continueList", "copyFilePath",
-  "copyFileName", "insertCitation",
+  "copyFileName", "insertCitation", "reopenClosedPicker", "openCitationDocument",
 ]);
+
+/** "Help: Check for Updates" (issue J.10): compare with the latest GitHub release and,
+ *  when it is newer, open its page in the browser. Nothing is downloaded or installed. */
+async function checkForUpdates(): Promise<void> {
+  const st = useStore.getState();
+  st.showStatusMessage("checking for updates…");
+  let info: UpdateInfo;
+  try {
+    info = await checkForUpdate();
+  } catch (e) {
+    st.showStatusMessage("check for updates failed (see the error strip)");
+    useStore.setState({ lastError: String(e) });
+    return;
+  }
+  if (info.latest_is === "same") {
+    st.showStatusMessage(`up to date (${info.current})`);
+  } else if (info.latest_is === "older") {
+    st.showStatusMessage(`this build (${info.current}) is newer than the latest release (${info.latest})`);
+  } else {
+    st.showStatusMessage(`${info.latest} is available: opening the release page`);
+    void openUrl(info.url).catch((e) => useStore.setState({ lastError: `open release page — ${String(e)}` }));
+  }
+}
 
 /** One palette verb per registry action without an explicit entry (issue G.05): Find,
  *  Go to Line, folds, editor zoom, case changes, sort lines, cursors, … — with the live

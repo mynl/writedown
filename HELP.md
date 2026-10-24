@@ -39,7 +39,8 @@ overwritten). The canonical copy is `HELP.md` in the repository.
   **Quick Files: Open from List…** searches the `[files] quick_files` list — the handful of
   files you come back to constantly, matched on name or folder, in the order you list them.
 - **From a terminal**: `writedown notes.md`, `writedown .` or `writedown C:\docs`,
-  `writedown --version`, `writedown --help`. A folder argument opens as **its own
+  `writedown --version`, `writedown --help`, and `writedown --blank` for an empty window
+  with the project switcher up. A folder argument opens as **its own
   project**, replacing the restored workspace rather than joining it — and its tabs and
   layout are remembered against that folder, so running it again resumes where you were.
   Nothing is written to disk; the project stays unsaved until you name it.
@@ -94,6 +95,12 @@ Delete.
 - Drag tabs to reorder. **Ctrl+W** saves and closes; **Ctrl+Shift+T** reopens the
   last closed tab. **Ctrl+Shift+N** opens a new scratch buffer (in memory until you
   Save As).
+- Palette **Reopen Closed Tab…** lists the tabs you closed, newest first: type to filter,
+  Enter reopens one. The list is kept per project with the session (the last 25), so it
+  and Ctrl+Shift+T survive a restart.
+- **Ctrl+Alt+Shift+N** (palette **Window: New Window**) opens a second, empty Writedown
+  window with the project switcher up: Enter opens a project in it, Esc leaves it empty.
+  It may open exactly on top of the current window, which keeps its saved geometry.
 - Scratch buffers belong to the workspace you opened them in and come back with it.
   Palette → **"Name Temporary File…"** replaces `Untitled-3` with a name of your own;
   the buffer is still unsaved — Save As is what puts it on disk.
@@ -250,6 +257,15 @@ you want one — **Ctrl+Shift+C** is Copy File Path); hovering a key shows the t
 A key may contain `&` (`@S&P2019`); it still ends on a letter or digit, so a sentence's
 final period stays outside it.
 
+**Open a reference's document.** Set `[bibliography] viewer_url` in config.toml to a page
+that shows a reference by key, with `{key}` where the key goes, for example
+`"http://127.0.0.1:9124/view/{key}"` for archivum. Then right-click a citation key for
+**Open Document for @key** (or **Copy @key**), use palette **Citation: Open Document
+(PDF/DjVu)** with the caret on a key, or click **Open ↗** in the hover card. The page opens
+in your browser; Writedown itself makes no request. Browsers cannot show DjVu, so a DjVu
+document arrives as a download. Without `viewer_url` none of this appears and right-click
+gives the usual menu.
+
 **Cross-references complete too, from the document itself.** Type **`@-`** for every
 Quarto label in the file, or **`@fig-`** / **`@tbl-`** / **`@thm-`** / … for a family.
 Matching is order-free, so `@-flood tbl` finds `tbl-flood`. Both ways of writing a
@@ -365,4 +381,7 @@ Everything shown there is also written to `~/.writedown/logs/writedown.log`.
 ## More
 
 - **About Writedown** (palette): version and components.
+- **Help: Check for Updates** (palette) asks GitHub for the latest release, says whether
+  this build is current, and opens the release page if a newer one exists; you run the
+  installer yourself. It is the only request Writedown itself makes, and only when you ask.
 - Issues and source: <https://github.com/mynl/writedown>.

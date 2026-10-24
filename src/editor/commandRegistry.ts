@@ -40,7 +40,7 @@ import {
 } from "./textOps";
 import { reflowParagraph } from "./reflow";
 import { toggleWordWrap } from "./wrap";
-import { openCitationPicker } from "./citations";
+import { openCitationDocumentAtCaret, openCitationPicker } from "./citations";
 import { copyActiveName, copyActivePath } from "../clipboardOps";
 import { codePointLabel, loadSymbols } from "./symbols";
 import { useStore } from "../store";
@@ -166,6 +166,8 @@ export const COMMAND_REGISTRY: Record<string, RegistryEntry> = {
   // Unbound by default (issue G.16): typing `@` opens the same picker, and Ctrl+Shift+C
   // went to Copy File Path. Here so `[keys]` can give it a key and the palette lists it.
   insertCitation: { run: openCitationPicker, label: "Insert citation (opens the @ picker)", category: "Markdown" },
+  // Issue J.20; unbound by default, so `[keys]` can give it one.
+  openCitationDocument: { run: openCitationDocumentAtCaret, label: "Open the cited document (PDF/DjVu) for the key at the caret", category: "Markdown" },
 
   // Files & app
   copyFilePath: { run: act(copyActivePath), label: "Copy file path", category: "Files & app" },
@@ -216,4 +218,6 @@ export const COMMAND_REGISTRY: Record<string, RegistryEntry> = {
   prevTab: { run: act(() => s().nextTab(-1)), label: "Previous tab", category: "Tabs & palette" },
   filePalette: { run: act(() => s().openPalette("files")), label: "Quick open file", category: "Tabs & palette" },
   commandPalette: { run: act(() => s().openPalette("commands")), label: "Command palette", category: "Tabs & palette" },
+  // Issue J.14: no default key; Ctrl+Shift+T keeps its one-step reopen.
+  reopenClosedPicker: { run: act(() => s().openPalette("closed")), label: "Reopen closed tab…", category: "Tabs & palette" },
 };

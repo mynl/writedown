@@ -17,7 +17,8 @@
         "minWidth": 640,
         "minHeight": 400,
         "visible": false,
-        "backgroundColor": "#1e1e1e"
+        "backgroundColor": "#1e1e1e",
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,HideCursorWhileTyping"
       }
     ],
     "security": {

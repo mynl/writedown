@@ -1219,6 +1219,17 @@ body {
   border: 1px solid var(--border);
   border-radius: 6px;
 }
+/* The hover card's "Open ↗" link to the reference's document (issue J.20). */
+.cite-open {
+  display: inline-block;
+  margin-top: 4px;
+  color: var(--accent, #4a90d9);
+  cursor: pointer;
+  text-decoration: none;
+}
+.cite-open:hover {
+  text-decoration: underline;
+}
 
 /* Citation dropdown: wider, and matched characters highlighted. */
 .cm-tooltip.cm-tooltip-autocomplete {

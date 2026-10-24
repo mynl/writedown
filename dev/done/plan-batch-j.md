@@ -727,7 +727,7 @@ first launching that build (J.04).
 
 ## Execution log
 
-Started 2026-10-24 against 2.25.0 (`d4b4bac`). Versions as assigned: [quick-fixes] 2.26.0.
+Started 2026-10-24 against 2.25.0 (`d4b4bac`). Versions as assigned: [quick-fixes] 2.26.0, [windows-tabs-citations] 2.27.0.
 
 ### Review, 2026-10-24
 
@@ -760,3 +760,16 @@ Divergences:
 - **[stale-mark] one color for both themes**, `--stale-red: #d93a3a` on `:root`. The Rendered tab's tooltip also shows the live key before the first render.
 - **[project-switcher-order]** `projectsByRecency` normalizes paths with the store's `normPath` (trailing slash stripped too); the footer keeps its `recentProjects` subscription so it re-renders when the list loads.
 - Left for the author to see in the running app: the error strip with a long TOML error (J.12), the red square and badge (J.15), the switcher in daily use (J.13), the `&` keys against the real .bib, hover card and `@` completion (J.22), and colored glyphs in the editor (J.21).
+
+### [windows-tabs-citations] 2.27.0
+
+All five items landed. Gates: `npm run build`, `cargo test` (74 passed, 8 ignored; the two update tests and the `--blank` parse test are new), `madge` (none), smoke-boot as before. A harness pass checks `citeKeyAt` (an `&` key, its span, a crossref, prose) and the URL template's encoding (`S&P2019` → `S%26P2019`); the GitHub reply's shape was checked with the same curl command (tag v2.25.0, a github.com `html_url`).
+
+Divergences:
+
+- **[new-window]** `Cli::Open` became `{ paths, blank }`; `--blank` applies only to a launch with no paths, so `--blank a.md` is an ordinary file launch. The spawned child gets null stdio and is not waited on.
+- **[pointer-flag]** the comment sits beside `tauri::Builder::default()` (see the review note); the JSON line is exactly the plan's.
+- **[update-check]** curl also gets `-S -f --proto =https`: an HTTP error such as GitHub's rate limit fails with its reason instead of being parsed as JSON, and only https is allowed. The command returns `latest_is` ("newer", "same", "older") rather than a bare "is newer" flag, so the three messages need no string compare in the frontend. An `html_url` not on https github.com falls back to the releases page. README.md's two no-network sentences now name the verb.
+- **[closed-tabs]** the persisted list is each path once (its latest close wins), newest last, capped at 25 (`recentClosed`); the fingerprint carries the stack's tail. Preview tabs still enter the stack through `closeTab`, as before. The registry action `reopenClosedPicker` has an explicit palette verb so the title reads "Reopen Closed Tab…".
+- **[citation-document]** with `viewer_url` unset the whole custom menu is absent, not just its Open item, so right-click is exactly as before; with it set, the menu appears only over a key in prose (the hover card keeps its old behavior, no prose test). "Open Document" is also a registry action, `openCitationDocument`, unbound, so `[keys]` can bind it. `CiteContextMenu` sits in `src/ContextMenu.tsx` beside the generic `ContextMenu`; the tree menu keeps its fixed 176 by 210 size estimate, so it lands where it always did.
+- Left for the author in the running app: the new window (and `writedown --blank`), the pointer over Save As with "Hide pointer while typing" back on, the update verb's message, the closed-tab picker across a restart, and the citation menu, verb and hover link against archivum (including whether the template wants `{key}` or `@{key}`).
