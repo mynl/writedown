@@ -89,6 +89,8 @@ export const DEFAULT_KEYS: { key: string; action: string }[] = [
   { key: "Ctrl+K Ctrl+T", action: "titleCase" },
   { key: "Ctrl+T", action: "transposeChars" },
   { key: "Alt+T", action: "transposeWords" },
+  // Emacs M-z zap-to-char (issue J.01): Alt+Z, then the character to delete through.
+  { key: "Alt+Z", action: "zapToChar" },
   // Sublime's sort-lines pair. Case-insensitive and numeric ("item2" before "item10");
   // the case-sensitive and from-caret-column variants are palette-only.
   { key: "F9", action: "sortLines" },

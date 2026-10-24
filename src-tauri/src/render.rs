@@ -647,12 +647,14 @@ pub(crate) fn split_document(text: &str) -> (FrontMatter, Vec<Segment>) {
 
 // ---- citation / crossref passes --------------------------------------------------------
 
-/// Mirror of the editor's CITE_RE (citations.ts). The regex crate has no lookbehind, so
-/// the boundary guard is a leading group that must be re-emitted on replacement.
+/// Mirror of the editor's CITE_RE (citePatterns.ts). The regex crate has no lookbehind, so
+/// the boundary guard is a leading group that must be re-emitted on replacement. `&` is
+/// allowed inside a key (issue J.22: `@S&P2019`); a key still ends on a letter or digit,
+/// so `Smith & Jones` and trailing sentence punctuation stay outside it.
 fn cite_re() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
     RE.get_or_init(|| {
-        Regex::new(r"(^|[^\p{L}\p{N}_@/])@([\p{L}\p{N}](?:[\p{L}\p{N}_:.-]*[\p{L}\p{N}])?)")
+        Regex::new(r"(^|[^\p{L}\p{N}_@/])@([\p{L}\p{N}](?:[\p{L}\p{N}_:.&-]*[\p{L}\p{N}])?)")
             .unwrap()
     })
 }
@@ -852,7 +854,7 @@ fn cite_link(e: &BibEntry, key: &str, suppress: bool, parens_year: bool) -> Stri
 }
 
 fn cite_missing(key: &str) -> String {
-    format!("<span class=\"cite-missing\">@{key}</span>")
+    format!("<span class=\"cite-missing\">@{}</span>", html_escape(key))
 }
 
 /// One `[…@…]` group: `;`-split items, each with exactly one `-?@key`; prefix/suffix text
@@ -1041,7 +1043,13 @@ fn references_section(cited: &[String], refs: &HashMap<&str, &BibEntry>) -> Opti
             }
             s.push_str(&format!("<em>{}</em>.", html_escape(&e.container)));
         }
-        out.push_str(&format!("<p class=\"ref-entry\" id=\"ref-{}\">{}</p>\n", e.key, s));
+        // Escaped: a key may contain `&` (issue J.22). The browser decodes the attribute,
+        // so the id still equals the `#ref-<key>` fragment the citation links point at.
+        out.push_str(&format!(
+            "<p class=\"ref-entry\" id=\"ref-{}\">{}</p>\n",
+            html_escape(&e.key),
+            s
+        ));
     }
     out.push_str("</div>");
     Some(out)
@@ -1517,6 +1525,7 @@ mod tests {
             @article{Smith2020, author = {Smith, Jane}, title = {On Things},
                      year = {2020}, journal = {Journal of Things}}
             @misc{Adams2019, author = {Adams, Ann}, title = {Alpha Notes}, year = {2019}}
+            @techreport{S&P2019, author = {Ratings, Standard}, title = {Credit Notes}, year = {2019}}
             "#,
         )
     }
@@ -1605,6 +1614,31 @@ mod tests {
     fn trailing_punctuation_excluded() {
         let out = run("See @Smith2020.");
         assert!(out.contains("[Smith (2020)](#ref-Smith2020)."), "{out}");
+    }
+
+    // -- keys containing `&` (issue J.22) --
+
+    #[test]
+    fn ampersand_key_linked() {
+        let out = run("Rated by @S&P2019 last year.");
+        assert!(out.contains("[Ratings (2019)](#ref-S&P2019)"), "{out}");
+        // The reference entry's id is escaped in the HTML; the browser decodes it back to
+        // `ref-S&P2019`, the fragment the link carries.
+        assert!(out.contains("id=\"ref-S&amp;P2019\""), "{out}");
+    }
+
+    #[test]
+    fn spaced_ampersand_is_not_a_key() {
+        let out = run("Smith & Jones agree.");
+        assert_eq!(out.trim(), "Smith & Jones agree.");
+    }
+
+    #[test]
+    fn ampersand_key_excludes_trailing_period() {
+        // AT&T2001 is not in the test bibliography: the whole key, and only the key, is
+        // flagged, and the sentence's period stays outside the span.
+        let out = run("see @AT&T2001.");
+        assert!(out.contains("<span class=\"cite-missing\">@AT&amp;T2001</span>."), "{out}");
     }
 
     #[test]

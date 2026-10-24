@@ -2749,6 +2749,18 @@ export function mergedProjects(s: AppState): { name: string; path: string }[] {
   );
 }
 
+/** `mergedProjects` ordered most recently used first, by rank in `recentProjects`; a
+ *  project never opened from this machine's recents sorts after every recent one, keeping
+ *  its merged order. Shared by the footer dropdown and the Ctrl+Alt+P switcher (issue
+ *  J.13), so the two can never disagree. The sort is stable, so a fuzzy query over this
+ *  list breaks score ties by recency. */
+export function projectsByRecency(s: AppState): { name: string; path: string }[] {
+  const rank = new Map(s.recentProjects.map((p, i) => [normPath(p), i] as const));
+  return mergedProjects(s).sort(
+    (a, b) => (rank.get(normPath(a.path)) ?? 1e9) - (rank.get(normPath(b.path)) ?? 1e9),
+  );
+}
+
 /** The key a session is stored under: the project file when one is open, else the root. */
 export const sessionKey = (s: AppState): string | null =>
   s.projectFile ?? (s.projFolders.length > 0 ? s.projFolders.join("|") : s.root);

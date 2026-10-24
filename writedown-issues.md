@@ -407,7 +407,8 @@ The log shows the grid's unhandled rejection (reading `[0]` of undefined in `get
 - **[version-history]:** J.07 tiered history, stats, prune and line history.
 - **[python-help]:** J.18 help tab.
 - **[html-preview]:** J.11 HTML outline and sealed preview.
-- **Still open:** nothing. All rulings are in; the plan is `dev/plan-batch-j.md` (2026-10-24), six bumps in the order [quick-fixes], [windows-tabs-citations], [python-environments], [version-history], [python-help], [html-preview]. Nothing built yet.
+- **Still open:** nothing. All rulings are in; the plan is `dev/done/plan-batch-j.md` (2026-10-24), six bumps in the order [quick-fixes], [windows-tabs-citations], [python-environments], [version-history], [python-help], [html-preview].
+- **Built:** [quick-fixes] in 2.26.0 (2026-10-24). Divergences are in the plan's execution log.
 
 ***
 

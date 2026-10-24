@@ -33,6 +33,8 @@ overwritten). The canonical copy is `HELP.md` in the repository.
   the sidebar updates when you save the file. An empty label removes it.
 - **Ctrl+Shift+C** copies the active document's full path (palette: Copy File Path /
   Copy File Name); right-click a file in the tree → **Copy Path**.
+- **Ctrl+Alt+P** switches project, most recently used first, with the current project
+  last: **Ctrl+Alt+P, Enter** goes back to the previous project, as Alt+Tab does.
 - **Ctrl+Shift+Q** opens your quick file (`[files] quick_file` in config). Palette
   **Quick Files: Open from List…** searches the `[files] quick_files` list — the handful of
   files you come back to constantly, matched on name or folder, in the order you list them.
@@ -110,6 +112,15 @@ a selection wraps the selection — press `$` twice for `$$…$$`.
   With no match, Tab does nothing and says so in the status bar; it never indents
   the paragraph. (Tab at the start of a line, or after whitespace, still indents.)
 - **Ctrl+Shift+D** duplicates the selection when there is one, otherwise the line.
+- **Alt+Z** zaps to a character, as Emacs M-z does: press Alt+Z, then a character, and
+  everything from the caret through the next occurrence of that character is deleted,
+  across lines if need be. Every cursor does its own; one Ctrl+Z restores. Esc (or any
+  key that is not a character) cancels. Nothing goes to the clipboard.
+- **Ctrl+Alt+Shift+T** formats the table at the caret: the first press aligns it (wide),
+  the next press compacts it (narrow, `| a | b |` over `|--|:--|`), and the next widens it
+  again. Narrow resets the delimiter dashes, which Pandoc reads as relative column
+  widths, so set those by hand afterwards if they matter. A selection formats every
+  table it touches; outside a table the status bar says so.
 - **F9** sorts the selected lines — case-insensitive and numeric, so `item2` sorts before
   `item10`; **Shift+F9** sorts in reverse. The palette adds case-sensitive and
   from-caret-column variants (the latter pairs with Alt+drag column selection).
@@ -118,6 +129,7 @@ a selection wraps the selection — press `$` twice for `$$…$$`.
   List items keep their marker with a hanging indent and never merge; `>` quotes keep
   their prefix on every line. Fences, tables, headings, front matter and display math
   are left alone (a status-bar note says so). Ctrl+Shift+J (join lines) is its inverse.
+  A definition (`: text`) wraps like a list item, and its term line is never touched.
 - **Quotes close themselves in code** — inside `{python}` cells and code spans, and in
   code files: `"` gives you `""` with the caret between, and a third quote completes a
   `"""` docstring pair. Same for `'`. Prose is untouched (apostrophes stay apostrophes),
@@ -146,7 +158,9 @@ a selection wraps the selection — press `$` twice for `$$…$$`.
   sidebars). Palette "Enter Plain View" is editor-only — no sidebar, outline or preview,
   and not full screen. Exiting any of them restores the layout you had.
 - **Snippets**: palette → "Insert: …" (aligned `$$` environment, `{python}` cell,
-  and any you define under `[snippets]` in config, with tab-through fields).
+  and any you define under `[snippets]` in config, with tab-through fields). With a
+  selection, "Insert: Python Code Cell" wraps the whole lines it touches, the fences on
+  lines of their own, and leaves the code exactly as it was (backslashes and tabs too).
 - **Trailing whitespace** is trimmed on save by default, Sublime semantics
   (`[editor] trim_trailing_whitespace`; CSV/TSV are never trimmed).
 - Font size: **Ctrl+wheel** or Ctrl+= / Ctrl+- (session-only zoom, with configured
@@ -203,9 +217,13 @@ refused; nothing here ever writes to a file (no replace — that is Sublime's jo
   space needs `%20` or angle brackets (strict CommonMark).
 - CSV/TSV tabs show a data grid instead (search, filters, sort, export).
 - The **Rendered** tab runs your Quarto-style `{python}` cells: palette → "Render
-  Document". The interpreter comes from `[render] python`, overridable per document
-  with `wd-python:` in the YAML front matter. A Stale badge appears when the buffer
-  has changed since the render.
+  Document" or **Ctrl+Shift+Enter**. The interpreter comes from `[render] python`,
+  overridable per document with `wd-python:` in the YAML front matter. When the buffer
+  has changed since the render, a red square sits before "Rendered" in the tab and the
+  status row shows a red Stale badge. **Ctrl+Shift+B** runs the `[build]` command, from
+  anywhere, as in Sublime.
+- **Definition lists**, Pandoc's syntax: a term on its own line, then `: definition`
+  (or `~ definition`) on the next. Quarto's `:::` divs are unaffected.
 - Python cell syntax and duplicate Quarto labels are checked automatically (~½ s
   after you stop typing) and appear as squiggles.
 - A cell's last value is shown the way Jupyter would: HTML from its MIME bundle or
@@ -229,6 +247,8 @@ Then type **@** and a few letters for ranked autocomplete (palette → **Insert:
 Citation…** opens the same picker; give it a key under `[keys]` as `insertCitation` if
 you want one — **Ctrl+Shift+C** is Copy File Path); hovering a key shows the title.
 "Extract Citations" collects the entries a document cites into a temporary `.bib`.
+A key may contain `&` (`@S&P2019`); it still ends on a letter or digit, so a sentence's
+final period stays outside it.
 
 **Cross-references complete too, from the document itself.** Type **`@-`** for every
 Quarto label in the file, or **`@fig-`** / **`@tbl-`** / **`@thm-`** / … for a family.
@@ -290,8 +310,15 @@ outline. The outline pane doubles as a click-to-jump table of contents.
 character has at once — its Unicode name, its LaTeX command, emoji keywords, and
 aliases — so `tick`, `check`, `\checkmark` and `u+2713` all find ✓, and `odot`,
 `circle dot` and `\odot` all find ⊙. With an empty query it lists your most-used
-characters, then browsing groups (checks & crosses, circles & dots, arrows, Greek,
-operators, relations, set & logic, sub/superscripts, dashes & quotes).
+characters, then browsing groups (colors, checks & crosses, circles & dots, arrows,
+Greek, operators, relations, set & logic, sub/superscripts, dashes & quotes).
+
+- **Colored characters** are in the table: squares, circles, hearts, pictographs,
+  emoticons, transport symbols. Try `red square`, `green circle`, `rocket`. A character
+  such as ⚠ or ❤ is plain text by default and turns colored only when followed by the
+  invisible U+FE0F; each has a second row, "warning sign (color)", that inserts the
+  colored form. Colored emoji show in the preview and in HTML; a PDF through LaTeX needs
+  a color emoji font configured, or they come out blank.
 
 - **Enter** inserts the character, **Shift+Enter** inserts its LaTeX command
   (`\odot`) instead, **Alt+Enter** inserts and keeps the picker open for a run.

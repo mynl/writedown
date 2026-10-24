@@ -7,8 +7,10 @@
 // find them there.)
 
 /** A `@key` in prose: `@` at a word boundary (not an email or `a/@b`), key starting and
- *  ending on an alphanumeric so a trailing `.`/`-`/`:` (sentence punctuation) is excluded. */
-export const CITE_RE = /(?<![\p{L}\p{N}_@/])@([\p{L}\d](?:[\p{L}\d_:.\-]*[\p{L}\d])?)/gu;
+ *  ending on an alphanumeric so a trailing `.`/`-`/`:` (sentence punctuation) is excluded.
+ *  `&` is allowed inside a key (issue J.22: `@S&P2019`), and only `&` of Pandoc's wider
+ *  punctuation set, by ruling. Mirrored by `cite_re()` in render.rs. */
+export const CITE_RE = /(?<![\p{L}\p{N}_@/])@([\p{L}\d](?:[\p{L}\d_:.&\-]*[\p{L}\d])?)/gu;
 
 /** Quarto cross-reference families (`@sec-…`, `@fig-…`, `@tbl-…`, `@eq-…`, theorem-likes,
  *  …) are document crossrefs, not bibliography citations — they must never be looked up in

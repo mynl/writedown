@@ -36,6 +36,7 @@ import {
   titleCase,
   transposeWords,
   upperCase,
+  zapToChar,
 } from "./textOps";
 import { reflowParagraph } from "./reflow";
 import { toggleWordWrap } from "./wrap";
@@ -71,7 +72,7 @@ function addCursorVertically(dir: -1 | 1): StateCommand {
 
 // Identify the character at the cursor (issue G.09): code point, Unicode name, LaTeX
 // command(s), UTF-8 bytes — shown in the status bar. A selected character wins; a bare
-// cursor reads the character after it. The table carries 2,322 characters; anything else
+// cursor reads the character after it. The table carries 4,191 characters; anything else
 // still gets its code point and bytes. The reverse of the picker's u+XXXX prefill.
 async function describeCharAt(v: EditorView): Promise<void> {
   const st = useStore.getState();
@@ -148,6 +149,7 @@ export const COMMAND_REGISTRY: Record<string, RegistryEntry> = {
   titleCase: { run: titleCase, label: "Title case selection", category: "Editing" },
   transposeChars: { run: transposeChars, label: "Transpose characters", category: "Editing" },
   transposeWords: { run: transposeWords, label: "Transpose words", category: "Editing" },
+  zapToChar: { run: zapToChar, label: "Zap to character (Emacs M-z)", category: "Editing" },
   sortLines: { run: sortLines, label: "Sort lines", category: "Editing" },
   sortLinesReverse: { run: sortLinesReverse, label: "Sort lines (reverse)", category: "Editing" },
   sortLinesFromColumn: { run: sortLinesFromColumn, label: "Sort lines (from caret column)", category: "Editing" },
@@ -160,7 +162,7 @@ export const COMMAND_REGISTRY: Record<string, RegistryEntry> = {
   continueList: { run: listEnterTight, label: "Continue list item (single newline)", category: "Markdown" },
   bold: { run: toggleBold, label: "Bold (**…**)", category: "Markdown" },
   italic: { run: toggleItalic, label: "Italic (*…*)", category: "Markdown" },
-  reformatTable: { run: reformatTables, label: "Reformat table(s)", category: "Markdown" },
+  reformatTable: { run: reformatTables, label: "Reformat table at caret (wide; again for narrow)", category: "Markdown" },
   // Unbound by default (issue G.16): typing `@` opens the same picker, and Ctrl+Shift+C
   // went to Copy File Path. Here so `[keys]` can give it a key and the palette lists it.
   insertCitation: { run: openCitationPicker, label: "Insert citation (opens the @ picker)", category: "Markdown" },

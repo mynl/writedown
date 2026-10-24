@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -10,7 +10,7 @@ import {
   sessionKey,
   sessionSnapshot,
   useStore,
-  mergedProjects,
+  projectsByRecency,
 } from "./store";
 import { FileTree, onTreeKeyDown, ProjectTree, TreeContextMenu } from "./tree/FileTree";
 import { OpenFiles } from "./OpenFiles";
@@ -24,6 +24,7 @@ import { ImageViewer } from "./preview/ImageViewer";
 import { Outline } from "./outline/Outline";
 import { isCsv, isImageDoc, isMarkdownDoc, syntaxNameForPath } from "./editor/languages";
 import { getActiveView } from "./editor/editorView";
+import { keyForAction } from "./editor/keymap";
 import { runScopeHandlers } from "@codemirror/view";
 import { openSearchPanel } from "@codemirror/search";
 import { reformatTables } from "./editor/tables";
@@ -230,6 +231,13 @@ function App() {
   const setPreviewTab = useStore((s) => s.setPreviewTab);
   const rendered = useStore((s) => s.rendered);
   const renderBusy = useStore((s) => s.renderBusy);
+  // The live render key for the hints below (issue J.15): Ctrl+Shift+Enter unless [keys]
+  // rebinds `render`. "Ctrl+B" was hard-coded here long after Ctrl+B became Bold.
+  const userKeys = useStore((s) => s.editorSettings?.keys);
+  const renderKey = useMemo(
+    () => keyForAction(userKeys).get("render") ?? "palette → Render Document",
+    [userKeys],
+  );
   const cursorLine = useStore((s) => s.cursorLine);
   const cursorCol = useStore((s) => s.cursorCol);
   const selChars = useStore((s) => s.selChars);
@@ -293,6 +301,10 @@ function App() {
   const diffOpen = !!diffAgainst && diffAgainst.for === activeDoc?.path && !img && !csv;
   const splitMode = showEditor && (showPreview || diffOpen); // both panes mounted → show the drag divider
   const ren = activeDoc ? rendered[activeDoc.path] : undefined;
+  // The buffer differs from the text that was rendered (issue J.15): the same compare the
+  // Stale badge always made, now shared by the badge and the Rendered tab's red square.
+  // Hidden while a render runs, which settles the question either way.
+  const renderStale = !!ren && !!activeDoc && !renderBusy && activeDoc.content !== ren.source;
   // The doc's folder, so relative `![](img/…)` links resolve in the preview. Scratch
   // buffers have no folder on disk, so their relative images can't resolve.
   const docDir =
@@ -361,10 +373,12 @@ function App() {
         e.preventDefault();
         void saveActive();
       } else if (mod && e.shiftKey && k === "b") {
-        // Build = Render Document (ST's Ctrl+Shift+B) — here too so it works from tree/preview
-        // focus. (Ctrl+B is now Markdown bold, handled by the editor keymap.)
+        // Ctrl+Shift+B is Build (the [build] command) everywhere, as in Sublime and the
+        // editor keymap (issue J.15); this branch only catches it when focus is in the tree
+        // or a text input, which the editor keymap never sees. It used to render here,
+        // which gave the key two meanings. Render is Ctrl+Shift+Enter.
         e.preventDefault();
-        void useStore.getState().renderActive();
+        void useStore.getState().runBuild();
       } else if (mod && k === "w") {
         e.preventDefault();
         const { activePath: ap, saveDoc, closeTab } = useStore.getState();
@@ -379,7 +393,9 @@ function App() {
         // Reformat Markdown table(s) — Sublime's Ctrl+Alt+Shift+T. App-level fallback because
         // WebView2 treats Ctrl+Alt as AltGr, which stops the editor keymap (Mod-Alt-Shift-t)
         // from matching; run it here against the active Markdown view instead. (e.code, not
-        // e.key, so an AltGr-remapped character can't defeat the match.)
+        // e.key, so an AltGr-remapped character can't defeat the match.) The command posts
+        // its own "not in a table" note (issue J.09), so this path and the palette verb
+        // report the same thing.
         e.preventDefault();
         const view = getActiveView();
         const { activePath: ap } = useStore.getState();
@@ -480,13 +496,10 @@ function App() {
 
   // Project quick-switch dropdown (issue 3): the known projects (deduped/disambiguated
   // like the palette), ordered most-recently-used first. Projects only, not folders.
-  const projSwitch = (() => {
-    const key = (p: string) => p.replace(/\\/g, "/").toLowerCase();
-    const rank = new Map(recentProjects.map((p, i) => [key(p), i] as const));
-    return [...mergedProjects(useStore.getState())].sort(
-      (a, b) => (rank.get(key(a.path)) ?? 1e9) - (rank.get(key(b.path)) ?? 1e9),
-    );
-  })();
+  // The `recentProjects` subscription above is what re-renders this when the list loads;
+  // the order itself is the shared projectsByRecency (issue J.13).
+  void recentProjects;
+  const projSwitch = projectsByRecency(useStore.getState());
 
   return (
     <div className={"app" + (dropActive ? " drop-active" : "")}>
@@ -688,8 +701,17 @@ function App() {
                             className={"panel-tab" + (effectiveTab === "rendered" ? " active" : "")}
                             onClick={() => setPreviewTab("rendered")}
                             disabled={!ren && !renderBusy}
-                            title={!ren && !renderBusy ? "Nothing rendered yet — press Ctrl+B" : undefined}
+                            title={
+                              !ren && !renderBusy
+                                ? `Nothing rendered yet: ${renderKey} renders`
+                                : renderStale
+                                  ? `Edited since this render: ${renderKey} re-renders`
+                                  : undefined
+                            }
                           >
+                            {/* Red square while stale (issue J.15): drawn in CSS, not an
+                                emoji, so size and color hold in both themes and any font. */}
+                            {renderStale && <span className="stale-mark" />}
                             Rendered
                           </button>
                         </>
@@ -735,7 +757,7 @@ function App() {
                           </span>
                           {renderBusy ? (
                             <span className="render-busy">rendering…</span>
-                          ) : activeDoc.content !== ren.source ? (
+                          ) : renderStale ? (
                             <span className="stale-badge">Stale</span>
                           ) : null}
                         </div>
@@ -752,7 +774,7 @@ function App() {
                       <div className="placeholder">
                         {renderBusy
                           ? "Rendering…"
-                          : "No render yet — press Ctrl+B (or Ctrl+Shift+P → Render Document)."}
+                          : `No render yet: press ${renderKey} (or Ctrl+Shift+P → Render Document).`}
                       </div>
                     )}
                   </div>

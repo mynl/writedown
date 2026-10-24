@@ -1,7 +1,9 @@
 // Small text-manipulation commands drawn from the Sublime keymap that CodeMirror 6 doesn't ship
 // as built-ins. StateCommand style (like lists.ts / tables.ts); single undo step; multi-cursor
 // aware where it makes sense. Registered in commandRegistry.ts; bind them via config [keys].
-import { EditorSelection, type StateCommand } from "@codemirror/state";
+import { EditorSelection, Prec, type StateCommand } from "@codemirror/state";
+import { EditorView, type Command } from "@codemirror/view";
+import { useStore } from "../store";
 
 // Uppercase / lowercase each non-empty selection.
 function transformCase(fn: (s: string) => string): StateCommand {
@@ -92,6 +94,99 @@ export const transposeWords: StateCommand = ({ state, dispatch }) => {
   );
   return true;
 };
+
+// ---- zap to character (issue J.01: Emacs M-z) -----------------------------------------
+// Alt+Z arms a one-shot capture; the next key typed is the target. Module state is enough:
+// there is one editor, and the capture lives only between two keystrokes.
+let zapArmed = false;
+const ZAP_PROMPT = "Zap to: type a character (Esc cancels)";
+// Keys that are only on the way to a character (Shift for `)`, AltGr's Ctrl+Alt): seeing
+// one must not cancel the capture.
+const ZAP_PASS = new Set(["Shift", "Control", "Alt", "AltGraph", "Meta", "CapsLock", "Dead"]);
+
+function disarmZap(): void {
+  zapArmed = false;
+  const st = useStore.getState();
+  if (st.statusMessage === ZAP_PROMPT) useStore.setState({ statusMessage: null });
+}
+
+/** Arm the capture (Alt+Z). Emacs `zap-to-char`: the next character typed is the target,
+ *  and each cursor deletes from its head THROUGH the next occurrence, the target included. */
+export const zapToChar: Command = () => {
+  zapArmed = true;
+  useStore.getState().showStatusMessage(ZAP_PROMPT);
+  return true;
+};
+
+/** Delete from each cursor's head through the next `target`, searching forward across
+ *  lines to the end of the document. A selection is ignored, as in Emacs: the search starts
+ *  at the range's head and the range collapses. Cursors with no match are left alone;
+ *  overlapping spans (two cursors before one target) merge into one deletion. One
+ *  transaction, one undo step; nothing goes to the clipboard (as with Ctrl+K Ctrl+K). */
+function zapTo(view: EditorView, target: string): void {
+  const { state } = view;
+  const text = state.doc.toString();
+  const spans: { from: number; to: number }[] = [];
+  const hit = state.selection.ranges.map((r) => {
+    const at = text.indexOf(target, r.head);
+    if (at < 0) return false;
+    spans.push({ from: r.head, to: at + target.length });
+    return true;
+  });
+  if (!spans.length) {
+    useStore.getState().showStatusMessage(`Zap: “${target}” does not occur after the cursor`);
+    return;
+  }
+  spans.sort((a, b) => a.from - b.from);
+  const merged: { from: number; to: number }[] = [];
+  for (const s of spans) {
+    const last = merged[merged.length - 1];
+    if (last && s.from <= last.to) last.to = Math.max(last.to, s.to);
+    else merged.push({ ...s });
+  }
+  const changes = state.changes(merged);
+  const ranges = state.selection.ranges.map((r, i) =>
+    hit[i] ? EditorSelection.cursor(changes.mapPos(r.head, -1)) : r.map(changes),
+  );
+  view.dispatch({
+    changes,
+    selection: EditorSelection.create(ranges, state.selection.mainIndex),
+    scrollIntoView: true,
+    userEvent: "delete.zap",
+  });
+}
+
+/** The capture itself: ahead of every keymap while armed. A single-character `e.key` is
+ *  the target, so shifted and AltGr characters work (`)` is Shift+0). Esc cancels. Any other
+ *  key (arrows, Enter, Tab, a plain Ctrl chord) cancels and is then handled normally; so
+ *  does losing focus. Added to the editor's extension list ahead of the keymap. */
+export const zapCapture = Prec.highest(
+  EditorView.domEventHandlers({
+    keydown(e, view) {
+      if (!zapArmed) return false;
+      if (ZAP_PASS.has(e.key)) return false;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        disarmZap();
+        return true;
+      }
+      // AltGr arrives as Ctrl+Alt, so only a Ctrl WITHOUT Alt marks a command chord.
+      const chord = (e.ctrlKey && !e.altKey) || e.metaKey;
+      if (e.key.length === 1 && !chord) {
+        e.preventDefault();
+        disarmZap();
+        zapTo(view, e.key);
+        return true;
+      }
+      disarmZap();
+      return false;
+    },
+    blur() {
+      if (zapArmed) disarmZap();
+      return false;
+    },
+  }),
+);
 
 /** The Sublime sort-lines family (issue I.03): sort the whole lines spanned by the primary
  *  selection, one undo step. Numeric collation is deliberate — `item2` sorts before `item10`.

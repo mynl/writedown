@@ -4,8 +4,9 @@
 //
 // Markdown awareness: list items keep their prefix and get a hanging indent, and a reflow
 // never merges adjacent items; blockquote prefixes (nested included) are stripped, re-applied
-// per line. Fences, table rows, headings, YAML front matter and display math are refused with
-// a status-bar note and no change — those constructs are line-structured, not prose.
+// per line. Fences, table rows, headings, definition terms, YAML front matter and display math
+// are refused with a status-bar note and no change — those constructs are line-structured,
+// not prose. A `: ` definition wraps like a list item.
 import type { StateCommand } from "@codemirror/state";
 import { mathRegions } from "./math";
 import { useStore } from "../store";
@@ -13,8 +14,12 @@ import { useStore } from "../store";
 export const DEFAULT_FILL_COLUMN = 80;
 
 // A list-item opener: bullet or ordered marker, optional checkbox. Its matched width sets
-// the hanging indent for the item's continuation lines.
-const LIST_RE = /^(\s*)(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?/;
+// the hanging indent for the item's continuation lines. A definition (issue J.06), `:` or
+// `~` then whitespace, counts as an item: it wraps under its own text and never merges
+// into a neighbor. Quarto's `:::` fences do not match, since the marker needs whitespace.
+const LIST_RE = /^(\s*)(?:[-*+:~]|\d+[.)])\s+(?:\[[ xX]\]\s+)?/;
+// The definition marker alone, to recognize the term line above it.
+const DEF_RE = /^\s*[:~]\s+/;
 // One or more `>` quote markers (nested `> >` matches whole) with their spacing.
 const QUOTE_RE = /^\s*(?:>\s?)+/;
 
@@ -55,6 +60,18 @@ function classifyLines(lines: string[]): LineKind[] {
     else if (/^\s*#{1,6}\s/.test(line)) kinds[i] = "special"; // ATX heading
     else if (/^\s*[|+]/.test(line)) kinds[i] = "special"; // table row / grid-table rule
     else kinds[i] = "text";
+  }
+  // A definition term (issue J.06): a one-line paragraph (a blank line, a construct or the
+  // top above it, as Pandoc requires) directly above a `: ` / `~ ` definition. Special,
+  // like a heading, so it is never joined to its definition and never wrapped itself (a
+  // term split over two lines is no longer a term). The blank-line condition keeps a
+  // definition's lazy continuation line, followed by a second `: ` definition, as text.
+  for (let k = 0; k + 1 < lines.length; k++) {
+    if (kinds[k] !== "text" || kinds[k + 1] !== "text") continue;
+    if (k > 0 && kinds[k - 1] === "text") continue;
+    const here = lines[k].replace(QUOTE_RE, "");
+    if (LIST_RE.test(here)) continue;
+    if (DEF_RE.test(lines[k + 1].replace(QUOTE_RE, ""))) kinds[k] = "special";
   }
   return kinds;
 }
@@ -144,7 +161,9 @@ export const reflowParagraph: StateCommand = ({ state, dispatch }) => {
   }
 
   if (paras.length === 0) {
-    st.showStatusMessage("Reflow: nothing to wrap here (fence, table, heading, front matter, or math)");
+    st.showStatusMessage(
+      "Reflow: nothing to wrap here (fence, table, heading, definition term, front matter, or math)",
+    );
     return true;
   }
 

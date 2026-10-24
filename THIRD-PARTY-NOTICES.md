@@ -2,15 +2,15 @@
 
 Writedown is MIT-licensed (see `LICENSE`). It is built on the open-source
 components below, listed with the license each declares. Generated offline from
-Cargo.lock and the installed node_modules by `scripts/generate-notices.ps1` on 2026-07-21;
+Cargo.lock and the installed node_modules by `scripts/generate-notices.ps1` on 2026-10-24;
 regenerate with `pwsh scripts/generate-notices.ps1` after a dependency change.
 
 ## Summary by license
 
 | License | Components |
 |---|--:|
-| MIT | 195 |
-| MIT OR Apache-2.0 | 161 |
+| MIT | 198 |
+| MIT OR Apache-2.0 | 167 |
 | ISC | 38 |
 | Apache-2.0 OR MIT | 34 |
 | Unicode-3.0 | 18 |
@@ -43,7 +43,7 @@ regenerate with `pwsh scripts/generate-notices.ps1` after a dependency change.
 | Zlib | 1 |
 | Zlib OR Apache-2.0 OR MIT | 1 |
 
-## Rust crates (325)
+## Rust crates (331)
 
 | Crate | Version | License |
 |---|---|---|
@@ -330,23 +330,29 @@ regenerate with `pwsh scripts/generate-notices.ps1` after a dependency change.
 | winapi-util | 0.1.11 | Unlicense OR MIT |
 | window-vibrancy | 0.6.0 | Apache-2.0 OR MIT |
 | windows | 0.56.0 | MIT OR Apache-2.0 |
+| windows | 0.58.0 | MIT OR Apache-2.0 |
 | windows | 0.61.3 | MIT OR Apache-2.0 |
 | windows_x86_64_msvc | 0.48.5 | MIT OR Apache-2.0 |
 | windows_x86_64_msvc | 0.52.6 | MIT OR Apache-2.0 |
 | windows_x86_64_msvc | 0.53.1 | MIT OR Apache-2.0 |
 | windows-collections | 0.2.0 | MIT OR Apache-2.0 |
 | windows-core | 0.56.0 | MIT OR Apache-2.0 |
+| windows-core | 0.58.0 | MIT OR Apache-2.0 |
 | windows-core | 0.61.2 | MIT OR Apache-2.0 |
 | windows-future | 0.2.1 | MIT OR Apache-2.0 |
 | windows-implement | 0.56.0 | MIT OR Apache-2.0 |
+| windows-implement | 0.58.0 | MIT OR Apache-2.0 |
 | windows-implement | 0.60.2 | MIT OR Apache-2.0 |
 | windows-interface | 0.56.0 | MIT OR Apache-2.0 |
+| windows-interface | 0.58.0 | MIT OR Apache-2.0 |
 | windows-interface | 0.59.3 | MIT OR Apache-2.0 |
 | windows-link | 0.1.3 | MIT OR Apache-2.0 |
 | windows-link | 0.2.1 | MIT OR Apache-2.0 |
 | windows-numerics | 0.2.0 | MIT OR Apache-2.0 |
 | windows-result | 0.1.2 | MIT OR Apache-2.0 |
+| windows-result | 0.2.0 | MIT OR Apache-2.0 |
 | windows-result | 0.3.4 | MIT OR Apache-2.0 |
+| windows-strings | 0.1.0 | MIT OR Apache-2.0 |
 | windows-strings | 0.4.2 | MIT OR Apache-2.0 |
 | windows-sys | 0.48.0 | MIT OR Apache-2.0 |
 | windows-sys | 0.59.0 | MIT OR Apache-2.0 |
@@ -373,7 +379,7 @@ regenerate with `pwsh scripts/generate-notices.ps1` after a dependency change.
 | zerovec-derive | 0.11.3 | Unicode-3.0 |
 | zmij | 1.0.21 | MIT |
 
-## npm packages (182, production tree)
+## npm packages (185, production tree)
 
 | Package | Version | License |
 |---|---|---|
@@ -408,6 +414,7 @@ regenerate with `pwsh scripts/generate-notices.ps1` after a dependency change.
 | @codemirror/language-data | 6.5.2 | MIT |
 | @codemirror/legacy-modes | 6.5.3 | MIT |
 | @codemirror/lint | 6.9.7 | MIT |
+| @codemirror/merge | 6.12.2 | MIT |
 | @codemirror/search | 6.7.1 | MIT |
 | @codemirror/state | 6.7.1 | MIT |
 | @codemirror/theme-one-dark | 6.1.3 | MIT |
@@ -536,6 +543,7 @@ regenerate with `pwsh scripts/generate-notices.ps1` after a dependency change.
 | linkify-it | 5.0.2 | MIT |
 | lodash-es | 4.18.1 | MIT |
 | markdown-it | 14.3.0 | MIT |
+| markdown-it-deflist | 4.0.0 | MIT |
 | markdown-it-footnote | 4.0.0 | MIT |
 | markdown-it-task-lists | 2.1.1 | ISC |
 | markdown-it-texmath | 1.0.0 | MIT |
@@ -553,6 +561,7 @@ regenerate with `pwsh scripts/generate-notices.ps1` after a dependency change.
 | roughjs | 4.6.6 | MIT |
 | rw | 1.3.3 | BSD-3-Clause |
 | safer-buffer | 2.1.2 | MIT |
+| style-mod | 4.1.3 | MIT |
 | stylis | 4.4.0 | MIT |
 | tinyexec | 1.2.4 | MIT |
 | ts-dedent | 2.3.0 | MIT |

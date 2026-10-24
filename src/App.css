@@ -7,6 +7,9 @@
   --statusbar-bg: #f0f0f0;
   --statusbar-fg: #4a4a4a;
   --mono: "Cascadia Mono", "Consolas", ui-monospace, monospace;
+  /* The stale-render red (issue J.15). One value for both themes on purpose: it reads on
+     white and on the dark pane header alike. */
+  --stale-red: #d93a3a;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -598,7 +601,11 @@ body {
 /* Error strips — full width, above the panes, impossible to miss (issue G.06). The
    message comes first and WRAPS: a TOML parse error is several lines and must be readable
    in full, so there is no nowrap/ellipsis here; past ~6 lines the strip scrolls. */
+/* flex 0 0 auto: never shrink (issue J.12). As a scroll container its automatic minimum
+   height is zero, so with the default `flex-shrink: 1` tall panes squeezed it to a sliver;
+   it now keeps its content height up to max-height, then scrolls. */
 .error-bar {
+  flex: 0 0 auto;
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -830,6 +837,20 @@ body {
 .preview ol {
   padding-left: 1.5em;
 }
+/* Definition lists (issue J.06): term semi-bold, definition indented under it. A loose
+   list wraps each definition in <p>; its top margin is dropped so the pair stays close. */
+.preview dl {
+  margin: 0.6em 0;
+}
+.preview dt {
+  font-weight: 600;
+}
+.preview dd {
+  margin: 0 0 0.4em 1.5em;
+}
+.preview dd > p:first-child {
+  margin-top: 0;
+}
 .preview hr {
   border: none;
   border-top: 1px solid var(--border);
@@ -904,13 +925,27 @@ body {
 .render-busy {
   color: var(--accent, #7aa2f7);
 }
+/* Red, to match the Rendered tab's stale square (issue J.15). */
 .stale-badge {
   padding: 0 6px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--stale-red);
   border-radius: 3px;
   font-size: 10px;
   letter-spacing: 0.04em;
-  color: var(--muted);
+  color: var(--stale-red);
+}
+/* The stale square before "Rendered" in the tab label (issue J.15): a CSS box rather than
+   an emoji, so its size and color are the same in both themes and every font. */
+.stale-mark {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 5px;
+  border-radius: 1px;
+  background: var(--stale-red);
+  vertical-align: middle;
+  position: relative;
+  top: -1px;
 }
 .preview .render-summary {
   margin: 0 0 0.2em;

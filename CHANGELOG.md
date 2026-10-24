@@ -5,6 +5,43 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [2.26.0] - 2026-10-24
+
+Batch J, [quick-fixes].
+
+### Added
+
+- **Alt+Z zaps to a character** (J.01), Emacs M-z: Alt+Z, then a character, deletes from
+  the caret through its next occurrence, per cursor, one undo step. Esc cancels.
+- **Markdown definition lists** (J.06), Pandoc syntax (`Term` then `: definition`), in
+  Preview and Rendered via markdown-it-deflist. Alt+Q wraps a definition like a list item
+  and never joins the term to it.
+- **Colored characters in the Unicode picker** (J.21): seven more blocks (squares,
+  circles, hearts, pictographs, emoticons, transport), a "(color)" twin for each
+  text-style emoji such as ⚠ and ❤ that inserts it with U+FE0F, and a Colors group
+  first. 4,191 rows; first open parses in about 4 ms, a search keystroke takes under 2 ms.
+
+### Changed
+
+- **Ctrl+Alt+Shift+T formats only the table at the caret** (J.09), unpadded delimiter rows,
+  and toggles wide then narrow (`|--|:--|`) on repeated presses. Outside a table the status
+  bar says so. Narrow resets Pandoc's dash-count column widths, by design.
+- **Ctrl+Alt+P lists projects most recent first** (J.13), the current one last, so
+  Ctrl+Alt+P then Enter returns to the previous project. The footer dropdown shares the order.
+- **A stale render shows a red square before "Rendered"** (J.15) and the Stale badge turns
+  red. The hints that said "press Ctrl+B" (now Bold) show the live render key, and
+  **Ctrl+Shift+B is Build everywhere**; from the file tree it used to render.
+- **Insert: Python Code Cell wraps whole lines verbatim** (J.17): fences on their own lines,
+  backslashes (`\{`) and tabs in the selection unchanged, one undo step.
+- THIRD-PARTY-NOTICES.md regenerated: markdown-it-deflist, plus @codemirror/merge and the
+  windows 0.58 crates that had landed since July.
+
+### Fixed
+
+- **The error strip no longer shrinks to a sliver** (J.12) when the panes' content is tall.
+- **Citation keys containing `&`** (J.22), such as `@S&P2019`, are recognized by the
+  not-found check, the hover card, `@` completion and Render, and link to their reference.
+
 ## [2.25.0] - 2026-09-24
 
 ### Changed

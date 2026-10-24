@@ -19,6 +19,7 @@ import {
   keymapWarnings,
 } from "./keymap";
 import { autoCloseQuotes } from "./autoQuotes";
+import { zapCapture } from "./textOps";
 import { codePointTab } from "./codePointTab";
 import { citationExtensions } from "./citations";
 import { wordCompleteKeymap, wordCompleteAutocomplete } from "./wordComplete";
@@ -175,6 +176,9 @@ export function Editor({ path, content }: { path: string; content: string }) {
       // match to the bottom viewport edge; y:"center" lands it mid-view and leaves an
       // already-near-center match alone, so short documents don't twitch.
       search({ top: true, scrollToMatch: (range) => EditorView.scrollIntoView(range, { y: "center" }) }),
+      // Alt+Z's one-shot capture (issue J.01). Ahead of the keymap compartment, so while
+      // armed it sees the target key before any binding does; inert otherwise.
+      zapCapture,
       ...editingExtras,
       // Editing keymap in a Compartment so config [keys] changes reconfigure it live (see the
       // effect below). Non-reactive read, like word wrap, so a reconfigure never rebuilds here.

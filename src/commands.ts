@@ -188,7 +188,7 @@ export function appCommands(): Command[] {
     { id: "copy-file-path", title: "Copy File Path", action: "copyFilePath", run: copyActivePath },
     { id: "copy-file-name", title: "Copy File Name", action: "copyFileName", run: copyActiveName },
     { id: "renumber-list", title: "Renumber Ordered List", action: "renumberList", run: onMarkdownView(renumberOrderedList) },
-    { id: "reformat-tables", title: "Reformat Markdown Table(s)", action: "reformatTable", run: onMarkdownView(reformatTables) },
+    { id: "reformat-tables", title: "Reformat Markdown Table (wide, again for narrow)", action: "reformatTable", run: onMarkdownView(reformatTables) },
     { id: "format-bold", title: "Bold (surround with **…**)", action: "bold", run: onMarkdownView(toggleBold) },
     { id: "format-italic", title: "Italic (surround with *…*)", action: "italic", run: onMarkdownView(toggleItalic) },
     {

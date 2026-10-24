@@ -98,9 +98,9 @@ async function labelCompletions(
 }
 
 async function citationSource(context: CompletionContext): Promise<CompletionResult | null> {
-  // Allow `'` in the query so `@'mild'pric` (exact terms) reaches the matcher, and `-` so
-  // the crossref triggers below are seen.
-  const match = context.matchBefore(/@[\p{L}\d_:.\-']*/u);
+  // Allow `'` in the query so `@'mild'pric` (exact terms) reaches the matcher, `-` so the
+  // crossref triggers below are seen, and `&` so typing `@S&` keeps the picker open (J.22).
+  const match = context.matchBefore(/@[\p{L}\d_:.&\-']*/u);
   if (!match || (match.from === match.to && !context.explicit)) return null;
   if (!inProse(context)) return null;
 
@@ -211,7 +211,8 @@ function retriggerTab(view: EditorView): boolean {
   if (completionStatus(view.state) === "active") return false;
   const head = view.state.selection.main.head;
   const line = view.state.doc.lineAt(head);
-  if (/@[\p{L}\d_:.\-']*$/u.test(line.text.slice(0, head - line.from))) {
+  // Same character class as citationSource's matchBefore, `&` included (J.22).
+  if (/@[\p{L}\d_:.&\-']*$/u.test(line.text.slice(0, head - line.from))) {
     startCompletion(view);
     return true;
   }

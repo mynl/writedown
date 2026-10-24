@@ -8,7 +8,7 @@ import {
 } from "./api";
 import { appCommands, type Command } from "./commands";
 import { fuzzyMatch, fuzzyRank, type Ranked } from "./fuzzy";
-import { mergedProjects, useStore, type PaletteMode } from "./store";
+import { projectsByRecency, useStore, type PaletteMode } from "./store";
 import {
   clearPendingJump,
   getActiveView,
@@ -230,7 +230,7 @@ export function Palette() {
   const [query, setQuery] = useState("");
   const [files, setFiles] = useState<FileItem[]>([]);
   const [sel, setSel] = useState(0);
-  // The 86 KB symbol table is imported dynamically on first open and never again, so
+  // The 147 KB symbol table is imported dynamically on first open and never again, so
   // nothing about D.12 costs anything until Ctrl+Shift+U is pressed.
   const [symbols, setSymbols] = useState<{
     entries: SymbolEntry[];
@@ -314,10 +314,20 @@ export function Palette() {
     () => (mode === "commands" ? keyForAction(editorSettings?.keys) : null),
     [mode, editorSettings],
   );
-  const projectItems = useMemo<ProjItem[]>(
-    () => (mode === "projects" ? mergedProjects(useStore.getState()) : []),
-    [mode, projects, recents],
-  );
+  // Most recently used first, with the CURRENT project moved to the end (issue J.13): the
+  // previous project is then first and preselected, so Ctrl+Alt+P, Enter flips back to it
+  // the way Alt+Tab does. A typed query ranks by score; the stable sort keeps recency
+  // order among equal scores.
+  const projectItems = useMemo<ProjItem[]>(() => {
+    if (mode !== "projects") return [];
+    const st = useStore.getState();
+    const all = projectsByRecency(st);
+    const cur = st.projectFile;
+    if (!cur) return all;
+    const key = (p: string) => p.replace(/\\/g, "/").toLowerCase().replace(/\/+$/, "");
+    const isCur = (p: ProjItem) => key(p.path) === key(cur);
+    return [...all.filter((p) => !isCur(p)), ...all.filter(isCur)];
+  }, [mode, projects, recents]);
 
   // `[files] quick_files` (issue D.04): the config list, in config order — that IS the
   // preference order, so no MRU float. Both the name and the folder are searchable.

@@ -14,8 +14,9 @@
 // keywords and hand-written aliases, and one query searches the union. So `tick` finds ✓
 // even though no Unicode name contains the word.
 //
-// SPEED: the 86 KB table is imported DYNAMICALLY and parsed once, on first open. Nothing
-// here is loaded, parsed or paid for until Ctrl+Shift+U is pressed.
+// SPEED: the 147 KB table (4,191 rows since J.21 added the colored blocks) is imported
+// DYNAMICALLY and parsed once, on first open. Nothing here is loaded, parsed or paid for
+// until Ctrl+Shift+U is pressed.
 import { fuzzyMatch, type Ranked } from "../fuzzy";
 
 export type SymbolEntry = {
@@ -66,9 +67,11 @@ export function loadSymbols() {
         entries.push(e);
         byChar.set(char, e);
       }
+      // Kit items are whole `char` strings, not split into code points: a color twin
+      // (issue J.21) is the character plus U+FE0F.
       const kits: [string, SymbolEntry[]][] = SYMBOL_KITS.map(([title, chars]) => [
         title,
-        [...chars].map((c) => byChar.get(c)).filter((e): e is SymbolEntry => !!e),
+        chars.map((c) => byChar.get(c)).filter((e): e is SymbolEntry => !!e),
       ]);
       return { entries, kits };
     });
@@ -298,9 +301,12 @@ export function recentSymbols(entries: readonly SymbolEntry[]): SymbolEntry[] {
     .filter((e): e is SymbolEntry => !!e);
 }
 
-/** `U+2299` for display. */
+/** `U+2299` for display; every code point of the entry, so a color twin shows as
+ *  `U+26A0 U+FE0F` (issue J.21). */
 export const codePointLabel = (e: SymbolEntry) =>
-  "U+" + e.cp.toString(16).toUpperCase().padStart(4, "0");
+  [...e.char]
+    .map((c) => "U+" + (c.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, "0"))
+    .join(" ");
 
 /** Emoji-presentation characters render in COLOR from the emoji font; text-presentation
  *  ones take the current text color. The flag comes from the generated table (a real

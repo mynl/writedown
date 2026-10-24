@@ -727,4 +727,36 @@ first launching that build (J.04).
 
 ## Execution log
 
-Not started.
+Started 2026-10-24 against 2.25.0 (`d4b4bac`). Versions as assigned: [quick-fixes] 2.26.0.
+
+### Review, 2026-10-24
+
+Ruled and ready: every Batch J question carries a dated ruling in `writedown-issues.md`. Baseline gates green before any edit: `npm run build`, `cargo test` (68 passed, 8 ignored), `npx madge --circular` (none). Plan claims the code contradicts, none of which a ruling rests on, so each is a divergence rather than a question:
+
+- J.04: there is no window or webview builder in code (the window comes from `tauri.conf.json`); the comment goes beside `tauri::Builder::default()` in `lib.rs`.
+- J.10: README.md says "It makes no network requests" and "never calls out"; both need a qualifier for the explicit check, so README.md joins J.10's files.
+- J.14: `closeTab` excludes scratch buffers only; preview tabs ARE pushed onto `closedStack` (only `closeAllTabs` skips them). Left as it is. `openFolder` does not reset the stack.
+- J.20: `openTreeMenu` is a store action and the menu markup is `TreeContextMenu` in `FileTree.tsx`, mounted in `App.tsx`; the shared component is extracted from that.
+- J.16, J.19: `render_cfg` lives in `render.rs`, not `config.rs`. The config template is written only on first launch, so existing users see new keys through HELP.md, as for every key before.
+- J.19: `render_impl` reports "not configured" on an empty `[render] python` before the document folder is known; venv resolution must come first.
+- J.07: `list_backups` and `read_backup` are synchronous commands; the batched read is a new command. `DiffPane` takes no props (the store drives it).
+- J.18: the runner is single-threaded; on a help timeout the kernel is kept (see that phase).
+- J.11: `convertFileSrc` encodes the whole path into one segment, so the `<base href>` is built by hand; `.htm` is not in the tree's extension list.
+- Release exe: four `target\release\writedown.exe` windows are running and lock the file, so `npm run tauri build` is left to the author (who must close every window before the J.04 build anyway). Gates per bump as in Batch I: `npm run build`, `cargo test`, `madge`, smoke-boot of `dist/`.
+
+### [quick-fixes] 2.26.0
+
+All nine items landed. Verification beyond the gates: a scratch harness (not committed; there is no frontend test runner) bundles the real modules with esbuild, stubs `store.ts`, and runs 33 acceptance checks in headless Edge on a real CodeMirror view, including the zap keystrokes, the three table presses, the wrap byte comparison and undo, the definition-list render, and the picker searches. All pass. The smoke-boot also loads `dist/` with a stubbed Tauri bridge, which renders the whole layout (status bar included) with no crash page; the plain page stops at the expected `metadata` TypeError.
+
+Divergences:
+
+- **[colored-unicode] exact Emoji_Presentation ranges.** The generator listed U+1F004 to U+1FAFF as one range, harmless with ten emoji; the swept blocks also hold text-default emoji (🌡 U+1F321) and non-emoji characters, which would have been drawn with the color font. The exact ranges from Unicode 16.0's `emoji-data.txt` replace it (the ranges below U+1F000 were already exact).
+- **[colored-unicode] kits are arrays.** `SYMBOL_KITS` was one string per kit, split into code points on load; a color twin is two code points, so each kit is now an array of `char` strings.
+- **[colored-unicode] timing measured in headless Edge**, the same engine as WebView2, rather than in the HMR loop: first load and parse 4.0 ms; a search over the full 4,191 rows 0.1 to 1.6 ms per keystroke. 188 color twins.
+- **[definition-lists] the term line is special, like a heading**, rather than "a paragraph of its own": a long term wrapped onto two lines is no longer a term. A term is a one-line paragraph (blank line, construct or top above it, Pandoc's rule) directly above a `: ` or `~ ` line, so a definition's lazy continuation line followed by a second definition stays prose.
+- **[tables] the command posts "not in a table" itself**, so the palette verb and the App-level fallback report alike and the fallback needed only a comment. The minimum column width of 3 stays. Labels now name the toggle: registry "Reformat table at caret (wide; again for narrow)", palette "Reformat Markdown Table (wide, again for narrow)".
+- **[python-cell-wrap] a field's placeholder text is kept** (`${1:x}` inserts `x`), as `Snippet.parse` does, rather than stripped; the caret goes to the first field. Fields after the first are inert in a wrap.
+- **[ampersand-keys] Render escapes the key in HTML** it writes: the reference entry's `id` and the not-found span carry `&amp;`. The browser decodes the attribute, so the id still equals the `#ref-S&P2019` fragment (the preview's anchor jump uses `CSS.escape`).
+- **[stale-mark] one color for both themes**, `--stale-red: #d93a3a` on `:root`. The Rendered tab's tooltip also shows the live key before the first render.
+- **[project-switcher-order]** `projectsByRecency` normalizes paths with the store's `normPath` (trailing slash stripped too); the footer keeps its `recentProjects` subscription so it re-renders when the list loads.
+- Left for the author to see in the running app: the error strip with a long TOML error (J.12), the red square and badge (J.15), the switcher in daily use (J.13), the `&` keys against the real .bib, hover card and `@` completion (J.22), and colored glyphs in the editor (J.21).
