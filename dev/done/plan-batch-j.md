@@ -828,6 +828,11 @@ Divergences:
 - README.md gains an HTML bullet, and its preview feature line now names definition lists (left out at 2.26.0).
 - Left for the author in the running app: the fixture under `npm run tauri dev` with the dev tools' Network panel (the real asset protocol in WebView2, which the harness stands in for), typing in the source and watching the preview keep its place, and an external link opening the browser.
 
+### Tire-kicking, 2026-10-24
+
+- **Alt+Z is taken on DOOB** before Writedown sees it (no prompt at all; nothing in Writedown or CodeMirror binds it; AMD Radeon Software, running with its overlay, is the likely holder). The author bound `"Alt+X" = "zapToChar"` under `[keys]` in config.toml, which works; the built-in default stays Alt+Z, so F1 lists both. An Esc z prefix was considered and declined.
+- **2.31.1, imports from the document's folder** (author report): `import style` failed for a `style.py` beside the document, because `python runner.py` puts the runner's folder first on `sys.path`. The runner now puts the document's folder first, drops modules loaded from document folders at each render's reset (so edits show and two folders never share a `style.py`; anything under the interpreter's prefixes or in site-packages stays cached, a `.venv` inside the document folder included), and sets `sys.dont_write_bytecode` so no `__pycache__` lands beside documents and a same-size edit within one second is never masked by a stale `.pyc`. The J.16 test that needed `sys.path.insert(0, os.getcwd())` was the same symptom and should have been flagged then; the workaround is gone. New opt-in tests `kernel_imports_from_document_folder_and_sees_edits` and `kernel_two_folders_get_their_own_module`; all 11 kernel tests pass, and a probe confirmed pandas from a `.venv` inside the document folder stays cached across a reset.
+
 ### Batch J closed, 2026-10-24
 
 All six bumps landed and pushed, 2.26.0 through 2.31.0, one commit each; this plan stays in `dev/done/` as their record. The release exe was not rebuilt here (the author's open windows lock it): close every Writedown window, dev and release, then `npm run tauri build`; the J.04 browser-argument change makes closing them all a requirement before the first launch. The scratch harness, smoke script and test venv lived in the session scratchpad and are not in the repository.

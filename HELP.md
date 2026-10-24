@@ -274,7 +274,12 @@ refused; nothing here ever writes to a file (no replace — that is Sublime's jo
   `_repr_html_` (pandas tables, `greater_tables` `GT`, …), else an image from the
   bundle, else text. No wrapper needed.
 - The working directory is **the document's own folder** — for every cell, including
-  Ctrl+Enter — so `pd.read_csv("data.csv")` means what you expect.
+  Ctrl+Enter — so `pd.read_csv("data.csv")` means what you expect. That folder is also
+  first on Python's import path, so `import style` finds the `style.py` beside the
+  document, as in Jupyter and Quarto. Modules from document folders are re-imported at
+  every render, so an edit to `style.py` shows on the next render; installed packages stay
+  loaded. No `__pycache__` folder is written beside your documents. As in Jupyter, a file
+  named like an installed package (`pandas.py`) hides the real one.
 - **When a cell fails**, `[render] traceback_mode` decides how much you are told:
   `minimal` (type and message), `plain` (exactly what python prints), `context`
   (**default** — your frames only, with the failing line), `verbose` (adds the local

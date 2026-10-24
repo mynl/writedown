@@ -5,6 +5,19 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [2.31.1] - 2026-10-24
+
+### Fixed
+
+- **`import style` finds the `style.py` beside the document**, as in Jupyter and Quarto.
+  Python was looking in Writedown's own runner folder, not the document's, though the working
+  directory was already the document's folder.
+- **An edited local module shows on the next render**: modules from document folders are
+  re-imported at every render, so the kept-alive kernel never serves a stale `style.py`, and
+  two documents in different folders never get each other's. Installed packages, a `.venv`
+  inside the folder included, stay loaded.
+- No `__pycache__` folder is written beside your documents any more.
+
 ## [2.31.0] - 2026-10-24
 
 Batch J, [html-preview] (J.11). The batch is complete.

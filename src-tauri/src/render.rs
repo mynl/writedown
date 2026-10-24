@@ -2365,6 +2365,52 @@ mod tests {
         assert_eq!(pool.len(), 1);
     }
 
+    /// A synthetic document folder holding `style.py` with `X = <value>`.
+    fn style_folder(tag: &str, value: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("wd-import-{tag}-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("style.py"), format!("X = {value}\n")).unwrap();
+        dir
+    }
+
+    /// 2.31.1: `import style` finds the style.py beside the document, an edit to it shows on
+    /// the next render (re-imported, not served from the module cache), and no
+    /// __pycache__ folder is left beside the document.
+    #[test]
+    #[ignore]
+    fn kernel_imports_from_document_folder_and_sees_edits() {
+        let dir = style_folder("edit", "1");
+        let cwd = dir.to_string_lossy().to_string();
+        let mut k = test_kernel();
+        let o = ExecOpts { cwd: Some(&cwd), ..topts(10) };
+        let r = k.exec("import style\nstyle.X", true, &o).ok().unwrap();
+        assert!(r.error.is_none(), "{:?}", r.error.map(|e| e.message));
+        assert_eq!(r.result_text.as_deref(), Some("1"));
+        std::fs::write(dir.join("style.py"), "X = 2\n").unwrap(); // same size, same second
+        let r = k.exec("import style\nstyle.X", true, &o).ok().unwrap();
+        assert_eq!(r.result_text.as_deref(), Some("2"), "the edit shows on the next render");
+        assert!(!dir.join("__pycache__").exists(), "no bytecode left beside the document");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// 2.31.1: two documents in different folders share one kernel, each with its own
+    /// style.py; each render gets its own folder's module, back and forth.
+    #[test]
+    #[ignore]
+    fn kernel_two_folders_get_their_own_module() {
+        let a = style_folder("a", "\"a\"");
+        let b = style_folder("b", "\"b\"");
+        let (ca, cb) = (a.to_string_lossy().to_string(), b.to_string_lossy().to_string());
+        let mut k = test_kernel();
+        for (cwd, want) in [(&ca, "'a'"), (&cb, "'b'"), (&ca, "'a'")] {
+            let o = ExecOpts { cwd: Some(cwd), ..topts(10) };
+            let r = k.exec("import style\nstyle.X", true, &o).ok().unwrap();
+            assert_eq!(r.result_text.as_deref(), Some(want), "in {cwd}");
+        }
+        let _ = std::fs::remove_dir_all(&a);
+        let _ = std::fs::remove_dir_all(&b);
+    }
+
     /// Issue J.18: a help request after a cell sees the cell's names, through
     /// Kernel::request; the namespace is untouched by it.
     #[test]
@@ -2407,7 +2453,8 @@ mod tests {
             .unwrap();
         let cwd = dir.to_string_lossy().to_string();
         let mut k = test_kernel();
-        let code = "import sys, os\nsys.path.insert(0, os.getcwd())\nimport helper\nhelper.f()";
+        // No sys.path workaround: the document's folder is on the import path (2.31.1).
+        let code = "import helper\nhelper.f()";
         for render in 0..3 {
             let r = k
                 .exec(code, true, &ExecOpts { cwd: Some(&cwd), ..topts(10) })

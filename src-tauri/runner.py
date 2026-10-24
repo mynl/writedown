@@ -76,6 +76,65 @@ xmode_override = None
 # render while a switch to another document still re-anchors (issue D.10).
 applied_cwd = None
 
+# Imports from the document's folder (2.31.1). Run as `python runner.py`, Python puts the
+# RUNNER's folder (~/.writedown/cache) first on sys.path, not the document's, so `import
+# style` missed the style.py beside the document. Jupyter and Quarto find it: their
+# kernels put the working folder on the path. The document's folder now goes first on
+# sys.path whenever the runner moves to it.
+#
+# Every folder so used is remembered, and at each render's reset the modules loaded from
+# them are dropped from sys.modules, so an edited style.py is picked up by the next render
+# and two documents in different folders, sharing one kernel, never get each other's
+# style.py. Installed packages (anything under the interpreter's prefixes or in a
+# site-packages folder, including a .venv inside a document folder) stay cached.
+#
+# No bytecode is written: importing from a document folder would otherwise leave a
+# __pycache__ folder beside the user's documents, and a .pyc keyed to whole-second mtimes
+# can hide a same-size edit made within the same second.
+sys.dont_write_bytecode = True
+path_entry = None  # the document folder this runner put first on sys.path
+doc_dirs = set()  # every document folder used, normalized, for forget_local_modules
+_KEEP_ROOTS = tuple(
+    os.path.normcase(os.path.abspath(p)) + os.sep
+    for p in {sys.prefix, sys.base_prefix, sys.exec_prefix}
+)
+
+
+def use_doc_dir(cwd):
+    """Put the document's folder first on sys.path, replacing the previous one."""
+    global path_entry
+    if path_entry is not None and path_entry != cwd:
+        try:
+            sys.path.remove(path_entry)
+        except ValueError:
+            pass
+    if not sys.path or sys.path[0] != cwd:
+        sys.path.insert(0, cwd)
+    path_entry = cwd
+    doc_dirs.add(os.path.normcase(os.path.abspath(cwd)).rstrip(os.sep) + os.sep)
+    import importlib
+
+    importlib.invalidate_caches()  # a file added since the last import is seen
+
+
+def forget_local_modules():
+    """Drop cached modules loaded from any document folder, so the render re-imports them
+    fresh; installed packages are left alone."""
+    if not doc_dirs:
+        return
+    roots = tuple(doc_dirs)
+    for name, mod in list(sys.modules.items()):
+        f = getattr(mod, "__file__", None)
+        if not f:
+            continue
+        f = os.path.normcase(os.path.abspath(f))
+        if not f.startswith(roots) or f.startswith(_KEEP_ROOTS):
+            continue
+        parts = f.split(os.sep)
+        if "site-packages" in parts or "dist-packages" in parts:
+            continue
+        del sys.modules[name]
+
 # Warning modes (issue J.16): first of each kind, all, or none. Python's stock filters are
 # snapshotted once, before any user code, and restored at every render; the mode's filter
 # is APPENDED after them, so the stock category policy (library DeprecationWarnings
@@ -336,6 +395,7 @@ def handle(req):
         plt = sys.modules.get("matplotlib.pyplot")
         if plt is not None:
             plt.close("all")
+        forget_local_modules()  # local modules re-import fresh each render (2.31.1)
     apply_warnings(req.get("warnings"), bool(req.get("reset")))
 
     # cwd on EVERY cell, not only on reset (issue D.10). It used to ride along with the
@@ -351,6 +411,7 @@ def handle(req):
         try:
             os.chdir(cwd)  # relative pd.read_csv("data.csv") works like Quarto
             applied_cwd = cwd
+            use_doc_dir(cwd)  # and `import style` finds the style.py beside it
         except OSError:
             pass
 
