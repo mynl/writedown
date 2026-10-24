@@ -15,43 +15,43 @@ For each row in the table add a new row below it for your input, set item to ">>
 | Item | Effort HML | Status/Impact | Description |
 |--:|:---:|:---:|:-------------------------|
 | **J.01** |✅| | Alt+Z emacs zap to character |
-| >>CC | L | None | **Easy: press Alt+Z, then a character, and everything from the caret up to and including the next occurrence of that character is deleted, as in Emacs.** Esc cancels; if the character never occurs, a status-bar note appears and nothing changes. One undo step, every cursor. One question below: delete the character itself (Emacs zap-to-char) or stop just before it. |
+| >>CC | L | None | **Easy: press Alt+Z, then a character, and everything from the caret up to and including the next occurrence of that character is deleted, as in Emacs.** Esc cancels; if the character never occurs, a status-bar note appears and nothing changes. One undo step, every cursor. One question below: delete the character itself (Emacs zap-to-char) or stop just before it. >>WDED: do the same as emacs.  |
 | **J.02** |✅| | Ctl+Alt+Shift+N => entirely new window (i.e., same as StartBar, writedown)  |
-| >>CC | L | None | **Easy: a small command relaunches Writedown with no file, which is exactly what the Start menu does.** CHALLENGE: a bare launch reopens the last workspace, and that is usually the project of the window you pressed the key in, so you would get a second window on the same project. Recommend the new window opens empty with the project switcher already up. |
+| >>CC | L | None | **Easy: a small command relaunches Writedown with no file, which is exactly what the Start menu does.** CHALLENGE: a bare launch reopens the last workspace, and that is usually the project of the window you pressed the key in, so you would get a second window on the same project. Recommend the new window opens empty with the project switcher already up. >>AGREE - good call.  |
 | **J.03** |✅| | ~~If you open a new window by double clicking from Explorer and the file not in a project then the project list (lower left) is missing~~ (Not an issue, opens in folder view; ignore) |
 | >>CC | n/a | n/a | Agreed; no action. |
 | **J.04** |✅| | File->Save as dialog you lose the mouse pointer!! Only in this app, so must be a WD issue. |
-| >>CC | L | None | **Not our code: a known bug in Microsoft's WebView2 runtime (the browser engine inside Writedown). Its September update added support for Windows' "Hide pointer while typing", and the pointer can stay hidden over a dialog opened right after typing.** DOOB has both the affected runtime and that setting turned on. Test first: untick Mouse settings, Pointer Options, "Hide pointer while typing". If Save As then behaves, the fix is one config line that turns the runtime feature off. |
+| >>CC | L | None | **Not our code: a known bug in Microsoft's WebView2 runtime (the browser engine inside Writedown). Its September update added support for Windows' "Hide pointer while typing", and the pointer can stay hidden over a dialog opened right after typing.** DOOB has both the affected runtime and that setting turned on. Test first: untick Mouse settings, Pointer Options, "Hide pointer while typing". If Save As then behaves, the fix is one config line that turns the runtime feature off. >>CONFIRMED. I HAVE CHANGED MY SETTING FOR NOW. >>CC: Recommend shipping the one-line fix anyway. The setting is on by default in Windows, so other machines and other users hit the same bug, and you can then turn your setting back on. |
 | **J.05** |✅| DUPL | ~~File save as box - mouse disappears~~ |
 | >>CC | n/a | n/a | Same as J.04. |
 | **J.06** |✅| | Support Markdown definition list (blah\n: def of blah)  |
 | >>CC | L | None | **Easy: the official markdown-it definition-list plugin adds Pandoc's syntax (a term line, then `: definition`), so the preview matches what Quarto produces.** Plus a few lines of styling. The editor shows the `:` lines as plain text, with no special coloring. Found on the way: Alt+Q reflow would merge a term into its definition, so it must treat `: ` lines like list items. |
 | **J.07** |✅| | Diff against prev vesions -> add ability to pinpiont when selected line changed |
-| >>CC | M | None at rest | **Doable. Writedown keeps the last 20 saved versions of each file; the command follows the caret's line back through them, one diff at a time, to the save where it changed, then opens the diff pane on that save at that line.** Limit: 20 autosaves may cover only an hour or two. Git can answer the same question across all committed history. Your call below: saved versions, git, or both. |
+| >>CC | M | None at rest | **Doable. Writedown keeps the last 20 saved versions of each file; the command follows the caret's line back through them, one diff at a time, to the save where it changed, then opens the diff pane on that save at that line.** Limit: 20 autosaves may cover only an hour or two. Git can answer the same question across all committed history. Your call below: saved versions, git, or both. >>PREV VERSIONS: Can we do the longer history keep (spaced out more) too? Like the synolgoy versioning. Maybe we do already. Git if file under git, else our saved versions.  >>CC: We don't today: it keeps the newest 20 and deletes the rest. Proposed: Synology-style thinning, keeping the newest 20 plus one per hour for a day, one per day for a month, one per week for a year, one per month after that. Git first for files in a repo, with saved versions for edits git has not seen yet. Details below. |
 | **J.08** |✅| DUPL | ~~When a project opens a new window and there are no files open we do not get the folder or project tabs~~ |
 | >>CC | n/a | n/a | Same as J.03; no action. |
 | **J.09** |✅| | ctrl+alt+shift+T table format: a) should format just the table surrounding the cursor and do nothing if not in a table but mention in the status bar; b) Use |--| or |:--| etc format (with no extra spaces), c) Cycle, first press make table "wide", second press cycle to narrow (all headers are --, cols are | content |, with just one space on either end). |
-| >>CC | L | None | **All three are small changes to the one table formatter.** (a) Only the table at the cursor; outside a table, a status note and no change. Today, with no selection, it reformats every table in the file. (b) Delimiter row as `\|---\|:--\|`, no spaces. (c) First press aligns ("wide"), second compacts ("narrow"); the table's current shape decides, so there is no hidden state. CHALLENGE on (c): resetting every column to `--` discards the dash counts that Pandoc and Quarto use as relative column widths when a table wraps, and this issues table relies on them. |
+| >>CC | L | None | **All three are small changes to the one table formatter.** (a) Only the table at the cursor; outside a table, a status note and no change. Today, with no selection, it reformats every table in the file. (b) Delimiter row as `\|---\|:--\|`, no spaces. (c) First press aligns ("wide"), second compacts ("narrow"); the table's current shape decides, so there is no hidden state. CHALLENGE on \(c): resetting every column to `--` discards the dash counts that Pandoc and Quarto use as relative column widths when a table wraps, and this issues table relies on them. >>I know; the third cycle is mostly for cases where the table has gotten way too wide. I'd then go in an manually set the widths. |
 | **J.10** |✅| | Command Palette check for updates: for non DOOB machines; look at GH releases and download?  |
-| >>CC | L | None (explicit command only) | **CHALLENGE: download-and-install is an auto-updater, which the spec lists as a non-goal, and a self-installing unsigned exe also trips SmartScreen.** Recommend the light version: a palette "Check for Updates" asks GitHub for the latest release (the repo is public), compares it with the running version, and opens the release page in your browser; you run the installer yourself. Lighter still: a verb that only opens the releases page, with no network access from the app at all. |
+| >>CC | L | None (explicit command only) | **CHALLENGE: download-and-install is an auto-updater, which the spec lists as a non-goal, and a self-installing unsigned exe also trips SmartScreen.** Recommend the light version: a palette "Check for Updates" asks GitHub for the latest release (the repo is public), compares it with the running version, and opens the release page in your browser; you run the installer yourself. Lighter still: a verb that only opens the releases page, with no network access from the app at all. >>Agree, no auto install but takes you where you need to go/look. |
 | **J.11** |✅| | html file format - raw on left, preview on right, toc = h? tags. We've had this before...explain issues again!   |
-| >>CC | M | None for Markdown | **Doable as a static preview; the issues are the parts of a web page it cannot show.** (1) Safety: scripts in an HTML file, run inside our window, could reach the file-system bridge, so the preview must be a sealed frame with scripts off. (2) No network: fonts, styles and scripts from the web do not load. (3) Pages that depend on JavaScript (Quarto and Jupyter output: math, tabsets, interactive plots) show only partly; hand-written and static pages show in full. (4) No line-by-line scroll sync. (5) Large self-contained Quarto files are slow in the editor. An outline from the h1 to h6 tags is easy. |
+| >>CC | M | None for Markdown | **Doable as a static preview; the issues are the parts of a web page it cannot show.** (1) Safety: scripts in an HTML file, run inside our window, could reach the file-system bridge, so the preview must be a sealed frame with scripts off. (2) No network: fonts, styles and scripts from the web do not load. (3) Pages that depend on JavaScript (Quarto and Jupyter output: math, tabsets, interactive plots) show only partly; hand-written and static pages show in full. (4) No line-by-line scroll sync. (5) Large self-contained Quarto files are slow in the editor. An outline from the h1 to h6 tags is easy. >>Deffo outline. What are you suggesting on preview?  >>CC: A sealed preview: faithful for hand-written and static HTML and live as you type, but no JavaScript, so Quarto output shows raw math and only the first tab of a tabset. Plus "Open in Browser" for pages that need scripts. Details below. |
 | **J.12** |✅| | Red error messages (above the tabs below the windows bar) are too narrow to read. the red bar is too thin |
 | >>CC | L | None | **Found it: a layout bug lets the panes squeeze the error strip; when their content is tall, the strip shrinks to a few pixels with its own scrollbar.** One CSS line stops the strip shrinking, and it then shows the whole message, up to about six lines before it scrolls. |
 | **J.13** |✅| | Quick switch project should list in MRU order, not alphabetical |
 | >>CC | L | None | **Easy: the footer's project dropdown is already most-recent first; the Ctrl+Alt+P switcher builds its own, alphabetical list.** One shared sort fixes both. Small question below: list the current project last, so Ctrl+Alt+P then Enter flips to the previous project, as Alt+Tab does. |
 | **J.14** |✅| | Reopen closed tab... (pick from list MRU listing of recently open)  |
-| >>CC | L | None | **Ctrl+Shift+T already reopens closed tabs one at a time, newest first, but the list is held in memory: a restart or a project switch empties it.** Add a palette "Reopen Closed Tab…" listing them newest first; type to filter, Enter opens. Proposed: save the list with the project's session, capped at about 25, so it survives a restart. |
+| >>CC | L | None | **Ctrl+Shift+T already reopens closed tabs one at a time, newest first, but the list is held in memory: a restart or a project switch empties it.** Add a palette "Reopen Closed Tab…" listing them newest first; type to filter, Enter opens. Proposed: save the list with the project's session, capped at about 25, so it survives a restart. >>Agreed |
 | **J.15** |✅| | Make it clearer (at the top, yellow/red bar?) when a render is stale |
-| >>CC | L | None | **Easy: a "Stale" badge exists, but it is small grey text. Proposed: the status row above the Rendered view becomes an amber band reading "Edited since this render: Ctrl+Shift+Enter re-renders", and the Rendered tab gets a dot.** A red level for "a code cell changed" can come later. Found on the way: the empty-render hint says "press Ctrl+B", which is now Bold, and Ctrl+Shift+B renders from the file tree but runs the build command everywhere else. |
+| >>CC | L | None | **Easy: a "Stale" badge exists, but it is small grey text. Proposed: the status row above the Rendered view becomes an amber band reading "Edited since this render: Ctrl+Shift+Enter re-renders", and the Rendered tab gets a dot.** A red level for "a code cell changed" can come later. Found on the way: the empty-render hint says "press Ctrl+B", which is now Bold, and Ctrl+Shift+B renders from the file tree but runs the build command everywhere else. >>fix the misdirection obvs; don't want another bar; how about a prominent red dot in the tab name (❌Rendered) when it is stale. >>CC: Agreed, no bar. One snag: the render status line already uses ✗ to mean "cells raised errors", so ❌ would read as "failed". Suggest a red ● before "Rendered", with a tooltip; your call. |
 | **J.16** |✅| | Warnings: first of kind or all in python s/b and option with an easy way to toggle. |
-| >>CC | L | None | **Easy. Today Python's default applies (each warning once per code location), and for warnings raised inside libraries that memory survives between renders, so they appear on the first render and then vanish until Python restarts.** Proposed: three modes, first of each kind (default), all, and off, reset at every render so each render is reproducible. Set in config, per document in front matter, and switched on the fly from the palette. |
+| >>CC | L | None | **Easy. Today Python's default applies (each warning once per code location), and for warnings raised inside libraries that memory survives between renders, so they appear on the first render and then vanish until Python restarts.** Proposed: three modes, first of each kind (default), all, and off, reset at every render so each render is reproducible. Set in config, per document in front matter, and switched on the fly from the palette. >>AGREE |
 | **J.18** |✅| | Full Python LSP support, autocomplete, help etc. for python... again, we've been through this before...issues? practicality? Would be very nice...  Or poor man's version: right hand side window help tab that shows help on current function? |
-| >>CC | M for the help tab; H for full LSP | None at rest | **The poor man's version is the right first step: a Help tab beside Preview showing the signature and docstring of the name at the caret, taken from the Python process that already runs your cells (Jupyter's Shift+Tab).** Completions from the same source can follow. Full LSP is more practical than in August, because CodeMirror now has an official client, but making a language server understand Python inside Markdown cells is the hard, untried part. Recommend the help tab now, and a language server for `.py` files later if wanted. |
-| **J.17** |✅| | Insert code block wraps a selection, if any, ie select some text -> insert code block puts the code block around the selected text. |
-| >>CC | L | None | **Half there: "Insert: Python Code Cell" already wraps a selection, but there is no plain "Code Block" insert, and the wrap mishandles three cases.** A selection that starts mid-line produces a broken fence; LaTeX such as `\{` in the selection loses its backslash (Aligned Math has the same fault); leading tabs become spaces. Fix: wrap whole lines as plain text, and add "Insert: Code Block". |
+| >>CC | M for the help tab; H for full LSP | None at rest | **The poor man's version is the right first step: a Help tab beside Preview showing the signature and docstring of the name at the caret, taken from the Python process that already runs your cells (Jupyter's Shift+Tab).** Completions from the same source can follow. Full LSP is more practical than in August, because CodeMirror now has an official client, but making a language server understand Python inside Markdown cells is the hard, untried part. Recommend the help tab now, and a language server for `.py` files later if wanted. >>OK - help is the big thing i want (I'm doing a lot of print(help(xx)). Let's start with that. At somepoint  i need to go back to ST for proper dev....though you are writing most of my code these days.  >>CC: Then the tab shows exactly what `help(x)` prints, with the signature on top. Details below. |
+| **J.17** |✅| | Insert code block wraps a selection, if any, ie select some text -> insert code block puts the code block around the selected text.  |
+| >>CC | L | None | **Half there: "Insert: Python Code Cell" already wraps a selection, but there is no plain "Code Block" insert, and the wrap mishandles three cases.** A selection that starts mid-line produces a broken fence; LaTeX such as `\{` in the selection loses its backslash (Aligned Math has the same fault); leading tabs become spaces. Fix: wrap whole lines as plain text, and add "Insert: Code Block". >>This only applies for python code blocks. yes it needs to wrap whole lines. >>CC: Understood: Python cells only, no generic Code Block. The backslash and tab fixes stay, since a Python regex such as `r"\{"` loses its backslash the same way. |
 | **J.19** |✅| | Python execute cells: if there is a venv or .venv in the folder containing the file (or a parent directory), then use it for python evaluation. Add palette Which Python -> display the venv in use. |
-| >>CC | L | None | **Easy: at each render, look for `.venv` or `venv` in the document's folder, then in each parent folder, and use its Python.** Precedence: the document's own `wd-python`, then the nearest venv, then `[render] python`. A palette "Which Python" shows the interpreter for the current document and why it was chosen. Two side effects: switching between documents in different venvs restarts Python (seconds, for heavy imports), and a document that relied on the global Python's packages fails if its folder's venv lacks them. |
+| >>CC | L | None | **Easy: at each render, look for `.venv` or `venv` in the document's folder, then in each parent folder, and use its Python.** Precedence: the document's own `wd-python`, then the nearest venv, then `[render] python`. A palette "Which Python" shows the interpreter for the current document and why it was chosen. Two side effects: switching between documents in different venvs restarts Python (seconds, for heavy imports), and a document that relied on the global Python's packages fails if its folder's venv lacks them. >>Understood on switching; can we cache them and swap?  >>CC: Yes. Keep up to three Python processes alive per window, one per interpreter, closing the least recently used. Switching back is instant and each one keeps its variables. The cost is memory, a few hundred MB per idle process with pandas loaded. |
 | **J.xx** | | Watch — revisit if it recurs | 2026-09-24 ~18:30, v2.25.0: a GREAT2 window wedged — webview/JS dead but native window alive. It silently swallowed every Explorer file launch routed to it (I.07) and would not close. Second GREAT2 instance was open on another desktop at the time. **HAS NOT RECURRED** |
 | >>CC | L | None | **No crash, no log, no dump — the wedge is invisible by construction: release build has no devtools, and the app's own error logging goes through the same IPC that died.** A wedged window still ACKs `WM_COPYDATA`, so routing delivers files into the void. If it recurs: capture a minidump BEFORE killing (`rundll32 comsvcs.dll, MiniDump <pid> <file> full`; `target/release/writedown.pdb` has the symbols). Hardening ready to build on request: (a) heartbeat `instances/<pid>.json` from the frontend, launcher skips stale entries — kills the black hole whatever the cause; (b) enable the `devtools` Cargo feature in release so F12 works in the packaged exe. Related: `writedown.log` shows two prior unhandled rejections in the grid renderer (`getFormattedRow` reading `[0]` of undefined, Sep 07 + Sep 20) — a standing bug and plausible cousin. |
 
@@ -71,6 +71,8 @@ Semantics: from each cursor's head, search forward across lines (Emacs searches 
 
 **Question:** Emacs `zap-to-char` deletes the target character too; `zap-up-to-char` stops just before it (handy for `)` and `"`). Recommend Emacs's inclusive form on Alt+Z, with the up-to form as a palette-only variant.
 
+**Resolved 2026-10-24 (author):** Emacs semantics; Alt+Z deletes through the target character. No up-to variant in v1.
+
 ### J.02: new window (`src-tauri/src/lib.rs`, `src/App.tsx` key handler, `src/store.ts` `hydrate`, `src/commands.ts`)
 
 No verb exists. A bare launch always opens a new window (I.07 rule 4), and `hydrate()` (`store.ts`, after the launch-file branch) restores the last workspace from the global state.
@@ -82,6 +84,8 @@ The CHALLENGE in detail: the global `workspace` is written by whichever window l
 Recommendation: a `--blank` CLI flag (added to `parse_args` and `HELP_TEXT`) that makes `hydrate()` skip the restore and open the project switcher, so choosing the project is one keystroke. The literal Start-menu behavior is the same command without the flag. Either way the window-state plugin restores the last saved geometry, so the new window can land exactly on top of the current one.
 
 **Question:** blank window with the switcher open (recommended), or exactly the Start-menu behavior.
+
+**Resolved 2026-10-24 (author):** blank window with the project switcher open, through the `--blank` flag.
 
 ### J.04: pointer lost over the Save As dialog (`src-tauri/tauri.conf.json`)
 
@@ -101,6 +105,8 @@ Fix, one line under `app.windows[0]`:
 
 Setting the field replaces wry's defaults (`wry-0.55.1/src/webview2/mod.rs:294-297`), so the three default features are restated, and Chromium honors only the last `--disable-features` switch, so they share one list. Cost: the pointer no longer hides while you type in the editor, which is how it behaved before runtime 152. Remove the flag once Microsoft ships a fix. Gotcha: every instance shares one WebView2 data folder, and WebView2 refuses a second environment with different arguments, so close every Writedown window, dev and release, before the first launch of the new build.
 
+**Resolved 2026-10-24 (author):** diagnosis confirmed by the setting test; the author has turned "Hide pointer while typing" off for now. **Recommendation:** ship the flag anyway. The setting is on by default in Windows, so every other machine running the public release meets the same bug, and with the flag in place the author can turn the setting back on for the rest of Windows.
+
 ### J.06: definition lists (`src/preview/renderCore.ts`, `src/App.css`, `src/editor/reflow.ts`)
 
 Add `markdown-it-deflist` 4.0.0 (MIT, from the markdown-it organization, pure JavaScript, so it runs in the render worker) with one `.use(deflist)` beside footnote and task lists in `renderCore.ts`. Syntax is Pandoc's: a term on its own line, then definition lines starting with `:` or `~` and a space; indented continuation lines; a blank line between term and definition makes it loose. Quarto's `:::` divs do not match, because the marker must be followed by whitespace.
@@ -119,6 +125,18 @@ Git alternative: `git blame -L n,n --porcelain --contents - -- <file>`, with the
 
 **Question:** recommend both behind one palette verb, "Diff: When Did This Line Change": saved versions first (recent and uncommitted work), falling back to git blame when the line is older than the oldest backup. Or saved versions only, which is smaller.
 
+**Resolved 2026-10-24 (author):** git when the file is in a repository, saved versions otherwise. One refinement: when git blame reports "Not Committed Yet" (the line changed after the last commit), the saved versions pinpoint the save. Committed lines get the commit's date and subject; uncommitted lines get the save.
+
+**Answer 2026-10-24, longer history.** We do not keep one today: `backup.rs` keeps the newest 20 versions per file (`KEEP`) and deletes the rest at every save. Proposed, after Synology's Smart Recycle (hourly for a day, daily for a month, weekly beyond):
+
+- the newest 20, whatever their age, as today, so recent history stays dense;
+- beyond those, one version per hour for the last 24 hours, one per day for the last 30 days, one per week for the last year, and one per month before that;
+- within each hour, day, week or month the newest version survives, so each one is the state at the end of its period.
+
+Pruning stays where it is, at each save: sort the stamps, assign each to its bucket, delete the rest; negligible work. The count per file is bounded by about 20 + 24 + 30 + 52, plus one per month of age. The store holds 31 MB for 237 files today; a heavily edited 360 KB file such as this one would reach about 45 MB at the cap, so expect the store to grow several-fold over a year. It remains disposable.
+
+One fix comes with it: `list_backups` reads every version in full to build its 120-character preview. At a hundred versions of a large file that is tens of MB read each time the Previous Versions picker opens, so it must read only the first few KB. Line history over thinned versions reports an interval whose width grows with age, for example "changed between 2026-10-03 and 2026-10-10".
+
 ### J.09: table formatter (`src/editor/tables.ts`, `src/App.tsx` Ctrl+Alt+Shift+T fallback)
 
 `findTables` locates pipe tables, `formatTable` aligns one, and `reformatTables` formats every table when there is no selection, or the tables a selection touches.
@@ -132,6 +150,8 @@ The CHALLENGE in detail: in a Pandoc pipe table, when any row is longer than the
 
 **Question:** narrow resets every column to `--` as asked, or narrow keeps each column's existing dash count and strips only the padding (recommended).
 
+**Resolved 2026-10-24 (author):** narrow resets every column to `--`, as asked. The narrow form is for a table that has grown far too wide; the author then sets widths by hand. Repeated presses go wide, narrow, wide.
+
 ### J.10: check for updates (`src/commands.ts`; optional new Rust command)
 
 Constraints: the spec and project file say no network requests by default, no telemetry, no updater; the house data firewall allows public data to be pulled in only behind one egress point with a host allow-list enforced by a test.
@@ -142,6 +162,8 @@ Constraints: the spec and project file say no network requests by default, no te
 Out of scope: download and install. tauri-plugin-updater needs signing keys and an update manifest, and it is the updater the spec rules out. Releases are refreshed per batch, not per version, so "latest release" trails the source.
 
 **Question:** A (recommended to start), B, or both.
+
+**Resolved 2026-10-24 (author):** option B, the explicit check. No download or install; it reports the comparison and opens the release page.
 
 ### J.11: HTML files (`src/App.tsx` `previewable`, new `src/preview/HtmlPreview.tsx`, `src/outline/parse.ts`)
 
@@ -162,6 +184,21 @@ Speed: nothing changes for Markdown; the cost is confined to HTML tabs.
 
 **Question:** what do you mostly open: static pages (greater_tables output, hand-written notes) or Quarto output? For Quarto output, Open Externally is the better answer, and this preview would disappoint.
 
+**Resolved 2026-10-24 (author):** the outline, definitely.
+
+**Answer 2026-10-24, the preview on offer.** Recommendation: build the sealed static preview together with the outline, plus a palette verb "Open in Browser", which applies the existing open-with-default-app path to the active file, for pages that need scripts.
+
+It will deliver:
+
+- raw HTML on the left with HTML highlighting (already there), the rendered page on the right, refreshed about half a second after typing stops;
+- faithful rendering of hand-written pages, greater_tables output, and saved pages with local CSS and images;
+- an outline of the h1 to h6 headings; clicking one scrolls both sides;
+- links that open in the default browser.
+
+It will not deliver JavaScript of any kind (MathJax math stays as raw TeX, a Quarto tabset shows only its first tab, plotly figures and widgets are blank), anything from the web (CDN fonts, styles, scripts), or line-by-line scroll sync. A `<meta http-equiv="refresh">` is stripped so a page cannot navigate the frame. For Quarto output, Open in Browser shows the real thing.
+
+Effort M, with the cost confined to HTML tabs. **Question:** build the preview (recommended), or the outline plus Open in Browser only (L).
+
 ### J.12: error strip squeezed (`src/App.css` `.error-bar`)
 
 `.error-bar` has `overflow: auto; max-height: 8em` and the default `flex: 0 1 auto`. In `.app` (a column flexbox, `height: 100%`) its sibling `.panes` is `flex: 1 1 auto`, whose basis is its content height. A scroll container's automatic minimum height is zero, so when the panes' content is taller than the window both items shrink in proportion to their basis, and the strip loses nearly all of its height. Fix: `.error-bar { flex: 0 0 auto; }`. Verify in the HMR loop with a long expanded tree and a deliberate config typo: the strip must show the whole TOML error.
@@ -174,6 +211,8 @@ Fix: move that sort into a shared `projectsByRecency(state)` beside `mergedProje
 
 **Question:** current project last (Alt+Tab behavior, recommended) or first (plain most-recent order).
 
+No ruling yet; the plan takes the recommendation (current project last) unless the author objects.
+
 ### J.14: reopen closed tab picker (`src/store.ts` `closedStack`, `src/Palette.tsx`, `src-tauri/src/session.rs`)
 
 `closedStack` is appended by `closeTab` and `closeAllTabs` (preview tabs and scratch buffers excluded), popped by `reopenClosed` (Ctrl+Shift+T), and reset to empty when a project or folder opens. It is not in `sessionSnapshot`, so a restart empties it.
@@ -181,6 +220,8 @@ Fix: move that sort into a shared `projectsByRecency(state)` beside `mergedProje
 Build: a palette mode on the `quickfiles` pattern listing `closedStack` newest first, deduplicated, minus files already open, each row name plus folder; Enter opens the file and removes it from the stack. Verb "Reopen Closed Tab…", registered in the command registry so `[keys]` can bind it; no default key, since Ctrl+Shift+T keeps its one-step job. Persistence: a `closed_tabs` list (serde default) in the Rust `Session`, the last 25 in the snapshot and in the change fingerprint, restored on project open instead of the reset. A file that has since disappeared is skipped at reopen with a status note.
 
 **Question:** persist across restarts (recommended) or keep the list per run.
+
+**Resolved 2026-10-24 (author):** as proposed; persisted with the project's session, capped at 25.
 
 ### J.15: stale render indicator (`src/App.tsx` render status row and empty-render hint, `src/App.css` `.stale-badge`)
 
@@ -193,6 +234,10 @@ Found on the way, both small:
 - The empty-render placeholder says "press Ctrl+B"; Ctrl+B has been Bold since the keymap became data-driven. It should name the render key from `keyForAction`.
 - Ctrl+Shift+B has two meanings. The editor keymap binds it to `build` (the `[build]` command), and the app-level handler binds it to render. Keys pressed with the preview focused are offered to the editor keymap first, so only the file tree reaches the app-level binding: from the tree it renders, everywhere else it builds. Recommend one meaning: build everywhere, matching Sublime and the keymap, with render on Ctrl+Shift+Enter.
 
+**Resolved 2026-10-24 (author):** no band. Both misdirections are fixed: the empty-render hint shows the live render key, and Ctrl+Shift+B means build everywhere, with render on Ctrl+Shift+Enter. The stale mark moves into the Rendered tab's label.
+
+**Question:** the mark itself. The author suggested "❌Rendered". The render status line already uses ✗ for "cells raised errors" and ✓ for a clean run, so ❌ would read as a failed render. Recommend a red ● before "Rendered", with the tooltip "Edited since this render: Ctrl+Shift+Enter re-renders"; the small Stale badge in the status line turns red to match.
+
 ### J.16: Python warnings (`src-tauri/runner.py` `handle`, `src-tauri/src/render.rs` render config, `src-tauri/src/config.rs`)
 
 The runner never touches `warnings`, so Python's stock filters apply: DeprecationWarning ignored outside `__main__`, PendingDeprecationWarning, ImportWarning and ResourceWarning ignored, everything else on the "default" action (once per message, category and line, recorded in the registry of the module the warning is attributed to). Warnings go to stderr, which `handle()` captures per cell. For cell code that registry is the namespace, which is fresh each render; for library code it is the library module, which survives in `sys.modules`, so those warnings appear on the first render and not again until the kernel restarts.
@@ -204,6 +249,8 @@ Build, following the `traceback_mode` pattern exactly (config key, `wd-` front-m
 - "First of each kind" is Python's `"once"`: the first occurrence of each distinct message, wherever raised. Python's own `"default"` (once per location) is the alternative if you prefer it.
 - Toggle: palette verbs "Python Warnings: First of Each Kind", "Python Warnings: All", "Python Warnings: Off", a session override that wins over front matter and config (separate verbs, per the no-meaning-changing-control rule); a status note confirms the mode.
 
+**Resolved 2026-10-24 (author):** as proposed.
+
 ### J.17: wrapping a selection in a code block (`src/editor/snippets.ts`)
 
 "Python Code Cell" is `` ```{python}\n${SELECTION}${}\n```\n ``; `insertSnippet` splices the selected text into the template and hands the result to CodeMirror's `snippet()`. Three defects, verified in `@codemirror/autocomplete`'s snippet code:
@@ -213,6 +260,8 @@ Build, following the `traceback_mode` pattern exactly (config key, `wd-` front-m
 3. Nothing extends the selection to whole lines, so a selection starting mid-line puts the opening fence mid-line, where it is not a fence.
 
 Fix: with a non-empty selection and a body containing `${SELECTION}`, extend to whole lines (line start of `from` to line end of `to`), build the text directly from the template's literal parts and the untouched selection, strip the `${}` markers from the literal parts, dispatch a plain change, and put the cursor at the first marker's position. An empty selection keeps today's snippet path. Every wrap snippet benefits, Aligned Math included. Add a default "Code Block": `` ```${}\n${SELECTION}\n```\n ``, with the first stop on the info string so you type the language; "code block" in the palette finds it.
+
+**Resolved 2026-10-24 (author):** Python cells only; no generic "Code Block" insert. The wrap takes whole lines. The backslash and tab fixes stay, because Python code meets them too: a regex such as `r"\{"` loses its backslash, and tab-indented code is re-indented.
 
 ### J.18: Python help, completion and LSP (`src-tauri/runner.py`, `src-tauri/src/render.rs` `Kernel`, preview tabs, `src/editor/citations.ts` completion list)
 
@@ -224,6 +273,10 @@ Kernel facts that shape every option: one kernel per window process, shared by e
 
 Recommendation: (a) now, (b) after a week of use, a language server for `.py` files only if (a) and (b) fall short. The interpreter for all of these comes from J.19's resolver.
 
+**Resolved 2026-10-24 (author):** the help tab first; help is the main want (the author's habit is `print(help(x))`). Completions and a language server wait.
+
+**Answer 2026-10-24, content of the tab.** The tab shows exactly the text `help(x)` produces, `pydoc.render_doc(obj, renderer=pydoc.plaintext)`, with the signature on the first line. For a class that is long, since it lists every method, which is what `help()` gives too; the tab scrolls. The dotted name at the caret is resolved with `inspect.getattr_static` at each step, so no property or descriptor executes (`df.T` would otherwise compute a transpose just to show help). A name not yet defined in the namespace falls back to jedi's docstring when jedi is installed, otherwise "not defined: render first". With the J.19 kernel pool, the active document's own kernel answers, which removes most of the which-document-owns-the-namespace caveat for documents in different environments. On returning to Sublime for development: a language server for `.py` files is the piece that would close most of that gap, and it stays on the list.
+
 ### J.19: per-folder virtual environments (`src-tauri/src/render.rs` `render_impl`, new `which_python` command, `src/commands.ts`)
 
 Today `cfg.python` comes from `[render] python`, replaced by front-matter `wd-python` (absolute paths only); the kernel respawns whenever the chosen path changes.
@@ -234,16 +287,20 @@ Build: `resolve_python(doc_dir, front_matter, cfg)` returning the path and its s
 
 Side effects to accept with eyes open: documents in different venvs, in one window, alternate the kernel, and each switch pays Python startup plus imports (a two-kernel pool keyed by interpreter is the fix if that bites; not in v1). A document that relied on the global interpreter's packages fails once its folder has a venv without them, which is the point of the feature but a behavior change all the same.
 
+**Resolved 2026-10-24 (author):** as proposed; the switching cost is understood.
+
+**Answer 2026-10-24, cache and swap.** Yes. `RenderState` holds one kernel today and replaces it whenever the interpreter changes. Proposed: a pool of up to `[render] max_kernels` kernels per window (default 3), keyed by interpreter path, with the least recently used one killed when a new one is needed; `max_kernels = 1` is today's behavior. Switching back to a document's interpreter is then instant, and its namespace survives the detour, so Run This Cell keeps working after a render in another venv (today the detour wipes it). Documents sharing one interpreter still share one kernel and one namespace, as now. A timeout or a crash removes only that kernel. Cost: memory, roughly a few hundred MB per idle kernel with pandas and matplotlib imported, in each window. About 60 lines in `render.rs`; J.18's help request reaches the active document's kernel through the same lookup.
+
 ### J.xx update: grid renderer errors recur (`src/preview/CsvPreview.tsx`; the csv-viewer sibling library)
 
 The log shows the grid's unhandled rejection (reading `[0]` of undefined in `getFormattedRow`, called from `applyLayout`, `renderBody`, `_renderSlice`) 3 times on 2026-09-01, 12 on 2026-09-11 and 15 on 2026-10-11 (UTC dates). No wedge since. The likely cause is a layout pass, which Writedown triggers from a `ResizeObserver`, running while a debounced `setData` reparse has replaced the rows. Proposed as its own item: a guard in csv-viewer's layout during a load, and in `CsvPreview.tsx` skip `applyLayout` while a feed is pending.
 
-### Batch J: proposed grouping, pending the questions above
+### Batch J: proposed grouping (updated 2026-10-24 with the author's rulings)
 
-- **Quick fixes, frontend:** J.12 error strip, J.13 switcher order, J.15 stale band plus the two key-hint fixes, J.17 code-block wrap, J.06 definition lists, J.09 tables.
-- **Small Rust plus frontend:** J.01 zap, J.02 new window, J.04 browser-argument flag (after your mouse-setting test), J.14 closed-tab picker, J.16 warnings, J.19 venvs and Which Python.
-- **Larger, one bump each:** J.07 line history, J.11 HTML preview (if wanted), J.18 help tab.
-- **Decision only:** J.10 update check.
+- **Quick fixes, frontend:** J.12 error strip, J.13 switcher order, J.15 stale mark in the tab plus the two key fixes, J.17 Python-cell wrap, J.06 definition lists, J.09 tables.
+- **Small Rust plus frontend:** J.01 zap, J.02 new window, J.04 browser-argument flag, J.10 update check, J.14 closed-tab picker, J.16 warnings, J.19 venvs, kernel pool and Which Python.
+- **Larger, one bump each:** J.07 tiered version history and line history; J.18 help tab; J.11 HTML outline and preview.
+- **Still open:** J.04 ship the flag (recommended); J.11 preview or outline only; J.15 ● or ❌; J.13 current project last (taken as yes unless overruled).
 
 ***
 
