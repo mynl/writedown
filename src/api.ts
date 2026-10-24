@@ -513,17 +513,41 @@ export type RenderResult = {
   line_map: number[];
 };
 
+/** The Python warning modes (issue J.16): first of each kind, all, none. */
+export type WarningMode = "first" | "all" | "off";
+
 /** Render the live buffer (never reads or writes the file). `path` resolves a relative
- *  front-matter `bibliography:`; pass null for unsaved scratch buffers. */
-export const renderDocument = (text: string, path: string | null) =>
-  invoke<RenderResult>("render_document", { text, path });
+ *  front-matter `bibliography:` and the document's venv; pass null for unsaved scratch
+ *  buffers. `warnings`: the palette's session override, null for none. */
+export const renderDocument = (text: string, path: string | null, warnings: WarningMode | null) =>
+  invoke<RenderResult>("render_document", { text, path, warnings });
 
 /** Run ONLY the {python} cell at `line` (1-based), in the kernel's current namespace, and
  *  get the whole document back re-assembled from the cached cell outputs. */
-export const runCell = (text: string, path: string | null, line: number) =>
-  invoke<RenderResult>("run_cell", { text, path, line });
+export const runCell = (
+  text: string,
+  path: string | null,
+  line: number,
+  warnings: WarningMode | null,
+) => invoke<RenderResult>("run_cell", { text, path, line, warnings });
 
-/** Kill the python kernel now; the next render respawns it (the Windows "interrupt"). */
-export const restartKernel = () => invoke<void>("restart_kernel");
+/** Kill a python kernel now; the next render respawns it (the Windows "interrupt"). With a
+ *  document, only the kernel for its interpreter (issue J.19); with none, every kernel. */
+export const restartKernel = (text: string | null = null, path: string | null = null) =>
+  invoke<void>("restart_kernel", { text, path });
+
+/** "Python: Which Python" (issue J.19): a document's interpreter and why it was chosen. */
+export type WhichPython = {
+  /** "" when none is configured or found. */
+  python: string;
+  reason: string;
+  /** Its version when its kernel is running; null = not started. */
+  version: string | null;
+  /** Kernels alive in this window; null while a render holds them. */
+  kernels: number | null;
+  warning: string | null;
+};
+export const whichPython = (text: string, path: string | null) =>
+  invoke<WhichPython>("which_python", { text, path });
 
 

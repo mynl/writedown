@@ -88,9 +88,23 @@ default_file = ""
 # viewer_url = "http://127.0.0.1:9124/view/{key}"
 
 [render]
-# Render Document: run {python} cells through this interpreter (explicit path — no
-# discovery). Leave empty to render without execution (cells shown as source).
+# Render Document: run {python} cells through this interpreter. A document's own
+# `wd-python:` (absolute path) comes first, then a .venv or venv in the document's folder
+# or any parent (when auto_venv is on), then this. Leave empty and with no venv found,
+# cells are shown as source. Palette "Python: Which Python" says which one a document gets.
 python = ""
+# auto_venv: look for .venv\Scripts\python.exe, then venv\Scripts\python.exe, from the
+# document's folder up to the drive root (default true).
+# auto_venv = true
+# max_kernels: Python processes kept alive per window, one per interpreter, least recently
+# used closed first (default 3, minimum 1; 1 is the old one-process behavior). Each idle one
+# holds its memory, a few hundred MB with pandas and matplotlib imported.
+# max_kernels = 3
+# warnings: how Python warnings are shown. "first" = the first of each distinct message
+# (default), "all" = every occurrence, "off" = none. Reset at every render. A document can
+# override it with `wd-warnings: all`; the palette's "Python Warnings: …" verbs override both
+# for the session.
+# warnings = "first"
 timeout_seconds = 30
 figure_format = "png" # png | svg
 figure_dpi = 150

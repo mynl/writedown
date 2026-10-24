@@ -317,6 +317,7 @@ pub fn run() {
             render::render_document,
             render::run_cell,
             render::restart_kernel,
+            render::which_python,
             bib::extract_bib_entries,
             project::load_project,
             project::save_project,

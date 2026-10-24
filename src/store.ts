@@ -59,6 +59,7 @@ import {
   type FileStamp,
   type ProjectInfo,
   type Session,
+  type WarningMode,
   type SublimeTheme,
 } from "./api";
 import { forceLinting } from "@codemirror/lint";
@@ -449,6 +450,9 @@ type AppState = {
   treeMenu: { x: number; y: number; entry: Entry } | null;
   /** Right-click menu over a citation key in the editor (issue J.20; null = closed). */
   citeMenu: { x: number; y: number; key: string } | null;
+  /** The palette's "Python Warnings: …" session override (issue J.16): beats a document's
+   *  `wd-warnings:` and `[render] warnings`. null = use those. Never saved. */
+  warningsOverride: WarningMode | null;
   viewMode: ViewMode;
   /** Which pane the preview column shows: the live preview or the last render snapshot. */
   previewTab: "live" | "rendered" | "diff";
@@ -790,6 +794,7 @@ export const useStore = create<AppState>((set, get) => ({
   prompt: null,
   treeMenu: null,
   citeMenu: null,
+  warningsOverride: null,
   viewMode: "split",
   previewTab: "live",
   rendered: {},
@@ -2063,7 +2068,7 @@ export const useStore = create<AppState>((set, get) => ({
     const source = doc.content;
     set({ renderBusy: true });
     try {
-      const r = await renderDocument(source, isScratch(doc.path) ? null : doc.path);
+      const r = await renderDocument(source, isScratch(doc.path) ? null : doc.path, get().warningsOverride);
       // Where the editor is NOW — the rendered view opens at this spot instead of the
       // top (issue 4). Read post-render so a long build still lands where you are.
       const v = getActiveView();
@@ -2127,7 +2132,7 @@ export const useStore = create<AppState>((set, get) => ({
     const source = doc.content;
     set({ renderBusy: true });
     try {
-      const r = await runCell(source, isScratch(doc.path) ? null : doc.path, line);
+      const r = await runCell(source, isScratch(doc.path) ? null : doc.path, line, get().warningsOverride);
       set((s) => ({
         rendered: {
           ...s.rendered,

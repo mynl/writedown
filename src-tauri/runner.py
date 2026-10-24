@@ -6,7 +6,8 @@ Spawned as `<python> -u runner.py` with MPLBACKEND=Agg so the backend is fixed b
 user import. One JSON object per line in, one per line out:
 
   -> {"id": 1, "code": "...", "reset": true, "cwd": "C:/docs/paper",
-      "fig_format": "png", "fig_dpi": 150, "traceback_mode": "context"}
+      "fig_format": "png", "fig_dpi": 150, "traceback_mode": "context",
+      "warnings": "first"}
   <- {"id": 1, "stdout": "...", "stderr": "...", "result_text": null,
       "result_html": null, "figures": [{"format": "png", "b64": "..."}],
       "error": null, "ms": 12}
@@ -41,6 +42,7 @@ import re
 import sys
 import time
 import traceback
+import warnings
 
 # The app writes requests as raw UTF-8 JSON, but a piped stdin on Windows defaults to the
 # locale codepage (cp1252) — non-ASCII in cell code would arrive mojibake'd (λ -> Î»).
@@ -68,6 +70,28 @@ xmode_override = None
 # The last cwd this runner applied, so a cell's own os.chdir() survives the rest of the
 # render while a switch to another document still re-anchors (issue D.10).
 applied_cwd = None
+
+# Warning modes (issue J.16): first of each kind, all, or none. Python's stock filters are
+# snapshotted once, before any user code, and restored at every render; the mode's filter
+# is APPENDED after them, so the stock category policy (library DeprecationWarnings
+# ignored) stays ahead of it and "all" does not flood. `simplefilter` bumps the filters
+# version, which invalidates every module's __warningregistry__, so a library warning
+# shows on every render rather than only the first since the process started.
+STOCK_FILTERS = list(warnings.filters)
+WARN_ACTIONS = {"first": "once", "all": "always", "off": "ignore"}
+# The mode the filters were last set for; None until the first request.
+applied_warnings = None
+
+
+def apply_warnings(mode, reset):
+    """Reset the filters to stock plus `mode`, at a render's first cell or when the mode
+    changes. A cell's own warnings.filterwarnings(...) therefore lasts for that render."""
+    global applied_warnings
+    mode = mode if mode in WARN_ACTIONS else "first"
+    if reset or mode != applied_warnings:
+        warnings.filters[:] = STOCK_FILTERS
+        warnings.simplefilter(WARN_ACTIONS[mode], append=True)
+        applied_warnings = mode
 
 
 def clean(code):
@@ -307,6 +331,7 @@ def handle(req):
         plt = sys.modules.get("matplotlib.pyplot")
         if plt is not None:
             plt.close("all")
+    apply_warnings(req.get("warnings"), bool(req.get("reset")))
 
     # cwd on EVERY cell, not only on reset (issue D.10). It used to ride along with the
     # namespace reset, so "Run This Cell" against a document in another folder inherited

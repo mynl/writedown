@@ -727,7 +727,7 @@ first launching that build (J.04).
 
 ## Execution log
 
-Started 2026-10-24 against 2.25.0 (`d4b4bac`). Versions as assigned: [quick-fixes] 2.26.0, [windows-tabs-citations] 2.27.0.
+Started 2026-10-24 against 2.25.0 (`d4b4bac`). Versions as assigned: [quick-fixes] 2.26.0, [windows-tabs-citations] 2.27.0, [python-environments] 2.28.0.
 
 ### Review, 2026-10-24
 
@@ -773,3 +773,15 @@ Divergences:
 - **[closed-tabs]** the persisted list is each path once (its latest close wins), newest last, capped at 25 (`recentClosed`); the fingerprint carries the stack's tail. Preview tabs still enter the stack through `closeTab`, as before. The registry action `reopenClosedPicker` has an explicit palette verb so the title reads "Reopen Closed Tab…".
 - **[citation-document]** with `viewer_url` unset the whole custom menu is absent, not just its Open item, so right-click is exactly as before; with it set, the menu appears only over a key in prose (the hover card keeps its old behavior, no prose test). "Open Document" is also a registry action, `openCitationDocument`, unbound, so `[keys]` can bind it. `CiteContextMenu` sits in `src/ContextMenu.tsx` beside the generic `ContextMenu`; the tree menu keeps its fixed 176 by 210 size estimate, so it lands where it always did.
 - Left for the author in the running app: the new window (and `writedown --blank`), the pointer over Save As with "Hide pointer while typing" back on, the update verb's message, the closed-tab picker across a restart, and the citation menu, verb and hover link against archivum (including whether the template wants `{key}` or `@{key}`).
+
+### [python-environments] 2.28.0
+
+Both items landed. Gates: `npm run build`, `cargo test` (81 passed, 11 ignored; the `resolve_python` tree tests and the `wd-warnings` parse are new), `madge`, smoke-boot. The opt-in kernel tests, `cargo test kernel_ -- --ignored` with `WRITEDOWN_TEST_PYTHON` (a scratch venv with matplotlib) and `WRITEDOWN_TEST_PYTHON_B` (the uv-managed 3.14), all 8 pass, three of them new: `kernel_warning_modes` (one, three, none), `kernel_library_warning_repeats_per_render` (a synthetic `helper.py` warns on each of three renders in "first"), and `kernel_pool_keeps_two_interpreters_warm` (no respawn after the first of each, A's `x` survives a render in B, a pool of one evicts).
+
+Divergences:
+
+- **[warnings] checked on real interpreters first.** Python's "once" action keeps its own registry, which a filters-version bump might not clear; a probe on 3.13.15 and 3.14.7 showed each render reporting its warnings afresh with the plan's scheme as written, so the runner adds nothing beyond it. The palette's verbs say "re-render to apply", since the override takes effect on the next render or Run This Cell.
+- **[venvs-and-kernel-pool] `restart_kernel` and `which_python` take the document's text as well as its path**: `wd-python` lives in the live buffer's front matter. Both are async commands; Which Python uses `try_lock` and reports "busy (rendering)" while a render holds the pool, and the restart no longer blocks the window while it waits.
+- **[venvs-and-kernel-pool] `checkout` takes the runner folder, pool size and timeout** rather than the app handle (`checkout_for` supplies them), so the opt-in test drives the real pool logic. `Kernel::exec` takes an `ExecOpts` struct in place of seven positional arguments.
+- **[venvs-and-kernel-pool]** the not-configured message now also suggests adding a `.venv`.
+- Left for the author in the running app: Which Python and a render in a folder with a `uv venv` and in one without, and the behavior change for documents that relied on the global interpreter.

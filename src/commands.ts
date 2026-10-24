@@ -19,6 +19,7 @@ import {
   newWindow,
   openShell,
   restartKernel,
+  whichPython,
   type UpdateInfo,
 } from "./api";
 import { SCRATCH_PREFIX, isScratch, mergedProjects, useStore } from "./store";
@@ -384,9 +385,41 @@ export function appCommands(): Command[] {
     { id: "number-sections-off", title: "Preview: Don't Number Sections", run: () => s().setNumberSections(false) },
     { id: "number-sections-doc", title: "Preview: Number Sections — Follow Document YAML", run: () => s().setNumberSections(null) },
     {
+      // The active document's kernel only (issue J.19: one kernel per interpreter); with
+      // no document open, every kernel.
       id: "render-restart-kernel",
       title: "Restart Python Kernel",
-      run: () => void restartKernel().catch(() => {}),
+      run: () => {
+        const doc = activeDoc();
+        void restartKernel(doc?.content ?? null, doc ? docPathArg(doc.path) : null)
+          .then(() => s().showStatusMessage(doc ? "python kernel restarted for this document" : "all python kernels restarted"))
+          .catch((e) => useStore.setState({ lastError: `restart kernel — ${String(e)}` }));
+      },
+    },
+    { id: "which-python", title: "Python: Which Python", run: () => void showWhichPython() },
+    // Warning modes (issue J.16): four separate verbs, never one toggle. A session
+    // override; the next render or Run This Cell applies it.
+    ...(
+      [
+        ["first", "First of Each Kind"],
+        ["all", "All"],
+        ["off", "Off"],
+      ] as const
+    ).map(([mode, label]) => ({
+      id: `python-warnings-${mode}`,
+      title: `Python Warnings: ${label}`,
+      run: () => {
+        useStore.setState({ warningsOverride: mode });
+        s().showStatusMessage(`python warnings: ${label.toLowerCase()} (this session; re-render to apply)`);
+      },
+    })),
+    {
+      id: "python-warnings-default",
+      title: "Python Warnings: Use Document or Config Setting",
+      run: () => {
+        useStore.setState({ warningsOverride: null });
+        s().showStatusMessage("python warnings: from wd-warnings or [render] warnings (re-render to apply)");
+      },
     },
     {
       id: "edit-config",
@@ -551,6 +584,36 @@ const COVERED_ACTIONS = new Set([
   "reformatTable", "renumberList", "insertDateTime", "continueList", "copyFilePath",
   "copyFileName", "insertCitation", "reopenClosedPicker", "openCitationDocument",
 ]);
+
+/** The active document tab, if any. */
+function activeDoc() {
+  const st = useStore.getState();
+  return st.tabs.find((t) => t.path === st.activePath) ?? null;
+}
+
+/** A document's path as the backend wants it: null for a scratch buffer (no folder). */
+const docPathArg = (p: string) => (isScratch(p) ? null : p);
+
+/** "Python: Which Python" (issue J.19): the interpreter the active document gets, why, its
+ *  version if its kernel runs, and how many kernels this window holds. */
+async function showWhichPython(): Promise<void> {
+  const st = useStore.getState();
+  const doc = activeDoc();
+  try {
+    const w = await whichPython(doc?.content ?? "", doc ? docPathArg(doc.path) : null);
+    if (!w.python) {
+      st.showStatusMessage(`Python: ${w.reason}`);
+      return;
+    }
+    const state =
+      w.kernels === null
+        ? "busy (rendering)"
+        : `${w.version ? `running ${w.version}` : "not started"}; ${w.kernels} ${w.kernels === 1 ? "kernel" : "kernels"} alive`;
+    st.showStatusMessage(`Python: ${w.python} (${w.reason}; ${state})${w.warning ? ` · ${w.warning}` : ""}`);
+  } catch (e) {
+    useStore.setState({ lastError: `which python — ${String(e)}` });
+  }
+}
 
 /** "Help: Check for Updates" (issue J.10): compare with the latest GitHub release and,
  *  when it is newer, open its page in the browser. Nothing is downloaded or installed. */

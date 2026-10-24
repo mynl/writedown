@@ -5,6 +5,32 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [2.28.0] - 2026-10-24
+
+Batch J, [python-environments].
+
+### Added
+
+- **Per-folder virtual environments** (J.19): a document's cells run in the nearest `.venv`
+  or `venv`, from its folder up to the drive root, after `wd-python` and before
+  `[render] python`. `[render] auto_venv = false` restores the old rule. Behavior change: a
+  document that relied on the global interpreter's packages fails once its folder has a venv
+  without them.
+- **Kernels kept warm** (J.19): up to `[render] max_kernels` (default 3) Python processes per
+  window, one per interpreter, least recently used closed first. Switching between documents
+  in different venvs no longer restarts Python, and each keeps its variables for Run This
+  Cell. Each idle one holds its memory. `max_kernels = 1` is the old behavior.
+- **Python: Which Python** (J.19): the active document's interpreter, why it was chosen,
+  its version if running, and the kernel count.
+- **Python warning modes** (J.16): first of each kind (default), all, or off, reset at every
+  render, so a library warning shows on every render instead of only the first.
+  `[render] warnings`, `wd-warnings:` per document, and four palette verbs for the session.
+
+### Changed
+
+- **Restart Python Kernel** restarts the active document's kernel only; with no document
+  open, all of them. It no longer blocks the window while a render finishes.
+
 ## [2.27.0] - 2026-10-24
 
 Batch J, [windows-tabs-citations]. **Close every Writedown window, dev and release, before

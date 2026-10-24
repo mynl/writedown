@@ -224,13 +224,25 @@ refused; nothing here ever writes to a file (no replace — that is Sublime's jo
   space needs `%20` or angle brackets (strict CommonMark).
 - CSV/TSV tabs show a data grid instead (search, filters, sort, export).
 - The **Rendered** tab runs your Quarto-style `{python}` cells: palette → "Render
-  Document" or **Ctrl+Shift+Enter**. The interpreter comes from `[render] python`,
-  overridable per document with `wd-python:` in the YAML front matter. When the buffer
+  Document" or **Ctrl+Shift+Enter**. When the buffer
   has changed since the render, a red square sits before "Rendered" in the tab and the
   status row shows a red Stale badge. **Ctrl+Shift+B** runs the `[build]` command, from
   anywhere, as in Sublime.
 - **Definition lists**, Pandoc's syntax: a term on its own line, then `: definition`
   (or `~ definition`) on the next. Quarto's `:::` divs are unaffected.
+- **Which Python runs a document**, first match wins: `wd-python:` in its front matter
+  (an absolute path); else a `.venv` or `venv` in the document's folder or any folder
+  above it (`[render] auto_venv = false` turns this off); else `[render] python`. Palette
+  **Python: Which Python** shows the interpreter, why it was chosen, and its version if it
+  is running. Up to three Python processes stay alive per window, one per interpreter
+  (`[render] max_kernels`), so switching between documents in different venvs is instant
+  and each keeps its variables for Ctrl+Enter. Each idle one holds its memory. **Restart
+  Python Kernel** restarts the active document's one.
+- **Python warnings**: the first of each distinct message by default, reset at every
+  render, so a warning from a library shows every time rather than only on the first
+  render. `[render] warnings = "all"` or `"off"` changes it, `wd-warnings: all` changes it
+  for one document, and palette **Python Warnings: First of Each Kind / All / Off** changes
+  it for the session (**Use Document or Config Setting** undoes that).
 - Python cell syntax and duplicate Quarto labels are checked automatically (~½ s
   after you stop typing) and appear as squiggles.
 - A cell's last value is shown the way Jupyter would: HTML from its MIME bundle or

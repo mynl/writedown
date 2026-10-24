@@ -18,11 +18,15 @@ use tauri::Manager;
 // ---- state -------------------------------------------------------------------------
 
 /// Render-scoped state: the per-document bibliography cache (a doc's front-matter
-/// `bibliography:` override, keyed by path+mtime) and the persistent python kernel.
+/// `bibliography:` override, keyed by path+mtime) and the persistent python kernels.
 #[derive(Default)]
 pub struct RenderState {
     doc_bib: Mutex<Option<DocBib>>,
-    kernel: Mutex<Option<Kernel>>,
+    /// The kernel pool (issue J.19): at most `[render] max_kernels` processes, one per
+    /// interpreter, most recently used first. Switching between documents in different
+    /// venvs swaps processes instead of restarting one, so each keeps its namespace. The
+    /// lock is held for a whole render, as the single kernel's was.
+    kernels: Mutex<Vec<Kernel>>,
     /// Last render's cell outputs per document path, so "Run This Cell" can re-assemble the
     /// whole rendered document with just one cell's output replaced (issue A.24). Each entry
     /// keeps the code it was produced from: if that cell's source has changed since, the
@@ -56,8 +60,10 @@ pub struct RenderResult {
 
 // ---- python kernel ---------------------------------------------------------------------
 
-/// `[render]` in config.toml, read directly like `bib_path` does. `python` is an explicit
-/// interpreter path — no discovery. Missing/invalid keys fall back to defaults.
+/// `[render]` in config.toml, read directly like `bib_path` does (each render reads it
+/// afresh, so edits apply on the next render). `python` is the
+/// configured interpreter, the last resort after `wd-python` and a venv found beside the
+/// document (issue J.19; see `resolve_python`). Missing/invalid keys fall back to defaults.
 struct RenderCfg {
     python: String,
     timeout_seconds: u64,
@@ -67,10 +73,21 @@ struct RenderCfg {
     /// docs. The runner formats tracebacks itself, so this is ours to choose — there is no
     /// IPython involved and no CPython flag that does it.
     traceback_mode: String,
+    /// Python warning mode (issue J.16): first | all | off. See WARNING_MODES.
+    warnings: String,
+    /// Look for `.venv` / `venv` beside the document and in its parents (issue J.19).
+    auto_venv: bool,
+    /// Python processes kept alive per window, one per interpreter (issue J.19), >= 1.
+    max_kernels: usize,
 }
 
 /// Valid `[render] traceback_mode` values; anything else falls back to the default.
 const TRACEBACK_MODES: &[&str] = &["minimal", "plain", "context", "verbose", "docs"];
+
+/// Valid warning modes (issue J.16), for `[render] warnings`, `wd-warnings:` and the
+/// palette override: Python's "once" (the first of each distinct message, the default),
+/// "always", "ignore". The runner maps them (runner.py WARN_ACTIONS).
+const WARNING_MODES: &[&str] = &["first", "all", "off"];
 
 fn render_cfg(app: &tauri::AppHandle) -> RenderCfg {
     let mut cfg = RenderCfg {
@@ -79,6 +96,9 @@ fn render_cfg(app: &tauri::AppHandle) -> RenderCfg {
         figure_format: "png".into(),
         figure_dpi: 150,
         traceback_mode: "context".into(),
+        warnings: "first".into(),
+        auto_venv: true,
+        max_kernels: 3,
     };
     let Ok(dir) = crate::config::writedown_dir(app) else { return cfg };
     let txt = std::fs::read_to_string(dir.join("config.toml")).unwrap_or_default();
@@ -108,6 +128,18 @@ fn render_cfg(app: &tauri::AppHandle) -> RenderCfg {
             cfg.traceback_mode = m;
         }
     }
+    if let Some(m) = r.get("warnings").and_then(|v| v.as_str()) {
+        let m = m.trim().to_lowercase();
+        if WARNING_MODES.contains(&m.as_str()) {
+            cfg.warnings = m;
+        }
+    }
+    if let Some(b) = r.get("auto_venv").and_then(|v| v.as_bool()) {
+        cfg.auto_venv = b;
+    }
+    if let Some(n) = r.get("max_kernels").and_then(|v| v.as_integer()) {
+        cfg.max_kernels = n.clamp(1, 16) as usize;
+    }
     cfg
 }
 
@@ -120,6 +152,31 @@ struct CellReq<'a> {
     fig_format: &'a str,
     fig_dpi: u32,
     traceback_mode: &'a str,
+    warnings: &'a str,
+}
+
+/// Everything about a request except the code and the reset flag: the same for every cell
+/// of one render.
+struct ExecOpts<'a> {
+    cwd: Option<&'a str>,
+    fig_format: &'a str,
+    fig_dpi: u32,
+    traceback_mode: &'a str,
+    warnings: &'a str,
+    timeout: Duration,
+}
+
+impl RenderCfg {
+    fn exec_opts<'a>(&'a self, cwd: Option<&'a str>) -> ExecOpts<'a> {
+        ExecOpts {
+            cwd,
+            fig_format: &self.figure_format,
+            fig_dpi: self.figure_dpi,
+            traceback_mode: &self.traceback_mode,
+            warnings: &self.warnings,
+            timeout: Duration::from_secs(self.timeout_seconds),
+        }
+    }
 }
 
 #[derive(Deserialize, Default)]
@@ -197,6 +254,8 @@ struct Kernel {
     /// Lines from the reader thread; disconnect = the runner exited.
     rx: std::sync::mpsc::Receiver<String>,
     python_path: String,
+    /// The interpreter's version from the runner's ready line ("3.13.5"), for Which Python.
+    version: String,
     next_id: u64,
 }
 
@@ -240,9 +299,22 @@ impl Kernel {
             }
         });
 
-        let mut k = Kernel { child, stdin, rx, python_path: python.to_string(), next_id: 0 };
+        let mut k = Kernel {
+            child,
+            stdin,
+            rx,
+            python_path: python.to_string(),
+            version: String::new(),
+            next_id: 0,
+        };
         match k.rx.recv_timeout(ready_timeout) {
-            Ok(l) if l.contains("\"ready\"") => Ok(k),
+            Ok(l) if l.contains("\"ready\"") => {
+                k.version = serde_json::from_str::<serde_json::Value>(&l)
+                    .ok()
+                    .and_then(|v| v.get("python")?.as_str().map(str::to_string))
+                    .unwrap_or_default();
+                Ok(k)
+            }
             Ok(l) => {
                 let _ = k.child.kill();
                 Err(format!("unexpected runner handshake: {l}"))
@@ -258,24 +330,24 @@ impl Kernel {
         matches!(self.child.try_wait(), Ok(None))
     }
 
-    fn exec(
-        &mut self,
-        code: &str,
-        reset: bool,
-        cwd: Option<&str>,
-        fig_format: &str,
-        fig_dpi: u32,
-        traceback_mode: &str,
-        timeout: Duration,
-    ) -> Result<CellReply, ExecFail> {
+    fn exec(&mut self, code: &str, reset: bool, o: &ExecOpts) -> Result<CellReply, ExecFail> {
         use std::io::Write;
         self.next_id += 1;
         let id = self.next_id;
-        let req = CellReq { id, code, reset, cwd, fig_format, fig_dpi, traceback_mode };
+        let req = CellReq {
+            id,
+            code,
+            reset,
+            cwd: o.cwd,
+            fig_format: o.fig_format,
+            fig_dpi: o.fig_dpi,
+            traceback_mode: o.traceback_mode,
+            warnings: o.warnings,
+        };
         let line = serde_json::to_string(&req).map_err(|_| ExecFail::Dead)?;
         writeln!(self.stdin, "{line}").map_err(|_| ExecFail::Dead)?;
         self.stdin.flush().map_err(|_| ExecFail::Dead)?;
-        let deadline = Instant::now() + timeout;
+        let deadline = Instant::now() + o.timeout;
         loop {
             let left = deadline.saturating_duration_since(Instant::now());
             if left.is_zero() {
@@ -304,23 +376,186 @@ impl Drop for Kernel {
     }
 }
 
-/// Kill the kernel on app exit (RunEvent::Exit). The runner's stdin-EOF exit is the
+/// Kill every kernel on app exit (RunEvent::Exit). The runner's stdin-EOF exit is the
 /// backstop; this is the belt to that suspender.
 pub fn shutdown_kernel(app: &tauri::AppHandle) {
     if let Some(state) = app.try_state::<RenderState>() {
-        if let Ok(mut k) = state.kernel.lock() {
-            *k = None; // Drop kills
+        if let Ok(mut pool) = state.kernels.lock() {
+            pool.clear(); // Drop kills
         }
     }
 }
 
+/// The kernel for `python`, moved to the front of the pool, and whether it was just
+/// started (an empty namespace). Dead kernels are dropped first; a new one is spawned when
+/// none matches, and the least recently used beyond `max` are dropped, which kills them.
+fn checkout<'a>(
+    pool: &'a mut Vec<Kernel>,
+    python: &str,
+    max_kernels: usize,
+    runner_dir: &Path,
+    ready_timeout: Duration,
+) -> Result<(&'a mut Kernel, bool), String> {
+    pool.retain_mut(|k| k.alive());
+    let fresh = match pool.iter().position(|k| k.python_path == python) {
+        Some(i) => {
+            let k = pool.remove(i);
+            pool.insert(0, k);
+            false
+        }
+        None => {
+            let k = Kernel::spawn(python, runner_dir, ready_timeout)?;
+            pool.insert(0, k);
+            true
+        }
+    };
+    pool.truncate(max_kernels.max(1));
+    Ok((&mut pool[0], fresh))
+}
+
+/// `checkout` with the app's runner folder and the config's pool size and timeout.
+fn checkout_for<'a>(
+    app: &tauri::AppHandle,
+    pool: &'a mut Vec<Kernel>,
+    python: &str,
+    cfg: &RenderCfg,
+) -> Result<(&'a mut Kernel, bool), String> {
+    let cache = crate::config::writedown_dir(app)?.join("cache");
+    checkout(pool, python, cfg.max_kernels, &cache, Duration::from_secs(cfg.timeout_seconds))
+}
+
 /// Explicit user command ("Restart Python Kernel"): kill now, respawn on the next render.
-/// This is the Windows "interrupt" for a stuck or memory-heavy kernel.
-#[tauri::command]
-pub fn restart_kernel(state: tauri::State<RenderState>) {
-    if let Ok(mut k) = state.kernel.lock() {
-        *k = None;
+/// This is the Windows "interrupt" for a stuck or memory-heavy kernel. With a document
+/// (its text and path), only the kernel for that document's interpreter (issue J.19);
+/// with neither, every kernel in the pool. Async, so waiting out a render that holds the
+/// pool never freezes the window.
+#[tauri::command(async)]
+pub fn restart_kernel(
+    app: tauri::AppHandle,
+    text: Option<String>,
+    path: Option<String>,
+) -> Result<(), String> {
+    let target = match (&text, &path) {
+        (None, None) => None,
+        _ => Some(doc_python(&app, text.as_deref().unwrap_or(""), path.as_deref()).0),
+    };
+    let state = app.state::<RenderState>();
+    let mut pool = state.kernels.lock().map_err(|e| e.to_string())?;
+    match target {
+        None => pool.clear(),
+        Some(py) => pool.retain(|k| k.python_path != py),
     }
+    Ok(())
+}
+
+/// Where a document's interpreter came from (issue J.19), in `resolve_python`'s order.
+#[derive(Debug, PartialEq)]
+pub(crate) enum PySource {
+    /// `wd-python:` in the front matter (absolute paths only).
+    FrontMatter,
+    /// A `.venv` / `venv` in this folder: the document's own or a parent.
+    Venv(PathBuf),
+    /// `[render] python`.
+    Config,
+    /// Nothing configured or found.
+    Unset,
+}
+
+/// The venv interpreter nearest `dir`: at each folder from `dir` up to the drive root,
+/// `.venv` then `venv`. Returns the interpreter and the folder holding the venv.
+fn nearest_venv(dir: &Path) -> Option<(PathBuf, PathBuf)> {
+    let rel: [&[&str]; 2] = if cfg!(windows) {
+        [&[".venv", "Scripts", "python.exe"], &["venv", "Scripts", "python.exe"]]
+    } else {
+        [&[".venv", "bin", "python"], &["venv", "bin", "python"]]
+    };
+    let mut cur = Some(dir);
+    while let Some(d) = cur {
+        for parts in rel {
+            let p = parts.iter().fold(d.to_path_buf(), |acc, s| acc.join(s));
+            if p.is_file() {
+                return Some((p, d.to_path_buf()));
+            }
+        }
+        cur = d.parent();
+    }
+    None
+}
+
+/// The interpreter for a document (issue J.19): `wd-python` (absolute paths only; a relative
+/// one is ignored with a warning), then the nearest venv when `auto_venv` and the document
+/// has a folder (a scratch buffer has none), then `[render] python`. Pure but for the
+/// file-existence tests, so it is testable over a temporary folder tree. Used by the full
+/// render, Run This Cell, Which Python and the restart verb alike.
+pub(crate) fn resolve_python(
+    doc_dir: Option<&Path>,
+    wd_python: Option<&str>,
+    cfg_python: &str,
+    auto_venv: bool,
+) -> (String, PySource, Option<String>) {
+    let mut warning = None;
+    if let Some(wp) = wd_python.map(str::trim).filter(|s| !s.is_empty()) {
+        if Path::new(wp).is_absolute() {
+            return (wp.to_string(), PySource::FrontMatter, None);
+        }
+        warning = Some(format!("wd-python ignored (must be an absolute path): {wp}"));
+    }
+    if auto_venv {
+        if let Some((py, folder)) = doc_dir.and_then(nearest_venv) {
+            return (py.to_string_lossy().to_string(), PySource::Venv(folder), warning);
+        }
+    }
+    if cfg_python.is_empty() {
+        (String::new(), PySource::Unset, warning)
+    } else {
+        (cfg_python.to_string(), PySource::Config, warning)
+    }
+}
+
+/// A document's interpreter from its live text and path, with the config read fresh.
+fn doc_python(app: &tauri::AppHandle, text: &str, path: Option<&str>) -> (String, PySource, Option<String>) {
+    let (fm, _) = split_document(text);
+    let cfg = render_cfg(app);
+    let dir = path.and_then(|p| Path::new(p).parent());
+    resolve_python(dir, fm.wd_python.as_deref(), &cfg.python, cfg.auto_venv)
+}
+
+#[derive(Serialize)]
+pub struct WhichPython {
+    /// The interpreter path, "" when none is configured or found.
+    python: String,
+    /// Why: "wd-python in front matter", "venv found in <folder>", "[render] python", or
+    /// "not configured".
+    reason: String,
+    /// Its version when its kernel is running, else None ("not started").
+    version: Option<String>,
+    /// Kernels alive in this window; None while a render holds the pool.
+    kernels: Option<usize>,
+    /// A front-matter problem worth showing (a relative wd-python).
+    warning: Option<String>,
+}
+
+/// "Python: Which Python" (issue J.19): the active document's interpreter and why it was
+/// chosen. Never waits behind a render: a busy pool reports no version and no count.
+#[tauri::command(async)]
+pub fn which_python(app: tauri::AppHandle, text: String, path: Option<String>) -> WhichPython {
+    let (python, source, warning) = doc_python(&app, &text, path.as_deref());
+    let reason = match &source {
+        PySource::FrontMatter => "wd-python in front matter".to_string(),
+        PySource::Venv(folder) => format!("venv found in {}", folder.display()),
+        PySource::Config => "[render] python".to_string(),
+        PySource::Unset => "not configured: set [render] python, or add a .venv".to_string(),
+    };
+    let state = app.state::<RenderState>();
+    let (version, kernels) = match state.kernels.try_lock() {
+        Ok(mut pool) => {
+            pool.retain_mut(|k| k.alive());
+            let v = pool.iter().find(|k| k.python_path == python).map(|k| k.version.clone());
+            (v, Some(pool.len()))
+        }
+        Err(_) => (None, None),
+    };
+    WhichPython { python, reason, version, kernels, warning }
 }
 
 /// Run every `eval`-able python cell top-to-bottom (fresh namespace via `reset` on the
@@ -329,19 +564,14 @@ pub fn restart_kernel(state: tauri::State<RenderState>) {
 fn run_cells(
     app: &tauri::AppHandle,
     cfg: &RenderCfg,
+    python: &str,
     segments: &[Segment],
     doc_dir: Option<&str>,
 ) -> Result<(HashMap<usize, CellOutput>, usize), String> {
     let state = app.state::<RenderState>();
-    let mut guard = state.kernel.lock().map_err(|e| e.to_string())?;
-    let respawn = match guard.as_mut() {
-        Some(k) => !k.alive() || k.python_path != cfg.python,
-        None => true,
-    };
-    if respawn {
-        let cache = crate::config::writedown_dir(app)?.join("cache");
-        *guard = Some(Kernel::spawn(&cfg.python, &cache, Duration::from_secs(cfg.timeout_seconds))?);
-    }
+    let mut pool = state.kernels.lock().map_err(|e| e.to_string())?;
+    checkout_for(app, &mut pool, python, cfg)?;
+    let o = cfg.exec_opts(doc_dir);
 
     let mut outputs: HashMap<usize, CellOutput> = HashMap::new();
     let mut errors = 0usize;
@@ -358,9 +588,8 @@ fn run_cells(
             outputs.insert(idx, CellOutput { skipped: Some(reason.clone()), ..Default::default() });
             continue;
         }
-        let kernel = guard.as_mut().expect("kernel present until taken");
-        match kernel.exec(code, first, doc_dir, &cfg.figure_format, cfg.figure_dpi,
-                          &cfg.traceback_mode, Duration::from_secs(cfg.timeout_seconds)) {
+        let kernel = &mut pool[0]; // checked out above; removed only on failure below
+        match kernel.exec(code, first, &o) {
             Ok(rep) => {
                 if rep.error.is_some() {
                     errors += 1;
@@ -369,7 +598,7 @@ fn run_cells(
             }
             Err(fail) => {
                 errors += 1;
-                *guard = None; // Drop kills; next render respawns
+                pool.remove(0); // Drop kills this kernel alone; the next render respawns it
                 let msg = match fail {
                     ExecFail::Timeout => format!(
                         "timed out after {}s — kernel restarted",
@@ -400,28 +629,20 @@ fn run_cells(
 fn run_one_cell(
     app: &tauri::AppHandle,
     cfg: &RenderCfg,
+    python: &str,
     code: &str,
     doc_dir: Option<&str>,
 ) -> Result<CellOutput, String> {
     let state = app.state::<RenderState>();
-    let mut guard = state.kernel.lock().map_err(|e| e.to_string())?;
-    let respawn = match guard.as_mut() {
-        Some(k) => !k.alive() || k.python_path != cfg.python,
-        None => true,
-    };
+    let mut pool = state.kernels.lock().map_err(|e| e.to_string())?;
     // A cold kernel has an empty namespace, so `first` must be true here to initialise it;
-    // an already-running one is left exactly as it is.
-    let first = respawn;
-    if respawn {
-        let cache = crate::config::writedown_dir(app)?.join("cache");
-        *guard = Some(Kernel::spawn(&cfg.python, &cache, Duration::from_secs(cfg.timeout_seconds))?);
-    }
-    let kernel = guard.as_mut().expect("kernel present until taken");
-    match kernel.exec(code, first, doc_dir, &cfg.figure_format, cfg.figure_dpi,
-                      &cfg.traceback_mode, Duration::from_secs(cfg.timeout_seconds)) {
+    // an already-running one is left exactly as it is. With the pool (issue J.19) that
+    // includes a kernel kept warm across a render of a document in another venv.
+    let (kernel, first) = checkout_for(app, &mut pool, python, cfg)?;
+    match kernel.exec(code, first, &cfg.exec_opts(doc_dir)) {
         Ok(rep) => Ok(rep.into()),
         Err(fail) => {
-            *guard = None; // Drop kills; the next run respawns
+            pool.remove(0); // Drop kills this kernel alone; the next run respawns it
             let msg = match fail {
                 ExecFail::Timeout => {
                     format!("timed out after {}s — kernel restarted", cfg.timeout_seconds)
@@ -468,6 +689,9 @@ pub(crate) struct FrontMatter {
     /// `wd-traceback:` — a document-level traceback mode (issue D.09). One of
     /// TRACEBACK_MODES; validated where it is applied (see `render_impl`).
     pub(crate) wd_traceback: Option<String>,
+    /// `wd-warnings:` — a document-level Python warning mode (issue J.16). One of
+    /// WARNING_MODES; validated where it is applied (see `render_impl`).
+    pub(crate) wd_warnings: Option<String>,
 }
 
 /// Quarto `#|` cell options. All flags default true; unknown keys are ignored.
@@ -570,6 +794,12 @@ fn parse_front_matter(lines: &[&str], fm: &mut FrontMatter) {
             let v = unquote(v);
             if !v.is_empty() {
                 fm.wd_traceback = Some(v);
+            }
+        } else if let Some(v) = line.strip_prefix("wd-warnings:") {
+            // Document-level warning mode (issue J.16), the wd-traceback pattern exactly.
+            let v = unquote(v);
+            if !v.is_empty() {
+                fm.wd_warnings = Some(v);
             }
         }
     }
@@ -1317,6 +1547,9 @@ fn render_impl(
     // Some(line) = "Run This Cell": execute only the cell at that 1-based document line, in
     // the live namespace, and re-assemble the document from the cached outputs (issue A.24).
     only_cell_at: Option<usize>,
+    // The palette's "Python Warnings: …" session override (issue J.16); beats front matter
+    // and config. None = no override.
+    warnings_override: Option<&str>,
 ) -> RenderResult {
     let t0 = Instant::now();
     let (fm, segments) = split_document(text);
@@ -1326,15 +1559,30 @@ fn render_impl(
     // degrades gracefully when no interpreter is configured or the spawn fails.
     let n_python = segments.iter().filter(|s| matches!(s, Segment::PythonCell { .. })).count();
     let mut cfg = render_cfg(app);
-    // Document-level interpreter override (issue 9): absolute paths only. A relative value
-    // is ignored (not resolved against the doc folder), falling through to the configured
-    // [render] python; a bad absolute path still surfaces below via Kernel::spawn.
-    if let Some(wp) = fm.wd_python.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
-        if Path::new(wp).is_absolute() {
-            cfg.python = wp.to_string();
+    let doc_dir_path = path.and_then(|p| Path::new(p).parent());
+    // The interpreter (issues 9 and J.19): wd-python (absolute only; a relative value is
+    // ignored with a warning, not resolved against the doc folder), then the nearest venv,
+    // then [render] python. Resolved BEFORE the not-configured test below, so a document
+    // whose folder has a venv runs even with [render] python empty. A bad path still
+    // surfaces below via Kernel::spawn.
+    let (python, _source, py_warning) =
+        resolve_python(doc_dir_path, fm.wd_python.as_deref(), &cfg.python, cfg.auto_venv);
+    pre_warnings.extend(py_warning);
+    // Warning mode (issue J.16): palette override, then wd-warnings, then config. An
+    // unknown front-matter value warns, like wd-traceback.
+    if let Some(ww) = fm.wd_warnings.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        let ww = ww.to_lowercase();
+        if WARNING_MODES.contains(&ww.as_str()) {
+            cfg.warnings = ww;
         } else {
-            pre_warnings.push(format!("wd-python ignored (must be an absolute path): {wp}"));
+            pre_warnings.push(format!(
+                "wd-warnings ignored (expected one of {}): {ww}",
+                WARNING_MODES.join(", ")
+            ));
         }
+    }
+    if let Some(ov) = warnings_override.filter(|m| WARNING_MODES.contains(m)) {
+        cfg.warnings = ov.to_string();
     }
     // Document-level traceback mode (issue D.09). An unrecognised value warns rather than
     // being dropped in silence — a typo'd `wd-traceback: verbos` should say so.
@@ -1351,18 +1599,16 @@ fn render_impl(
     }
     let mut exec: HashMap<usize, CellOutput> = HashMap::new();
     let mut errors = 0usize;
-    let python = if n_python == 0 {
+    let python_status = if n_python == 0 {
         "ok".to_string()
-    } else if cfg.python.is_empty() {
+    } else if python.is_empty() {
         pre_warnings.push(
-            "python not configured — cells shown as source (set [render] python in config.toml)"
+            "python not configured — cells shown as source (set [render] python in config.toml, or add a .venv)"
                 .to_string(),
         );
         "not_configured".to_string()
     } else {
-        let doc_dir = path
-            .and_then(|p| Path::new(p).parent())
-            .map(|d| d.to_string_lossy().to_string());
+        let doc_dir = doc_dir_path.map(|d| d.to_string_lossy().to_string());
         if let Some(line) = only_cell_at {
             // ---- Run This Cell ------------------------------------------------------
             // Start from the previous render's outputs so the rest of the document keeps
@@ -1388,7 +1634,7 @@ fn render_impl(
                     if !opts.eval {
                         pre_warnings.push("this cell has #| eval: false".to_string());
                     } else {
-                        match run_one_cell(app, &cfg, code, doc_dir.as_deref()) {
+                        match run_one_cell(app, &cfg, &python, code, doc_dir.as_deref()) {
                             Ok(out) => {
                                 cached.insert(idx, CachedCell { code: code.clone(), out });
                             }
@@ -1405,7 +1651,7 @@ fn render_impl(
             }
             "ok".to_string()
         } else {
-        match run_cells(app, &cfg, &segments, doc_dir.as_deref()) {
+        match run_cells(app, &cfg, &python, &segments, doc_dir.as_deref()) {
             Ok((map, errs)) => {
                 // Remember this render's outputs so a later "Run This Cell" can rebuild
                 // the document around a single re-executed cell.
@@ -1477,20 +1723,23 @@ fn render_impl(
     // separator line from "\n\n" — all synthetic.
     let mut line_map = vec![0u32; 1 + warnings.len() + 1];
     line_map.extend(&exp.line_map);
-    RenderResult { markdown: md, cells, errors, elapsed_ms, python, line_map }
+    RenderResult { markdown: md, cells, errors, elapsed_ms, python: python_status, line_map }
 }
 
 /// Render the live buffer (no save side effect, no temp files). Async + spawn_blocking so
-/// the webview never blocks.
+/// the webview never blocks. `warnings`: the palette's session override (issue J.16).
 #[tauri::command]
 pub async fn render_document(
     app: tauri::AppHandle,
     text: String,
     path: Option<String>,
+    warnings: Option<String>,
 ) -> Result<RenderResult, String> {
-    tauri::async_runtime::spawn_blocking(move || render_impl(&app, &text, path.as_deref(), None))
-        .await
-        .map_err(|e| e.to_string())
+    tauri::async_runtime::spawn_blocking(move || {
+        render_impl(&app, &text, path.as_deref(), None, warnings.as_deref())
+    })
+    .await
+    .map_err(|e| e.to_string())
 }
 
 /// Run only the `{python}` cell at `line` (1-based), in the kernel's CURRENT namespace, and
@@ -1503,9 +1752,10 @@ pub async fn run_cell(
     text: String,
     path: Option<String>,
     line: usize,
+    warnings: Option<String>,
 ) -> Result<RenderResult, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        render_impl(&app, &text, path.as_deref(), Some(line))
+        render_impl(&app, &text, path.as_deref(), Some(line), warnings.as_deref())
     })
     .await
     .map_err(|e| e.to_string())
@@ -1585,6 +1835,93 @@ mod tests {
         // Absent is None, so the config default stands.
         let (fm, _) = split_document("---\ntitle: Doc\n---\nbody\n");
         assert_eq!(fm.wd_traceback, None);
+    }
+
+    #[test]
+    fn front_matter_reads_wd_warnings() {
+        let (fm, _) = split_document("---\ntitle: Doc\nwd-warnings: all\n---\nbody\n");
+        assert_eq!(fm.wd_warnings.as_deref(), Some("all"));
+        let (fm, _) = split_document("---\ntitle: Doc\n---\nbody\n");
+        assert_eq!(fm.wd_warnings, None);
+    }
+
+    #[test]
+    fn warning_modes_are_the_three_the_runner_knows() {
+        // runner.py WARN_ACTIONS maps exactly these; a mode accepted here but unknown there
+        // would silently fall back to "first".
+        assert_eq!(WARNING_MODES, &["first", "all", "off"]);
+    }
+
+    /// A synthetic folder tree for resolve_python: root/.venv (an interpreter file), and
+    /// root/a/b for the document; a sibling tree with no venv at all.
+    fn venv_tree(tag: &str) -> (PathBuf, PathBuf, PathBuf) {
+        let base = std::env::temp_dir().join(format!("wd-venv-{tag}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let root = base.join("proj");
+        let doc = root.join("a").join("b");
+        std::fs::create_dir_all(&doc).unwrap();
+        let py = if cfg!(windows) {
+            root.join(".venv").join("Scripts").join("python.exe")
+        } else {
+            root.join(".venv").join("bin").join("python")
+        };
+        std::fs::create_dir_all(py.parent().unwrap()).unwrap();
+        std::fs::write(&py, "").unwrap();
+        let bare = base.join("bare").join("doc");
+        std::fs::create_dir_all(&bare).unwrap();
+        (root, doc, bare)
+    }
+
+    #[test]
+    fn resolve_python_finds_the_venv_in_a_parent() {
+        let (root, doc, _) = venv_tree("parent");
+        let (py, src, w) = resolve_python(Some(&doc), None, "C:/cfg/python.exe", true);
+        assert!(py.contains(".venv"), "{py}");
+        assert_eq!(src, PySource::Venv(root.clone()));
+        assert_eq!(w, None);
+        let _ = std::fs::remove_dir_all(root.parent().unwrap());
+    }
+
+    #[test]
+    fn resolve_python_finds_the_venv_in_the_documents_folder() {
+        let (root, _, _) = venv_tree("own");
+        let (_, src, _) = resolve_python(Some(&root), None, "", true);
+        assert_eq!(src, PySource::Venv(root.clone()));
+        let _ = std::fs::remove_dir_all(root.parent().unwrap());
+    }
+
+    #[test]
+    fn resolve_python_without_a_venv_uses_config() {
+        let (root, _, bare) = venv_tree("none");
+        let (py, src, _) = resolve_python(Some(&bare), None, "C:/cfg/python.exe", true);
+        assert_eq!((py.as_str(), src), ("C:/cfg/python.exe", PySource::Config));
+        let (py, src, _) = resolve_python(Some(&bare), None, "", true);
+        assert_eq!((py.as_str(), src), ("", PySource::Unset));
+        // A scratch buffer has no folder: configured interpreter.
+        let (_, src, _) = resolve_python(None, None, "C:/cfg/python.exe", true);
+        assert_eq!(src, PySource::Config);
+        let _ = std::fs::remove_dir_all(root.parent().unwrap());
+    }
+
+    #[test]
+    fn resolve_python_wd_python_beats_the_venv() {
+        let (root, doc, _) = venv_tree("fm");
+        let abs = if cfg!(windows) { "C:/py/python.exe" } else { "/usr/bin/python3" };
+        let (py, src, _) = resolve_python(Some(&doc), Some(abs), "", true);
+        assert_eq!((py.as_str(), src), (abs, PySource::FrontMatter));
+        // A relative wd-python is ignored with a warning, and the venv still applies.
+        let (_, src, w) = resolve_python(Some(&doc), Some("python.exe"), "", true);
+        assert!(matches!(src, PySource::Venv(_)));
+        assert!(w.unwrap().contains("absolute"));
+        let _ = std::fs::remove_dir_all(root.parent().unwrap());
+    }
+
+    #[test]
+    fn resolve_python_auto_venv_off_skips_the_venv() {
+        let (root, doc, _) = venv_tree("off");
+        let (py, src, _) = resolve_python(Some(&doc), None, "C:/cfg/python.exe", false);
+        assert_eq!((py.as_str(), src), ("C:/cfg/python.exe", PySource::Config));
+        let _ = std::fs::remove_dir_all(root.parent().unwrap());
     }
 
     #[test]
@@ -1847,12 +2184,98 @@ mod tests {
         Kernel::spawn(&python, &dir, Duration::from_secs(20)).expect("real python available")
     }
 
+    /// Request options for the kernel tests: no cwd, png at 150 dpi, context tracebacks,
+    /// warnings "first", and a timeout in seconds.
+    fn topts(secs: u64) -> ExecOpts<'static> {
+        ExecOpts {
+            cwd: None,
+            fig_format: "png",
+            fig_dpi: 150,
+            traceback_mode: "context",
+            warnings: "first",
+            timeout: Duration::from_secs(secs),
+        }
+    }
+
+    /// Issue J.19 acceptance, the pool: alternating between two interpreters (A from
+    /// WRITEDOWN_TEST_PYTHON, B from WRITEDOWN_TEST_PYTHON_B, e.g. a venv) spawns each once,
+    /// and A's namespace survives a render in B. With a pool of one, B evicts A.
+    #[test]
+    #[ignore]
+    fn kernel_pool_keeps_two_interpreters_warm() {
+        let a = std::env::var("WRITEDOWN_TEST_PYTHON").expect("WRITEDOWN_TEST_PYTHON");
+        let b = std::env::var("WRITEDOWN_TEST_PYTHON_B").expect("WRITEDOWN_TEST_PYTHON_B");
+        let dir = std::env::temp_dir().join("writedown-kernel-test");
+        let t = Duration::from_secs(20);
+        let mut pool: Vec<Kernel> = Vec::new();
+        let exe = |pool: &mut Vec<Kernel>, py: &str, code: &str, reset: bool, max: usize| {
+            let (k, fresh) = checkout(pool, py, max, &dir, t).unwrap();
+            let r = k.exec(code, reset, &topts(10)).ok().unwrap();
+            (fresh, r)
+        };
+        let (fresh, _) = exe(&mut pool, &a, "x = 41", true, 3);
+        assert!(fresh, "A starts");
+        let (fresh, _) = exe(&mut pool, &b, "1", true, 3);
+        assert!(fresh, "B starts");
+        // Back to A: no respawn, and x from A's last render is still there (Run This Cell).
+        let (fresh, r) = exe(&mut pool, &a, "x + 1", false, 3);
+        assert!(!fresh, "A kept warm");
+        assert_eq!(r.result_text.as_deref(), Some("42"));
+        let (fresh, _) = exe(&mut pool, &b, "1", true, 3);
+        assert!(!fresh, "B kept warm");
+        assert_eq!(pool.len(), 2);
+        // max_kernels = 1: switching evicts the other, which is today's behavior.
+        let (fresh, _) = exe(&mut pool, &a, "1", true, 1);
+        assert!(!fresh);
+        assert_eq!(pool.len(), 1);
+        let (fresh, _) = exe(&mut pool, &b, "1", true, 1);
+        assert!(fresh, "B was evicted, so it restarts");
+        assert_eq!(pool.len(), 1);
+    }
+
+    /// Issue J.16 acceptance: three identical warnings in a cell show once in "first",
+    /// three times in "all", never in "off".
+    #[test]
+    #[ignore]
+    fn kernel_warning_modes() {
+        let mut k = test_kernel();
+        let code = "import warnings\n_ = [warnings.warn('w') for _ in range(3)]";
+        for (mode, n) in [("first", 1), ("all", 3), ("off", 0)] {
+            let r = k.exec(code, true, &ExecOpts { warnings: mode, ..topts(10) }).ok().unwrap();
+            assert_eq!(r.stderr.matches("UserWarning").count(), n, "{mode}: {}", r.stderr);
+        }
+    }
+
+    /// Issue J.16 acceptance: a warning raised inside a library module (a synthetic
+    /// helper.py beside the "document") shows on EVERY render in "first", not only the
+    /// first render since the process started.
+    #[test]
+    #[ignore]
+    fn kernel_library_warning_repeats_per_render() {
+        let dir = std::env::temp_dir().join(format!("wd-warn-lib-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("helper.py"), "import warnings\ndef f():\n    warnings.warn('lib')\n")
+            .unwrap();
+        let cwd = dir.to_string_lossy().to_string();
+        let mut k = test_kernel();
+        let code = "import sys, os\nsys.path.insert(0, os.getcwd())\nimport helper\nhelper.f()";
+        for render in 0..3 {
+            let r = k
+                .exec(code, true, &ExecOpts { cwd: Some(&cwd), ..topts(10) })
+                .ok()
+                .unwrap();
+            assert!(r.error.is_none(), "{:?}", r.error.map(|e| e.message));
+            assert_eq!(r.stderr.matches("UserWarning: lib").count(), 1, "render {render}: {}", r.stderr);
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     #[test]
     #[ignore]
     fn kernel_stdout_and_last_expr() {
         let mut k = test_kernel();
         let r = k
-            .exec("print('hey')\n1 + 1", true, None, "png", 150, "context", Duration::from_secs(10))
+            .exec("print('hey')\n1 + 1", true, &topts(10))
             .ok()
             .unwrap();
         assert_eq!(r.stdout, "hey\n");
@@ -1864,13 +2287,13 @@ mod tests {
     #[ignore]
     fn kernel_namespace_resets_but_modules_survive() {
         let mut k = test_kernel();
-        let r = k.exec("import math\nx = 41", true, None, "png", 150, "context", Duration::from_secs(10));
+        let r = k.exec("import math\nx = 41", true, &topts(10));
         assert!(r.ok().unwrap().error.is_none());
         // Same render (no reset): x is visible.
-        let r = k.exec("x + 1", false, None, "png", 150, "context", Duration::from_secs(10)).ok().unwrap();
+        let r = k.exec("x + 1", false, &topts(10)).ok().unwrap();
         assert_eq!(r.result_text.as_deref(), Some("42"));
         // New render (reset): x is gone.
-        let r = k.exec("x", true, None, "png", 150, "context", Duration::from_secs(10)).ok().unwrap();
+        let r = k.exec("x", true, &topts(10)).ok().unwrap();
         assert!(r.error.is_some());
     }
 
@@ -1879,7 +2302,7 @@ mod tests {
     fn kernel_error_line_maps() {
         let mut k = test_kernel();
         let r = k
-            .exec("a = 1\nb = 2\n1/0", true, None, "png", 150, "context", Duration::from_secs(10))
+            .exec("a = 1\nb = 2\n1/0", true, &topts(10))
             .ok()
             .unwrap();
         let e = r.error.expect("error");
@@ -1891,7 +2314,7 @@ mod tests {
     #[ignore]
     fn kernel_timeout_kills() {
         let mut k = test_kernel();
-        let r = k.exec("while True: pass", true, None, "png", 150, "context", Duration::from_secs(2));
+        let r = k.exec("while True: pass", true, &topts(2));
         assert!(matches!(r, Err(ExecFail::Timeout)));
         drop(k); // Drop kills the busy process — must not hang
     }
@@ -1901,7 +2324,7 @@ mod tests {
     fn kernel_matplotlib_figure() {
         let mut k = test_kernel();
         let code = "import matplotlib.pyplot as plt\nplt.plot([1, 2], [3, 4])\nplt.gcf()";
-        let r = k.exec(code, true, None, "png", 96, "context", Duration::from_secs(30)).ok().unwrap();
+        let r = k.exec(code, true, &ExecOpts { fig_dpi: 96, ..topts(30) }).ok().unwrap();
         assert!(r.error.is_none(), "{:?}", r.error.map(|e| e.message));
         assert_eq!(r.figures.len(), 1);
         assert_eq!(r.figures[0].format, "png");
