@@ -50,6 +50,7 @@ export const DEFAULT_KEYS: { key: string; action: string }[] = [
   { key: "Ctrl+K Ctrl+W", action: "toggleWordWrap" },
   { key: "Ctrl+K Ctrl+B", action: "toggleSidebar" },
   { key: "Ctrl+K Ctrl+O", action: "toggleOutline" },
+  { key: "Ctrl+K Ctrl+H", action: "pythonHelp" }, // issue J.18
   // Ctrl+K Ctrl+P is deliberately NOT bound — reserved for goto-file muscle memory.
   // Plain view: editor only — no sidebar, no outline, no preview, NOT full screen. It
   // toggles, and exiting restores the layout you came from (issue D.08; the machinery has

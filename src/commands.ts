@@ -405,6 +405,13 @@ export function appCommands(): Command[] {
       },
     },
     { id: "which-python", title: "Python: Which Python", run: () => void showWhichPython() },
+    {
+      // Issue J.18: what help() prints for the name at the caret, in the Help tab.
+      id: "python-help",
+      title: "Python: Help on Name at Caret",
+      action: "pythonHelp",
+      run: () => void s().showPythonHelp(),
+    },
     // Warning modes (issue J.16): four separate verbs, never one toggle. A session
     // override; the next render or Run This Cell applies it.
     ...(
@@ -591,6 +598,7 @@ const COVERED_ACTIONS = new Set([
   "render", "renderCell", "build", "nextTab", "prevTab", "commandPalette", "bold", "italic",
   "reformatTable", "renumberList", "insertDateTime", "continueList", "copyFilePath",
   "copyFileName", "insertCitation", "reopenClosedPicker", "openCitationDocument",
+  "pythonHelp",
 ]);
 
 /** The folders a project-wide command covers: the project's, else the open folder. */

@@ -12,6 +12,11 @@ user import. One JSON object per line in, one per line out:
       "result_html": null, "figures": [{"format": "png", "b64": "..."}],
       "error": null, "ms": 12}
 
+A request with `"op": "help"` (issue J.18) carries `code`, `line` and `col` (1-based) and
+gets `{"id": 2, "help": {"name": "df.groupby", "source": "namespace", "text": "..."}}`:
+the text help() would print for the dotted name at the caret, resolved without running
+any code.
+
 The last expression's value is reported the way Jupyter would: `text/html` from its MIME
 bundle, else `_repr_html_()`, else an `image/png` / `image/svg+xml` from the bundle (as a
 figure), else `text/plain` from the bundle, else `repr()`.
@@ -403,6 +408,120 @@ def handle(req):
     }
 
 
+HELP_CAP = 200_000
+_IDENT = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")
+
+
+def name_at(code, line, col):
+    """The dotted name at 1-based (line, col) of `code`: back to the start of the dotted
+    chain, forward to the end of the identifier under the caret. `df.groupby(` with the
+    caret in `groupby` gives "df.groupby"; in `df`, just "df"."""
+    lines = code.split("\n")
+    if not 1 <= line <= len(lines):
+        return ""
+    text = lines[line - 1]
+    i = max(0, min(col - 1, len(text)))
+    if i == len(text) or (text[i] not in _IDENT and i > 0 and text[i - 1] in _IDENT):
+        i -= 1  # caret just after a name: the name before it
+    if i < 0 or (text[i] not in _IDENT and text[i] != "."):
+        return ""
+    a = i
+    while a > 0 and (text[a - 1] in _IDENT or text[a - 1] == "."):
+        a -= 1
+    b = i
+    while b < len(text) and text[b] in _IDENT:
+        b += 1
+    return text[a:b].strip(".")
+
+
+def resolve_static(name):
+    """Look `name` up in the namespace without running anything: each step uses
+    inspect.getattr_static, so no property, descriptor or __getattr__ executes (`df.T`
+    would otherwise compute a transpose just to show help). A plain function found on an
+    instance's class is bound to the instance, which runs no code and makes the text match
+    help(obj.method); a staticmethod or classmethod is unwrapped (and the classmethod bound
+    to its class). Raises NameError when the first part is not defined."""
+    import builtins
+    import inspect
+    import types
+
+    parts = name.split(".")
+    if parts[0] in ns:
+        obj = ns[parts[0]]
+    elif hasattr(builtins, parts[0]):
+        obj = getattr(builtins, parts[0])
+    else:
+        raise NameError(parts[0])
+    for p in parts[1:]:
+        owner = obj
+        obj = inspect.getattr_static(owner, p)
+        if isinstance(obj, staticmethod):
+            obj = obj.__func__
+        elif isinstance(obj, classmethod):
+            cls = owner if isinstance(owner, type) else type(owner)
+            obj = types.MethodType(obj.__func__, cls)
+        elif isinstance(obj, types.FunctionType) and not isinstance(owner, (type, types.ModuleType)):
+            if p not in getattr(owner, "__dict__", {}):
+                obj = types.MethodType(obj, owner)
+    return obj
+
+
+def help_text(obj, name):
+    """What help(obj) prints, with the signature first when there is one."""
+    import inspect
+    import pydoc
+
+    text = pydoc.render_doc(obj, "Help on %s:", renderer=pydoc.plaintext)
+    try:
+        sig = "%s%s" % (name, inspect.signature(obj))
+    except (TypeError, ValueError):
+        sig = None
+    return sig + "\n\n" + text if sig else text
+
+
+def help_reply(req):
+    """op "help" (issue J.18): help on the dotted name at the caret, from the live
+    namespace; else from jedi's static reading of `code` when jedi is installed. The code
+    is never executed."""
+    code = req.get("code", "")
+    line = int(req.get("line") or 1)
+    col = int(req.get("col") or 1)
+    name = name_at(code, line, col)
+    out = {"name": name, "source": "none", "text": ""}
+    if not name:
+        out["text"] = "help: no name at the caret"
+        return {"id": req.get("id"), "help": out}
+    # Nothing here should print, but stdout IS the protocol channel: capture anything that
+    # does (a library's import-time chatter, say) rather than let it corrupt a reply.
+    sink = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(sink), contextlib.redirect_stderr(sink):
+            out["text"] = help_text(resolve_static(name), name)
+        out["source"] = "namespace"
+    except NameError:
+        try:
+            import jedi  # optional: only if installed in this environment
+        except ImportError:
+            jedi = None
+        if jedi is not None:
+            try:
+                with contextlib.redirect_stdout(sink), contextlib.redirect_stderr(sink):
+                    found = jedi.Interpreter(code, [ns]).help(line, col - 1)
+                    docs = [d.docstring() for d in found if d.docstring()]
+            except Exception:
+                docs = []
+            if docs:
+                out["text"] = "\n\n".join(docs)
+                out["source"] = "jedi"
+        if not out["text"]:
+            out["text"] = "'%s' is not defined: render first" % name.split(".")[0]
+    except Exception as e:  # an attribute that does not exist, a broken __doc__, ...
+        out["text"] = "help on %s failed: %s: %s" % (name, type(e).__name__, e)
+    if len(out["text"]) > HELP_CAP:
+        out["text"] = out["text"][:HELP_CAP] + "\n... (truncated at 200 KB)"
+    return {"id": req.get("id"), "help": out}
+
+
 def main():
     reply({"ready": True, "python": sys.version.split()[0]})
     for raw in sys.stdin:  # EOF -> exit 0
@@ -411,7 +530,8 @@ def main():
         except Exception:
             continue
         try:
-            reply(handle(req))
+            # A request may carry `op`; without one it is a cell, exactly as before.
+            reply(help_reply(req) if req.get("op") == "help" else handle(req))
         except Exception:
             reply(
                 {

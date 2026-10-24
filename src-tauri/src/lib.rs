@@ -321,6 +321,7 @@ pub fn run() {
             render::run_cell,
             render::restart_kernel,
             render::which_python,
+            render::python_help,
             bib::extract_bib_entries,
             project::load_project,
             project::save_project,

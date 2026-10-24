@@ -5,6 +5,22 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [2.30.0] - 2026-10-24
+
+Batch J, [python-help] (J.18).
+
+### Added
+
+- **Python help on the name at the caret**: Ctrl+K Ctrl+H (palette *Python: Help on Name at
+  Caret*) opens a Help tab beside Preview with exactly what `help(name)` prints, signature
+  first, for a name in a `{python}` cell or a `.py` file. It comes from the document's own
+  kernel, so the names are those its last render defined.
+- **Nothing runs to show help**: each dotted step is looked up statically, so help on a
+  property shows its docstring and never computes its value. A name not yet defined falls
+  back to jedi's reading of the code when jedi is installed, otherwise "render first".
+- During a render the request answers "busy" instead of waiting. A help request that takes
+  over 5 seconds is abandoned but its kernel kept, so the namespace survives.
+
 ## [2.29.0] - 2026-10-24
 
 Batch J, [version-history] (J.07).

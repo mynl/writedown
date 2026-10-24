@@ -369,6 +369,37 @@ impl Kernel {
     }
 }
 
+impl Kernel {
+    /// Send one non-cell request (`op` set, issue J.18) and wait for its reply, matched by
+    /// id like a cell's. The reply comes back as JSON for the caller to read.
+    fn request(&mut self, mut req: serde_json::Value, timeout: Duration) -> Result<serde_json::Value, ExecFail> {
+        use std::io::Write;
+        self.next_id += 1;
+        let id = self.next_id;
+        req["id"] = serde_json::json!(id);
+        writeln!(self.stdin, "{req}").map_err(|_| ExecFail::Dead)?;
+        self.stdin.flush().map_err(|_| ExecFail::Dead)?;
+        let deadline = Instant::now() + timeout;
+        loop {
+            let left = deadline.saturating_duration_since(Instant::now());
+            if left.is_zero() {
+                return Err(ExecFail::Timeout);
+            }
+            match self.rx.recv_timeout(left) {
+                Ok(l) => {
+                    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&l) {
+                        if v.get("id").and_then(|x| x.as_u64()) == Some(id) {
+                            return Ok(v);
+                        }
+                    }
+                }
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => return Err(ExecFail::Timeout),
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => return Err(ExecFail::Dead),
+            }
+        }
+    }
+}
+
 impl Drop for Kernel {
     fn drop(&mut self) {
         let _ = self.child.kill();
@@ -556,6 +587,93 @@ pub fn which_python(app: tauri::AppHandle, text: String, path: Option<String>) -
         Err(_) => (None, None),
     };
     WhichPython { python, reason, version, kernels, warning }
+}
+
+/// The code a help request reads, and the caret's line within it (issue J.18). A Markdown
+/// or Quarto document gives every `{python}` cell up to and including the one holding
+/// document line `line`, joined, so names defined in earlier cells resolve for jedi; a
+/// `.py` file gives the whole buffer. None: the caret is not in a cell's body.
+pub(crate) fn help_code(text: &str, line: usize, py_file: bool) -> Option<(String, usize)> {
+    if py_file {
+        return Some((text.to_string(), line));
+    }
+    let (_, segments) = split_document(text);
+    let mut parts: Vec<&str> = Vec::new();
+    let mut offset = 0usize; // code lines in the cells before this one
+    for seg in &segments {
+        let Segment::PythonCell { code, first_line, .. } = seg else { continue };
+        let n = if code.is_empty() { 0 } else { code.split('\n').count() };
+        if line >= *first_line && line < first_line + n {
+            parts.push(code);
+            return Some((parts.join("\n"), offset + (line - first_line) + 1));
+        }
+        if *first_line > line {
+            break;
+        }
+        parts.push(code);
+        offset += n;
+    }
+    None
+}
+
+#[derive(Serialize, Deserialize, Default)]
+pub struct PythonHelp {
+    /// The dotted name at the caret ("df.groupby").
+    #[serde(default)]
+    name: String,
+    /// "namespace" (the live kernel), "jedi" (static reading), or "none".
+    #[serde(default)]
+    source: String,
+    #[serde(default)]
+    text: String,
+}
+
+/// How long a help request may take before it is abandoned (issue J.18).
+const HELP_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// "Python: Help on Name at Caret" (issue J.18): help() text for the name at document line
+/// `line`, column `col` (both 1-based), from the kernel of the document's own interpreter
+/// (J.19's resolver), so the names are those its last render defined. Never waits behind a
+/// render: a pool in use answers "busy (rendering)". With no kernel yet for that
+/// interpreter one is started, and its empty namespace leaves jedi or "render first".
+///
+/// Notes
+/// -----
+/// A help request that outlives HELP_TIMEOUT is abandoned but its kernel is KEPT: killing
+/// it would throw away the namespace the help was about. The runner is single-threaded, so
+/// a render sent meanwhile waits for it to finish, and its late reply is dropped by id.
+#[tauri::command(async)]
+pub fn python_help(
+    app: tauri::AppHandle,
+    text: String,
+    path: Option<String>,
+    line: usize,
+    col: usize,
+    py_file: bool,
+) -> Result<PythonHelp, String> {
+    let Some((code, code_line)) = help_code(&text, line, py_file) else {
+        return Err("help: the caret is not in Python code".to_string());
+    };
+    let (python, _, _) = doc_python(&app, &text, path.as_deref());
+    if python.is_empty() {
+        return Err("help: no Python configured (set [render] python, or add a .venv)".to_string());
+    }
+    let cfg = render_cfg(&app);
+    let state = app.state::<RenderState>();
+    let Ok(mut pool) = state.kernels.try_lock() else {
+        return Err("help: busy (rendering)".to_string());
+    };
+    let (kernel, _) = checkout_for(&app, &mut pool, &python, &cfg)?;
+    let req = serde_json::json!({ "op": "help", "code": code, "line": code_line, "col": col });
+    match kernel.request(req, HELP_TIMEOUT) {
+        Ok(v) => serde_json::from_value::<PythonHelp>(v.get("help").cloned().unwrap_or_default())
+            .map_err(|e| format!("help: unreadable reply ({e})")),
+        Err(ExecFail::Timeout) => Err("help: no answer within 5 s (the kernel is kept)".to_string()),
+        Err(ExecFail::Dead) => {
+            pool.remove(0); // a dead kernel goes; the next request or render starts afresh
+            Err("help: the python kernel exited".to_string())
+        }
+    }
 }
 
 /// Run every `eval`-able python cell top-to-bottom (fresh namespace via `reset` on the
@@ -1838,6 +1956,20 @@ mod tests {
     }
 
     #[test]
+    fn help_code_joins_cells_up_to_the_caret() {
+        let doc = "Intro\n```{python}\nimport numpy as np\nx = 1\n```\nprose\n```{python}\ny = np.linspace(0, 1)\n```\n```{python}\nlater = 2\n```\n";
+        // Caret in the second cell (document line 8): both cells, caret on code line 3.
+        let (code, line) = help_code(doc, 8, false).unwrap();
+        assert_eq!(code, "import numpy as np\nx = 1\ny = np.linspace(0, 1)");
+        assert_eq!(line, 3);
+        // In prose, or on a fence line: not Python.
+        assert!(help_code(doc, 6, false).is_none());
+        assert!(help_code(doc, 2, false).is_none());
+        // A .py file is the whole buffer, line unchanged.
+        assert_eq!(help_code("a = 1\nb = a\n", 2, true), Some(("a = 1\nb = a\n".to_string(), 2)));
+    }
+
+    #[test]
     fn front_matter_reads_wd_warnings() {
         let (fm, _) = split_document("---\ntitle: Doc\nwd-warnings: all\n---\nbody\n");
         assert_eq!(fm.wd_warnings.as_deref(), Some("all"));
@@ -2231,6 +2363,23 @@ mod tests {
         let (fresh, _) = exe(&mut pool, &b, "1", true, 1);
         assert!(fresh, "B was evicted, so it restarts");
         assert_eq!(pool.len(), 1);
+    }
+
+    /// Issue J.18: a help request after a cell sees the cell's names, through
+    /// Kernel::request; the namespace is untouched by it.
+    #[test]
+    #[ignore]
+    fn kernel_help_request() {
+        let mut k = test_kernel();
+        k.exec("def f(a, b=2):\n    '''Add things.'''\n    return a + b", true, &topts(10)).ok().unwrap();
+        let req = serde_json::json!({ "op": "help", "code": "f(1)", "line": 1, "col": 1 });
+        let v = k.request(req, Duration::from_secs(10)).ok().unwrap();
+        let h: PythonHelp = serde_json::from_value(v["help"].clone()).unwrap();
+        assert_eq!((h.name.as_str(), h.source.as_str()), ("f", "namespace"));
+        assert!(h.text.starts_with("f(a, b=2)"), "{}", h.text);
+        assert!(h.text.contains("Add things."));
+        let r = k.exec("f(1)", false, &topts(10)).ok().unwrap();
+        assert_eq!(r.result_text.as_deref(), Some("3"), "namespace intact after help");
     }
 
     /// Issue J.16 acceptance: three identical warnings in a cell show once in "first",

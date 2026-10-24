@@ -727,7 +727,7 @@ first launching that build (J.04).
 
 ## Execution log
 
-Started 2026-10-24 against 2.25.0 (`d4b4bac`). Versions as assigned: [quick-fixes] 2.26.0, [windows-tabs-citations] 2.27.0, [python-environments] 2.28.0, [version-history] 2.29.0.
+Started 2026-10-24 against 2.25.0 (`d4b4bac`). Versions as assigned: [quick-fixes] 2.26.0, [windows-tabs-citations] 2.27.0, [python-environments] 2.28.0, [version-history] 2.29.0, [python-help] 2.30.0.
 
 ### Review, 2026-10-24
 
@@ -798,3 +798,17 @@ Divergences:
 - **[line-history] the git base is blame's `previous` commit and file name**, not `<rev>^:<filename>`, so a line whose commit also renamed the file still gets the right base; no `previous` (a root commit, or the commit that added the file) means an empty base. The blame and both `git show` calls are one command, `git_line_history`, whose body takes the git executable so the opt-in test can run it. The buffer is sent with the file's own line endings.
 - **[line-history] "changed in the save at" or "between"**: a change found within the newest 20 is pinned to one save, since nothing between two of the newest 20 was ever thinned away; beyond them the message gives the save and the next surviving version's stamp. The unsaved step diffs the buffer against the tab's saved text, the same text the disk diff then shows.
 - Left for the author in the running app: the verb on a committed line, on a line edited and saved twice, in an untracked file, and with an unsaved edit; Stats on a project; Prune's confirmation figures and the Stats after it; Previous Versions on a long history.
+
+### [python-help] 2.30.0
+
+J.18 landed, across a session break (a usage-limit reset mid-phase, with no effect on the work). Gates: `npm run build`, `cargo test` (86 passed, 13 ignored; `help_code` is new), `madge`, smoke-boot; the opt-in kernel tests, 9 of 9, add `kernel_help_request` (help sees a cell's function, signature first, and the namespace is intact afterwards). A probe drove the runner over its real stdin/stdout protocol in a scratch venv with pandas and jedi: help on `df.groupby` matches `pydoc` of `help(df.groupby)` byte for byte after the signature line; help on a property that prints shows its docstring and prints nothing; `np.linspace` resolves through jedi before the import cell has run; an unknown name answers "render first".
+
+Divergences:
+
+- **The help request carries the document, not pre-joined code.** `python_help(text, path, line, col, py_file)`: Rust builds the code itself (`help_code`, every `{python}` cell up to and including the caret's, or the whole `.py` buffer) so `split_document` stays the one definition of a cell, and the text also supplies `wd-python` to the resolver.
+- **A function found on an instance's class is bound to the instance** (`types.MethodType`, which runs no code), and a staticmethod or classmethod is unwrapped, so the text matches `help(obj.method)` rather than help on the plain function. Everything else is the plan's `getattr_static` walk.
+- **Help output is captured** (stdout and stderr redirected while help and jedi run): stdout is the protocol channel, so a library's stray print cannot corrupt a reply.
+- **A help timeout keeps the kernel** (decided at review): killing it would lose the namespace the help was about. The late reply is dropped by id, and a render sent meanwhile waits for the runner to finish the help.
+- **Refusals are status notes**: not in Python code, busy (rendering), no Python configured, and a timeout all come back as rejections the status bar shows.
+- **Tab choice with both side tabs open**: a `.py` file (not previewable) shows Help or Diff, whichever was chosen last when both are open.
+- Left for the author in the running app: Ctrl+K Ctrl+H on `df.groupby` in a rendered `.qmd`, on a property, before any render (with and without jedi in that environment), during a long render ("busy"), and in a `.py` file.

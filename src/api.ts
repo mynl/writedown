@@ -593,4 +593,17 @@ export type WhichPython = {
 export const whichPython = (text: string, path: string | null) =>
   invoke<WhichPython>("which_python", { text, path });
 
+/** help() on the dotted name at the caret (issue J.18), from the document's own kernel.
+ *  `line` and `col` are 1-based in the document; `pyFile` makes the whole buffer the code,
+ *  otherwise the {python} cells up to the caret's. Rejects with a short reason (not in
+ *  Python code, busy rendering, no Python configured). */
+export type PythonHelp = { name: string; source: "namespace" | "jedi" | "none"; text: string };
+export const pythonHelp = (
+  text: string,
+  path: string | null,
+  line: number,
+  col: number,
+  pyFile: boolean,
+) => invoke<PythonHelp>("python_help", { text, path, line, col, pyFile });
+
 

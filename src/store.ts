@@ -45,6 +45,7 @@ import {
   renamePath,
   renderDocument,
   runCell,
+  pythonHelp,
   launchFiles,
   launchBlank,
   listDirectories,
@@ -58,6 +59,7 @@ import {
   type Entry,
   type FileStamp,
   type ProjectInfo,
+  type PythonHelp,
   type Session,
   type WarningMode,
   type SublimeTheme,
@@ -461,7 +463,10 @@ type AppState = {
   warningsOverride: WarningMode | null;
   viewMode: ViewMode;
   /** Which pane the preview column shows: the live preview or the last render snapshot. */
-  previewTab: "live" | "rendered" | "diff";
+  previewTab: "live" | "rendered" | "diff" | "help";
+  /** Python help per document path (issue J.18): the Help tab shows while the active
+   *  document has an entry. Never saved in the session. */
+  pyHelp: Record<string, PythonHelp>;
   /** Completed renders by document path (in-memory only). */
   rendered: Record<string, Rendered>;
   renderBusy: boolean;
@@ -632,6 +637,9 @@ type AppState = {
   /** The diff pane on two static texts (issue J.07: one save, or one commit), scrolled to
    *  `line` of `other`. */
   openPairDiff: (base: string, other: string, label: string, line: number) => void;
+  /** Ctrl+K Ctrl+H (issue J.18): help() on the name at the caret, into the Help tab. */
+  showPythonHelp: () => Promise<void>;
+  closePythonHelp: () => void;
   closeDiff: () => void;
   /** Re-run `git status` over the workspace roots, debounced ~1 s (issue I.02). Called on
    *  root changes, saves, and file-watch events; async and off the typing path. */
@@ -711,7 +719,7 @@ type AppState = {
   persistProject: () => void;
   loadRecentProjects: () => Promise<void>;
   cycleView: () => void;
-  setPreviewTab: (tab: "live" | "rendered" | "diff") => void;
+  setPreviewTab: (tab: "live" | "rendered" | "diff" | "help") => void;
   /** Render the active markdown/quarto document (palette: "Render Document"). */
   renderActive: () => Promise<void>;
   /** Run just the {python} cell under the cursor, in the live kernel namespace (A.24). */
@@ -806,6 +814,7 @@ export const useStore = create<AppState>((set, get) => ({
   warningsOverride: null,
   viewMode: "split",
   previewTab: "live",
+  pyHelp: {},
   rendered: {},
   renderBusy: false,
   cursorLine: 1,
@@ -1642,6 +1651,39 @@ export const useStore = create<AppState>((set, get) => ({
       set({ lastError: `diff — ${String(e)}` });
     }
   },
+  showPythonHelp: async () => {
+    const { activePath, tabs, showStatusMessage } = get();
+    const doc = tabs.find((t) => t.path === activePath);
+    const view = getActiveView();
+    if (!doc || !view || !view.dom.isConnected) return;
+    const pyFile = /\.pyw?$/i.test(doc.path);
+    if (!pyFile && !isMarkdownDoc(doc.path)) {
+      showStatusMessage("help: the caret is not in Python code");
+      return;
+    }
+    const head = view.state.selection.main.head;
+    const line = view.state.doc.lineAt(head);
+    try {
+      const h = await pythonHelp(
+        doc.content,
+        isScratch(doc.path) ? null : doc.path,
+        line.number,
+        head - line.from + 1,
+        pyFile,
+      );
+      set((s) => ({ pyHelp: { ...s.pyHelp, [doc.path]: h }, previewTab: "help" }));
+    } catch (e) {
+      // Not in Python code, busy, no Python: an ordinary answer, so the status bar.
+      showStatusMessage(String(e));
+    }
+  },
+  closePythonHelp: () =>
+    set((s) => {
+      const a = s.activePath;
+      if (!a || !s.pyHelp[a]) return {};
+      const { [a]: _gone, ...rest } = s.pyHelp;
+      return { pyHelp: rest, previewTab: s.previewTab === "help" ? "live" : s.previewTab };
+    }),
   openPairDiff: (base, other, label, line) => {
     const a = get().activePath;
     if (!a) return;

@@ -888,6 +888,27 @@ body {
 .diff-body .cm-editor {
   height: 100%;
 }
+/* The Help tab (issue J.18): help() text, monospace, scrolling within the pane. */
+.help-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  outline: none;
+}
+.help-body {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+  margin: 0;
+  padding: 8px 12px;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  color: var(--fg);
+  background: var(--bg);
+}
 .preview-pane .preview-scroll {
   height: auto;
   flex: 1 1 0;

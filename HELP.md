@@ -246,6 +246,14 @@ refused; nothing here ever writes to a file (no replace — that is Sublime's jo
   (`[render] max_kernels`), so switching between documents in different venvs is instant
   and each keeps its variables for Ctrl+Enter. Each idle one holds its memory. **Restart
   Python Kernel** restarts the active document's one.
+- **Python help**: **Ctrl+K Ctrl+H** (palette **Python: Help on Name at Caret**) with the
+  caret on a name in a `{python}` cell, or anywhere in a `.py` file, opens a **Help** tab
+  beside Preview with exactly what `help(name)` prints, signature first. It comes from the
+  document's own Python process, so the names are those the last render defined, and it is
+  looked up without running anything (help on a property shows its docstring, never its
+  value). A name not defined yet falls back to jedi's reading of the code when jedi is
+  installed in that environment, otherwise it says to render first. During a render it
+  answers "busy". The tab's **×** or **Esc** closes it.
 - **Python warnings**: the first of each distinct message by default, reset at every
   render, so a warning from a library shows every time rather than only on the first
   render. `[render] warnings = "all"` or `"off"` changes it, `wd-warnings: all` changes it

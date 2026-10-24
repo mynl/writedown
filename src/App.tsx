@@ -21,6 +21,7 @@ import { EditorBoundary } from "./editor/EditorBoundary";
 import { Preview } from "./preview/Preview";
 import { CsvPreview } from "./preview/CsvPreview";
 import { DiffPane } from "./preview/DiffPane";
+import { HelpPane } from "./preview/HelpPane";
 import { ImageViewer } from "./preview/ImageViewer";
 import { Outline } from "./outline/Outline";
 import { isCsv, isImageDoc, isMarkdownDoc, syntaxNameForPath } from "./editor/languages";
@@ -248,6 +249,7 @@ function App() {
   const setOutlineWidth = useStore((s) => s.setOutlineWidth);
   const splitRatio = useStore((s) => s.splitRatio);
   const diffAgainst = useStore((s) => s.diffAgainst);
+  const pyHelp = useStore((s) => s.pyHelp);
   const setSplitRatio = useStore((s) => s.setSplitRatio);
   const configError = useStore((s) => s.configError);
   const lastError = useStore((s) => s.lastError);
@@ -300,7 +302,11 @@ function App() {
   // Read-only diff pane (issue I.01): takes the preview slot ahead of the preview while
   // the tab it was opened on is active. Text documents only — never images or the grid.
   const diffOpen = !!diffAgainst && diffAgainst.for === activeDoc?.path && !img && !csv;
-  const splitMode = showEditor && (showPreview || diffOpen); // both panes mounted → show the drag divider
+  // Python help (issue J.18): like the diff, a tab in the preview slot while the active
+  // document has help content, and the only pane a .py file (not previewable) shows.
+  const helpOpen = !!activeDoc && !!pyHelp[activeDoc.path] && !img && !csv;
+  const sideOpen = diffOpen || helpOpen;
+  const splitMode = showEditor && (showPreview || sideOpen); // both panes mounted → show the drag divider
   const ren = activeDoc ? rendered[activeDoc.path] : undefined;
   // The buffer differs from the text that was rendered (issue J.15): the same compare the
   // Stale badge always made, now shared by the badge and the Rendered tab's red square.
@@ -314,17 +320,23 @@ function App() {
       : undefined;
   // The Rendered tab is per-document; fall back to the live Preview when the active doc
   // has no render (and none is in flight, so a first render still shows "Rendering…").
-  // "diff" holds only while a diff is actually open; a non-previewable document (e.g.
-  // .py) can show nothing BUT the diff, so it is forced there.
+  // "diff" and "help" hold only while open; a non-previewable document (e.g. .py) can show
+  // nothing BUT them, so it is forced onto whichever is open (the chosen one if both are).
   const effectiveTab =
-    !previewable && diffOpen
-      ? "diff"
+    !previewable && sideOpen
+      ? helpOpen && (previewTab === "help" || !diffOpen)
+        ? "help"
+        : "diff"
       : previewTab === "diff"
         ? diffOpen
           ? "diff"
           : "live"
-        : previewTab === "rendered" && !ren && !renderBusy
-          ? "live"
+        : previewTab === "help"
+          ? helpOpen
+            ? "help"
+            : "live"
+          : previewTab === "rendered" && !ren && !renderBusy
+            ? "live"
           : previewTab;
 
   // App-level (non-editor) keybindings: save, tab close/reopen/switch (spec §10).
@@ -693,7 +705,7 @@ function App() {
                       name={activeDoc.path.split(/[\\/]/).pop()}
                     />
                   </div>
-                ) : showPreview || diffOpen ? (
+                ) : showPreview || sideOpen ? (
                   <div className="split-pane preview-pane">
                     <div className="pane-header panel-tabs">
                       {md && (
@@ -742,9 +754,30 @@ function App() {
                           </span>
                         </button>
                       )}
+                      {helpOpen && (
+                        <button
+                          className={"panel-tab" + (effectiveTab === "help" ? " active" : "")}
+                          onClick={() => setPreviewTab("help")}
+                          title="Python help (Ctrl+K Ctrl+H) · × or Esc closes"
+                        >
+                          Help
+                          <span
+                            className="panel-tab-close"
+                            title="Close help"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              useStore.getState().closePythonHelp();
+                            }}
+                          >
+                            ×
+                          </span>
+                        </button>
+                      )}
                       <span className="panel-tabs-spacer" />
                     </div>
-                    {effectiveTab === "diff" ? (
+                    {effectiveTab === "help" ? (
+                      <HelpPane />
+                    ) : effectiveTab === "diff" ? (
                       <EditorBoundary>
                         <DiffPane />
                       </EditorBoundary>

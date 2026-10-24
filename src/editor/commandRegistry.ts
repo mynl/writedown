@@ -202,6 +202,8 @@ export const COMMAND_REGISTRY: Record<string, RegistryEntry> = {
   render: { run: act(() => void s().renderActive()), label: "Render (run {python} cells)", category: "View" },
   renderCell: { run: act(() => void s().renderCell()), label: "Run this {python} cell (live namespace)", category: "View" },
   build: { run: act(() => void s().runBuild()), label: "Build (run [build] command)", category: "View" },
+  // Issue J.18: help() on the name at the caret, into the Help tab.
+  pythonHelp: { run: act(() => void s().showPythonHelp()), label: "Python help on the name at the caret", category: "View" },
   foldCode: { run: foldCode, label: "Fold", category: "View" },
   unfoldCode: { run: unfoldCode, label: "Unfold", category: "View" },
   foldAll: { run: foldAll, label: "Fold all", category: "View" },
