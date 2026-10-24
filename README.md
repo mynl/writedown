@@ -72,6 +72,8 @@ palette → *Open Help*, or the `?` button at the top right.
 - **Live checks** — spelling, `{python}` syntax errors and duplicate Quarto labels flagged inline
   as you type, with no external tools.
 - **CSV files**  — opened with colored columns and CSV-grid sort, search, filter enabled preview.
+- **HTML files** open with a sealed preview beside the source and an outline of their h1 to h6
+  headings: local CSS and images show, while scripts never run and nothing loads from the web.
 - **Projects & sessions** — Sublime-style `.wdproj` projects with multi-root trees, MRU
   quick-switch, and per-workspace session restore.
 - **Autosave** — atomic writes; trailing-whitespace trim on save, Sublime-style (all
@@ -247,7 +249,7 @@ renders instantly on every keystroke because it does the common things and skips
 tail. For publication-exact output, run `quarto render` yourself; Writedown never pretends
 to be that last mile.
 
-**What the preview does:** CommonMark + tables, footnotes, task lists, strikethrough;
+**What the preview does:** CommonMark + tables, footnotes, task lists, strikethrough, definition lists;
 LaTeX math via KaTeX; BibTeX citations and an auto-generated References list;
 cross-references (`@fig-`, `@tbl-`, `@sec-`, `@eq-`) with numbering; `{python}` cell
 execution with text, tables, and matplotlib figures spliced in; local images (relative and

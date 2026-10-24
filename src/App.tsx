@@ -22,9 +22,10 @@ import { Preview } from "./preview/Preview";
 import { CsvPreview } from "./preview/CsvPreview";
 import { DiffPane } from "./preview/DiffPane";
 import { HelpPane } from "./preview/HelpPane";
+import { HtmlPreview } from "./preview/HtmlPreview";
 import { ImageViewer } from "./preview/ImageViewer";
 import { Outline } from "./outline/Outline";
-import { isCsv, isImageDoc, isMarkdownDoc, syntaxNameForPath } from "./editor/languages";
+import { isCsv, isHtmlDoc, isImageDoc, isMarkdownDoc, syntaxNameForPath } from "./editor/languages";
 import { getActiveView } from "./editor/editorView";
 import { keyForAction } from "./editor/keymap";
 import { runScopeHandlers } from "@codemirror/view";
@@ -296,7 +297,9 @@ function App() {
   const md = activeDoc ? isMarkdownDoc(activeDoc.path) : false;
   const csv = activeDoc ? isCsv(activeDoc.path) : false;
   const img = activeDoc ? isImageDoc(activeDoc.path) : false;
-  const previewable = md || csv; // markdown gets the rendered preview, csv/tsv the grid
+  const html = activeDoc ? isHtmlDoc(activeDoc.path) : false;
+  // markdown gets the rendered preview, csv/tsv the grid, html the sealed page (issue J.11)
+  const previewable = md || csv || html;
   const showEditor = !previewable || viewMode !== "preview";
   const showPreview = previewable && viewMode !== "editor";
   // Read-only diff pane (issue I.01): takes the preview slot ahead of the preview while
@@ -335,8 +338,8 @@ function App() {
           ? helpOpen
             ? "help"
             : "live"
-          : previewTab === "rendered" && !ren && !renderBusy
-            ? "live"
+          : previewTab === "rendered" && (html || (!ren && !renderBusy))
+            ? "live" // an HTML page has no Rendered view; its one tab is the live page
           : previewTab;
 
   // App-level (non-editor) keybindings: save, tab close/reopen/switch (spec §10).
@@ -735,6 +738,15 @@ function App() {
                           </button>
                         </>
                       )}
+                      {html && (
+                        <button
+                          className={"panel-tab" + (effectiveTab === "live" ? " active" : "")}
+                          onClick={() => setPreviewTab("live")}
+                          title="Sealed preview: no scripts run and nothing loads from the web"
+                        >
+                          Preview
+                        </button>
+                      )}
                       {diffOpen && (
                         <button
                           className={"panel-tab" + (effectiveTab === "diff" ? " active" : "")}
@@ -781,6 +793,8 @@ function App() {
                       <EditorBoundary>
                         <DiffPane />
                       </EditorBoundary>
+                    ) : effectiveTab === "live" && html ? (
+                      <HtmlPreview content={activeDoc.content} baseDir={docDir} docKey={activeDoc.path} />
                     ) : effectiveTab === "live" ? (
                       <Preview content={activeDoc.content} baseDir={docDir} docKey={activeDoc.path} />
                     ) : ren ? (

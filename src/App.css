@@ -888,6 +888,15 @@ body {
 .diff-body .cm-editor {
   height: 100%;
 }
+/* The sealed HTML preview (issue J.11): the frame fills the pane; the page brings its own
+   background, so a white one stays white in the dark theme, as a browser would show it. */
+.html-preview {
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  border: none;
+  background: #fff;
+}
 /* The Help tab (issue J.18): help() text, monospace, scrolling within the pane. */
 .help-pane {
   display: flex;

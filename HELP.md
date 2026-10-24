@@ -231,6 +231,15 @@ refused; nothing here ever writes to a file (no replace — that is Sublime's jo
 - Image paths in documents resolve relative to the file; a path containing a raw
   space needs `%20` or angle brackets (strict CommonMark).
 - CSV/TSV tabs show a data grid instead (search, filters, sort, export).
+- **HTML files** (`.html`, `.htm`) show a sealed preview: the page as a browser draws it,
+  refreshed about half a second after you stop typing, keeping its scroll position. Local
+  CSS and images load from beside the file; no script runs and nothing loads from the web,
+  so MathJax math stays raw TeX, a Quarto tabset shows only its first tab, and plotly
+  figures are blank (open those in a browser). Links to the web or `mailto:` open in your
+  browser or mail program; `#` links scroll the page; links to local files do nothing. The
+  outline lists the `<h1>` to `<h6>` headings that open and close on one line, and a click
+  moves both the editor and the preview. Files over 2 MB get no outline. Very large
+  self-contained Quarto output is slow in the editor itself.
 - The **Rendered** tab runs your Quarto-style `{python}` cells: palette → "Render
   Document" or **Ctrl+Shift+Enter**. When the buffer
   has changed since the render, a red square sits before "Rendered" in the tab and the

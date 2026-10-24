@@ -5,6 +5,24 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [2.31.0] - 2026-10-24
+
+Batch J, [html-preview] (J.11). The batch is complete.
+
+### Added
+
+- **HTML files get a sealed preview** beside the source: local CSS and images load from
+  beside the file, the page refreshes half a second after typing stops and keeps its scroll
+  position. No script runs and nothing loads from the web (a Content-Security-Policy and a
+  script-less sandboxed frame), so JavaScript-built content (MathJax, tabsets, plotly) does
+  not appear; open such pages in a browser.
+- **Links in the preview**: web and `mailto:` links open in the default browser or mail
+  program, `#` links scroll the page, links to local files do nothing.
+- **An HTML outline** of the h1 to h6 headings that open and close on one line, skipping
+  scripts, styles and comments; a click moves the editor and the preview. Files over 2 MB
+  get none.
+- `.htm` files now appear in the tree and quick-open beside `.html`.
+
 ## [2.30.0] - 2026-10-24
 
 Batch J, [python-help] (J.18).

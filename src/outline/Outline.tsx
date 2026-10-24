@@ -1,16 +1,24 @@
 import { useMemo, type CSSProperties } from "react";
 import { useStore } from "../store";
-import { parseOutline } from "./parse";
+import { HTML_OUTLINE_MAX, parseOutline, type Heading } from "./parse";
 import { jumpToLine } from "../editor/editorView";
+import { isHtmlDoc } from "../editor/languages";
 import { scrollPreviewToLine } from "../preview/Preview";
+import { scrollHtmlPreviewTo } from "../preview/HtmlPreview";
 import { useDebouncedValue } from "../useDebounced";
 
 // In preview-only view there is no live editor — jumpToLine hits a destroyed view and
 // nothing happens (the "TOC links don't work" bug). Drive the preview directly there;
 // everywhere else the editor jump is authoritative and sync-scroll drags the preview.
-function jumpTo(line: number) {
-  if (useStore.getState().viewMode === "preview") scrollPreviewToLine(line);
-  else jumpToLine(line);
+// An HTML page has no scroll sync (issue J.11), so its preview is scrolled to the
+// heading as well, in every view.
+function jumpTo(h: Heading, html: boolean) {
+  const preview = useStore.getState().viewMode === "preview";
+  if (html) {
+    if (!preview) jumpToLine(h.line);
+    scrollHtmlPreviewTo(h.text, h.seq ?? 0);
+  } else if (preview) scrollPreviewToLine(h.line);
+  else jumpToLine(h.line);
 }
 
 export function Outline() {
@@ -46,6 +54,10 @@ export function Outline() {
   }
 
   if (!doc) return <div className="placeholder">&mdash;</div>;
+  const html = isHtmlDoc(doc.path);
+  if (html && src.length > HTML_OUTLINE_MAX) {
+    return <div className="placeholder">No outline: HTML over 2 MB</div>;
+  }
   if (headings.length === 0) return <div className="placeholder">No outline</div>;
 
   return (
@@ -63,7 +75,7 @@ export function Outline() {
               "--indent": `${(h.level - 1) * 12}px`,
             } as CSSProperties
           }
-          onClick={() => jumpTo(h.line)}
+          onClick={() => jumpTo(h, html)}
           title={h.text}
         >
           {h.text}

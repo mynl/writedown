@@ -1,0 +1,12 @@
+/* Local stylesheet for fixtures/html/sample.html (issue J.11): visible proof it loaded. */
+body {
+  font-family: Georgia, serif;
+  margin: 2em;
+}
+h1 {
+  color: rgb(178, 34, 34);
+  border-bottom: 3px solid rgb(178, 34, 34);
+}
+h2 {
+  color: rgb(21, 56, 93);
+}

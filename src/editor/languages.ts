@@ -173,3 +173,6 @@ export const isBinaryExt = (path: string): boolean =>
 
 /** Markdown/Quarto docs get the inline `$…$` / `$$…$$` math layer. */
 export const isMarkdownDoc = (path: string): boolean => /\.(md|markdown|qmd)$/i.test(path);
+
+/** HTML pages get the sealed preview and the h1 to h6 outline (issue J.11). */
+export const isHtmlDoc = (path: string): boolean => /\.html?$/i.test(path);

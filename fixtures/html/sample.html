@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="refresh" content="3; url=https://example.com/">
+<title>Sealed preview fixture</title>
+<!-- Local styling: must apply. -->
+<link rel="stylesheet" href="style.css">
+<!-- A CDN stylesheet: must NOT load (the preview makes no network request). -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+<script>alert(1); document.title = "SCRIPT RAN";</script>
+<style>
+  .inline-style { font-style: italic; }
+</style>
+</head>
+<body>
+<h1 id="top">Sealed preview fixture</h1>
+<p class="inline-style">A synthetic page for issue J.11. Nothing here is real data.</p>
+<!-- <h2>A commented-out heading, not in the outline</h2> -->
+<h2>Local image</h2>
+<p><img id="logo" src="logo.svg" alt="a local SVG image" width="120"></p>
+<h2>Links</h2>
+<ul>
+  <li><a href="https://example.com/">An external link: opens the default browser</a></li>
+  <li><a href="mailto:nobody@example.com">A mailto link: opens the mail program</a></li>
+  <li><a href="#notes">A fragment link: scrolls to Notes</a></li>
+  <li><a href="other.html">A local link: does nothing</a></li>
+</ul>
+<h3>Entities &amp; <em>inline</em> tags</h3>
+<p>The outline shows this heading as "Entities &amp; inline tags".</p>
+<script>
+  // A script block spanning lines; the heading inside it is not in the outline.
+  var x = "<h2>not a heading</h2>";
+</script>
+<h2 id="notes">Notes</h2>
+<p>End of the fixture.</p>
+</body>
+</html>

@@ -11,7 +11,14 @@ export type Heading = {
   line: number;
   /** "label" marks a Quarto `#| label:` cell row (issue I.04) — rendered dimmed/italic. */
   kind?: "label";
+  /** HTML only (issue J.11): this heading's position among the page's headings, counted
+   *  before any capping, so the preview can scroll to the matching element. */
+  seq?: number;
 };
+
+/** HTML source above this size gets no outline (issue J.11): a self-contained Quarto page
+ *  runs to megabytes of base64, and scanning it on every pause in typing is not worth it. */
+export const HTML_OUTLINE_MAX = 2_000_000;
 
 /** Options for the structural (non-Markdown) outlines, from config `[outline]`. */
 export type OutlineOpts = {
@@ -46,6 +53,9 @@ export function parseOutline(src: string, path?: string, opts?: OutlineOpts): He
     case "yaml":
     case "yml":
       return capChildren(parseYaml(src));
+    case "html":
+    case "htm":
+      return src.length > HTML_OUTLINE_MAX ? [] : capChildren(parseHtml(src));
     default:
       return capChildren(parseMarkdown(src));
   }
@@ -195,6 +205,60 @@ function parseToml(src: string): Heading[] {
     const parts = m[1].split(".");
     const level = Math.min(parts.length, 3);
     out.push({ level, text: parts[parts.length - 1], line: i + 1 });
+  }
+  return out;
+}
+
+/** The entities a heading's text commonly carries, decoded for display. */
+function decodeEntities(s: string): string {
+  const named: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
+  return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, e: string) => {
+    if (e[0] === "#") {
+      const cp = e[1] === "x" || e[1] === "X" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
+      try {
+        return String.fromCodePoint(cp);
+      } catch {
+        return whole;
+      }
+    }
+    return named[e.toLowerCase()] ?? whole;
+  });
+}
+
+// HTML (issue J.11): `<h1>` to `<h6>` elements that open and close on one source line, in
+// order, skipping `<script>` and `<style>` blocks and comments (which may span lines). Inner
+// tags are stripped and the common entities decoded; the level comes from the tag and the
+// line from the source. KISS: a heading split across lines is not listed.
+function parseHtml(src: string): Heading[] {
+  const lines = src.split("\n");
+  const out: Heading[] = [];
+  let skip: "comment" | "script" | "style" | null = null;
+  let seq = 0;
+  for (let i = 0; i < lines.length; i++) {
+    let rest = lines[i];
+    let clean = "";
+    while (rest) {
+      if (skip) {
+        const end =
+          skip === "comment" ? rest.indexOf("-->") : rest.search(new RegExp(`</${skip}\\s*>`, "i"));
+        if (end < 0) break; // the block continues on the next line
+        rest = rest.slice(skip === "comment" ? end + 3 : rest.indexOf(">", end) + 1);
+        skip = null;
+        continue;
+      }
+      const m = /<!--|<(script|style)\b[^>]*>/i.exec(rest);
+      if (!m) {
+        clean += rest;
+        break;
+      }
+      clean += rest.slice(0, m.index);
+      skip = m[0] === "<!--" ? "comment" : (m[1].toLowerCase() as "script" | "style");
+      rest = rest.slice(m.index + m[0].length);
+    }
+    for (const h of clean.matchAll(/<h([1-6])\b[^>]*>(.*?)<\/h\1\s*>/gi)) {
+      const text = decodeEntities(h[2].replace(/<[^>]*>/g, "")).replace(/\s+/g, " ").trim();
+      out.push({ level: Number(h[1]), text: text || "(untitled)", line: i + 1, seq: seq++ });
+    }
   }
   return out;
 }

@@ -727,7 +727,7 @@ first launching that build (J.04).
 
 ## Execution log
 
-Started 2026-10-24 against 2.25.0 (`d4b4bac`). Versions as assigned: [quick-fixes] 2.26.0, [windows-tabs-citations] 2.27.0, [python-environments] 2.28.0, [version-history] 2.29.0, [python-help] 2.30.0.
+Started 2026-10-24 against 2.25.0 (`d4b4bac`). Versions as assigned: [quick-fixes] 2.26.0, [windows-tabs-citations] 2.27.0, [python-environments] 2.28.0, [version-history] 2.29.0, [python-help] 2.30.0, [html-preview] 2.31.0.
 
 ### Review, 2026-10-24
 
@@ -812,3 +812,22 @@ Divergences:
 - **Refusals are status notes**: not in Python code, busy (rendering), no Python configured, and a timeout all come back as rejections the status bar shows.
 - **Tab choice with both side tabs open**: a `.py` file (not previewable) shows Help or Diff, whichever was chosen last when both are open.
 - Left for the author in the running app: Ctrl+K Ctrl+H on `df.groupby` in a rendered `.qmd`, on a property, before any render (with and without jedi in that environment), during a long render ("busy"), and in a `.py` file.
+
+### [html-preview] 2.31.0
+
+J.11 landed. Gates: `npm run build`, `cargo test` (86 passed, 13 ignored), `madge`, smoke-boot. A harness mounts the real `HtmlPreview` component in headless Edge, served from a 127.0.0.1 static server standing in for the asset origin, with the Tauri bridge stubbed to record `openUrl`, on a copy of `fixtures/html/sample.html` whose "CDN" stylesheet points at a second, logging server playing the web. All 13 checks pass: the outline (five headings, levels, source lines; the commented-out and in-script headings skipped); the refresh meta removed; CSP and base first in the head; the frame sandboxed without scripts; no script ran (the console shows both blocked); the local stylesheet applied and the local image loaded; the external stylesheet not applied; web and mailto links to `openUrl`, the local link inert, the frame never navigated; the fragment link scrolled. The logging server received no request (a control run shows it logs a GET). Chromium lists the CSP-blocked stylesheet as a resource entry with zero bytes, status 0 and zero duration, which is a refusal, not a request.
+
+Divergences:
+
+- **Over 2 MB, the note is in the outline pane** ("No outline: HTML over 2 MB") rather than the status bar, which would repeat it on every pause in typing.
+- **Outline to preview by order, confirmed by text**: each HTML heading carries `seq`, its position among the page's headings. The preview takes the `seq`-th h1 to h6 element if its text matches, else the first element with that text, so a heading split across source lines (in the page, not in the outline) does not shift every later jump.
+- **An outline click on an HTML page scrolls the preview too, in split view**, since there is no scroll sync; in preview-only view it scrolls the preview alone.
+- **`.htm` added to the tree's extension list** (see the review); language-data already colors it as HTML.
+- **The page's own background shows** (the frame is white beneath it, as a browser draws an unstyled page), in either theme.
+- **A previous "Rendered" tab choice falls back to the live page** for an HTML file, which has no Rendered view.
+- README.md gains an HTML bullet, and its preview feature line now names definition lists (left out at 2.26.0).
+- Left for the author in the running app: the fixture under `npm run tauri dev` with the dev tools' Network panel (the real asset protocol in WebView2, which the harness stands in for), typing in the source and watching the preview keep its place, and an external link opening the browser.
+
+### Batch J closed, 2026-10-24
+
+All six bumps landed and pushed, 2.26.0 through 2.31.0, one commit each; this plan stays in `dev/done/` as their record. The release exe was not rebuilt here (the author's open windows lock it): close every Writedown window, dev and release, then `npm run tauri build`; the J.04 browser-argument change makes closing them all a requirement before the first launch. The scratch harness, smoke script and test venv lived in the session scratchpad and are not in the repository.
