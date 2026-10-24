@@ -423,11 +423,17 @@ type AppState = {
    *  `for` is the document the diff was opened on (the pane shows only while that tab is
    *  active); `base` is fetched once at open. Transient — NEVER in the session snapshot. */
   diffAgainst: {
-    kind: "disk" | "backup" | "tab";
+    kind: "disk" | "backup" | "tab" | "pair";
     for: string;
     path?: string;
     millis?: number;
     base: string;
+    /** Pair mode (issue J.07): this static text against `base`, instead of the live buffer. */
+    other?: string;
+    /** Pair mode's header: "Diff: <label>". */
+    label?: string;
+    /** 1-based line of `other` to scroll to the center once the pane mounts. */
+    line?: number;
   } | null;
   /** Git tree marks (issue I.02): absolute file path → state (modified | added |
    *  untracked | deleted | renamed), and the ancestor folders that roll a dot up.
@@ -623,6 +629,9 @@ type AppState = {
   /** Open the read-only diff pane: active buffer vs the file on disk, a backup stamp, or
    *  another open tab's buffer. The base is fetched once, here; view-only, no merging. */
   openDiff: (kind: "disk" | "backup" | "tab", opts?: { path?: string; millis?: number }) => Promise<void>;
+  /** The diff pane on two static texts (issue J.07: one save, or one commit), scrolled to
+   *  `line` of `other`. */
+  openPairDiff: (base: string, other: string, label: string, line: number) => void;
   closeDiff: () => void;
   /** Re-run `git status` over the workspace roots, debounced ~1 s (issue I.02). Called on
    *  root changes, saves, and file-watch events; async and off the typing path. */
@@ -1632,6 +1641,11 @@ export const useStore = create<AppState>((set, get) => ({
     } catch (e) {
       set({ lastError: `diff — ${String(e)}` });
     }
+  },
+  openPairDiff: (base, other, label, line) => {
+    const a = get().activePath;
+    if (!a) return;
+    set({ diffAgainst: { kind: "pair", for: a, base, other, label, line }, previewTab: "diff" });
   },
   closeDiff: () =>
     set((s) => ({

@@ -5,6 +5,29 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [2.29.0] - 2026-10-24
+
+Batch J, [version-history] (J.07).
+
+### Added
+
+- **Diff: When Did This Line Change**: follows the caret's line back to its last change and
+  shows that change in the Diff tab at the line. Unsaved edits first; then `git blame` for a
+  tracked file (commit, date, summary, and the commit's diff); then the saved versions, to
+  the save that changed it (or the two saves it falls between, deep in the thinned history).
+- **Version History: Stats**: versions, size and oldest stamp for this project and the
+  whole store. **Version History: Prune This Project…** deletes all but the newest 20
+  versions of each project file, after a confirmation stating what it frees.
+
+### Changed
+
+- **Version history is tiered, not capped at 20**: the newest 20 versions per file, then
+  one per hour for a day, per day for a month, per week for a year, and per month beyond.
+  Every file, git-tracked or not. The store grows over time (several-fold in a year for a
+  heavily edited file); nothing that exists today is deleted by the change.
+- **Previous Versions opens fast on large histories**: its previews read 4 KB of each
+  version instead of the whole file.
+
 ## [2.28.0] - 2026-10-24
 
 Batch J, [python-environments].

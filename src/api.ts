@@ -165,6 +165,49 @@ export const listBackups = (path: string) =>
 export const readBackup = (path: string, millis: number) =>
   invoke<string>("read_backup", { path, millis });
 
+/** Several versions' full text, in the order asked (issue J.07, line history). */
+export const readBackups = (path: string, millis: number[]) =>
+  invoke<string[]>("read_backups", { path, millis });
+
+/** Version History: Stats (issue J.07). Stamps are unix milliseconds. */
+export type BackupStats = {
+  project_files: number;
+  project_versions: number;
+  project_bytes: number;
+  project_oldest: number | null;
+  store_files: number;
+  store_versions: number;
+  store_bytes: number;
+  store_oldest: number | null;
+  /** The project walk stopped at its file cap; its figures are a floor. */
+  capped: boolean;
+};
+export const backupStats = (roots: string[]) => invoke<BackupStats>("backup_stats", { roots });
+
+/** Version History: Prune This Project… (issue J.07): every version beyond the newest 20
+ *  of each project file; `dryRun` only counts. */
+export type PruneReport = { files: number; versions: number; bytes: number };
+export const backupPruneProject = (roots: string[], dryRun: boolean) =>
+  invoke<PruneReport>("backup_prune_project", { roots, dryRun });
+
+/** `git blame` of one line against the live buffer (issue J.07). null: no git, not a
+ *  repository, or the file is untracked. */
+export type BlameLine = {
+  committed: boolean;
+  commit: string;
+  /** Unix seconds. */
+  author_time: number;
+  summary: string;
+  orig_line: number;
+  filename: string;
+  previous: [string, string] | null;
+  /** The file before and at that commit (empty when uncommitted). */
+  base: string;
+  other: string;
+};
+export const gitLineHistory = (path: string, line: number, contents: string) =>
+  invoke<BlameLine | null>("git_line_history", { path, line, contents });
+
 export const createFile = (path: string) => invoke<void>("create_file", { path });
 
 // ---- Git marks (issue I.02) — read-only `git` invocations only, off the UI thread ----

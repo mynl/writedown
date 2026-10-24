@@ -195,6 +195,14 @@ return — and follows your typing. Unchanged stretches collapse into a clickabl
 tab, **Esc** in the pane, or **Diff: Close**. No merging and no per-hunk revert —
 restoring stays in Previous Versions.
 
+**Diff: When Did This Line Change** follows the caret's line back to the change that last
+touched it and shows that one change in the Diff tab, scrolled to the line. An unsaved edit
+on the line says so and opens the diff against the saved file. In a git repository a
+committed line names its commit, date and summary and shows the commit's change to the
+file. Otherwise, and for a line changed since the last commit, the saved versions are
+searched: the status bar names the save, or, deep in the thinned history, the two saves it
+falls between.
+
 ## Find in files
 
 **Ctrl+Shift+F** (palette → **Find in Files…**) runs ripgrep over the project's folders
@@ -295,6 +303,14 @@ words and short words are skipped. Toggle for the session from the status bar.
 
 - Saves are **atomic** (temp file + rename) and every save snapshots the previous
   version first — palette → "Previous Versions" restores byte-perfect.
+- **Version history is kept in tiers**, like Synology's: the newest 20 versions of a file
+  whatever their age, then one per hour for a day, one per day for a month, one per week
+  for a year, and one per month beyond. Each survivor is the file as it stood at the end of
+  its hour, day, week or month. Palette **Version History: Stats** shows the count, size
+  and oldest version for this project and for the whole store; **Version History: Prune
+  This Project…** deletes everything beyond the newest 20 of each of the project's files,
+  after a confirmation stating what it frees. The store (`~/.writedown/backups`) is
+  disposable; deleting it loses only history.
 - Autosave fires on window blur and tab switch; **Ctrl+S** any time.
 - If a file changes on disk outside Writedown, a clean tab reloads automatically;
   a tab with unsaved edits is flagged instead — a bold `!` on the tab and a footer

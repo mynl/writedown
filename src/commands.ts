@@ -10,8 +10,12 @@ import { type StateCommand } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { forceLinting } from "@codemirror/lint";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { confirm as confirmDialog } from "@tauri-apps/plugin-dialog";
+import { whenDidThisLineChange } from "./lineHistory";
 import {
   addToDictionary,
+  backupPruneProject,
+  backupStats,
   checkForUpdate,
   configPath,
   extractBibEntries,
@@ -181,6 +185,10 @@ export function appCommands(): Command[] {
       run: () => void s().setSizeAsDefault(),
     },
     { id: "previous-versions", title: "Previous Versions…", run: () => s().openVersions() },
+    // Version history (issue J.07): on demand only.
+    { id: "line-history", title: "Diff: When Did This Line Change", run: () => void whenDidThisLineChange() },
+    { id: "version-stats", title: "Version History: Stats", run: () => void versionStats() },
+    { id: "version-prune", title: "Version History: Prune This Project…", run: () => void versionPrune() },
     // ---- Read-only diff pane (issue I.01) — palette-only entry, no buttons or menus ----
     ...diffCommands(),
     // Conflict resolution: two explicitly labelled verbs, never one button that changes
@@ -584,6 +592,68 @@ const COVERED_ACTIONS = new Set([
   "reformatTable", "renumberList", "insertDateTime", "continueList", "copyFilePath",
   "copyFileName", "insertCitation", "reopenClosedPicker", "openCitationDocument",
 ]);
+
+/** The folders a project-wide command covers: the project's, else the open folder. */
+function workspaceRoots(): string[] {
+  const st = useStore.getState();
+  return st.projFolders.length > 0 ? st.projFolders : st.root ? [st.root] : [];
+}
+
+/** Bytes as MB for a status line: one decimal under 10 MB, whole numbers above. */
+function mb(bytes: number): string {
+  const v = bytes / 1_048_576;
+  return `${v < 10 ? v.toFixed(1) : Math.round(v).toLocaleString("en-US")} MB`;
+}
+const count = (n: number) => n.toLocaleString("en-US");
+const isoDay = (ms: number | null) => {
+  if (ms == null) return "none";
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+/** "Version History: Stats" (issue J.07). */
+async function versionStats(): Promise<void> {
+  const st = useStore.getState();
+  const roots = workspaceRoots();
+  st.showStatusMessage("version history: counting…");
+  try {
+    const x = await backupStats(roots);
+    const project = roots.length
+      ? `This project: ${count(x.project_files)} files with history, ${count(x.project_versions)} versions, ${mb(x.project_bytes)}, oldest ${isoDay(x.project_oldest)}${x.capped ? " (walk capped at 50,000 files)" : ""}. `
+      : "";
+    st.showStatusMessage(
+      `${project}Whole store: ${count(x.store_files)} files, ${count(x.store_versions)} versions, ${mb(x.store_bytes)}.`,
+    );
+  } catch (e) {
+    useStore.setState({ lastError: `version history stats — ${String(e)}` });
+  }
+}
+
+/** "Version History: Prune This Project…" (issue J.07): dry run, confirm, then delete
+ *  every version beyond the newest 20 of each project file. */
+async function versionPrune(): Promise<void> {
+  const st = useStore.getState();
+  const roots = workspaceRoots();
+  if (roots.length === 0) return st.showStatusMessage("prune: open a project or folder first");
+  try {
+    const dry = await backupPruneProject(roots, true);
+    if (dry.versions === 0) {
+      st.showStatusMessage("prune: nothing to do, no file here has more than 20 saved versions");
+      return;
+    }
+    const ok = await confirmDialog(
+      `Delete ${count(dry.versions)} older versions (${mb(dry.bytes)}) for this project? The newest 20 of each file are kept.`,
+      { title: "Prune version history", kind: "warning" },
+    );
+    if (!ok) return;
+    const done = await backupPruneProject(roots, false);
+    st.showStatusMessage(
+      `prune: deleted ${count(done.versions)} versions (${mb(done.bytes)}) from ${count(done.files)} files`,
+    );
+  } catch (e) {
+    useStore.setState({ lastError: `prune version history — ${String(e)}` });
+  }
+}
 
 /** The active document tab, if any. */
 function activeDoc() {

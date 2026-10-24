@@ -153,8 +153,34 @@ const SKIP_DIRS: &[&str] = &["node_modules", "target", ".git", "__pycache__", ".
 #[tauri::command(async)] // a recursive walk of every root, on every Ctrl+P — not on the UI thread
 pub fn list_all_files(app: tauri::AppHandle, root: String) -> Result<Vec<FileItem>, String> {
     let root_path = std::path::Path::new(&root);
-    let show_dots = show_hidden(&app);
-    let mut out: Vec<FileItem> = Vec::new();
+    let (files, capped) = walk_files(&app, root_path, true);
+    let mut out: Vec<FileItem> = files
+        .into_iter()
+        .map(|(full, rel)| FileItem {
+            name: full.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default(),
+            path: full.to_string_lossy().to_string(),
+            rel,
+        })
+        .collect();
+    if capped {
+        return Ok(out); // as before: a capped walk comes back in walk order
+    }
+    out.sort_by(|a, b| a.rel.to_lowercase().cmp(&b.rel.to_lowercase()));
+    Ok(out)
+}
+
+/// The walk behind quick-open (see `list_all_files` for the link rules), shared with the
+/// version-history stats and prune (issue J.07). Returns each file's full path and its path
+/// relative to `root` (forward slashes), and whether the 50,000-file cap stopped it.
+/// `supported_only` keeps Writedown's document and support extensions, as quick-open does;
+/// false keeps every file, since Writedown saves any text file it opens.
+pub(crate) fn walk_files(
+    app: &tauri::AppHandle,
+    root_path: &std::path::Path,
+    supported_only: bool,
+) -> (Vec<(std::path::PathBuf, String)>, bool) {
+    let show_dots = show_hidden(app);
+    let mut out: Vec<(std::path::PathBuf, String)> = Vec::new();
     let mut stack = vec![root_path.to_path_buf()];
     let root_real = std::fs::canonicalize(root_path).unwrap_or_else(|_| root_path.to_path_buf());
     let mut visited: std::collections::HashSet<std::path::PathBuf> = std::collections::HashSet::new();
@@ -192,11 +218,12 @@ pub fn list_all_files(app: tauri::AppHandle, root: String) -> Result<Vec<FileIte
                 stack.push(full);
                 continue;
             }
-            let keep = full
-                .extension()
-                .map(|e| e.to_string_lossy().to_lowercase())
-                .map(|e| DOC_EXTS.contains(&e.as_str()) || SUPPORT_EXTS.contains(&e.as_str()))
-                .unwrap_or(false);
+            let keep = !supported_only
+                || full
+                    .extension()
+                    .map(|e| e.to_string_lossy().to_lowercase())
+                    .map(|e| DOC_EXTS.contains(&e.as_str()) || SUPPORT_EXTS.contains(&e.as_str()))
+                    .unwrap_or(false);
             if !keep {
                 continue;
             }
@@ -205,19 +232,13 @@ pub fn list_all_files(app: tauri::AppHandle, root: String) -> Result<Vec<FileIte
                 .unwrap_or(&full)
                 .to_string_lossy()
                 .replace('\\', "/");
-            out.push(FileItem {
-                name,
-                path: full.to_string_lossy().to_string(),
-                rel,
-            });
+            out.push((full, rel));
             if out.len() >= CAP {
-                return Ok(out);
+                return (out, true);
             }
         }
     }
-
-    out.sort_by(|a, b| a.rel.to_lowercase().cmp(&b.rel.to_lowercase()));
-    Ok(out)
+    (out, false)
 }
 
 /// What a dropped path is (issue A.04): the frontend opens directories as a workspace and

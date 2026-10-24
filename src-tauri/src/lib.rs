@@ -290,6 +290,9 @@ pub fn run() {
             search::cancel_search,
             backup::list_backups,
             backup::read_backup,
+            backup::read_backups,
+            backup::backup_stats,
+            backup::backup_prune_project,
             config::load_config,
             config::config_path,
             config::help_path,
@@ -331,6 +334,7 @@ pub fn run() {
             wordfreq::word_freq_save,
             git::git_status,
             git::git_show_index,
+            git::git_line_history,
             instance::set_instance_roots,
         ])
         .build(tauri::generate_context!())

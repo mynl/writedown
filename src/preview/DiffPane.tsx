@@ -5,7 +5,7 @@
 // per-hunk revert; restore stays in Previous Versions. Palette-only entry; Esc (pane
 // focused) or the palette's "Diff: Close" closes it. It never calls setActiveView, so the
 // editor singleton keeps meaning "the editable pane" (the G.07 invariant).
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
@@ -18,6 +18,7 @@ import { useLanguageFor } from "../editor/languages";
 import { useDebouncedValue } from "../useDebounced";
 
 function baseLabel(diff: NonNullable<ReturnType<typeof useStore.getState>["diffAgainst"]>): string {
+  if (diff.kind === "pair") return diff.label ?? "";
   if (diff.kind === "disk") return "saved file on disk";
   if (diff.kind === "backup")
     return "version of " + new Date(diff.millis ?? 0).toLocaleString(undefined, {
@@ -64,6 +65,23 @@ export function DiffPane() {
     [lang, diff?.base, built],
   );
 
+  // Pair mode (issue J.07: one save, or one commit): two static texts, and the line the
+  // change is on brought to the center once the view has the text. The line sits inside a
+  // changed chunk by construction, so collapseUnchanged never folds it away.
+  const pair = diff?.kind === "pair";
+  const viewRef = useRef<EditorView | null>(null);
+  useEffect(() => {
+    const line = diff?.line;
+    if (!pair || !line) return;
+    const raf = requestAnimationFrame(() => {
+      const v = viewRef.current;
+      if (!v || !v.dom.isConnected) return;
+      const n = Math.max(1, Math.min(line, v.state.doc.lines));
+      v.dispatch({ effects: EditorView.scrollIntoView(v.state.doc.line(n).from, { y: "center" }) });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [diff, pair]);
+
   if (!diff) return null;
   return (
     <div
@@ -76,15 +94,18 @@ export function DiffPane() {
       }}
     >
       <div className="pane-header diff-head" title="Read-only. Esc or palette “Diff: Close” closes.">
-        Diff — buffer vs {baseLabel(diff)}
+        {pair ? `Diff: ${diff.label ?? ""}` : <>Diff — buffer vs {baseLabel(diff)}</>}
       </div>
       <div className="diff-body">
         <CodeMirror
-          value={content}
+          value={pair ? (diff.other ?? "") : content}
           extensions={extensions}
           theme={built ? built.theme : editorTheme}
           readOnly
           height="100%"
+          onCreateEditor={(v) => {
+            viewRef.current = v;
+          }}
         />
       </div>
     </div>

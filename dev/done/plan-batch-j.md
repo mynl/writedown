@@ -727,7 +727,7 @@ first launching that build (J.04).
 
 ## Execution log
 
-Started 2026-10-24 against 2.25.0 (`d4b4bac`). Versions as assigned: [quick-fixes] 2.26.0, [windows-tabs-citations] 2.27.0, [python-environments] 2.28.0.
+Started 2026-10-24 against 2.25.0 (`d4b4bac`). Versions as assigned: [quick-fixes] 2.26.0, [windows-tabs-citations] 2.27.0, [python-environments] 2.28.0, [version-history] 2.29.0.
 
 ### Review, 2026-10-24
 
@@ -785,3 +785,16 @@ Divergences:
 - **[venvs-and-kernel-pool] `checkout` takes the runner folder, pool size and timeout** rather than the app handle (`checkout_for` supplies them), so the opt-in test drives the real pool logic. `Kernel::exec` takes an `ExecOpts` struct in place of seven positional arguments.
 - **[venvs-and-kernel-pool]** the not-configured message now also suggests adding a `.venv`.
 - Left for the author in the running app: Which Python and a render in a folder with a `uv venv` and in one without, and the behavior change for documents that relied on the global interpreter.
+
+### [version-history] 2.29.0
+
+All four parts landed. Gates: `npm run build`, `cargo test` (85 passed, 12 ignored; `retained` over 2,000 LCG stamps across 400 days, the few-stamps case, the calendar months and the blame porcelain parse are new), `madge`, smoke-boot. The opt-in `cargo test line_history -- --ignored` runs blame against this repository's README: a committed line, the same line edited in the buffer (not committed yet), and a file outside any repository (none). A harness pass checks `traceLine` (an insertion and a deletion above, an edit, an appended tail, a last line without newline, and a four-version walk).
+
+Divergences:
+
+- **[tiered-retention] the newest 20 also claim their buckets**, so an older version sharing an hour (or day, week, month) with one of them is dropped rather than kept as a near-duplicate. The bound is unchanged. Weeks start on Monday (UTC); months are calendar months from a hand-rolled civil-date conversion (no date crate). The store today holds at most 20 versions per file, so the change deletes nothing that exists.
+- **[stats-and-prune] the project walk keeps every extension**, not only quick-open's list, since Writedown saves whatever text file it opens; `walk_files` is factored out of `list_all_files`, which keeps its behavior. A capped walk says so in the Stats line.
+- **[line-history] backups are fetched eight at a time**, stopping at the change, rather than all in one call: a heavily edited 360 KB file has over a hundred versions. `read_backups` is the batched command; `list_backups` became async.
+- **[line-history] the git base is blame's `previous` commit and file name**, not `<rev>^:<filename>`, so a line whose commit also renamed the file still gets the right base; no `previous` (a root commit, or the commit that added the file) means an empty base. The blame and both `git show` calls are one command, `git_line_history`, whose body takes the git executable so the opt-in test can run it. The buffer is sent with the file's own line endings.
+- **[line-history] "changed in the save at" or "between"**: a change found within the newest 20 is pinned to one save, since nothing between two of the newest 20 was ever thinned away; beyond them the message gives the save and the next surviving version's stamp. The unsaved step diffs the buffer against the tab's saved text, the same text the disk diff then shows.
+- Left for the author in the running app: the verb on a committed line, on a line edited and saved twice, in an untracked file, and with an unsaved edit; Stats on a project; Prune's confirmation figures and the Stats after it; Previous Versions on a long history.
