@@ -27,7 +27,7 @@ For each row in the table add a new row below it for your input, set item to ">>
 | **J.06** |✅| | Support Markdown definition list (blah\n: def of blah)  |
 | >>CC | L | None | **Easy: the official markdown-it definition-list plugin adds Pandoc's syntax (a term line, then `: definition`), so the preview matches what Quarto produces.** Plus a few lines of styling. The editor shows the `:` lines as plain text, with no special coloring. Found on the way: Alt+Q reflow would merge a term into its definition, so it must treat `: ` lines like list items. |
 | **J.07** |✅| | Diff against prev vesions -> add ability to pinpiont when selected line changed |
-| >>CC | M | None at rest | **Doable. Writedown keeps the last 20 saved versions of each file; the command follows the caret's line back through them, one diff at a time, to the save where it changed, then opens the diff pane on that save at that line.** Limit: 20 autosaves may cover only an hour or two. Git can answer the same question across all committed history. Your call below: saved versions, git, or both. >>PREV VERSIONS: Can we do the longer history keep (spaced out more) too? Like the synolgoy versioning. Maybe we do already. Git if file under git, else our saved versions.  >>CC: We don't today: it keeps the newest 20 and deletes the rest. Proposed: Synology-style thinning, keeping the newest 20 plus one per hour for a day, one per day for a month, one per week for a year, one per month after that. Git first for files in a repo, with saved versions for edits git has not seen yet. Details below. |
+| >>CC | M | None at rest | **Doable. Writedown keeps the last 20 saved versions of each file; the command follows the caret's line back through them, one diff at a time, to the save where it changed, then opens the diff pane on that save at that line.** Limit: 20 autosaves may cover only an hour or two. With git, the same question extends across all committed history. Your call below: saved versions, git, or both. >>PREV VERSIONS: Can we do the longer history keep (spaced out more) too? Like the synolgoy versioning. Maybe we do already. Git if file under git, else our saved versions.  >>CC: We don't today: it keeps the newest 20 and deletes the rest. Proposed: Synology-style thinning, keeping the newest 20 plus one per hour for a day, one per day for a month, one per week for a year, one per month after that. Git first for files in a repo, with saved versions for edits git has not seen yet. Details below. |
 | **J.08** |✅| DUPL | ~~When a project opens a new window and there are no files open we do not get the folder or project tabs~~ |
 | >>CC | n/a | n/a | Same as J.03; no action. |
 | **J.09** |✅| | ctrl+alt+shift+T table format: a) should format just the table surrounding the cursor and do nothing if not in a table but mention in the status bar; b) Use |--| or |:--| etc format (with no extra spaces), c) Cycle, first press make table "wide", second press cycle to narrow (all headers are --, cols are | content |, with just one space on either end). |
@@ -43,7 +43,7 @@ For each row in the table add a new row below it for your input, set item to ">>
 | **J.14** |✅| | Reopen closed tab... (pick from list MRU listing of recently open)  |
 | >>CC | L | None | **Ctrl+Shift+T already reopens closed tabs one at a time, newest first, but the list is held in memory: a restart or a project switch empties it.** Add a palette "Reopen Closed Tab…" listing them newest first; type to filter, Enter opens. Proposed: save the list with the project's session, capped at about 25, so it survives a restart. >>Agreed |
 | **J.15** |✅| | Make it clearer (at the top, yellow/red bar?) when a render is stale |
-| >>CC | L | None | **Easy: a "Stale" badge exists, but it is small grey text. Proposed: the status row above the Rendered view becomes an amber band reading "Edited since this render: Ctrl+Shift+Enter re-renders", and the Rendered tab gets a dot.** A red level for "a code cell changed" can come later. Found on the way: the empty-render hint says "press Ctrl+B", which is now Bold, and Ctrl+Shift+B renders from the file tree but runs the build command everywhere else. >>fix the misdirection obvs; don't want another bar; how about a prominent red dot in the tab name (❌Rendered) when it is stale. >>CC: Agreed, no bar. One snag: the render status line already uses ✗ to mean "cells raised errors", so ❌ would read as "failed". Suggest a red ● before "Rendered", with a tooltip; your call. |
+| >>CC | L | None | **Easy: a "Stale" badge exists, but it is small grey text. Proposed: the status row above the Rendered view becomes an amber band reading "Edited since this render: Ctrl+Shift+Enter re-renders", and the Rendered tab gets a dot.** A red level for "a code cell changed" can come later. Found on the way: the empty-render hint shows "press Ctrl+B", which is now Bold, and Ctrl+Shift+B renders from the file tree but runs the build command everywhere else. >>fix the misdirection obvs; don't want another bar; how about a prominent red dot in the tab name (❌Rendered) when it is stale. >>CC: Agreed, no bar. One snag: the render status line already uses ✗ to mean "cells raised errors", so ❌ would read as "failed". Suggest a red ● before "Rendered", with a tooltip; your call. |
 | **J.16** |✅| | Warnings: first of kind or all in python s/b and option with an easy way to toggle. |
 | >>CC | L | None | **Easy. Today Python's default applies (each warning once per code location), and for warnings raised inside libraries that memory survives between renders, so they appear on the first render and then vanish until Python restarts.** Proposed: three modes, first of each kind (default), all, and off, reset at every render so each render is reproducible. Set in config, per document in front matter, and switched on the fly from the palette. >>AGREE |
 | **J.18** |✅| | Full Python LSP support, autocomplete, help etc. for python... again, we've been through this before...issues? practicality? Would be very nice...  Or poor man's version: right hand side window help tab that shows help on current function? |
@@ -52,6 +52,8 @@ For each row in the table add a new row below it for your input, set item to ">>
 | >>CC | L | None | **Half there: "Insert: Python Code Cell" already wraps a selection, but there is no plain "Code Block" insert, and the wrap mishandles three cases.** A selection that starts mid-line produces a broken fence; LaTeX such as `\{` in the selection loses its backslash (Aligned Math has the same fault); leading tabs become spaces. Fix: wrap whole lines as plain text, and add "Insert: Code Block". >>This only applies for python code blocks. yes it needs to wrap whole lines. >>CC: Understood: Python cells only, no generic Code Block. The backslash and tab fixes stay, since a Python regex such as `r"\{"` loses its backslash the same way. |
 | **J.19** |✅| | Python execute cells: if there is a venv or .venv in the folder containing the file (or a parent directory), then use it for python evaluation. Add palette Which Python -> display the venv in use. |
 | >>CC | L | None | **Easy: at each render, look for `.venv` or `venv` in the document's folder, then in each parent folder, and use its Python.** Precedence: the document's own `wd-python`, then the nearest venv, then `[render] python`. A palette "Which Python" shows the interpreter for the current document and why it was chosen. Two side effects: switching between documents in different venvs restarts Python (seconds, for heavy imports), and a document that relied on the global Python's packages fails if its folder's venv lacks them. >>Understood on switching; can we cache them and swap?  >>CC: Yes. Keep up to three Python processes alive per window, one per interpreter, closing the least recently used. Switching back is instant and each one keeps its variables. The cost is memory, a few hundred MB per idle process with pandas loaded. |
+| **J.20** | | | Right click on @Ref -> open it via http://192.168.4.21:9124/view/@Ref; and palette -> open bibtex doc |
+| >>CC | L | None | **Easy: right-clicking a citation key brings up a small menu, "Open @key in Bibliography Viewer", which opens the viewer's page for that key in your browser. A palette verb does the same for the key at the caret, and the hover card that already describes the reference gains an "Open" link.** The address goes in config as a template, never in code. Recommend `127.0.0.1` rather than the LAN address, since the viewer runs on DOOB itself. One question below on what "open bibtex doc" means. |
 | **J.xx** | | Watch — revisit if it recurs | 2026-09-24 ~18:30, v2.25.0: a GREAT2 window wedged — webview/JS dead but native window alive. It silently swallowed every Explorer file launch routed to it (I.07) and would not close. Second GREAT2 instance was open on another desktop at the time. **HAS NOT RECURRED** |
 | >>CC | L | None | **No crash, no log, no dump — the wedge is invisible by construction: release build has no devtools, and the app's own error logging goes through the same IPC that died.** A wedged window still ACKs `WM_COPYDATA`, so routing delivers files into the void. If it recurs: capture a minidump BEFORE killing (`rundll32 comsvcs.dll, MiniDump <pid> <file> full`; `target/release/writedown.pdb` has the symbols). Hardening ready to build on request: (a) heartbeat `instances/<pid>.json` from the frontend, launcher skips stale entries — kills the black hole whatever the cause; (b) enable the `devtools` Cargo feature in release so F12 works in the packaged exe. Related: `writedown.log` shows two prior unhandled rejections in the grid renderer (`getFormattedRow` reading `[0]` of undefined, Sep 07 + Sep 20) — a standing bug and plausible cousin. |
 
@@ -93,7 +95,7 @@ Writedown code is clear: no `cursor: none`, no pointer lock, no `ShowCursor` / `
 
 Dialog path: Save As is `pickSavePath` (`api.ts`), which goes through tauri-plugin-dialog 2.7.1 to rfd 0.16. rfd shows the Windows save dialog on its own thread, owned by the main window. An owned window shares its owner's input queue, and with it the cursor show count.
 
-The runtime bug: WebView2 runtime 152.0.4191.53 added support for "Hide pointer while typing". When the WebView never sees the mouse move that would restore the pointer, it stays hidden. Reported as [WebView2Feedback #5687](https://github.com/MicrosoftEdge/WebView2Feedback/issues/5687), reopened 2026-10-19 after reports that 155.0.4283.45 and .60 still have it. DOOB, checked 2026-10-24: runtime 155.0.4283.62, `SPI_GETMOUSEVANISH` true. The likely trigger is a dialog opened from the keyboard (Ctrl+S on an Untitled buffer, or Save As from the palette) straight after typing; the mouse then moves only over the dialog, never over the WebView.
+The runtime bug: WebView2 runtime 152.0.4191.53 added support for "Hide pointer while typing". When the WebView never receives the mouse move that would restore the pointer, it stays hidden. Reported as [WebView2Feedback #5687](https://github.com/MicrosoftEdge/WebView2Feedback/issues/5687), reopened 2026-10-19 after reports that 155.0.4283.45 and .60 still have it. DOOB, checked 2026-10-24: runtime 155.0.4283.62, `SPI_GETMOUSEVANISH` true. The likely trigger is a dialog opened from the keyboard (Ctrl+S on an Untitled buffer, or Save As from the palette) straight after typing; the mouse then moves only over the dialog, never over the WebView.
 
 Confirm without a rebuild, either way: untick "Hide pointer while typing"; or close every Writedown window and launch with `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--disable-features=HideCursorWhileTyping`.
 
@@ -106,6 +108,8 @@ Fix, one line under `app.windows[0]`:
 Setting the field replaces wry's defaults (`wry-0.55.1/src/webview2/mod.rs:294-297`), so the three default features are restated, and Chromium honors only the last `--disable-features` switch, so they share one list. Cost: the pointer no longer hides while you type in the editor, which is how it behaved before runtime 152. Remove the flag once Microsoft ships a fix. Gotcha: every instance shares one WebView2 data folder, and WebView2 refuses a second environment with different arguments, so close every Writedown window, dev and release, before the first launch of the new build.
 
 **Resolved 2026-10-24 (author):** diagnosis confirmed by the setting test; the author has turned "Hide pointer while typing" off for now. **Recommendation:** ship the flag anyway. The setting is on by default in Windows, so every other machine running the public release meets the same bug, and with the flag in place the author can turn the setting back on for the rest of Windows.
+
+**Resolved 2026-10-24 (author):** ship the flag.
 
 ### J.06: definition lists (`src/preview/renderCore.ts`, `src/App.css`, `src/editor/reflow.ts`)
 
@@ -137,6 +141,12 @@ Pruning stays where it is, at each save: sort the stamps, assign each to its buc
 
 One fix comes with it: `list_backups` reads every version in full to build its 120-character preview. At a hundred versions of a large file that is tens of MB read each time the Previous Versions picker opens, so it must read only the first few KB. Line history over thinned versions reports an interval whose width grows with age, for example "changed between 2026-10-03 and 2026-10-10".
 
+**Answer 2026-10-24, skipping the longer history for files in git.** Recommend not skipping; every file gets the same tiered history. Three reasons:
+
+1. A file inside a repository folder is not necessarily tracked. Gitignored files (private notes, data, drafts) live inside repositories and have only saved versions to fall back on. Telling the two apart needs a git call on every save, on a path that today does no work beyond copying a file.
+2. Git holds committed states only. The days between commits, which in a writing project can be many, are covered by saved versions alone.
+3. The only saving is disk, and the store is disposable. If disk ever matters, a cap on the whole store with oldest-first eviction across files is the simpler control.
+
 ### J.09: table formatter (`src/editor/tables.ts`, `src/App.tsx` Ctrl+Alt+Shift+T fallback)
 
 `findTables` locates pipe tables, `formatTable` aligns one, and `reformatTables` formats every table when there is no selection, or the tables a selection touches.
@@ -154,7 +164,7 @@ The CHALLENGE in detail: in a Pandoc pipe table, when any row is longer than the
 
 ### J.10: check for updates (`src/commands.ts`; optional new Rust command)
 
-Constraints: the spec and project file say no network requests by default, no telemetry, no updater; the house data firewall allows public data to be pulled in only behind one egress point with a host allow-list enforced by a test.
+Constraints: the spec and the project file rule out network requests by default, telemetry and an updater; the house data firewall allows public data to be pulled in only behind one egress point with a host allow-list enforced by a test.
 
 - **Option A, no network:** palette "Help: Open Releases Page" opens `https://github.com/mynl/writedown/releases` in the default browser through the opener plugin; you compare with the footer version. About five lines.
 - **Option B, explicit check:** palette "Check for Updates" makes one GET to `https://api.github.com/repos/mynl/writedown/releases/latest` (repo verified public 2026-10-24; latest release v2.25.0), compares `tag_name` with `getVersion()`, and reports "up to date (2.25.0)", or "2.26.0 is available: opening the release page", or "this build (2.26.0) is newer than the latest release (2.25.0)", the usual case on DOOB. Built as the single egress point: one Rust command, host pinned to `api.github.com`, no body and no cookies, plus a test on the URL. No HTTP client exists in the backend; shelling out to `curl.exe`, which ships with Windows 10 and later, follows the git and ripgrep pattern and adds no crate. Never automatic, never at startup.
@@ -199,6 +209,8 @@ It will not deliver JavaScript of any kind (MathJax math stays as raw TeX, a Qua
 
 Effort M, with the cost confined to HTML tabs. **Question:** build the preview (recommended), or the outline plus Open in Browser only (L).
 
+**Resolved 2026-10-24 (author):** build the sealed preview with the outline, KISS to start; no Open in Browser verb, since the author opens the browser directly. The motive: opening an HTML file and getting nothing beside it is jarring next to the `.qmd` and `.md` preview.
+
 ### J.12: error strip squeezed (`src/App.css` `.error-bar`)
 
 `.error-bar` has `overflow: auto; max-height: 8em` and the default `flex: 0 1 auto`. In `.app` (a column flexbox, `height: 100%`) its sibling `.panes` is `flex: 1 1 auto`, whose basis is its content height. A scroll container's automatic minimum height is zero, so when the panes' content is taller than the window both items shrink in proportion to their basis, and the strip loses nearly all of its height. Fix: `.error-bar { flex: 0 0 auto; }`. Verify in the HMR loop with a long expanded tree and a deliberate config typo: the strip must show the whole TOML error.
@@ -211,7 +223,7 @@ Fix: move that sort into a shared `projectsByRecency(state)` beside `mergedProje
 
 **Question:** current project last (Alt+Tab behavior, recommended) or first (plain most-recent order).
 
-No ruling yet; the plan takes the recommendation (current project last) unless the author objects.
+**Resolved 2026-10-24 (author):** the previous project must be easy to reach. So the previous project sits at the top, preselected, and Ctrl+Alt+P then Enter returns to it; the current project sits at the bottom.
 
 ### J.14: reopen closed tab picker (`src/store.ts` `closedStack`, `src/Palette.tsx`, `src-tauri/src/session.rs`)
 
@@ -231,12 +243,14 @@ Change: when stale, the row takes a `stale` class (amber background, dark text, 
 
 Found on the way, both small:
 
-- The empty-render placeholder says "press Ctrl+B"; Ctrl+B has been Bold since the keymap became data-driven. It should name the render key from `keyForAction`.
+- The empty-render placeholder shows "press Ctrl+B"; Ctrl+B has been Bold since the keymap became data-driven. It should name the render key from `keyForAction`.
 - Ctrl+Shift+B has two meanings. The editor keymap binds it to `build` (the `[build]` command), and the app-level handler binds it to render. Keys pressed with the preview focused are offered to the editor keymap first, so only the file tree reaches the app-level binding: from the tree it renders, everywhere else it builds. Recommend one meaning: build everywhere, matching Sublime and the keymap, with render on Ctrl+Shift+Enter.
 
 **Resolved 2026-10-24 (author):** no band. Both misdirections are fixed: the empty-render hint shows the live render key, and Ctrl+Shift+B means build everywhere, with render on Ctrl+Shift+Enter. The stale mark moves into the Rendered tab's label.
 
 **Question:** the mark itself. The author suggested "❌Rendered". The render status line already uses ✗ for "cells raised errors" and ✓ for a clean run, so ❌ would read as a failed render. Recommend a red ● before "Rendered", with the tooltip "Edited since this render: Ctrl+Shift+Enter re-renders"; the small Stale badge in the status line turns red to match.
+
+**Resolved 2026-10-24 (author):** a red square, not a circle. Drawn in CSS as a small inline box with a red background, rather than as an emoji, so it has the same size and color in both themes and every font. The emoji the author remembers is 🟥 (U+1F7E5, LARGE RED SQUARE, added in Unicode 12, 2019). The Unicode picker cannot find it because its table has no colored emoji squares or circles. Optional small add: the colored squares (🟥🟧🟨🟩🟦🟪🟫, U+1F7E5 to U+1F7EB, plus ⬛ ⬜) and circles (🔴🔵 U+1F534 and U+1F535, 🟠🟡🟢🟣🟤 U+1F7E0 to U+1F7E4, plus ⚫ ⚪) as about 20 rows of picker data. Meanwhile `[symbols]` in config.toml can add them for one user.
 
 ### J.16: Python warnings (`src-tauri/runner.py` `handle`, `src-tauri/src/render.rs` render config, `src-tauri/src/config.rs`)
 
@@ -267,7 +281,7 @@ Fix: with a non-empty selection and a body containing `${SELECTION}`, extend to 
 
 Kernel facts that shape every option: one kernel per window process, shared by every document in it; JSON lines, one reply per request, matched by `id`; the namespace resets at every render; the kernel respawns when the interpreter changes; `run_cells` holds the kernel mutex for the whole render.
 
-- **(a) Help tab, M.** The runner gains an `op` field; `op: "help"` with code, line and column returns `jedi.Interpreter(code, [ns])` signatures and docstring when jedi imports, otherwise `inspect.signature` and `inspect.getdoc` for the dotted name at the caret, resolved by attribute lookup only (nothing is called). Rust: a generic `Kernel::request` and a `python_help` command that uses `try_lock` and answers "busy (rendering)" rather than blocking. Front end: a fourth preview tab, Help, beside Preview, Rendered and Diff, on Ctrl+K Ctrl+H (free) and a palette verb. It shows help from the document that owns the namespace, and says so when the active document is a different one. jedi works from the source text, so `np.linspace` resolves before the import cell has run, provided jedi is installed in that environment; without jedi only names already in the live namespace resolve.
+- **(a) Help tab, M.** The runner gains an `op` field; `op: "help"` with code, line and column returns `jedi.Interpreter(code, [ns])` signatures and docstring when jedi imports, otherwise `inspect.signature` and `inspect.getdoc` for the dotted name at the caret, resolved by attribute lookup only (nothing is called). Rust: a generic `Kernel::request` and a `python_help` command that uses `try_lock` and returns "busy (rendering)" rather than blocking. Front end: a fourth preview tab, Help, beside Preview, Rendered and Diff, on Ctrl+K Ctrl+H (free) and a palette verb. It shows help from the document that owns the namespace, and notes when the active document is a different one. jedi works from the source text, so `np.linspace` resolves before the import cell has run, provided jedi is installed in that environment; without jedi only names already in the live namespace resolve.
 - **(b) Completions, M.** One more source in the completion list, active only inside `{python}` fences, from `jedi.Interpreter(...).complete()`; on Ctrl+Space rather than while typing, to keep typing fast.
 - **Full LSP.** `@codemirror/lsp-client` 6.3.0 (MIT, official, released 2026-09-17) provides completion, hover, signature help, diagnostics and go-to-definition; the host supplies the transport. Server: jedi-language-server run as `<python> -m jedi_language_server` (pip, pure Python, the kernel's own environment, no Node). Rust transport about 200 to 300 lines (stdio, `Content-Length` framing, events), TypeScript about 50. For `.py` files: M to H. Inside Markdown cells: a virtual document (cell lines kept, all other lines blanked, so line numbers match, the technique Quarto and otter.nvim use) sent from memory and never written to disk; lsp-client has no embedded-language support, so this needs a custom workspace and is untried: H. Memory per window: roughly 100 MB for jedi-language-server, several hundred for basedpyright.
 
@@ -275,7 +289,7 @@ Recommendation: (a) now, (b) after a week of use, a language server for `.py` fi
 
 **Resolved 2026-10-24 (author):** the help tab first; help is the main want (the author's habit is `print(help(x))`). Completions and a language server wait.
 
-**Answer 2026-10-24, content of the tab.** The tab shows exactly the text `help(x)` produces, `pydoc.render_doc(obj, renderer=pydoc.plaintext)`, with the signature on the first line. For a class that is long, since it lists every method, which is what `help()` gives too; the tab scrolls. The dotted name at the caret is resolved with `inspect.getattr_static` at each step, so no property or descriptor executes (`df.T` would otherwise compute a transpose just to show help). A name not yet defined in the namespace falls back to jedi's docstring when jedi is installed, otherwise "not defined: render first". With the J.19 kernel pool, the active document's own kernel answers, which removes most of the which-document-owns-the-namespace caveat for documents in different environments. On returning to Sublime for development: a language server for `.py` files is the piece that would close most of that gap, and it stays on the list.
+**Answer 2026-10-24, content of the tab.** The tab shows exactly the text `help(x)` produces, `pydoc.render_doc(obj, renderer=pydoc.plaintext)`, with the signature on the first line. For a class that is long, since it lists every method, which is what `help()` gives too; the tab scrolls. The dotted name at the caret is resolved with `inspect.getattr_static` at each step, so no property or descriptor executes (`df.T` would otherwise compute a transpose just to show help). A name not yet defined in the namespace falls back to jedi's docstring when jedi is installed, otherwise "not defined: render first". With the J.19 kernel pool, the request goes to the active document's own kernel, which removes most of the which-document-owns-the-namespace caveat for documents in different environments. On returning to Sublime for development: a language server for `.py` files is the piece that would close most of that gap, and it stays on the list.
 
 ### J.19: per-folder virtual environments (`src-tauri/src/render.rs` `render_impl`, new `which_python` command, `src/commands.ts`)
 
@@ -291,16 +305,40 @@ Side effects to accept with eyes open: documents in different venvs, in one wind
 
 **Answer 2026-10-24, cache and swap.** Yes. `RenderState` holds one kernel today and replaces it whenever the interpreter changes. Proposed: a pool of up to `[render] max_kernels` kernels per window (default 3), keyed by interpreter path, with the least recently used one killed when a new one is needed; `max_kernels = 1` is today's behavior. Switching back to a document's interpreter is then instant, and its namespace survives the detour, so Run This Cell keeps working after a render in another venv (today the detour wipes it). Documents sharing one interpreter still share one kernel and one namespace, as now. A timeout or a crash removes only that kernel. Cost: memory, roughly a few hundred MB per idle kernel with pandas and matplotlib imported, in each window. About 60 lines in `render.rs`; J.18's help request reaches the active document's kernel through the same lookup.
 
+### J.20: open a citation in the bibliography viewer (`src/editor/citations.ts`, `src/editor/Editor.tsx`, `src/commands.ts`, `src-tauri/src/config.rs`)
+
+What exists: `citeHover` (`citations.ts`) finds the key under the pointer with `CITE_RE`, skips Quarto crossrefs (`@fig-…`), looks the entry up in the loaded bibliography and shows a hover card built by `describe(entry)`. The editor has no context menu of its own, so WebView2's default menu appears; the file tree has one (`openTreeMenu` in `FileTree.tsx`). The capability file already grants `opener:allow-open-url`, so the front end can open an http URL in the default browser.
+
+Build:
+
+- Config: `[bibliography] viewer_url = "http://127.0.0.1:9124/view/@{key}"`, a template in which `{key}` is replaced by the URL-encoded citation key. Unset: no menu item and no link, and the palette verb gives a status note naming the setting.
+- One helper, `citeKeyAt(state, pos)`, factored out of `citeHover` and shared by the hover card, the menu and the verb.
+- Right-click: an editor `contextmenu` handler. Over a citation key it prevents the default and shows a small menu at the pointer: "Open @key in Bibliography Viewer", plus "Copy @key", which costs nothing extra. Anywhere else the default menu appears unchanged. The tree's menu markup and backdrop become one shared component rather than a second copy.
+- Palette verb "Citation: Open in Bibliography Viewer", for the key at the caret, registered in the command registry so `[keys]` can bind it.
+- Hover card: an "Open ↗" link at its foot when `viewer_url` is set; clicking it opens the page and closes the card.
+- Speed: none; everything runs on demand.
+
+Network: Writedown makes no request. The browser fetches the page, and only the citation key leaves the editor, bound for your own server, so the spec's no-network rule is untouched.
+
+The address: 192.168.4.21 is DOOB's own LAN address, and the viewer (a `python.exe` on port 9124) listens on `0.0.0.0`, so `127.0.0.1` reaches it and keeps working if the router gives DOOB a new address. CHALLENGE, outside Writedown: the house rules require binding `127.0.0.1` by default, never `0.0.0.0`. If that server is one of yours, it deserves a look; once it binds `127.0.0.1` only, the LAN URL stops working and the localhost one keeps working.
+
+**Question:** "palette, open bibtex doc" has two readings.
+
+- (a) The same action from the palette, the viewer page being the reference's document. The plan assumes this reading.
+- (b) The BibTeX entry itself. Opening the authoritative `.bib` as an ordinary tab is risky: a stray keystroke followed by autosave and trim-on-save would rewrite a file that must never be rewritten, so it would need a new read-only tab mode. The cheap form is the raw entry in a scratch buffer, as "Extract Citations to .bib" already does for a whole document.
+
+Recommend (a); the scratch form of (b) is a small add if wanted.
+
 ### J.xx update: grid renderer errors recur (`src/preview/CsvPreview.tsx`; the csv-viewer sibling library)
 
 The log shows the grid's unhandled rejection (reading `[0]` of undefined in `getFormattedRow`, called from `applyLayout`, `renderBody`, `_renderSlice`) 3 times on 2026-09-01, 12 on 2026-09-11 and 15 on 2026-10-11 (UTC dates). No wedge since. The likely cause is a layout pass, which Writedown triggers from a `ResizeObserver`, running while a debounced `setData` reparse has replaced the rows. Proposed as its own item: a guard in csv-viewer's layout during a load, and in `CsvPreview.tsx` skip `applyLayout` while a feed is pending.
 
 ### Batch J: proposed grouping (updated 2026-10-24 with the author's rulings)
 
-- **Quick fixes, frontend:** J.12 error strip, J.13 switcher order, J.15 stale mark in the tab plus the two key fixes, J.17 Python-cell wrap, J.06 definition lists, J.09 tables.
-- **Small Rust plus frontend:** J.01 zap, J.02 new window, J.04 browser-argument flag, J.10 update check, J.14 closed-tab picker, J.16 warnings, J.19 venvs, kernel pool and Which Python.
-- **Larger, one bump each:** J.07 tiered version history and line history; J.18 help tab; J.11 HTML outline and preview.
-- **Still open:** J.04 ship the flag (recommended); J.11 preview or outline only; J.15 ● or ❌; J.13 current project last (taken as yes unless overruled).
+- **Quick fixes, frontend:** J.12 error strip, J.13 switcher order, J.15 red square in the tab plus the two key fixes, J.17 Python-cell wrap, J.06 definition lists, J.09 tables.
+- **Small Rust plus frontend:** J.01 zap, J.02 new window, J.04 browser-argument flag, J.10 update check, J.14 closed-tab picker, J.16 warnings, J.19 venvs, kernel pool and Which Python, J.20 bibliography viewer.
+- **Larger, one bump each:** J.07 tiered version history and line history; J.18 help tab; J.11 HTML outline and sealed preview.
+- **Still open:** J.07 tiered history for files in git too (recommended); J.20 the meaning of "open bibtex doc" (reading (a) assumed); J.15 colored squares and circles in the Unicode picker (optional).
 
 ***
 
