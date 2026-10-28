@@ -233,6 +233,7 @@ pub fn run() {
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .manage(watch::WatchState::default())
         .manage(watch::ExtraWatchState::default())
+        .manage(watch::WatchHub::default())
         .manage(bib::BibState::default())
         .manage(render::RenderState::default())
         .manage(spelling::SpellState::default())
@@ -306,6 +307,7 @@ pub fn run() {
             sublime::load_sublime_theme,
             watch::watch_workspace,
             watch::watch_extra_files,
+            watch::set_watch_interest,
             bib::load_bibliography,
             bib::search_bibliography,
             bib::get_citation,
@@ -333,7 +335,6 @@ pub fn run() {
             project::add_recent_project,
             wordfreq::word_freq_load,
             wordfreq::word_freq_save,
-            git::git_status,
             git::git_show_index,
             git::git_line_history,
             instance::set_instance_roots,

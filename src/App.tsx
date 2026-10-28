@@ -190,7 +190,7 @@ function App() {
         }
         const ws = sessionKey(state);
         if (!ws) return;
-        const key = ws + " " + sessionFingerprint(state);
+        const key = ws + "\0" + sessionFingerprint(state);
         if (key === last) return;
         last = key;
         window.clearTimeout(timer);

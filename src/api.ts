@@ -48,14 +48,25 @@ export const personalDictionaryPath = () => invoke<string>("personal_dictionary_
 export const listDirectory = (path: string) =>
   invoke<Entry[]>("list_directory", { path });
 
-/** Start watching one or more roots for external changes; emits `fs-change` events. */
+/** A root `watchWorkspace` could not arm (a missing drive, say), and the error. */
+export type WatchFailure = { root: string; error: string };
+
+/** Start watching one or more roots for external changes; emits `fs-change` events,
+ *  batched, for the paths in the interest set only. Each root arms independently; the
+ *  ones that failed are returned and the rest stay watched. */
 export const watchWorkspace = (paths: string[]) =>
-  invoke<void>("watch_workspace", { paths });
+  invoke<WatchFailure[]>("watch_workspace", { paths });
 
 /** Watch open files that live outside every root (non-recursive, per-file); an empty
  *  list drops the watcher. Same `fs-change` events as the workspace watcher. */
 export const watchExtraFiles = (paths: string[]) =>
   invoke<void>("watch_extra_files", { paths });
+
+/** Replace the set of paths whose changes reach `fs-change`: `dirs`, folders the tree has
+ *  listed (an event in one, or on one, passes); `files`, open tabs and the project file.
+ *  Every other event is dropped in Rust. */
+export const setWatchInterest = (dirs: string[], files: string[]) =>
+  invoke<void>("set_watch_interest", { dirs, files });
 
 // Sublime-style projects: a named set of folder roots in a .wdproj JSON file.
 export type Project = {
@@ -210,13 +221,7 @@ export const gitLineHistory = (path: string, line: number, contents: string) =>
 
 export const createFile = (path: string) => invoke<void>("create_file", { path });
 
-// ---- Git marks (issue I.02) — read-only `git` invocations only, off the UI thread ----
-/** One changed path from `git status`, absolute; state ∈ modified | added | untracked |
- *  deleted | renamed. Untracked directories arrive as one collapsed entry (is_dir). */
-export type GitEntry = { path: string; state: string; is_dir: boolean };
-/** available=false means no git or not a repository — the feature is silently off. */
-export type GitStatus = { entries: GitEntry[]; available: boolean };
-export const gitStatus = (root: string) => invoke<GitStatus>("git_status", { root });
+// ---- Git gutter marks (issue I.02) — read-only, lock-free `git` invocations, off the UI thread ----
 /** The index version of `path` for the gutter diff: null = no git/not a repo (feature
  *  off), "" = untracked (every buffer line counts as added). */
 export const gitShowIndex = (path: string) => invoke<string | null>("git_show_index", { path });
@@ -431,9 +436,8 @@ export type EditorSettings = {
   search_globs: string[] | null;
   search_max_hits: number | null;
   search_timeout_ms: number | null;
-  /** `[git] tree_marks` (default true) / `gutter_marks` (default false) — issue I.02.
-   *  Session overrides come from the palette's Git: … On/Off verbs. */
-  git_tree_marks: boolean | null;
+  /** `[git] gutter_marks` (default false), issue I.02. The palette's Git: Gutter Marks
+   *  On/Off verbs override it for the session. */
   git_gutter_marks: boolean | null;
   /** `[bibliography] viewer_url` (issue J.20): template for a citation's document page,
    *  `{key}` replaced by the URL-encoded key. Null when unset. */

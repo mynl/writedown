@@ -51,11 +51,9 @@ trim_trailing_whitespace = true
 # datetime_format = "%Y-%m-%d %H:%M:%S"
 
 [git]
-# Git marks (read-only `git status` / `git show`; never any mutating command, no network).
-# tree_marks tints changed/added/untracked files in the sidebar; gutter_marks adds per-line
-# change stripes in the editor (updated on open and save). Both silently off outside a repo.
-# exe: full path to git.exe when git is not on PATH.
-tree_marks = true
+# Git (read-only, lock-free `git show` / `git blame`; never any mutating command, no network).
+# gutter_marks adds per-line change stripes in the editor (updated on open and save),
+# silently off outside a repo. exe: full path to git.exe when git is not on PATH.
 gutter_marks = false
 # exe = "C:\\Program Files\\Git\\cmd\\git.exe"
 
@@ -398,9 +396,9 @@ pub struct EditorSettings {
     search_globs: Option<Vec<String>>,
     search_max_hits: Option<u64>,
     search_timeout_ms: Option<u64>,
-    /// `[git] tree_marks` (default true) / `gutter_marks` (default false), issue I.02.
-    /// The palette's Git: … On/Off verbs override these for the session only.
-    git_tree_marks: Option<bool>,
+    /// `[git] gutter_marks` (default false), issue I.02. The palette's Git: Gutter Marks
+    /// On/Off verbs override it for the session only. (A `tree_marks` key left over from
+    /// before 2.32.0 is ignored, like any unknown key.)
     git_gutter_marks: Option<bool>,
     /// `[bibliography] viewer_url` (issue J.20): a URL template for a citation's document,
     /// `{key}` replaced by the URL-encoded key in the frontend. Unset, the "Open Document"
@@ -560,7 +558,6 @@ pub fn load_editor_settings(app: tauri::AppHandle) -> Result<EditorSettings, Str
             .and_then(|v| v.as_integer())
             .filter(|n| *n > 0)
             .map(|n| n as u64),
-        git_tree_marks: val.get("git").and_then(|g| g.get("tree_marks")).and_then(|v| v.as_bool()),
         git_gutter_marks: val.get("git").and_then(|g| g.get("gutter_marks")).and_then(|v| v.as_bool()),
         bibliography_viewer_url: val
             .get("bibliography")
@@ -591,6 +588,9 @@ mod tests {
         assert!(v.get("theme").is_none(), "[theme] is decorative");
         assert!(v.get("general").is_none(), "[general] is decorative");
         assert!(v.get("files").and_then(|f| f.get("extensions")).is_none());
+        // The git tree marks were removed in 2.32.0; only the gutter switch remains.
+        assert!(v.get("git").and_then(|g| g.get("tree_marks")).is_none());
+        assert!(v.get("git").and_then(|g| g.get("gutter_marks")).is_some());
         // tab_size is a WIRED live key (editor indent width) — it stays in the template.
         assert!(v.get("editor").and_then(|e| e.get("tab_size")).is_some());
     }

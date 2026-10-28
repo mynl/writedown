@@ -36,7 +36,6 @@ import {
   buildFile,
   helpPath,
   personalDictionaryPath,
-  gitStatus,
   readBackup,
   readFile,
   setInstanceRoots,
@@ -52,6 +51,7 @@ import {
   saveLastWorkspace,
   saveProject,
   statPaths,
+  setWatchInterest,
   watchExtraFiles,
   watchWorkspace,
   writeFile,
@@ -111,9 +111,27 @@ const CHANGED_ON_DISK = "changed-on-disk";
  *  conflict flag, no message. Deriving the exclusion list from what was actually armed
  *  makes that state unrepresentable. */
 let watchedRoots: string[] = [];
+/** Bumped by each applyWatch, so a slow reply for a superseded set of roots is ignored. */
+let watchGeneration = 0;
 const applyWatch = (roots: string[]) => {
   watchedRoots = roots;
-  void watchWorkspace(roots).catch(() => {});
+  const generation = ++watchGeneration;
+  void watchWorkspace(roots).then(
+    (failed) => {
+      if (generation !== watchGeneration || failed.length === 0) return;
+      // A root that could not be armed watches nothing, so it leaves watchedRoots (open
+      // files under it fall back to their own watch, per the rule above) and the failure
+      // is reported with every root named. The other roots stay watched.
+      const bad = new Set(failed.map((f) => normPath(f.root)));
+      watchedRoots = roots.filter((r) => !bad.has(normPath(r)));
+      useStore.getState().syncExtraWatch();
+      const list = failed.map((f) => `${f.root} (${f.error})`).join("; ");
+      useStore.setState({
+        lastError: `file watching failed for ${failed.length} folder(s), changes made outside Writedown will not show: ${list}`,
+      });
+    },
+    (e) => useStore.setState({ lastError: `file watching — ${String(e)}` }),
+  );
 };
 
 /** Focus the live editor once it has mounted for a just-opened/created document. The
@@ -173,10 +191,6 @@ let projReloadTimer: ReturnType<typeof setTimeout> | undefined;
  *  re-list (issue C.01). Only folders already in `dirCache` are ever added, so a busy
  *  watcher can never fan out into listing work for folders nobody can see. */
 const pendingDirRefresh = new Set<string>();
-
-// Git marks (issue I.02): the ~1 s status debounce and the once-per-session footer note.
-let gitStatusTimer: ReturnType<typeof setTimeout> | null = null;
-let gitStatusNoted = false;
 
 /** The first managed project (list order, name-sorted) whose folders contain `file` —
  *  where a files-only launch that opens a NEW window lands (issue I.07, author ruling
@@ -437,14 +451,8 @@ type AppState = {
     /** 1-based line of `other` to scroll to the center once the pane mounts. */
     line?: number;
   } | null;
-  /** Git tree marks (issue I.02): absolute file path → state (modified | added |
-   *  untracked | deleted | renamed), and the ancestor folders that roll a dot up.
-   *  Session-only, rebuilt by refreshGitStatus; never persisted. */
-  gitMarks: Record<string, string>;
-  gitDirMarks: Record<string, true>;
-  /** Session overrides from the palette's Git: … On/Off verbs; null = follow config
-   *  ([git] tree_marks default true, gutter_marks default false). */
-  gitTreeOverride: boolean | null;
+  /** Session override from the palette's Git: Gutter Marks On/Off verbs; null = follow
+   *  config ([git] gutter_marks, default false). */
   gitGutterOverride: boolean | null;
   /** Small one-line input dialog (new file/folder names, etc.). `initial` prefills the
    *  input (selected, so typing replaces it) — used by rename-style prompts. */
@@ -641,9 +649,6 @@ type AppState = {
   showPythonHelp: () => Promise<void>;
   closePythonHelp: () => void;
   closeDiff: () => void;
-  /** Re-run `git status` over the workspace roots, debounced ~1 s (issue I.02). Called on
-   *  root changes, saves, and file-watch events; async and off the typing path. */
-  refreshGitStatus: () => void;
   /** `explicit` = the user asked (Ctrl+S / palette), so a flagged conflict is attempted
    *  rather than skipped; `force` also skips the disk check, overwriting deliberately.
    *  Plain autosave passes neither (issue B.04). */
@@ -804,9 +809,6 @@ export const useStore = create<AppState>((set, get) => ({
   versionsFor: null,
   versionsMode: "restore" as const,
   diffAgainst: null,
-  gitMarks: {},
-  gitDirMarks: {},
-  gitTreeOverride: null,
   gitGutterOverride: null,
   prompt: null,
   treeMenu: null,
@@ -1108,9 +1110,13 @@ export const useStore = create<AppState>((set, get) => ({
   // Exclude only paths under `watchedRoots` — what was actually armed — never the Folder
   // tab's display root (issue B.03).
   syncExtraWatch: () => {
-    const extras = get()
-      .tabs.map((t) => t.path)
-      .filter((p) => !isScratch(p) && !watchedRoots.some((r) => underRoot(p, r)));
+    const { tabs, projectFile } = get();
+    const paths = tabs.map((t) => t.path);
+    // The open project file too (issue D.11): it lives in ~/.writedown/projects/, under no
+    // root as a rule, and unwatched, an edit from another editor or another Writedown
+    // instance never reloaded the project.
+    if (projectFile && !paths.some((p) => samePath(p, projectFile))) paths.push(projectFile);
+    const extras = paths.filter((p) => !isScratch(p) && !watchedRoots.some((r) => underRoot(p, r)));
     void watchExtraFiles(extras).catch(() => {});
   },
 
@@ -1413,9 +1419,6 @@ export const useStore = create<AppState>((set, get) => ({
   // folders stay open), reload unmodified open files, flag conflicts on modified ones.
   // Ignores the events our own saves trigger.
   onFsChange: (paths) => {
-    // Git tree marks follow the watcher too (issue I.02) — a checkout or an external
-    // edit changes status without any save of ours. Debounced inside.
-    get().refreshGitStatus();
     // Tree: re-list the folders the change actually TOUCHED (issue C.01). This used to
     // re-list exactly one directory — the Folder tab's root — whose result only ever reached
     // the root row, so nothing below any root, and nothing in the Project panel, could
@@ -1431,12 +1434,15 @@ export const useStore = create<AppState>((set, get) => ({
       if (self) pendingDirRefresh.add(self);
     }
     if (pendingDirRefresh.size > 0) {
+      // Rust already batches events every 250 ms (watch.rs). This trailing debounce must
+      // stay shorter than that, or sustained activity in a listed folder resets it on every
+      // batch and the tree never refreshes until the activity stops.
       clearTimeout(fsRefreshTimer);
       fsRefreshTimer = setTimeout(() => {
         const batch = [...pendingDirRefresh];
         pendingDirRefresh.clear();
         void get().refreshDirs(batch);
-      }, 400);
+      }, 150);
     }
     // The open project file changing on disk re-reads its folders (issue D.11) — an edit
     // from another editor, or from another Writedown instance. Our own save is covered
@@ -1696,51 +1702,6 @@ export const useStore = create<AppState>((set, get) => ({
       previewTab: s.previewTab === "diff" ? "live" : s.previewTab,
     })),
 
-  refreshGitStatus: () => {
-    if (gitStatusTimer) clearTimeout(gitStatusTimer);
-    gitStatusTimer = setTimeout(() => {
-      gitStatusTimer = null;
-      const s = get();
-      const treeOn = s.gitTreeOverride ?? s.editorSettings?.git_tree_marks ?? true;
-      if (!treeOn) {
-        if (Object.keys(s.gitMarks).length) set({ gitMarks: {}, gitDirMarks: {} });
-        return;
-      }
-      const roots = s.projFolders.length ? s.projFolders : s.root ? [s.root] : [];
-      if (roots.length === 0) return;
-      void (async () => {
-        const marks: Record<string, string> = {};
-        const dirs: Record<string, true> = {};
-        let anyRepo = false;
-        for (const root of roots) {
-          const res = await gitStatus(root).catch(() => null);
-          if (!res || !res.available) continue;
-          anyRepo = true;
-          for (const e of res.entries) {
-            marks[e.path] = e.state;
-            if (e.is_dir) dirs[e.path] = true;
-            // Roll a dot up the ancestor folders, from the same map — no extra git calls.
-            let p = e.path;
-            for (;;) {
-              const parent = p.replace(/[\\/][^\\/]+$/, "");
-              if (parent === p || parent.length < root.length) break;
-              dirs[parent] = true;
-              p = parent;
-            }
-          }
-        }
-        // One-line footer note the FIRST time git turns out unusable — never an error.
-        if (!anyRepo && !gitStatusNoted) {
-          gitStatusNoted = true;
-          get().showStatusMessage(
-            "git marks off — no repository here (or git not found; set [git] exe in config.toml)",
-          );
-        }
-        set({ gitMarks: marks, gitDirMarks: dirs });
-      })();
-    }, 1000);
-  },
-
   saveDoc: async (path, opts) => {
     if (isScratch(path)) return; // untitled buffers have no disk path — use Save As
     if (isImageDoc(path)) return; // viewer tabs hold no text — never write an image (spec §2)
@@ -1845,9 +1806,7 @@ export const useStore = create<AppState>((set, get) => ({
       const proj = get().projectFile;
       if (proj && samePath(path, proj)) void get().reloadProject();
       scheduleWordScan(path); // refresh this file's frequency-dictionary entry
-      // Git marks (issue I.02): tree status re-checks after every save (debounced), and
-      // the gutter repaints for the saved doc when it is the one on screen.
-      get().refreshGitStatus();
+      // Git gutter marks (issue I.02) repaint for the saved doc when it is the one on screen.
       const gutterOn = get().gitGutterOverride ?? get().editorSettings?.git_gutter_marks ?? false;
       if (gutterOn && path === get().activePath) {
         const v = getActiveView();
@@ -1951,8 +1910,11 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   showWatchStatus: () => {
-    const { tabs, projFolders, folderRoot, root } = get();
+    const { tabs, projFolders, folderRoot, root, projectFile, dirCache } = get();
     const covered = (p: string) => watchedRoots.find((r) => underRoot(p, r));
+    const projectWatch = projectFile
+      ? `${projectFile}\n      ${covered(projectFile) ? `covered by root ${covered(projectFile)}` : "own individual watch"}`
+      : "(none)";
     const lines = [
       "# File watch status",
       "",
@@ -1974,7 +1936,12 @@ export const useStore = create<AppState>((set, get) => ({
         return `  - ${t.path}\n      ${r ? `covered by root ${r}` : "own individual watch"}`;
       }),
       "",
+      `Project file: ${projectWatch}`,
+      "",
       "Every open file must show one or the other. Anything else is issue B.03 returning.",
+      "",
+      `Changes are delivered only for the ${Object.keys(dirCache).length} folders the tree has ` +
+        "listed, the open documents and the project file; everything else under a root is dropped.",
     ];
     get().newScratch({ content: lines.join("\n") });
   },
@@ -2586,7 +2553,9 @@ export const useStore = create<AppState>((set, get) => ({
       async (name) => {
         const trimmed = name.trim();
         if (!trimmed) return;
-        const path = await saveManagedProject(trimmed, folders, get().projectFile, get().projLabels);
+        const current = get().projectFile;
+        if (current) markJustSaved(current); // a save in place is our own write, not an outside edit
+        const path = await saveManagedProject(trimmed, folders, current, get().projLabels);
         set({ projFolders: folders, projectFile: path, projectName: trimmed, panelTab: "project" });
         void addRecentProject(path).then(() => get().loadRecentProjects());
         void saveLastWorkspace(path);
@@ -2750,6 +2719,9 @@ export const useStore = create<AppState>((set, get) => ({
   persistProject: () => {
     const { projectFile, projectName, projFolders, projLabels } = get();
     if (!projectFile) return;
+    // The project file is watched now (2.32.0): without this our own write would come
+    // back as an external edit and reload the project.
+    markJustSaved(projectFile);
     void saveProject(projectFile, {
       name: projectName,
       folders: projFolders,
@@ -2933,12 +2905,49 @@ useStore.subscribe((s, prev) => {
 });
 
 // Whenever the workspace roots change — folder open, project open/switch/close, session
-// restore — re-run git status (issue I.02, debounced inside) and re-record this window's
-// roots in the routing registry (issue I.07) so Explorer launches land in the right window.
+// restore — re-record this window's roots in the routing registry (issue I.07) so
+// Explorer launches land in the right window.
 useStore.subscribe((s, prev) => {
   if (s.projFolders !== prev.projFolders || s.root !== prev.root) {
-    s.refreshGitStatus();
     const roots = s.projFolders.length ? s.projFolders : s.root ? [s.root] : [];
     void setInstanceRoots(roots).catch(() => {}); // older backend — routing simply absent
   }
+});
+
+/** Did the tab strip gain, lose or reorder a path? Typing replaces `tabs` on every
+ *  keystroke but never changes a path, so this keeps the interest set off the typing path. */
+const tabPathsChanged = (a: Doc[], b: Doc[]) =>
+  a !== b && (a.length !== b.length || a.some((t, i) => t.path !== b[i].path));
+
+let interestTimer: ReturnType<typeof setTimeout> | undefined;
+let interestSent = "";
+
+// The watcher's interest set (2.32.0): the folders the tree has listed (the dirCache keys,
+// exactly the set onFsChange matches), the open tabs and the open project file. Rust drops
+// every event outside it, so the idle cost follows what is on screen, not the size of the
+// roots. Changes on expand, collapse, open and close; sent once things settle, and only
+// when the content differs from what Rust already holds.
+useStore.subscribe((s, prev) => {
+  // The project file's own watch (syncExtraWatch) follows a save-as, rename or close.
+  if (s.projectFile !== prev.projectFile) s.syncExtraWatch();
+  if (
+    s.dirCache === prev.dirCache &&
+    s.projectFile === prev.projectFile &&
+    !tabPathsChanged(s.tabs, prev.tabs)
+  )
+    return;
+  clearTimeout(interestTimer);
+  interestTimer = setTimeout(() => {
+    const now = useStore.getState();
+    const dirs = Object.keys(now.dirCache);
+    const files = now.tabs.map((t) => t.path).filter((p) => !isScratch(p));
+    if (now.projectFile) files.push(now.projectFile);
+    const key = JSON.stringify([dirs, files]);
+    if (key === interestSent) return;
+    interestSent = key;
+    void setWatchInterest(dirs, files).catch((e) => {
+      interestSent = ""; // the next change resends in full
+      useStore.setState({ lastError: `file watching — ${String(e)}` });
+    });
+  }, 100);
 });

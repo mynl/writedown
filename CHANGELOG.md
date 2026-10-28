@@ -5,6 +5,34 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [2.32.0] - 2026-10-28
+
+A project can hold whole drives as folders and stay idle. Plan:
+`dev/done/plan-bounded-watcher-remove-git-tree-marks.md`.
+
+### Removed
+
+- **Git tree marks**: the file tints, the folder dots, **Git: Tree Marks On / Off** and
+  `[git] tree_marks`. A `config.toml` that still sets it loads as before; the key is ignored.
+  Gutter marks and **Diff: When Did This Line Change** stay.
+
+### Changed
+
+- **File watching delivers only what is on screen**: changes in folders the tree has listed,
+  to open files and to the project file, batched every quarter second. A build, a commit or
+  another program writing elsewhere under a project folder no longer costs anything.
+- Every git command Writedown runs is lock-free, so it can never collide with a commit in
+  another program.
+
+### Fixed
+
+- **An endless `git status` loop** that kept a core busy for as long as a repository sat
+  under a project folder, and could make a commit elsewhere fail with "index.lock exists".
+- **One folder that cannot be watched** (a missing drive, say) no longer turns off watching
+  for the whole project; the error bar names each failed folder and the rest stay watched.
+- **Editing the open project's `.wdproj` in another editor**, or in another Writedown window,
+  reloads the project; the file was not being watched.
+
 ## [2.31.1] - 2026-10-24
 
 ### Fixed

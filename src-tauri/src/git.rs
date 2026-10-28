@@ -1,34 +1,17 @@
-//! Git status marks (issue I.02) — Writedown's first feature that runs another program.
+//! Git gutter marks (issue I.02) and "Diff: When Did This Line Change" (issue J.07).
 //!
-//! Eyes-open scope: `git` only; READ-ONLY invocations (`rev-parse`, `status`, `show`, and
-//! since J.07 `blame` with the buffer on stdin);
-//! never any mutating git command; no network (all three are purely local). Git absent or
-//! the folder not a repository is a normal state, not an error: commands report
-//! "unavailable" and the frontend keeps the feature silently off. Every command is
-//! `#[tauri::command(async)]` (the G.04 lesson) and every call from the frontend is
-//! per-root, debounced, and off the typing path — `git status` cost scales with the repo.
+//! Eyes-open scope: `git` only; READ-ONLY invocations (`rev-parse`, `show`, and `blame`
+//! with the buffer on stdin), each run with `GIT_OPTIONAL_LOCKS=0` so none can ever take
+//! `index.lock` in a repository another process is committing to; never any mutating git
+//! command; no network (all purely local). Git absent or the folder not a repository is a
+//! normal state, not an error: commands report "unavailable" and the frontend keeps the
+//! feature silently off. Every command is `#[tauri::command(async)]` (the G.04 lesson) and
+//! runs per file, on open, save or request, never from the file watcher. (The tree marks,
+//! which swept `git status` over every root on every watcher event, were removed in 2.32.0.)
 
 use serde::Serialize;
 use std::path::Path;
 use std::process::{Command, Stdio};
-
-/// One changed path from `git status --porcelain`, absolute, backslash-separated.
-#[derive(Serialize)]
-pub struct GitEntry {
-    pub path: String,
-    /// "modified" | "added" | "untracked" | "deleted" | "renamed"
-    pub state: String,
-    /// Untracked directories arrive from git as a single collapsed `dir/` entry.
-    pub is_dir: bool,
-}
-
-#[derive(Serialize)]
-pub struct GitStatus {
-    pub entries: Vec<GitEntry>,
-    /// false = no git on the resolved path, or the root is not inside a repository.
-    /// The frontend shows a one-line footer note the first time, never an error.
-    pub available: bool,
-}
 
 /// `[git] exe` from config.toml if set and non-empty, else "git" on PATH.
 fn git_exe(app: &tauri::AppHandle) -> String {
@@ -43,12 +26,14 @@ fn git_exe(app: &tauri::AppHandle) -> String {
 
 /// Run one read-only git command with `-C dir`; None when the executable is missing or
 /// git exits non-zero (not a repo, path not in index, …) — both are normal "no marks"
-/// states here, never surfaced as errors.
+/// states here, never surfaced as errors. `GIT_OPTIONAL_LOCKS=0`: no command started here
+/// takes the optional `index.lock`, now or after a later addition.
 fn run_git(exe: &str, dir: &str, args: &[&str]) -> Option<Vec<u8>> {
     let mut cmd = Command::new(exe);
     cmd.arg("-C")
         .arg(dir)
         .args(args)
+        .env("GIT_OPTIONAL_LOCKS", "0")
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::null());
@@ -63,13 +48,14 @@ fn run_git(exe: &str, dir: &str, args: &[&str]) -> Option<Vec<u8>> {
 }
 
 /// `run_git` with `input` on stdin (issue J.07: `blame --contents -` reads the live buffer).
-/// Still read-only. The input is written from a thread so a large buffer can never
-/// deadlock against git's output.
+/// Still read-only and lock-free. The input is written from a thread so a large buffer can
+/// never deadlock against git's output.
 fn run_git_stdin(exe: &str, dir: &str, args: &[&str], input: Vec<u8>) -> Option<Vec<u8>> {
     let mut cmd = Command::new(exe);
     cmd.arg("-C")
         .arg(dir)
         .args(args)
+        .env("GIT_OPTIONAL_LOCKS", "0")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null());
@@ -91,7 +77,7 @@ fn run_git_stdin(exe: &str, dir: &str, args: &[&str], input: Vec<u8>) -> Option<
 }
 
 /// The repository top-level for `dir`, in native separators — also the "is this a repo
-/// at all" probe. `git status` paths are relative to this, not to `dir`.
+/// at all" probe. `git show :0:` and `git blame` paths are relative to this, not to `dir`.
 fn toplevel(exe: &str, dir: &str) -> Option<String> {
     let out = run_git(exe, dir, &["rev-parse", "--show-toplevel"])?;
     let s = String::from_utf8_lossy(&out).trim().to_string();
@@ -99,58 +85,6 @@ fn toplevel(exe: &str, dir: &str) -> Option<String> {
         return None;
     }
     Some(if cfg!(windows) { s.replace('/', "\\") } else { s })
-}
-
-/// Porcelain XY code → our state word. `??` is untracked; index or worktree letters
-/// R/A/D map by the most specific one; everything else that reaches porcelain is a
-/// modification of some kind.
-fn state_of(xy: &str) -> &'static str {
-    if xy == "??" {
-        "untracked"
-    } else if xy.contains('R') {
-        "renamed"
-    } else if xy.contains('D') {
-        "deleted"
-    } else if xy.contains('A') {
-        "added"
-    } else {
-        "modified"
-    }
-}
-
-/// `git status --porcelain -z` for one workspace root, parsed to absolute paths.
-/// Non-repo or no git → `Ok(empty, available: false)` — silently off by design.
-#[tauri::command(async)]
-pub fn git_status(app: tauri::AppHandle, root: String) -> Result<GitStatus, String> {
-    let exe = git_exe(&app);
-    let Some(top) = toplevel(&exe, &root) else {
-        return Ok(GitStatus { entries: Vec::new(), available: false });
-    };
-    let Some(out) = run_git(&exe, &root, &["status", "--porcelain", "-z"]) else {
-        return Ok(GitStatus { entries: Vec::new(), available: false });
-    };
-    let text = String::from_utf8_lossy(&out);
-    let mut entries = Vec::new();
-    let mut fields = text.split('\0');
-    while let Some(rec) = fields.next() {
-        if rec.len() < 4 {
-            continue; // trailing empty field, or noise
-        }
-        let xy = &rec[..2];
-        let rel = &rec[3..];
-        if xy.contains('R') {
-            let _old = fields.next(); // -z renames carry the original path as the next field
-        }
-        let is_dir = rel.ends_with('/');
-        let rel_native = if cfg!(windows) { rel.replace('/', "\\") } else { rel.to_string() };
-        let joined = Path::new(&top).join(rel_native.trim_end_matches(['\\', '/']));
-        entries.push(GitEntry {
-            path: joined.to_string_lossy().to_string(),
-            state: state_of(xy).to_string(),
-            is_dir,
-        });
-    }
-    Ok(GitStatus { entries, available: true })
 }
 
 /// The INDEX version of one file (`git show :0:<relpath>`), the base for the gutter diff.
@@ -274,7 +208,7 @@ fn line_history(exe: &str, path: &str, line: u32, contents: String) -> Option<Bl
 
 #[cfg(test)]
 mod tests {
-    use super::{line_history, parse_blame, state_of};
+    use super::{line_history, parse_blame};
 
     /// Against this repository's own README (opt-in: needs git and the checkout's history).
     /// Line 1 has been committed; an unsaved edit on it reads as not committed yet; a file
@@ -319,16 +253,5 @@ mod tests {
         )
         .unwrap();
         assert!(!unc.committed);
-    }
-
-    #[test]
-    fn porcelain_codes_map_to_states() {
-        assert_eq!(state_of("??"), "untracked");
-        assert_eq!(state_of(" M"), "modified");
-        assert_eq!(state_of("M "), "modified");
-        assert_eq!(state_of("MM"), "modified");
-        assert_eq!(state_of("A "), "added");
-        assert_eq!(state_of(" D"), "deleted");
-        assert_eq!(state_of("R "), "renamed");
     }
 }
