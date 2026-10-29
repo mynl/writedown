@@ -26,28 +26,28 @@ Here lies comme.nts more dsa fdkl ase.
 
 | Item | Effort HML | Status/Impact | Description |
 |--:|:---:|:---:|:-------------------------|
-| **K.01** | 🟨 |  | (Consider) HTML view includes mathjax (pended from J) |
-| >>CC | M | None for Markdown | **Doable without letting the page run any script: when the preview loads, Writedown renders the page's TeX itself with KaTeX, the math engine the Markdown preview already uses.** Covers Quarto and Pandoc output and hand-written MathJax pages. KaTeX handles nearly everything MathJax does; tabsets and plots still need a browser. Question below: build now or keep pended. |
+| **K.01** | ⚪ |  | (Consider) HTML view includes mathjax (pended from J) |
+| >>CC | M | None for Markdown | **Doable without letting the page run any script: when the preview loads, Writedown renders the page's TeX itself with KaTeX, the math engine the Markdown preview already uses.** Covers Quarto and Pandoc output and hand-written MathJax pages. KaTeX handles nearly everything MathJax does; tabsets and plots still need a browser. Question below: build now or keep pended. ==>KEEP PENDED|
 | | --- | |  |
-| **K.02** | 🟨 |  | Alt - steps back through cursor position, like ST |
-| >>CC | M | None | **Nothing like it exists yet, and Alt+- and Alt+Shift+- are free.** Writedown would remember where the caret was before each big move (a jump of more than about 10 lines, an outline click, a find, a tab switch); Alt+- walks back through those places and Alt+Shift+- forward, across files as in ST. Question below: across files or within one file. |
+| **K.02** | ⚫ |  | Alt - steps back through cursor position, like ST |
+| >>CC | M | None | **Nothing like it exists yet, and Alt+- and Alt+Shift+- are free.** Writedown would remember where the caret was before each big move (a jump of more than about 10 lines, an outline click, a find, a tab switch); Alt+- walks back through those places and Alt+Shift+- forward, across files as in ST. Question below: across files or within one file. ==>within current file (but remember across files) |
 | | --- | | |
 | **K.03** | 🟨 | | Add word count  to command palette, entire buffer or selection if longer than 1 line |
 | >>CC | L | None | **Easy; no count exists today.** A palette "Word Count" puts the count in the status bar: the selection when it spans more than one line, else the whole file. Recommend counting prose only, leaving out front matter, code cells and comments. |
 | | --- | | |
-| **K.04** | ⚪ | | Is it possible for the search box to be at the bottom rather than the top on the edit tab?    |
-| >>CC | L | None | **Yes, one setting.** We put the find panel at the top in 1.6.0; the editor's default, and Sublime's, is the bottom, where Go to Line (Ctrl+G) already opens. Recommend moving it, with no config option. |
+| **K.04** | ⚫ | | Is it possible for the search box to be at the bottom rather than the top on the edit tab?    |
+| >>CC | L | None | **Yes, one setting.** We put the find panel at the top in 1.6.0; the editor's default, and Sublime's, is the bottom, where Go to Line (Ctrl+G) already opens. Recommend moving it, with no config option. ==> Agree |
 | | --- | | |
-| **K.05** | 🟨 | | Can we use a serif (house-kit) font for html previewer? Or have it be a config-defined font? (Numbers must still align properly)  |
-| >>CC | L | None | **Found why house-html pages look wrong: the kit loads STIX Two and Lato from Google Fonts, the preview blocks the network, and neither font is installed on DOOB.** Installing the two fonts fixes those pages with no code. For pages that name no font, a config default font, with table numbers kept aligned. Question below on which pages you mean. |
+| **K.05** | ⚫ | | Can we use a serif (house-kit) font for html previewer? Or have it be a config-defined font? (Numbers must still align properly)  |
+| >>CC | L | None | **Found why house-html pages look wrong: the kit loads STIX Two and Lato from Google Fonts, the preview blocks the network, and neither font is installed on DOOB.** Installing the two fonts fixes those pages with no code. For pages that name no font, a config default font, with table numbers kept aligned. Question below on which pages you mean. ==>this is for the rendered views created by Writedown. If you load an HTML page you honor its style specification.  |
 | | --- | | |
-| **K.06** | 🟨 | | What is scope of the long word dict ... does not feel like it is all my long words? Is it by project?     |
-| >>CC | L | None | **Not by project: one dictionary for everything, fed only by files you open or save, keeping the last 50 files and the top 250 words of each.** And a bug: each window writes its whole copy back, so with several windows open they overwrite each other's words. Recommend fixing the overwrite and raising the limits. |
+| **K.06** | ⚫ | | What is scope of the long word dict ... does not feel like it is all my long words? Is it by project?     |
+| >>CC | L | None | **Not by project: one dictionary for everything, fed only by files you open or save, keeping the last 50 files and the top 250 words of each.** And a bug: each window writes its whole copy back, so with several windows open they overwrite each other's words. Recommend fixing the overwrite and raising the limits. ==> fix the overwrite - leave limits. |
 | | --- | | |
-| **K.07** | 🟨 | | (Author, in the terminal, 2026-10-29.) Bring back the git marks in the tree (removed in 2.32.0), refreshed on occasional events such as a save, never continuously. |
-| >>CC | M | None at rest, to be measured by the idle check | **Planned in `dev/plan-background-safeguards-and-git-tree-marks.md`: marks refresh when you come back to Writedown, 2 s after a save, when the project's folders change, and on a palette command; at most once every 10 s.** The file watcher never triggers them and git can no longer take a lock, so the 2.31 loop cannot return. |
+| **K.07** | ⚫ | | (Author, in the terminal, 2026-10-29.) Bring back the git marks in the tree (removed in 2.32.0), refreshed on occasional events such as a save, never continuously. |
+| >>CC | M | None at rest, to be measured by the idle check | **Planned in `dev/plan-batch-k.md`: marks refresh when you come back to Writedown, 2 s after a save, when the project's folders change, and on a palette command; at most once every 10 s.** The file watcher never triggers them and git can no longer take a lock, so the 2.31 loop cannot return. |
 | | --- | | |
-| **K.08** | 🟨 | | (Author, in the terminal, 2026-10-29.) Put a process in place so a performance bug like the git-status loop cannot happen again: general guidelines for background work, not only for git. |
+| **K.08** | ⚫ | | (Author, in the terminal, 2026-10-29.) Put a process in place so a performance bug like the git-status loop cannot happen again: general guidelines for background work, not only for git. |
 | >>CC | M | None (a counter per subprocess start) | **Same plan: written rules for any background work (dev-tree CLAUDE.md and the plan review), a script that measures a release build's idle CPU under load before handover, and an in-app tripwire that flags runaway subprocess starts.** |
 | | --- | | |
 
@@ -75,6 +75,8 @@ Background cost: trigger, the existing preview refresh (half a second after typi
 
 **Question:** build it now (M), or keep it pended.
 
+**Resolved 2026-10-29 (author):** keep pended. Not in `dev/plan-batch-k.md`; this note keeps the design.
+
 ### K.02: jump back and forward (new `src/editor/jumpHistory.ts`, `keymap.ts`, `commandRegistry.ts`, `src/store.ts` `setActive`)
 
 Today nothing records past caret positions. Alt+- and Alt+Shift+- are unbound (Ctrl+- is font zoom). In Sublime, Alt+- (`jump_back`) returns to where the caret was before the last jump, across files, and Alt+Shift+- (`jump_forward`) reverses it.
@@ -90,6 +92,8 @@ Background cost: trigger, every selection change, so it sits on the typing path;
 
 **Question:** across files, as in Sublime (recommended, M), or within the current file only (L).
 
+**Resolved 2026-10-29 (author):** within the current file, but remember across files. Planned as one history per file, kept while you work in other files; Alt+- never leaves the current file. Positions are recorded where the caret rested at least a second before a jump, so a run of PageDown records only its start. See [jump-back] in `dev/plan-batch-k.md`; the reading of the ruling is confirmed at review.
+
 ### K.03: word count (`src/commands.ts`, new `src/editor/wordCount.ts`)
 
 Nothing counts words today.
@@ -102,11 +106,15 @@ Background cost: an explicit command only; one pass over the text, a few ms for 
 
 **Question:** prose only (recommended), or every word in the file.
 
+**Open 2026-10-29:** no ruling recorded. `dev/plan-batch-k.md` [word-count] adopts the recommendation (prose only) and asks for confirmation at review.
+
 ### K.04: find panel at the bottom (`src/editor/Editor.tsx`)
 
 `search({ top: true, … })` at `Editor.tsx` line 178 was set in 1.6.0. CodeMirror's default, and Sublime's place, is the bottom, and Go to Line (Ctrl+G) already opens there, so the two would match. Change: `top: false`. No config option recommended (a knob for a one-time preference); say if you want `[editor] find_panel`. Check at build: the panel stays inside the editor pane with the preview split, and centering on a match (I.05, `scrollToMatch`) is unaffected.
 
 Background cost: none.
+
+**Resolved 2026-10-29 (author):** agreed; bottom, no config option. See [find-bottom] in `dev/plan-batch-k.md`.
 
 ### K.05: fonts in the HTML preview (`src/preview/HtmlPreview.tsx` `prepareHtml`, `src-tauri/src/config.rs`)
 
@@ -120,6 +128,8 @@ Two fixes, independent:
 Background cost: none.
 
 **Question:** which pages you mean, `house-html` renders or your own unstyled pages; and whether the config font should override a page's own font (recommend not: the preview should show what a browser shows).
+
+**Resolved 2026-10-29 (author):** the font is for the views Writedown renders itself (the Live and Rendered tabs of Markdown and Quarto); an HTML file keeps its own styles. Planned: STIX Two Text bundled from the `@fontsource/stix-two-text` package (OFL-1.1), so it needs no install and no network; `[preview] font_family` to change it; tabular lining figures in table cells. Installing STIX Two and Lato on DOOB remains the no-code fix for `house-html` pages, outside the plan. See [preview-font] in `dev/plan-batch-k.md`.
 
 ### K.06: the Tab-completion word dictionary (`src/editor/wordFreq.ts`, `src-tauri/src/wordfreq.rs`)
 
@@ -142,9 +152,11 @@ Background cost: (1) and (2) run inside the existing scan; trigger, opening or s
 
 **Question:** which of 1 to 3 (recommend 1 and 2, and 3 only if the dictionary still feels thin).
 
+**Resolved 2026-10-29 (author):** fix the overwrite, leave the limits. Planned: re-read, merge (newer scan wins per file) and save at each save, with an atomic write. See [word-dictionary] in `dev/plan-batch-k.md`.
+
 ### K.07 and K.08: git tree marks on user events; background-work safeguards
 
-Both are planned in `dev/plan-background-safeguards-and-git-tree-marks.md` (draft, for review), which records the author's rulings of 2026-10-29: all three safeguards, guidelines written for background work in general, and no periodic refresh of the marks.
+Both are planned in `dev/plan-batch-k.md` (sections 1 to 5, the first of its two bumps), which records the author's rulings of 2026-10-29: all three safeguards, guidelines written for background work in general, and no periodic refresh of the marks.
 
 ***
 

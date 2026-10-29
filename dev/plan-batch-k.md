@@ -1,30 +1,51 @@
-# Plan: background-work safeguards, and git tree marks refreshed on user events
+# Plan: Batch K, background-work safeguards, git tree marks on user events, and editor items K.02 to K.06
 
 Written 2026-10-29, at version 2.32.0, after the git-status loop diagnosed and removed in 2.32.0
-(`dev/done/plan-bounded-watcher-remove-git-tree-marks.md`). This plan stands alone: no conversation
-context is needed to review or implement it.
+(`dev/done/plan-bounded-watcher-remove-git-tree-marks.md`). Covers Batch K of
+`writedown-issues.md`: K.07 and K.08 (sections 1 to 5) and K.02 to K.06 (sections 6 to 10); K.01
+is pended by the author and not in this plan. This plan stands alone: no conversation context is
+needed to review or implement it. The Batch K table and its developer notes in
+`writedown-issues.md` hold the original diagnoses; where they differ, this plan wins.
 
-**Status: draft, for the author's review.** Not ruled; do not execute.
+**Status: ruled 2026-10-29, ready for review and execution.** Two points the review confirms with
+the author before execution starts: the K.03 counting rule (no ruling recorded; the recommendation
+is adopted, see [word-count]) and the reading of the K.02 ruling (see [jump-back]).
 
-Five steps:
+Ten steps in two version bumps:
 
-| Step | What | Where |
-|:--|:--|:--|
-| **[guidelines]** | General rules for background work, for every software project | `V:\dev\CLAUDE.md`, the execute-plan skill, `CLAUDE.md` here |
-| **[tripwire]** | Every subprocess counted; a runaway rate is logged and shown | new `src-tauri/src/tripwire.rs`, every spawn site |
-| **[app-home]** | `WRITEDOWN_HOME` relocates `~/.writedown/`, so a test run cannot touch the real one | `config.rs`, `instance.rs` |
-| **[idle-check]** | A script that measures idle cost of a release build under synthetic load | new `scripts/idle-check.ps1` |
-| **[tree-marks]** | Git tree marks back, refreshed only on user events, bounded and lock-free | `git.rs`, store, tree, commands, config, help |
+| Bump | Step | Item | What | Where |
+|:--|:--|:--|:--|:--|
+| first | **[guidelines]** | K.08 | General rules for background work, for every software project | `V:\dev\CLAUDE.md`, the execute-plan skill, `CLAUDE.md` here |
+| first | **[tripwire]** | K.08 | Every subprocess counted; a runaway rate is logged and shown | new `src-tauri/src/tripwire.rs`, every spawn site |
+| first | **[app-home]** | K.08 | `WRITEDOWN_HOME` relocates `~/.writedown/`, so a test run cannot touch the real one | `config.rs`, `instance.rs` |
+| first | **[idle-check]** | K.08 | A script that measures idle cost of a release build under synthetic load | new `scripts/idle-check.ps1` |
+| first | **[tree-marks]** | K.07 | Git tree marks back, refreshed only on user events, bounded and lock-free | `git.rs`, store, tree, commands, config, help |
+| second | **[find-bottom]** | K.04 | The find panel opens at the bottom of the editor | `src/editor/Editor.tsx` |
+| second | **[word-count]** | K.03 | Palette "Word Count" | new `src/editor/wordCount.ts`, `src/commands.ts` |
+| second | **[jump-back]** | K.02 | Alt+- and Alt+Shift+- move through big caret moves, per file | new `src/editor/jumpHistory.ts`, keymap, registry |
+| second | **[preview-font]** | K.05 | STIX Two Text in the Markdown and Quarto preview, configurable, aligned table figures | `package.json`, `src/App.css`, config |
+| second | **[word-dictionary]** | K.06 | Windows stop overwriting each other's Tab-completion words | `src/editor/wordFreq.ts`, `src-tauri/src/wordfreq.rs` |
 
-[guidelines] edits two files outside any repository (no commit) and this repository's
-`CLAUDE.md`. The other four land as ONE minor version bump (one commit, one CHANGELOG section), per
-the batched-release delta in `CLAUDE.md`, executed in the order above so the safeguards exist
-before the feature they guard. The version is assigned at execution.
+**Two minor version bumps**, each one commit with one CHANGELOG section, per the batched-release
+delta in `CLAUDE.md`. The first carries the safeguards and the feature they were built to guard,
+in the order above, so the safeguards exist first. The second carries the editor items, smallest
+first; it lands after the first so the idle check and the tripwire already guard it. Two bumps
+rather than one keep the safeguards bisectable apart from five unrelated editor changes. Versions
+are assigned at execution. [guidelines] also edits two files outside any repository (no commit).
 
-**Author's rulings (2026-10-29):** all three safeguards (rule, idle check, tripwire), and the
-guidelines written broadly, for background work in general rather than for git alone. Tree marks
-come back, refreshed only on user events; no periodic timer ("things aren't changing much in the
-background").
+**Author's rulings (2026-10-29):**
+
+- K.08: all three safeguards (rule, idle check, tripwire), and the guidelines written broadly, for
+  background work in general rather than for git alone.
+- K.07: tree marks come back, refreshed only on user events; no periodic timer ("things aren't
+  changing much in the background").
+- K.01 (math in the HTML preview): keep pended.
+- K.02: "within current file (but remember across files)".
+- K.04: agreed, bottom, no config option.
+- K.05: "this is for the rendered views created by Writedown. If you load an HTML page you honor
+  its style specification."
+- K.06: "fix the overwrite, leave limits".
+- K.03: no ruling recorded.
 
 ---
 
@@ -119,7 +140,7 @@ release build. A failure is reported with its numbers.
 
 ### 1c. This repository's `CLAUDE.md`: new section "Background work"
 
-Insert after "Locked decisions". Lands in the bump commit (it names the script and module this plan
+Insert after "Locked decisions". Lands in the first bump's commit (it names the script and module this plan
 adds).
 
 ```markdown
@@ -326,27 +347,192 @@ row to tint.
 
 ---
 
+## 6. [find-bottom] The find panel at the bottom (K.04)
+
+**Current behavior.** `search({ top: true, scrollToMatch: … })` in `src/editor/Editor.tsx` (line
+178) has put Find and Replace at the top of the editor since 1.6.0. CodeMirror's default, and
+Sublime's place, is the bottom; Go to Line (Ctrl+G, CodeMirror's `showDialog`) already opens at
+the bottom.
+
+**Change.** `top: false`. No config option (author, 2026-10-29). If `HELP.md` names the panel's
+position, update it.
+
+**Background cost.** None.
+
+## 7. [word-count] Palette "Word Count" (K.03)
+
+**Current behavior.** Nothing counts words.
+
+**Change.**
+
+- New `src/editor/wordCount.ts`, pure and with no imports:
+  `countWords(text: string): { words: number; characters: number }`, applying the rule below.
+- `src/commands.ts`: palette command **Word Count**. Scope: when any selection range spans more
+  than one line, the text of every non-empty selection range; otherwise the whole document. The
+  result goes to the status bar through `showStatusMessage`: "Word count, selection: 1,234 words,
+  7,890 characters" (or "document"), integers comma-separated.
+- **Counting rule. No ruling recorded; this is the recommendation, confirm at review.** Prose only.
+  Removed before counting: the YAML front matter at the top, fenced code blocks (``` and `~~~`,
+  Python cells included), HTML comments and tags, display math (`$$ … $$`), and link and image
+  targets (the `(…)` after `]`). Inline math (`$…$`) counts as one word, a citation (`@key`) as
+  one. A word is a maximal run of letters and digits (`\p{L}`, `\p{N}`), with an internal
+  apostrophe or hyphen keeping the run together (`don't`, `well-known`). Characters: the code
+  points of the text kept, spaces included, line breaks excluded. If the author rules "every
+  word" instead, the removal step is skipped.
+- **Verification.** No frontend test runner exists. The executor checks `countWords` with a
+  throwaway node script in the session scratchpad (Node 26 runs the `.ts` module directly) on:
+  a plain sentence; front matter alone (0 words); a Python cell between two paragraphs (cell
+  excluded); `don't` and `well-known` (one word each); `$x^2$` (one); a `$$` block (none); a
+  table row `| alpha | beta |` (two); `[text](http://example.com/a/b)` (one). Results go in the
+  execution log.
+
+**Background cost.** An explicit command only; one pass over the text, a few ms for a long
+document; writes nothing.
+
+## 8. [jump-back] Alt+- and Alt+Shift+- through big caret moves (K.02)
+
+**Ruling (2026-10-29):** "within current file (but remember across files)". Read as: Alt+- and
+Alt+Shift+- move only within the current file, through that file's own history; every file keeps
+its history while you work in others, so coming back to a file finds it intact. **Confirm this
+reading at review.** (The alternative was Sublime's single history that crosses files.)
+
+**Current behavior.** No caret history. Alt+- and Alt+Shift+- are unbound; Ctrl+- is font zoom.
+
+**Change.**
+
+- New `src/editor/jumpHistory.ts`: a module-level map from normalized path to `{ list, index }`,
+  positions as line and column, at most 100 per file and 200 files (least recently used dropped),
+  session only, never persisted. The record, merge, truncate, back, forward and clamp logic are
+  pure functions; the editor wiring is a thin layer over them.
+- **What gets recorded: the place the caret rested before a jump.** An `EditorView.updateListener`
+  in the editor extensions watches selection changes. When the main caret moves more than 10
+  lines in one transaction and the caret had rested within 10 lines of its old place for at least
+  one second, the old place is recorded. Outline clicks, Find and F3, Go to Line, Ctrl+Home and
+  Ctrl+End, and a click far away all qualify after you have been reading somewhere; a run of
+  PageDown presses records only where it started, because the caret never rests between them.
+  Typing never moves the caret 10 lines. A new record within 10 lines of the newest one replaces
+  it; recording after a step back drops the forward part, as a browser does.
+- **Back (Alt+-):** at the newest end, first record the current place (so forward can return to
+  it), then move to the previous entry, centered. At the oldest entry, a status note "Start of
+  jump history". **Forward (Alt+Shift+-)** the reverse. A position past the end of the file
+  clamps to it. Moves made by back and forward are not themselves recorded.
+- Keymap `{ key: "Alt+-", action: "jumpBack" }` and `{ key: "Alt+Shift+-", action: "jumpForward" }`;
+  registry entries "Jump Back" and "Jump Forward" (palette too). Check at build how the keymap
+  parser and CodeMirror name these keys: with Shift held the key arrives as `_` on a US layout,
+  so the forward binding may need CodeMirror's `Alt-_` form. Both must work, and `[keys]` must
+  rebind them.
+- Edits above a recorded position shift it slightly, since positions are line and column, as in
+  Sublime.
+- **Verification.** The pure functions are checked with a throwaway node script, as in
+  [word-count]; the keys and the rest rule live.
+
+**Background cost.** Trigger: every selection change, so this sits on the typing path. Cost per
+change: compare two line numbers and read a timestamp, constant time, no allocation unless a
+record is made. Writes nothing.
+
+## 9. [preview-font] STIX Two Text in Writedown's own preview (K.05)
+
+**Ruling (2026-10-29):** the font applies to the views Writedown renders, the Live and Rendered
+tabs of Markdown and Quarto documents. An HTML file's preview keeps the page's own styles, as now.
+
+**Current behavior.** `.preview` in `src/App.css` (about line 703) sets
+`font-family: system-ui, -apple-system, "Segoe UI", sans-serif`; both tabs draw through it
+(`src/preview/Preview.tsx`). STIX Two, the house kit's text face, is not installed on DOOB.
+
+**Change.**
+
+- **Bundle the font**, so it works on any machine and never touches the network:
+  `npm install @fontsource/stix-two-text` (5.3.0, OFL-1.1, checked 2026-10-29), importing its 400,
+  400-italic, 600, 700 and 700-italic stylesheets in `src/main.tsx`. Vite copies the woff2 files
+  into `dist/`; the unicode-range subsets mean only the scripts a document uses are loaded.
+  Regenerate `THIRD-PARTY-NOTICES.md` with `pwsh scripts/generate-notices.ps1`.
+- `.preview { font-family: var(--preview-font, "STIX Two Text", serif); }`. Code and `pre` keep
+  `var(--mono)`; KaTeX keeps its own fonts; headings follow the body font (the kit's Lato
+  headings are out of scope).
+- **Aligned figures:** `.preview td, .preview th { font-variant-numeric: lining-nums tabular-nums; }`,
+  which also covers tables printed by Python cells (`greater_tables` output) unless their own CSS
+  says otherwise. Verify the bundled font carries `tnum`: in the stub-runtime boot, a cell holding
+  `1111` and one holding `0000` measure the same width. If they do not, stop and report rather
+  than switch fonts silently.
+- **Config `[preview] font_family`** (unset: STIX Two Text), through `EditorSettings` (the
+  `config.rs` field and parse, the `api.ts` type), applied by `loadTheme` as the `--preview-font`
+  variable, the way `--tree-font` is. The default template gets a `[preview]` section with the key
+  commented out and a one-line comment. `default_config_is_valid_toml_and_honest` asserts today
+  that `[preview]` is absent ("decorative"); it now asserts the section exists.
+- **Look-and-feel check:** STIX Two's x-height is smaller than Segoe UI's, so 15 px may read
+  small. Check it with the author in the `npm run tauri dev` loop and raise the default
+  (`--wd-preview-font-size` fallback in `App.css`, `15 + previewZoom` in `Preview.tsx`) only if
+  asked.
+
+**Background cost.** None; the webview loads the font files once.
+
+## 10. [word-dictionary] Windows stop overwriting each other's words (K.06)
+
+**Current behavior.** `src/editor/wordFreq.ts`: each window loads `~/.writedown/word-frequency.json`
+once, keeps the store in memory, and 5 s after a scan writes its whole store back
+(`word_freq_save`, a plain `std::fs::write` in `src-tauri/src/wordfreq.rs`). With two windows
+open, the later write erases what the other window scanned since it loaded. The limits stay as
+they are (author, 2026-10-29): the 50 most recently scanned files, 250 words per file, words of 5
+letters or more.
+
+**Change.**
+
+- `scheduleSave` in `wordFreq.ts`: when the 5-second timer fires, load the file again, merge with
+  a pure `mergeStores(disk, mine)` (for each file path the entry with the larger `scanned` wins,
+  then the existing prune to the 50 newest), save the merge, and adopt it as this window's store
+  (`aggregate = null`, rebuilt at the next Tab as now). Each window then also picks up the others'
+  words at its next save. The format stays owned by `wordFreq.ts`; Rust handles text only.
+- `word_freq_save` writes atomically: a temporary file in the same folder, then a rename (the
+  pattern `files::write_file` uses; extract a small shared helper if that is clean, else the same
+  few lines in `wordfreq.rs`). A reader then never sees a half-written file, which would parse as
+  empty and turn the merge back into the old overwrite.
+- A file that exists but fails to parse during the merge is not saved over: log it to
+  `~/.writedown/logs/` (the line names the file; deleting it starts a fresh dictionary) and keep
+  the in-memory store. A corrupt dictionary is reported, never silently replaced.
+- **Accepted race:** two windows whose timers fire within the same few milliseconds can still lose
+  one scan, never a whole store. A lock file would close it, and locks are what this batch
+  removes.
+- **Verification.** `mergeStores` is checked with a throwaway node script (disjoint stores; the
+  same path newer on either side; the prune keeps the 50 newest); the atomic write gets a Rust
+  unit test (writes, replaces, leaves no temporary file).
+
+**Background cost.** Trigger: the existing save, 5 s after a scan; scans run on opening and saving
+a file. Rate: at most one save per 5 s per window. Cost: one read, parse, merge and write of a
+file of at most about 50 × 250 words, a few hundred KB. Writes: `~/.writedown/word-frequency.json`.
+Can that reach a trigger? Only the file watcher could receive it, and only if `~/.writedown/` were
+a folder listed in the tree; it would then re-list that folder, which writes nothing. No loop.
+
+---
+
 ## Acceptance
 
-**Gates:** `npm run build`; `cargo test` with the working directory `src-tauri/` (never
-`--manifest-path` from the repo root); `npx madge --circular --extensions ts,tsx src/main.tsx`; the
-headless smoke-boot of `dist/` (plain boot and stub-runtime boot, as in the 2.32.0 execution log).
+**Gates, at each of the two bumps:** `npm run build`; `cargo test` with the working directory
+`src-tauri/` (never `--manifest-path` from the repo root); `npx madge --circular --extensions
+ts,tsx src/main.tsx`; the headless smoke-boot of `dist/` (plain boot and stub-runtime boot, as in
+the 2.32.0 execution log).
 
-**Idle check, twice** (each run on a fresh `npm run tauri build`):
+**Idle check** (each run on a fresh `npm run tauri build`):
 
 1. **Baseline**, after [tripwire] and [app-home], before [tree-marks]: must pass. A failure here is
    a 2.32.0 problem: stop and report it.
-2. **Acceptance**, after [tree-marks]: must pass with marks on (the default). The settle period
+2. **First bump**, after [tree-marks]: must pass with marks on (the default). The settle period
    includes the startup sweep; the two phases must show no git starts.
+3. **Second bump**, after [word-dictionary]: must pass ([word-dictionary] changes background
+   work, [jump-back] sits on the typing path).
 
-Both results (CPU per phase, git starts, tripwire lines) go into the execution log.
+Every result (CPU per phase, git starts, tripwire lines) goes into the execution log.
 
-**Rust unit tests:** the tripwire window and limit; the `Command::new` guard; `WRITEDOWN_HOME`
-resolution (set, empty, unset); `git_tree_status` parsing restored from the 2.31.1 `state_of`
-tests; the repository dedupe (two roots in one repository, one sweep); the timeout kills a stuck
-child (a `git` stand-in that sleeps, or skip if none can be made portably, with a note).
+**Rust unit tests.** First bump: the tripwire window and limit; the `Command::new` guard;
+`WRITEDOWN_HOME` resolution (set, empty, unset); `git_tree_status` parsing restored from the
+2.31.1 `state_of` tests; the repository dedupe (two roots in one repository, one sweep); the
+timeout kills a stuck child (a `git` stand-in that sleeps, or skipped with a note if none can be
+made portably). Second bump: the atomic write in `wordfreq.rs`; the `[preview]` section in the
+default config test.
 
-**Live checks (author, release build):**
+**Node checks** (throwaway scripts, results in the execution log): `countWords`, the jump-history
+functions, `mergeStores`.
+
+**Live checks (author, release build).** First bump:
 
 1. Opening a project with roots in repositories shows the marks.
 2. An edit in another editor, then back to Writedown: the mark appears.
@@ -358,7 +544,23 @@ child (a `git` stand-in that sleeps, or skip if none can be made portably, with 
 7. A commit in `aggregate` from another session while Writedown is open never fails with
    "index.lock exists".
 
+Second bump:
+
+8. Ctrl+F and Ctrl+H open at the bottom of the editor; F3 still centers the match.
+9. **Word Count** on a document, and on a selection over several lines; a selection within one
+   line counts the whole document.
+10. In a long file, after reading somewhere for a moment: an outline click, then Alt+- returns
+    and Alt+Shift+- goes forward. Switch to another file and back: Alt+- still walks the first
+    file's history, and never jumps to another file.
+11. The Live and Rendered tabs show STIX Two Text and a numeric table lines up;
+    `[preview] font_family = "Georgia"` in config.toml changes it on save; an HTML file's preview
+    still uses the page's own fonts.
+12. With two windows open, words learned from a file opened in one window are offered by Tab in
+    the other after both have saved.
+
 ## CHANGELOG sketch
+
+First bump:
 
 - **Added:** git tree marks are back, refreshed when you return to Writedown, 2 s after a save,
   when the project's folders change, and on **Git: Refresh Tree Marks**; never from file activity,
@@ -367,12 +569,35 @@ child (a `git` stand-in that sleeps, or skip if none can be made portably, with 
 - **Added:** `WRITEDOWN_HOME` moves `~/.writedown/` elsewhere (used by the idle check).
 - **Added (developer):** `scripts/idle-check.ps1` measures the idle cost of a release build.
 
+Second bump:
+
+- **Added:** **Word Count** in the palette, for the selection or the whole document, prose only.
+- **Added:** Alt+- and Alt+Shift+- step back and forward through the places you jumped from, per
+  file.
+- **Changed:** the find panel opens at the bottom of the editor, as in Sublime.
+- **Changed:** the preview sets text in STIX Two Text, the house kit's face, with table figures
+  aligned; `[preview] font_family` changes it. HTML files keep their own styles.
+- **Fixed:** with several windows open, Tab completion's word dictionary no longer loses the words
+  one window learned when another saves.
+
 ## Out of scope
 
+- K.01, math in the HTML preview: pended by the author (the K.01 notes in `writedown-issues.md`
+  keep the design).
 - Marks for repositories nested under a root that is not itself in a repository.
-- A periodic refresh (ruled out by the author, 2026-10-29).
+- A periodic refresh of the marks (ruled out by the author, 2026-10-29).
 - A tripwire for frontend work (store subscriptions, React render loops); the counted resource
   here is subprocess starts.
+- Raising the word-dictionary limits, and a "learn this project" command (author, 2026-10-29).
+- The house kit's Lato headings in the preview.
+
+## Working notes for the executor
+
+- `writedown-issues.md` is committed with CRLF line endings; most sources are LF. Edit it with the
+  Edit tool only: `sed -i` from Git Bash rewrites every line ending and turns a ten-line change
+  into a whole-file diff (it happened while this plan was written, and was reverted).
+- At each bump, tick the Batch K items in `writedown-issues.md` (✅ in the item row) with the
+  version they landed in, as in Batch J.
 
 ## Execution log
 
