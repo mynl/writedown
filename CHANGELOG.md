@@ -5,6 +5,26 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [2.35.0] - 2026-10-29
+
+### Added
+
+- **Palette "Jump History…"**: this file's Alt+- places, newest first, as line number and the
+  start of the line, the current one marked; Enter goes there.
+
+### Changed
+
+- **Alt+- and Alt+Shift+- follow Sublime's rule**, within the current file: every caret or
+  selection move is a place, and a run of one command less than a second apart (typing, a
+  held arrow, F3) is one place. Clicks, arrows and typing now leave places; only navigation
+  did before. The jumps restore the selection, not only the caret. Measured cost: about 2
+  microseconds per keystroke with a full history.
+
+### Fixed
+
+- Typing in a file that shrank while it was not the active tab could stop the status bar's
+  line and column from updating, once that file had a jump history.
+
 ## [2.34.1] - 2026-10-29
 
 ### Fixed

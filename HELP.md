@@ -121,12 +121,15 @@ a selection wraps the selection — press `$` twice for `$$…$$`.
   The dictionary is one for everything, not per project: the 50 files most recently opened
   or saved, the top 250 words of each. Several windows share it, each adding its words
   when it saves.
-- **Jump back**: **Alt+-** returns to where you navigated from, **Alt+Shift+-** goes
-  forward again. A stop is left by an outline click, a Find in Files hit, a palette go-to,
-  find next and previous (one stop for a run of F3), Go to Line (Ctrl+G), and Ctrl+Home or
-  Ctrl+End. Typing, arrows, PageUp and PageDown, clicks and scrolling leave none. Each file
-  keeps its own history while you work in others, and Alt+- never moves to another file.
-  Stops move with your edits; the history ends with the session.
+- **Jump back**: **Alt+-** steps back through the places you have been, **Alt+Shift+-**
+  forward again, by Sublime's rule: every move of the caret or selection is recorded, and a
+  run of the same command less than a second apart (a burst of typing, a held arrow key, a
+  quick run of F3) is one place, at the run's end. A pause or a different command starts the
+  next; each mouse click is its own. Undo, redo and the jumps themselves record nothing. One
+  difference from Sublime: each file keeps its own history while you work in others, and
+  Alt+- never moves to another file. Places move with your edits, restore the selection as
+  it was, and last for the session. Palette **Jump History…** lists this file's places,
+  newest first, by line, with the current one marked; Enter goes there.
 - **Word Count** (palette): words and characters in the status bar, of the selection when
   more than one character is selected, else of the whole document. Prose only: front matter, code
   cells, HTML comments and tags, display math and link targets are left out; inline math

@@ -812,6 +812,74 @@ with the status bar, console only "no backend" rejections.
   line doesn't work for large lines." The selection counts when more than one character is
   selected in total across ranges; otherwise the document.
 
+### Jump history on Sublime's rule (2.35.0)
+
+**Author, 2026-10-29:** "alt+- still not getting that? i see start of / end of jump history in
+the footer … Other than jumping between files it should be as close as possible to the ST rule",
+plus a palette view of the history (line numbers, start of line). This replaces the "navigation
+only" ruling of the same morning; the per-file, never-across-files ruling stands.
+
+**Sublime's rule**, read from `Default/history_list.py` in the Sublime Text install on DOOB:
+`on_selection_modified` pushes the selection now in place, so the newest record is the current
+place. `push_selection` skips a selection equal to the current record; overwrites the current
+record when the same command repeats within `TIME_BETWEEN_RECORDING` (1 s) in the same view
+(commands from `on_text_command`, `on_window_command`, and `:text_modified` for buffer changes,
+so typing is one run); otherwise drops the records ahead of the pointer and appends. A
+`drag_select` gets its own record and the rest of the drag merges into a second. Undo, redo,
+soft undo and the jumps record nothing; after undo or redo `reorient_current_item` points at a
+record matching the selection. `jump_back` / `jump_forward` move to the nearest record whose
+selection differs from the current record's ("Already at the earliest / newest position" at the
+ends). `LIST_LIMIT` 120. Records are view regions, so they move with edits. One list per window,
+across views: the one rule not followed here.
+
+**How it maps.** Command identity: the action name for every editor key Writedown binds
+(`asCommand` wraps each keymap binding and each registry command run from the palette);
+`jumpToLine` (outline, Find in Files, palette go-tos) counts as "goto"; mouse presses are counted
+by a `mousedown` handler, the first change of a press one command and the rest of it (a drag)
+another; any other document change is "edit" (Sublime's `:text_modified`); anything else is its
+CodeMirror user event, so the default-keymap moves (arrows, Home, End, PageUp, PageDown) are one
+command, "select", as Sublime's `move` is. Ctrl+Home and Ctrl+End keep their registry actions so
+they count apart from the arrows, like `move_to`. A document's restored caret after a tab switch
+is recorded (`noteActivated`), as Sublime records a view on activation. Records are
+`EditorSelection`s mapped through each edit; a reload of the active file maps them by line and
+column. Over 120, the oldest 40 go (Sublime's comment states that intent; its code keeps 40).
+
+**Divergences**
+
+- **Latent crash fixed.** A record can lie past the end of its document: a file that shrank
+  while not the active tab has records never mapped. CodeMirror throws when mapping such a
+  position, and the throw would end `Editor.tsx`'s `onUpdate` on every keystroke in that file,
+  stopping its line and column updates. 2.34.x had the same exposure through `mapPos`.
+  `mapThrough` clamps a record into the document before mapping it.
+- Status notes are Sublime's: "Already at the earliest position" / "Already at the newest
+  position". Registry labels "Jump back", "Jump forward", "Jump history… (this file's Alt+-
+  places)" (`jumpHistoryPicker`, no default key, rebindable in `[keys]`).
+- The `record` parameter of `jumpToLine` is gone: under this rule a jump into a file just opened
+  is an ordinary record.
+
+**Measured cost** (node 26, V8, the real `@codemirror/state`; WebView2 runs the same engine):
+`followTransaction` with 120 records in a 5,000-line file, typing in its middle, averaged over
+18,000 keystrokes after warm-up: 2.34 and 2.29 microseconds per keystroke in two runs, about 0.01%
+of a 16.7 ms frame. It writes nothing and its own moves are not recorded, so it cannot feed
+itself.
+
+**Node check** (all 21 pass): a typing burst is one record updated to its end; a pause over 1 s
+and a different command each start a record; a selection equal to the current record is not
+recorded; each click a record and a drag one more; three outline clicks 2 s apart are three
+records, and back goes 91 → 61 → 31 then reports the earliest position; forward; a record after
+stepping back drops the forward part; back skips an identical record; undo points at a matching
+record or keeps the pointer; a selected range is kept whole; records move with an edit above; a
+record past the end is clamped instead of throwing; a reload keeps line and column; over 120 the
+oldest third goes; real `EditorState` transactions (typing, a goto, a run of F3, an undo) give
+records on lines 1, 1, 18 and 23 with the pointer on 23.
+
+**Gates (2.35.0, all green):** `npm run tauri build` (tsc and vite inside it); `cargo test` 98
+passed, 0 failed, 15 ignored; madge, no cycle; headless smoke boots as before. Not run: the
+idle check (no watcher, timer, subprocess or startup scan changed; the typing-path cost is
+measured above), and the live key test of 2.35.0, because Windows refused the test window the
+foreground twice while the author was working; the 2.34.0 run had already shown Alt+- reaching
+CodeMirror.
+
 **Left for the author:** live checks 8 to 12 on a release build, and the look-and-feel check of
 STIX Two Text at 15 px in the `npm run tauri dev` loop (its x-height is smaller than Segoe UI's;
 the size was left alone).

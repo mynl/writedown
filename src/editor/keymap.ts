@@ -8,6 +8,7 @@ import { COMMAND_REGISTRY } from "./commandRegistry";
 import { toCmKey } from "./keyFormat";
 import { CATEGORY_ORDER } from "../shortcuts";
 import { wrapSelectionOnType } from "./wrapOnType";
+import { asCommand } from "./jumpHistory";
 
 /** Column selection (Alt+drag) + crosshair + type-to-wrap — always on, not configurable. */
 export const editingExtras = [rectangularSelection(), crosshairCursor(), wrapSelectionOnType];
@@ -74,9 +75,9 @@ export const DEFAULT_KEYS: { key: string; action: string }[] = [
   { key: "Ctrl+F", action: "find" },
   { key: "Ctrl+H", action: "replace" },
   { key: "Ctrl+G", action: "gotoLine" },
-  // Jump history (issue K.02): back and forward through the places navigated from, within the
-  // current file. With Shift the key arrives as "_" on a US layout; CodeMirror falls back to
-  // the base key for Alt combinations, so "Alt-Shift--" still matches.
+  // Jump history (issue K.02): back and forward, Sublime's rule, within the current file.
+  // With Shift the key arrives as "_" on a US layout; CodeMirror falls back to the base key
+  // for Alt combinations, so "Alt-Shift--" still matches.
   { key: "Alt+-", action: "jumpBack" },
   { key: "Alt+Shift+-", action: "jumpForward" },
   { key: "Ctrl+Home", action: "docStart" },
@@ -150,7 +151,8 @@ function resolve(userKeys?: Record<string, string> | null): {
       warnings.push(`invalid key "${key}"`);
       continue;
     }
-    bindings.push({ key: cmKey, run: entry.run, preventDefault: true });
+    // Run as `action`, so the jump history counts each binding as its own command (K.02).
+    bindings.push({ key: cmKey, run: asCommand(action, entry.run), preventDefault: true });
   }
   return { bindings, warnings };
 }

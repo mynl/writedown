@@ -40,7 +40,7 @@ import {
   takePendingJump,
 } from "./editorView";
 import { wrapCompartment, wrapExtension } from "./wrap";
-import { mapJumps, noteDocSwap, recordJump, setJumpFile } from "./jumpHistory";
+import { followTransaction, jumpPresses, noteActivated, setJumpFile } from "./jumpHistory";
 import { cssFontWeight } from "../fontWeight";
 import { logError } from "../api";
 
@@ -182,6 +182,7 @@ export function Editor({ path, content }: { path: string; content: string }) {
       // Alt+Z's one-shot capture (issue J.01). Ahead of the keymap compartment, so while
       // armed it sees the target key before any binding does; inert otherwise.
       zapCapture,
+      jumpPresses, // jump history: each mouse press is a command of its own (issue K.02)
       ...editingExtras,
       // Editing keymap in a Compartment so config [keys] changes reconfigure it live (see the
       // effect below). Non-reactive read, like word wrap, so a reconfigure never rebuilds here.
@@ -313,20 +314,9 @@ export function Editor({ path, content }: { path: string; content: string }) {
   }, [path, content]);
   const onUpdate = useCallback(
     (vu: ViewUpdate) => {
-      // Jump history (issue K.02): positions follow edits, a reload keeps them by line, and
-      // find next / previous (CodeMirror's "select.search", not Select All Matches) records
-      // where it started.
-      for (const tr of vu.transactions) {
-        const swapped = tr.annotation(docSwap);
-        if (swapped !== undefined) {
-          if (tr.docChanged) noteDocSwap(swapped, tr.startState.doc, tr.newDoc);
-          continue;
-        }
-        if (tr.docChanged) mapJumps(tr.changes);
-        if (tr.annotation(Transaction.userEvent) === "select.search") {
-          recordJump(vu.view, tr.startState.selection.main.head, tr.newSelection.main.head, "search");
-        }
-      }
+      // Jump history (issue K.02, Sublime's rule): every selection change is recorded, runs of
+      // one command merged; records follow edits, and a reload keeps them by line.
+      for (const tr of vu.transactions) followTransaction(tr, tr.annotation(docSwap));
       if (vu.selectionSet || vu.docChanged) {
         const head = vu.state.selection.main.head;
         const line = vu.state.doc.lineAt(head);
@@ -372,8 +362,7 @@ export function Editor({ path, content }: { path: string; content: string }) {
     // A Find in Files hit opened this document: land on the hit, not the remembered spot.
     const jump = takePendingJump(path);
     if (jump) {
-      // Not recorded in the jump history: the caret it would record is a leftover.
-      jumpToLine(jump.line, jump.col, false);
+      jumpToLine(jump.line, jump.col);
     } else if (pos) {
       const len = view.state.doc.length;
       view.dispatch({
@@ -383,6 +372,9 @@ export function Editor({ path, content }: { path: string; content: string }) {
           EditorView.scrollIntoView(view.lineBlockAtHeight(pos.scroll).from, { y: "start" }),
       });
     }
+    // Jump history: the document's caret on arrival is a record, as Sublime records a view
+    // when it is activated (a no-op when the restore above already recorded the same place).
+    noteActivated(view);
     // Record scrolls only once the user has actually touched this pane (or made an
     // outline jump) — programmatic churn (restore, re-measure, preview echo) can then
     // never corrupt the remembered position. Strictly stronger than the old

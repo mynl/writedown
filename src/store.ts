@@ -173,7 +173,8 @@ export type PaletteMode =
   | "quickfiles"
   | "symbols"
   | "search"
-  | "closed";
+  | "closed"
+  | "jumps";
 
 // Paths Writedown just saved — used to ignore the watcher event our own write triggers.
 // Keyed by normPath: the watcher reports a path spelled from the WATCHED ROOT, which need

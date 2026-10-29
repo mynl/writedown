@@ -47,6 +47,7 @@ import {
 } from "./editor/textOps";
 import { setWordWrap } from "./editor/wrap";
 import { countWords } from "./editor/wordCount";
+import { asCommand } from "./editor/jumpHistory";
 import { keymapConfigBlock } from "./editor/keymap";
 import { COMMAND_REGISTRY } from "./editor/commandRegistry";
 import { SYNTAX_CHOICES } from "./editor/languages";
@@ -759,7 +760,7 @@ function registryCommands(): Command[] {
         const view = getActiveView();
         if (!view || !view.dom.isConnected) return;
         view.focus();
-        entry.run(view);
+        asCommand(name, entry.run)(view); // one command, by name, in the jump history (K.02)
       },
     }));
 }

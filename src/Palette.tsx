@@ -16,6 +16,7 @@ import {
   setPendingJump,
 } from "./editor/editorView";
 import { keyForAction } from "./editor/keymap";
+import { jumpRecords, jumpToRecord } from "./editor/jumpHistory";
 import {
   applyUserSymbols,
   codePointLabel,
@@ -128,6 +129,7 @@ const PLACEHOLDER: Record<NonNullable<PaletteMode>, string> = {
   symbols: "Search characters — name, \\latex, emoji keyword, or u+2299…",
   search: "Find in files — ripgrep arguments, Enter to run…",
   closed: "Reopen a closed tab…",
+  jumps: "Jump history of this file, newest first (Alt+- / Alt+Shift+- step through it)…",
 };
 
 /** Modes whose rows are files ({ name, path, rel }), drawn and filtered alike. */
@@ -364,8 +366,25 @@ export function Palette() {
     return out;
   }, [mode]);
 
+  // Jump History… (issue K.02): this file's records newest first, line number and the start
+  // of the line, the current one marked. Read when the mode opens, like the closed-tab list.
+  const jumpItems = useMemo<Command[]>(() => {
+    if (mode !== "jumps") return [];
+    const view = getActiveView();
+    if (!view) return [];
+    return jumpRecords(view).map((r) => ({
+      id: `jump-${r.index}`,
+      title: `${r.current ? "● " : "   "}Ln ${r.line}   ${r.text}`,
+      run: () => jumpToRecord(view, r.index),
+    }));
+  }, [mode]);
+
   const results = useMemo<Ranked<PaletteItem>[]>(() => {
     if (mode === "symbols") return symbolResults(query, symbols, recentChars);
+    if (mode === "jumps") {
+      if (query === "") return jumpItems.map((c) => ({ item: c, positions: [], score: 0 }));
+      return fuzzyRank(query, jumpItems, (c) => c.title);
+    }
     if (mode === "files") return fuzzyRank(query, files, (f) => f.rel);
     if (mode === "quickfiles") {
       if (query === "") return quickFiles.map((f) => ({ item: f, positions: [], score: 0 }));
@@ -402,7 +421,7 @@ export function Palette() {
     }
     return [];
     // activePath/root/projFolders: the scope label and relative paths follow the workspace.
-  }, [mode, query, commands, files, projectItems, quickFiles, closedFiles, symbols, recentChars, searchResult, searchBusy, activePath, root, projFolders]);
+  }, [mode, query, commands, files, projectItems, quickFiles, closedFiles, jumpItems, symbols, recentChars, searchResult, searchBusy, activePath, root, projFolders]);
 
   // Anchor the selection on the first CHOOSABLE row whenever the results change — a new
   // query, the symbol table arriving, an Alt+Enter re-rank. The symbol list can start
@@ -474,6 +493,11 @@ export function Palette() {
         closePalette();
         void openFile(it.sum.path, false);
       }
+      return;
+    }
+    if (mode === "jumps") {
+      closePalette(); // first, so the editor takes the focus the jump hands it
+      (r.item as Command).run();
       return;
     }
     if (mode === "closed") {
@@ -708,7 +732,9 @@ export function Palette() {
                 ? "No quick files — add a quick_files list under [files] in config.toml"
                 : mode === "closed" && query === ""
                   ? "No closed tabs to reopen"
-                  : "No matches"}
+                  : mode === "jumps" && query === ""
+                    ? "No jump history in this file yet"
+                    : "No matches"}
             </div>
           )}
         </div>
