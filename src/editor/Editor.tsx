@@ -40,6 +40,7 @@ import {
   takePendingJump,
 } from "./editorView";
 import { wrapCompartment, wrapExtension } from "./wrap";
+import { mapJumps, noteDocSwap, recordJump, setJumpFile } from "./jumpHistory";
 import { cssFontWeight } from "../fontWeight";
 import { logError } from "../api";
 
@@ -174,8 +175,10 @@ export function Editor({ path, content }: { path: string; content: string }) {
       EditorState.tabSize.of(tabSize),
       // Center matches on search navigation (issue I.05): the default scrolls a forward
       // match to the bottom viewport edge; y:"center" lands it mid-view and leaves an
-      // already-near-center match alone, so short documents don't twitch.
-      search({ top: true, scrollToMatch: (range) => EditorView.scrollIntoView(range, { y: "center" }) }),
+      // already-near-center match alone, so short documents don't twitch. The panel sits at
+      // the bottom (issue K.04), CodeMirror's default and Sublime's place, where Go to Line
+      // already opens; it was at the top from 1.6.0 to 2.33.0.
+      search({ top: false, scrollToMatch: (range) => EditorView.scrollIntoView(range, { y: "center" }) }),
       // Alt+Z's one-shot capture (issue J.01). Ahead of the keymap compartment, so while
       // armed it sees the target key before any binding does; inert otherwise.
       zapCapture,
@@ -310,6 +313,20 @@ export function Editor({ path, content }: { path: string; content: string }) {
   }, [path, content]);
   const onUpdate = useCallback(
     (vu: ViewUpdate) => {
+      // Jump history (issue K.02): positions follow edits, a reload keeps them by line, and
+      // find next / previous (CodeMirror's "select.search", not Select All Matches) records
+      // where it started.
+      for (const tr of vu.transactions) {
+        const swapped = tr.annotation(docSwap);
+        if (swapped !== undefined) {
+          if (tr.docChanged) noteDocSwap(swapped, tr.startState.doc, tr.newDoc);
+          continue;
+        }
+        if (tr.docChanged) mapJumps(tr.changes);
+        if (tr.annotation(Transaction.userEvent) === "select.search") {
+          recordJump(vu.view, tr.startState.selection.main.head, tr.newSelection.main.head, "search");
+        }
+      }
       if (vu.selectionSet || vu.docChanged) {
         const head = vu.state.selection.main.head;
         const line = vu.state.doc.lineAt(head);
@@ -355,7 +372,8 @@ export function Editor({ path, content }: { path: string; content: string }) {
     // A Find in Files hit opened this document: land on the hit, not the remembered spot.
     const jump = takePendingJump(path);
     if (jump) {
-      jumpToLine(jump.line, jump.col);
+      // Not recorded in the jump history: the caret it would record is a leftover.
+      jumpToLine(jump.line, jump.col, false);
     } else if (pos) {
       const len = view.state.doc.length;
       view.dispatch({
@@ -423,6 +441,8 @@ export function Editor({ path, content }: { path: string; content: string }) {
   // drives the transient, clamped editorZoom (session-only, never written to config).
   const onCreateEditor = (view: EditorView) => {
     setActiveView(view);
+    setJumpFile(path); // later documents arrive by docSwap, which the jump history follows
+
     let acc = 0;
     view.scrollDOM.addEventListener(
       "wheel",

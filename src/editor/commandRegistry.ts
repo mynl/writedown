@@ -5,6 +5,8 @@ import { EditorSelection, type StateCommand } from "@codemirror/state";
 import { EditorView, type Command } from "@codemirror/view";
 import {
   copyLineDown,
+  cursorDocEnd,
+  cursorDocStart,
   cursorLineEnd,
   cursorLineStart,
   cursorSubwordBackward,
@@ -43,7 +45,27 @@ import { toggleWordWrap } from "./wrap";
 import { openCitationDocumentAtCaret, openCitationPicker } from "./citations";
 import { copyActiveName, copyActivePath } from "../clipboardOps";
 import { codePointLabel, loadSymbols } from "./symbols";
+import { recordJump, stepJump } from "./jumpHistory";
 import { useStore } from "../store";
+
+/** Jump history (issue K.02): leave the place this navigation starts from as a stop, then run
+ *  `cmd`. For moves that come from outside the registry's own jumpToLine. */
+function recordingJump(kind: string, cmd: Command, to?: (view: EditorView) => number): Command {
+  return (view) => {
+    const head = view.state.selection.main.head;
+    recordJump(view, head, to ? to(view) : head, kind);
+    return cmd(view);
+  };
+}
+
+/** Alt+- / Alt+Shift+-: one step through this file's jump history; a note at either end. */
+function jumpStep(dir: -1 | 1): Command {
+  return (view) => {
+    const note = stepJump(view, dir);
+    if (note) useStore.getState().showStatusMessage(note);
+    return true;
+  };
+}
 
 // Add a cursor on the line above (-1) / below (+1) each cursor, same column. Lives here (not
 // keymap.ts) so the registry never imports the keymap — keymap.ts imports this, one direction.
@@ -124,6 +146,10 @@ export const COMMAND_REGISTRY: Record<string, RegistryEntry> = {
   subwordLeft: { run: cursorSubwordBackward, label: "Move to previous subword", category: "Selection & cursors" },
   subwordRight: { run: cursorSubwordForward, label: "Move to next subword", category: "Selection & cursors" },
   lineStart: { run: cursorLineStart, label: "Move to line start", category: "Selection & cursors" },
+  // Ctrl+Home / Ctrl+End through the registry, so each leaves a jump-history stop (issue
+  // K.02); the Shift variants still come from CodeMirror's default keymap and record nothing.
+  docStart: { run: recordingJump("docStart", cursorDocStart, () => 0), label: "Move to document start", category: "Selection & cursors" },
+  docEnd: { run: recordingJump("docEnd", cursorDocEnd, (v) => v.state.doc.length), label: "Move to document end", category: "Selection & cursors" },
   lineEnd: { run: cursorLineEnd, label: "Move to line end", category: "Selection & cursors" },
 
   // Editing
@@ -212,7 +238,11 @@ export const COMMAND_REGISTRY: Record<string, RegistryEntry> = {
   // Search
   find: { run: openSearchPanel, label: "Find", category: "Search" },
   replace: { run: openSearchPanel, label: "Replace", category: "Search" },
-  gotoLine: { run: gotoLine, label: "Go to line", category: "Search" },
+  // Go to Line records where Ctrl+G was pressed: its dialog moves the caret later, with no
+  // userEvent to recognize it by (issue K.02).
+  gotoLine: { run: recordingJump("goto", gotoLine), label: "Go to line", category: "Search" },
+  jumpBack: { run: jumpStep(-1), label: "Jump back (to where you navigated from)", category: "Search" },
+  jumpForward: { run: jumpStep(1), label: "Jump forward (jump history)", category: "Search" },
   findInFiles: { run: act(() => s().openPalette("search")), label: "Find in files (ripgrep, project-wide)", category: "Search" },
 
   // Tabs & palette

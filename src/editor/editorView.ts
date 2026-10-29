@@ -2,6 +2,7 @@
 // (jump to a heading, sync scroll). One active editor at a time.
 import { EditorView } from "@codemirror/view";
 import type { StateEffect } from "@codemirror/state";
+import { recordJump } from "./jumpHistory";
 
 let activeView: EditorView | null = null;
 const listeners = new Set<() => void>();
@@ -163,8 +164,10 @@ let jumpSeq = 0; // supersedes an in-flight settle when a newer jump starts
 /** Move the cursor to `line` (1-based), scroll sensibly, and focus the editor.
  *  If the target sits below the viewport midpoint (or above the viewport), it is
  *  brought near the TOP of the page — clicking an outline entry means "show me this
- *  section", not "barely reveal its first line at the bottom". */
-export function jumpToLine(line: number, col?: number) {
+ *  section", not "barely reveal its first line at the bottom".
+ *  `record` (default true) leaves the place jumped from in the file's jump history (issue
+ *  K.02, Alt+-); false for a jump into a file just opened, whose caret is a leftover. */
+export function jumpToLine(line: number, col?: number, record = true) {
   const view = activeView;
   if (!view) return;
   lastUserNavAt = performance.now();
@@ -173,6 +176,7 @@ export function jumpToLine(line: number, col?: number) {
   // Optional 1-based column (Find in Files lands ON the match, not at the line start);
   // clamped so a column past the end still selects the line's last position.
   const pos = ln.from + (col ? Math.min(Math.max(col - 1, 0), ln.length) : 0);
+  if (record) recordJump(view, view.state.selection.main.head, pos, "jump");
   view.dispatch({ selection: { anchor: pos } });
 
   const sc = view.scrollDOM;

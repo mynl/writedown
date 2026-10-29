@@ -1,4 +1,12 @@
 import ReactDOM from "react-dom/client";
+// The preview's text face (issue K.05), bundled so it works offline on any machine: Vite
+// copies the woff2 files into dist/, and the unicode-range subsets load only the scripts a
+// document uses. Regular, italic, semibold, bold and bold italic.
+import "@fontsource/stix-two-text/400.css";
+import "@fontsource/stix-two-text/400-italic.css";
+import "@fontsource/stix-two-text/600.css";
+import "@fontsource/stix-two-text/700.css";
+import "@fontsource/stix-two-text/700-italic.css";
 import App from "./App";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { logError } from "./api";

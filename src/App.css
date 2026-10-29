@@ -730,7 +730,9 @@ body {
   padding: 16px 24px;
   max-width: 900px;
   color: var(--fg);
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* STIX Two Text, the house kit's face, bundled (main.tsx); [preview] font_family sets
+     --preview-font (issue K.05). Code keeps var(--mono) and KaTeX its own fonts. */
+  font-family: var(--preview-font, "STIX Two Text"), serif;
   /* Ctrl+wheel zoom sets this variable directly on the element (issue A.13). Headings,
      code and KaTeX are all sized in em, so they scale with it. */
   font-size: var(--wd-preview-font-size, 15px);
@@ -826,6 +828,9 @@ body {
 .preview td {
   border: 1px solid var(--border);
   padding: 5px 10px;
+  /* Figures line up down a column (issue K.05): lining, tabular. Also reaches tables a
+     Python cell prints, unless their own CSS says otherwise. */
+  font-variant-numeric: lining-nums tabular-nums;
 }
 .preview th {
   background: var(--pane-header-bg);

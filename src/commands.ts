@@ -46,6 +46,7 @@ import {
   insertStamp,
 } from "./editor/textOps";
 import { setWordWrap } from "./editor/wrap";
+import { countWords } from "./editor/wordCount";
 import { keymapConfigBlock } from "./editor/keymap";
 import { COMMAND_REGISTRY } from "./editor/commandRegistry";
 import { SYNTAX_CHOICES } from "./editor/languages";
@@ -257,6 +258,29 @@ export function appCommands(): Command[] {
         if (!view || !activePath || !isMarkdownDoc(activePath)) return;
         view.focus();
         openCitationPicker(view);
+      },
+    },
+    {
+      // Issue K.03: prose only (front matter, code cells, comments, display math and link
+      // targets left out; see wordCount.ts). A selection counts only when it spans more than
+      // one line; a selection within one line counts the whole document, as asked.
+      id: "word-count",
+      title: "Word Count",
+      run: () => {
+        const view = getActiveView();
+        if (!view) return;
+        const { state } = view;
+        const multiLine = state.selection.ranges.some(
+          (r) => state.doc.lineAt(r.from).number !== state.doc.lineAt(r.to).number,
+        );
+        const text = multiLine
+          ? state.selection.ranges.filter((r) => !r.empty).map((r) => state.sliceDoc(r.from, r.to)).join("\n")
+          : state.doc.toString();
+        const { words, characters } = countWords(text);
+        const n = (x: number) => x.toLocaleString("en-US");
+        s().showStatusMessage(
+          `Word count, ${multiLine ? "selection" : "document"}: ${n(words)} words, ${n(characters)} characters`,
+        );
       },
     },
     {

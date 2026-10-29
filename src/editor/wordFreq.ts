@@ -10,8 +10,8 @@
 // No store import (store.ts imports this module): callers pass the config knobs in.
 import { logError, wordFreqLoad, wordFreqSave } from "../api";
 
-type FileEntry = { scanned: number; words: Record<string, number> }; // original form → count
-type FreqStore = { version: 1; files: Record<string, FileEntry> };
+export type FileEntry = { scanned: number; words: Record<string, number> }; // original form → count
+export type FreqStore = { version: 1; files: Record<string, FileEntry> };
 
 const MAX_FILES = 50; // most-recently-scanned files kept
 const MAX_WORDS_PER_FILE = 250; // top words by in-file count
@@ -43,19 +43,72 @@ function scheduleSave(): void {
   if (saveTimer !== undefined) clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
     saveTimer = undefined;
-    void wordFreqSave(JSON.stringify(store)).catch(
-      (e) => void logError("word-frequency save: " + String(e)),
-    );
+    void mergeAndSave();
   }, SAVE_DEBOUNCE_MS);
 }
 
+/** The dictionary on disk could not be read: this session never writes over it. */
+let diskUnreadable = false;
+
+/** Save without losing another window's words (issue K.06). Every window keeps its own copy
+ *  and used to write it whole, so with several windows open the later save erased what the
+ *  others had scanned. Now each save re-reads the file, merges (`mergeStores`), writes the
+ *  merge (atomically, in Rust) and adopts it, so each window also picks up the others' words.
+ *  Two saves within the same few milliseconds can still lose one scan, never a whole store;
+ *  a lock file would close that, and locks are what Batch K removes. */
+async function mergeAndSave(): Promise<void> {
+  if (diskUnreadable) return;
+  let disk: FreqStore | null = null;
+  try {
+    const json = await wordFreqLoad();
+    if (json) {
+      const parsed = JSON.parse(json) as FreqStore;
+      if (!parsed || parsed.version !== 1 || !parsed.files) throw new Error("not a version 1 dictionary");
+      disk = parsed;
+    }
+  } catch (e) {
+    // Reported, never silently replaced: deleting the file starts a fresh dictionary.
+    diskUnreadable = true;
+    void logError(
+      `word-frequency: ~/.writedown/word-frequency.json could not be read (${String(e)}); ` +
+        "it is left as it is and not saved over this session. Delete it to start a fresh dictionary.",
+    );
+    return;
+  }
+  const merged = disk ? mergeStores(disk, store) : store;
+  try {
+    await wordFreqSave(JSON.stringify(merged));
+  } catch (e) {
+    void logError("word-frequency save: " + String(e));
+    return;
+  }
+  // Merge again with the live store: a scan may have landed while the file was read and
+  // written, and its entry is the newer one.
+  store = mergeStores(merged, store);
+  aggregate = null;
+}
+
+/** The `max` most recently scanned entries of `files`. */
+function newest(files: Record<string, FileEntry>, max: number): Record<string, FileEntry> {
+  const paths = Object.keys(files);
+  if (paths.length <= max) return files;
+  const keep = paths.sort((a, b) => files[b].scanned - files[a].scanned).slice(0, max);
+  return Object.fromEntries(keep.map((p) => [p, files[p]]));
+}
+
+/** Two copies of the dictionary as one: for each file, the entry scanned later wins, then the
+ *  usual limit of the MAX_FILES most recently scanned files. Pure. */
+export function mergeStores(disk: FreqStore, mine: FreqStore): FreqStore {
+  const files: Record<string, FileEntry> = { ...disk.files };
+  for (const [path, entry] of Object.entries(mine.files)) {
+    const other = files[path];
+    if (!other || entry.scanned > other.scanned) files[path] = entry;
+  }
+  return { version: 1, files: newest(files, MAX_FILES) };
+}
+
 function pruneFiles(): void {
-  const paths = Object.keys(store.files);
-  if (paths.length <= MAX_FILES) return;
-  paths
-    .sort((a, b) => store.files[a].scanned - store.files[b].scanned)
-    .slice(0, paths.length - MAX_FILES)
-    .forEach((p) => delete store.files[p]);
+  store.files = newest(store.files, MAX_FILES);
 }
 
 /** Count the >=`minLen`-letter words in `text` and replace `path`'s entry. */

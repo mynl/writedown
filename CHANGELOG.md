@@ -5,6 +5,29 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [2.34.0] - 2026-10-29
+
+Batch K's editor items, K.02 to K.06. Plan: `dev/done/plan-batch-k.md`.
+
+### Added
+
+- **Word Count** in the palette: words and characters in the status bar, of the selection
+  when it spans more than one line, else of the document. Prose only.
+- **Alt+- and Alt+Shift+-** step back and forward through the places you navigated from
+  (outline, Find in Files, Find, Go to Line, Ctrl+Home and Ctrl+End), within the current
+  file; each file keeps its own history, and Alt+- never moves to another file.
+
+### Changed
+
+- **The find panel opens at the bottom of the editor**, as in Sublime.
+- **The preview sets text in STIX Two Text**, the house kit's face, bundled, with table
+  figures aligned; `[preview] font_family` changes it. HTML files keep their own styles.
+
+### Fixed
+
+- **With several windows open, Tab completion's word dictionary no longer loses the words
+  one window learned when another saves.** An unreadable dictionary is logged and left alone.
+
 ## [2.33.0] - 2026-10-29
 
 Git tree marks return, on user events only, with safeguards so background work cannot loop

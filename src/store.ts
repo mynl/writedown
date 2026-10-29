@@ -2109,6 +2109,10 @@ export const useStore = create<AppState>((set, get) => ({
         root.setProperty("--outline-size", `${es.outline_font_size}pt`);
       }
       if (es.tree_font_family) root.setProperty("--tree-font", es.tree_font_family);
+      // [preview] font_family (issue K.05); unset falls back to STIX Two Text in App.css,
+      // and removing the key takes effect on the next config save, not the next launch.
+      if (es.preview_font_family) root.setProperty("--preview-font", es.preview_font_family);
+      else root.removeProperty("--preview-font");
       if (es.tree_font_size != null) {
         root.setProperty("--tree-size", `${es.tree_font_size}pt`);
       }

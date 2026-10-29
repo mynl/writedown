@@ -29,19 +29,19 @@ Here lies comme.nts more dsa fdkl ase.
 | **K.01** | ⚪ |  | (Consider) HTML view includes mathjax (pended from J) |
 | >>CC | M | None for Markdown | **Doable without letting the page run any script: when the preview loads, Writedown renders the page's TeX itself with KaTeX, the math engine the Markdown preview already uses.** Covers Quarto and Pandoc output and hand-written MathJax pages. KaTeX handles nearly everything MathJax does; tabsets and plots still need a browser. Question below: build now or keep pended. ==>KEEP PENDED|
 | | --- | |  |
-| **K.02** | ⚫ |  | Alt - steps back through cursor position, like ST |
+| **K.02** |✅|  | Alt - steps back through cursor position, like ST |
 | >>CC | M | None | **Nothing like it exists yet, and Alt+- and Alt+Shift+- are free.** Writedown would remember where the caret was before each big move (a jump of more than about 10 lines, an outline click, a find, a tab switch); Alt+- walks back through those places and Alt+Shift+- forward, across files as in ST. Question below: across files or within one file. ==>within current file (but remember across files) |
 | | --- | | |
-| **K.03** | ⚫ | | Add word count  to command palette, entire buffer or selection if longer than 1 line |
+| **K.03** |✅| | Add word count  to command palette, entire buffer or selection if longer than 1 line |
 | >>CC | L | None | **Easy; no count exists today.** A palette "Word Count" puts the count in the status bar: the selection when it spans more than one line, else the whole file. Recommend counting prose only, leaving out front matter, code cells and comments. |
 | | --- | | |
-| **K.04** | ⚫ | | Is it possible for the search box to be at the bottom rather than the top on the edit tab?    |
+| **K.04** |✅| | Is it possible for the search box to be at the bottom rather than the top on the edit tab?    |
 | >>CC | L | None | **Yes, one setting.** We put the find panel at the top in 1.6.0; the editor's default, and Sublime's, is the bottom, where Go to Line (Ctrl+G) already opens. Recommend moving it, with no config option. ==> Agree |
 | | --- | | |
-| **K.05** | ⚫ | | Can we use a serif (house-kit) font for html previewer? Or have it be a config-defined font? (Numbers must still align properly)  |
+| **K.05** |✅| | Can we use a serif (house-kit) font for html previewer? Or have it be a config-defined font? (Numbers must still align properly)  |
 | >>CC | L | None | **Found why house-html pages look wrong: the kit loads STIX Two and Lato from Google Fonts, the preview blocks the network, and neither font is installed on DOOB.** Installing the two fonts fixes those pages with no code. For pages that name no font, a config default font, with table numbers kept aligned. Question below on which pages you mean. ==>this is for the rendered views created by Writedown. If you load an HTML page you honor its style specification.  |
 | | --- | | |
-| **K.06** | ⚫ | | What is scope of the long word dict ... does not feel like it is all my long words? Is it by project?     |
+| **K.06** |✅| | What is scope of the long word dict ... does not feel like it is all my long words? Is it by project?     |
 | >>CC | L | None | **Not by project: one dictionary for everything, fed only by files you open or save, keeping the last 50 files and the top 250 words of each.** And a bug: each window writes its whole copy back, so with several windows open they overwrite each other's words. Recommend fixing the overwrite and raising the limits. ==> fix the overwrite - leave limits. |
 | | --- | | |
 | **K.07** |✅| | (Author, in the terminal, 2026-10-29.) Bring back the git marks in the tree (removed in 2.32.0), refreshed on occasional events such as a save, never continuously. |
@@ -158,7 +158,7 @@ Background cost: (1) and (2) run inside the existing scan; trigger, opening or s
 
 Both are planned in `dev/plan-batch-k.md` (sections 1 to 5, the first of its two bumps), which records the author's rulings of 2026-10-29: all three safeguards, guidelines written for background work in general, and no periodic refresh of the marks.
 
-- **Built:** K.07 and K.08 in 2.33.0 (2026-10-29). The plan is now `dev/done/plan-batch-k.md`; divergences are in its execution log.
+- **Built:** K.07 and K.08 in 2.33.0; K.02 to K.06 in 2.34.0 (2026-10-29). K.01 stays pended. The plan is now `dev/done/plan-batch-k.md`; divergences are in its execution log.
 
 ***
 

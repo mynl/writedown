@@ -118,6 +118,19 @@ a selection wraps the selection — press `$` twice for `$$…$$`.
   built in the background from the files you open. Case adapts to what you typed.
   With no match, Tab does nothing and says so in the status bar; it never indents
   the paragraph. (Tab at the start of a line, or after whitespace, still indents.)
+  The dictionary is one for everything, not per project: the 50 files most recently opened
+  or saved, the top 250 words of each. Several windows share it, each adding its words
+  when it saves.
+- **Jump back**: **Alt+-** returns to where you navigated from, **Alt+Shift+-** goes
+  forward again. A stop is left by an outline click, a Find in Files hit, a palette go-to,
+  find next and previous (one stop for a run of F3), Go to Line (Ctrl+G), and Ctrl+Home or
+  Ctrl+End. Typing, arrows, PageUp and PageDown, clicks and scrolling leave none. Each file
+  keeps its own history while you work in others, and Alt+- never moves to another file.
+  Stops move with your edits; the history ends with the session.
+- **Word Count** (palette): words and characters in the status bar, of the selection when
+  it spans more than one line, else of the whole document. Prose only: front matter, code
+  cells, HTML comments and tags, display math and link targets are left out; inline math
+  and a citation count as one word each.
 - **Ctrl+Shift+D** duplicates the selection when there is one, otherwise the line.
 - **Alt+Z** zaps to a character, as Emacs M-z does: press Alt+Z, then a character, and
   everything from the caret through the next occurrence of that character is deleted,
@@ -237,6 +250,9 @@ refused; nothing here ever writes to a file (no replace — that is Sublime's jo
 - The right-hand pane shows a live preview (markdown-it + KaTeX math, footnotes,
   scroll sync both ways). **Ctrl+Shift+L** cycles editor / split / preview; the
   Split button top right does the same.
+- Text in the Live and Rendered tabs is set in STIX Two Text, bundled with Writedown, with
+  table figures lined up in columns; `[preview] font_family` in config changes it. Code
+  keeps the editor's monospace face, and math its own.
 - Image paths in documents resolve relative to the file; a path containing a raw
   space needs `%20` or angle brackets (strict CommonMark).
 - CSV/TSV tabs show a data grid instead (search, filters, sort, export).

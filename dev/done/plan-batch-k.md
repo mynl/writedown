@@ -723,3 +723,80 @@ console holds only "no backend" rejections. (Edge must be pointed at `localhost`
 `127.0.0.1`: `vite preview` listens on the IPv6 loopback.)
 
 **Left for the author:** live checks 1 to 7 on a release build.
+
+### Second bump
+
+**Divergences**
+
+- **[find-bottom]** as planned; `HELP.md` never named the panel's position, so it is unchanged.
+- **[word-count] characters** count the text kept after the removals, markup included (`#`, `*`,
+  table pipes), with inline math and citations at their written length; each removed region
+  leaves a line break, so words on either side never join. Inline math follows Pandoc's rule (no
+  space inside either dollar, no digit after the closing one), so "$5 and $10" stays prose. A
+  citation is an `@` with nothing word-like before it, so an email address is three words, not
+  one citation.
+- **[word-count] node check** (`countWords`, all 17 pass): plain sentence 9; front matter alone 0;
+  a `{python}` cell between two paragraphs 5 (cell excluded); "don't well-known" 2; "it’s fine" 2;
+  `$x^2$` 1; "Let $x^2 + y^2$ be positive." 4; a `$$` block 0; `| alpha | beta |` 2;
+  `[text](http://example.com/a/b)` 1; an image `![a figure](img/fig-1.png)` 2 (alt kept);
+  "As shown by @smith-jones:2020, it holds." 6; "mail me@example.com" 4; "costs $5 and $10
+  today" 5; "one <!-- two three --> four<br>five" 3; a `~~~` fence 2 of 2 outside it; "a < b and
+  c > d" 5. Characters of "ab cd\nef": 7.
+- **[jump-back] the "file just opened" rule** is implemented where it arises: the pending jump
+  (Find in Files or a palette go-to into a file not on screen) calls `jumpToLine(…, false)`, which
+  records nothing, because the caret it would record is whatever the document swap left. A
+  general "empty history and caret at 0 records nothing" rule would also have swallowed Ctrl+End
+  from the top of a fresh file, leaving Alt+- nowhere to go.
+- **[jump-back] wiring.** The editor is one shared view whose documents arrive by `docSwap`
+  transactions, so the history follows those: a swap to the same path is a reload (positions kept
+  by line and column), a swap to another path is a tab switch (nothing moves; the incoming file's
+  positions are clamped when used). `setJumpFile` sets the first file at view creation. Edits map
+  positions in `onUpdate`, which also records `select.search` transactions (exact match, so
+  `select.search.matches` is skipped). Ctrl+D carries no user event and records nothing.
+- **[jump-back] keys.** `Alt+Shift+-` works as written: `toCmKey` gives `Alt-Shift--`, and
+  CodeMirror, finding no binding for `Alt-_`, retries an Alt combination with the base key name
+  plus Shift. Registry labels follow the registry's sentence case: "Jump back (to where you
+  navigated from)", "Jump forward (jump history)", "Move to document start", "Move to document
+  end". Go to Line records where Ctrl+G was pressed, even if the dialog is then cancelled; a
+  cancelled one is on the caret's own line, so a later back skips it.
+- **[jump-back] node check** (all 20 pass): a run of F3 records once; another kind records; a
+  search after a manual move records; a place on the newest record's line is skipped; back at the
+  newest end records the current place and moves to the previous; back, forward, forward to the
+  newest, end of history; a record after two steps back drops the forward part and stands at the
+  newest end; start of history; an insertion of 20 characters above moves both positions by 20; a
+  deletion around one collapses it to the deletion's start; a whole-document replacement keeps
+  line and column; a shorter document clamps the line and keeps the column within it; clamping
+  to a new length; at most 100 per file.
+- **[preview-font]** removing `[preview] font_family` takes effect on the next config save
+  (`loadTheme` removes the variable), not only at the next launch. The default template's
+  `[preview]` section holds only the commented key; the config test asserts it is a table.
+- **[word-dictionary]** the atomic write is the same few lines in `wordfreq.rs` (temporary file,
+  rename), not a helper shared with `files::write_file`, which also takes a backup and checks
+  the stamp; the document save path is untouched. After saving, the window's store is the merge
+  merged again with the live store, so a scan that landed while the file was read and written is
+  kept. An unreadable dictionary is logged once and not written over for the rest of the session.
+- **[word-dictionary] node check** of `mergeStores` (all 5 pass): disjoint stores keep both; the
+  same path newer on disk wins; the same path newer in this window wins; 40 + 30 entries prune to
+  the 50 newest (all 30 newer ones kept, oldest kept scan 20); the inputs are not modified. Run
+  with a small resolve hook, since `wordFreq.ts` imports `../api` without an extension.
+- **Notices** regenerated: one new component, `@fontsource/stix-two-text` 5.3.0, OFL-1.1.
+- **[preview-font] figures.** In the built `dist/`, with the bundled font loaded, a table cell's
+  `1111` and `0000` both measure 29.703 px. The same strings in a paragraph, without
+  `tabular-nums`, measure the same too: STIX Two Text's default figures are already lining and
+  tabular, so the CSS rule is a guarantee for other faces set by `[preview] font_family`.
+
+**Idle check 3, second bump** (release build of 2.34.0): settle 10.10% of one core, 2 git starts
+sampled (the startup sweep); phase A 0.52%, 0 git starts; phase B 0.88%, 0 git starts; no
+tripwire line. Pass.
+
+**Gates (2026-10-29, all green):** `npm run build` (inside `npm run tauri build`): tsc and vite,
+built. `cargo test` (cwd `src-tauri/`): 98 passed, 0 failed, 15 ignored; no warnings. New:
+`wordfreq::tests::atomic_write_replaces_and_leaves_no_temp`; changed:
+`config::tests::default_config_is_valid_toml_and_honest` (`[preview]` present). `npx madge
+--circular --extensions ts,tsx src/main.tsx`: no circular dependency. Headless smoke-boot of
+`dist/`: plain boot at the expected ErrorBoundary (2 KB); stub-runtime boot renders the layout
+with the status bar, console only "no backend" rejections.
+
+**Left for the author:** live checks 8 to 12 on a release build, and the look-and-feel check of
+STIX Two Text at 15 px in the `npm run tauri dev` loop (its x-height is smaller than Segoe UI's;
+the size was left alone).

@@ -2,7 +2,7 @@
 
 Writedown is MIT-licensed (see `LICENSE`). It is built on the open-source
 components below, listed with the license each declares. Generated offline from
-Cargo.lock and the installed node_modules by `scripts/generate-notices.ps1` on 2026-10-24;
+Cargo.lock and the installed node_modules by `scripts/generate-notices.ps1` on 2026-10-29;
 regenerate with `pwsh scripts/generate-notices.ps1` after a dependency change.
 
 ## Summary by license
@@ -16,15 +16,16 @@ regenerate with `pwsh scripts/generate-notices.ps1` after a dependency change.
 | Unicode-3.0 | 18 |
 | MIT/Apache-2.0 | 13 |
 | MPL-2.0 | 6 |
-| BSD-3-Clause | 5 |
 | LGPL-3.0-only | 5 |
+| BSD-3-Clause | 5 |
 | Unlicense OR MIT | 4 |
 | Apache-2.0 | 3 |
 | MIT OR Apache-2.0 OR Zlib | 2 |
 | CC0-1.0 | 2 |
 | Unlicense/MIT | 2 |
-| MIT OR Zlib OR Apache-2.0 | 1 |
+| OFL-1.1 | 1 |
 | Unlicense | 1 |
+| MIT OR Zlib OR Apache-2.0 | 1 |
 | MIT (per repository; undeclared in manifest) | 1 |
 | Python-2.0 | 1 |
 | (MIT OR Apache-2.0) AND Unicode-3.0 | 1 |
@@ -379,7 +380,7 @@ regenerate with `pwsh scripts/generate-notices.ps1` after a dependency change.
 | zerovec-derive | 0.11.3 | Unicode-3.0 |
 | zmij | 1.0.21 | MIT |
 
-## npm packages (185, production tree)
+## npm packages (186, production tree)
 
 | Package | Version | License |
 |---|---|---|
@@ -419,6 +420,7 @@ regenerate with `pwsh scripts/generate-notices.ps1` after a dependency change.
 | @codemirror/state | 6.7.1 | MIT |
 | @codemirror/theme-one-dark | 6.1.3 | MIT |
 | @codemirror/view | 6.43.6 | MIT |
+| @fontsource/stix-two-text | 5.3.0 | OFL-1.1 |
 | @iconify/types | 2.0.0 | MIT |
 | @iconify/utils | 3.1.4 | MIT |
 | @lezer/common | 1.5.2 | MIT |

@@ -81,6 +81,11 @@ font_size = 10
 # height = 24
 # width = 180
 
+[preview]
+# font_family: text face of the Live and Rendered tabs (Markdown, Quarto). Unset: STIX Two
+# Text, bundled with Writedown. An HTML file's preview keeps the page's own styles.
+# font_family = "Georgia"
+
 [bibliography]
 default_file = ""
 # viewer_url: where right-click "Open Document for @key", the palette's "Citation: Open
@@ -420,6 +425,10 @@ pub struct EditorSettings {
     /// The palette's Git: … On/Off verbs override these for the session only.
     git_tree_marks: Option<bool>,
     git_gutter_marks: Option<bool>,
+    /// `[preview] font_family` (issue K.05): the text face of the Live and Rendered tabs of
+    /// Markdown and Quarto documents. Unset: STIX Two Text, bundled with the app. An HTML
+    /// file's preview keeps the page's own styles.
+    preview_font_family: Option<String>,
     /// `[bibliography] viewer_url` (issue J.20): a URL template for a citation's document,
     /// `{key}` replaced by the URL-encoded key in the frontend. Unset, the "Open Document"
     /// menu item and hover link are absent. Writedown makes no request: the default browser
@@ -580,6 +589,11 @@ pub fn load_editor_settings(app: tauri::AppHandle) -> Result<EditorSettings, Str
             .map(|n| n as u64),
         git_tree_marks: val.get("git").and_then(|g| g.get("tree_marks")).and_then(|v| v.as_bool()),
         git_gutter_marks: val.get("git").and_then(|g| g.get("gutter_marks")).and_then(|v| v.as_bool()),
+        preview_font_family: val
+            .get("preview")
+            .and_then(|p| p.get("font_family"))
+            .and_then(string)
+            .filter(|s| !s.trim().is_empty()),
         bibliography_viewer_url: val
             .get("bibliography")
             .and_then(|b| b.get("viewer_url"))
@@ -614,7 +628,8 @@ mod tests {
         assert!(v.get("search").and_then(|s| s.get("globs")).is_some());
         // Inert keys/sections the tidy removed must not reappear (the template only
         // advertises options the code actually reads).
-        assert!(v.get("preview").is_none(), "[preview] is decorative");
+        // [preview] is live since K.05 (font_family, commented out in the template).
+        assert!(v.get("preview").and_then(|p| p.as_table()).is_some(), "[preview] holds font_family");
         assert!(v.get("theme").is_none(), "[theme] is decorative");
         assert!(v.get("general").is_none(), "[general] is decorative");
         assert!(v.get("files").and_then(|f| f.get("extensions")).is_none());

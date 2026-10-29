@@ -74,6 +74,13 @@ export const DEFAULT_KEYS: { key: string; action: string }[] = [
   { key: "Ctrl+F", action: "find" },
   { key: "Ctrl+H", action: "replace" },
   { key: "Ctrl+G", action: "gotoLine" },
+  // Jump history (issue K.02): back and forward through the places navigated from, within the
+  // current file. With Shift the key arrives as "_" on a US layout; CodeMirror falls back to
+  // the base key for Alt combinations, so "Alt-Shift--" still matches.
+  { key: "Alt+-", action: "jumpBack" },
+  { key: "Alt+Shift+-", action: "jumpForward" },
+  { key: "Ctrl+Home", action: "docStart" },
+  { key: "Ctrl+End", action: "docEnd" },
   { key: "Ctrl+Shift+F", action: "findInFiles" },
   { key: "Ctrl+Tab", action: "nextTab" },
   { key: "Ctrl+Shift+Tab", action: "prevTab" },

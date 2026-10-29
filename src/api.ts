@@ -450,6 +450,9 @@ export type EditorSettings = {
    *  Session overrides come from the palette's Git: … On/Off verbs. */
   git_tree_marks: boolean | null;
   git_gutter_marks: boolean | null;
+  /** `[preview] font_family` (issue K.05): the Live and Rendered tabs' text face. Null:
+   *  STIX Two Text, bundled. */
+  preview_font_family: string | null;
   /** `[bibliography] viewer_url` (issue J.20): template for a citation's document page,
    *  `{key}` replaced by the URL-encoded key. Null when unset. */
   bibliography_viewer_url: string | null;
