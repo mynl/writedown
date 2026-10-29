@@ -15,7 +15,7 @@ import { EditorView } from "@codemirror/view";
 /** One file's history. `list`: document offsets of the places navigated from, oldest first.
  *  `index`: the entry back or forward last moved to, or `list.length` when not stepping
  *  through it. `kind` and `landed`: the newest navigation's kind and where it left the caret,
- *  so a run of the same navigation (ten F3 presses) records once. */
+ *  so a run of find next / previous (ten F3 presses) records once. */
 export type History = { list: number[]; index: number; kind: string | null; landed: number | null };
 
 export const MAX_PER_FILE = 100;
@@ -29,12 +29,19 @@ function cap(list: number[], index: number): { list: number[]; index: number } {
   return drop > 0 ? { list: list.slice(drop), index: Math.max(0, index - drop) } : { list, index };
 }
 
+/** Navigations that step through a sequence, where a run of them is one move: F3 pressed ten
+ *  times leaves one stop. Every other navigation (an outline click, a Find in Files hit, Go
+ *  to Line, Ctrl+Home) is a destination of its own and always leaves a stop; merging those
+ *  too made three outline clicks in a row one stop, so Alt+- skipped straight past them. */
+const RUN_KINDS = new Set(["search"]);
+
 /** Record a navigation of `kind` from `from` that left the caret at `to`; `lineOf` gives a
- *  position's line. Skipped: the next step of a run (the newest record is the same kind and
- *  the caret is still where it left it) and a place on the same line as the newest record.
- *  Recording after a step back drops the forward part, as a browser does. */
+ *  position's line. Skipped: the next step of a run of find next / previous (the newest
+ *  record is a search and the caret is still where it left it) and a place on the same line
+ *  as the newest record. Recording after a step back drops the forward part, as a browser
+ *  does. */
 export function record(h: History, from: number, to: number, kind: string, lineOf: (pos: number) => number): History {
-  if (h.kind === kind && h.landed === from) return { ...h, landed: to };
+  if (RUN_KINDS.has(kind) && h.kind === kind && h.landed === from) return { ...h, landed: to };
   const list = h.index < h.list.length ? h.list.slice(0, h.index + 1) : h.list.slice();
   const newest = list[list.length - 1];
   if (newest === undefined || lineOf(newest) !== lineOf(from)) list.push(from);

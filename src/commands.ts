@@ -262,24 +262,24 @@ export function appCommands(): Command[] {
     },
     {
       // Issue K.03: prose only (front matter, code cells, comments, display math and link
-      // targets left out; see wordCount.ts). A selection counts only when it spans more than
-      // one line; a selection within one line counts the whole document, as asked.
+      // targets left out; see wordCount.ts). The selection counts when more than one
+      // character is selected, across every range; otherwise the whole document. (2.34.0
+      // asked for more than one LINE, which misses a selection inside one long wrapped line.)
       id: "word-count",
       title: "Word Count",
       run: () => {
         const view = getActiveView();
         if (!view) return;
         const { state } = view;
-        const multiLine = state.selection.ranges.some(
-          (r) => state.doc.lineAt(r.from).number !== state.doc.lineAt(r.to).number,
-        );
-        const text = multiLine
+        const selected = state.selection.ranges.reduce((n, r) => n + (r.to - r.from), 0);
+        const inSelection = selected > 1;
+        const text = inSelection
           ? state.selection.ranges.filter((r) => !r.empty).map((r) => state.sliceDoc(r.from, r.to)).join("\n")
           : state.doc.toString();
         const { words, characters } = countWords(text);
         const n = (x: number) => x.toLocaleString("en-US");
         s().showStatusMessage(
-          `Word count, ${multiLine ? "selection" : "document"}: ${n(words)} words, ${n(characters)} characters`,
+          `Word count, ${inSelection ? "selection" : "document"}: ${n(words)} words, ${n(characters)} characters`,
         );
       },
     },

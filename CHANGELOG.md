@@ -5,6 +5,16 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [2.34.1] - 2026-10-29
+
+### Fixed
+
+- **Alt+- steps back through outline clicks one at a time.** Consecutive outline clicks, Find
+  in Files hits and Go to Line each leave a stop; only a run of find next / previous shares
+  one. In 2.34.0 three outline clicks in a row were one stop, so Alt+- jumped straight past them.
+- **Word Count counts the selection whenever more than one character is selected**, else the
+  document. "More than one line" missed a selection inside one long wrapped line.
+
 ## [2.34.0] - 2026-10-29
 
 Batch K's editor items, K.02 to K.06. Plan: `dev/done/plan-batch-k.md`.

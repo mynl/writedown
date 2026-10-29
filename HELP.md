@@ -128,7 +128,7 @@ a selection wraps the selection — press `$` twice for `$$…$$`.
   keeps its own history while you work in others, and Alt+- never moves to another file.
   Stops move with your edits; the history ends with the session.
 - **Word Count** (palette): words and characters in the status bar, of the selection when
-  it spans more than one line, else of the whole document. Prose only: front matter, code
+  more than one character is selected, else of the whole document. Prose only: front matter, code
   cells, HTML comments and tags, display math and link targets are left out; inline math
   and a citation count as one word each.
 - **Ctrl+Shift+D** duplicates the selection when there is one, otherwise the line.

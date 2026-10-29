@@ -797,6 +797,21 @@ built. `cargo test` (cwd `src-tauri/`): 98 passed, 0 failed, 15 ignored; no warn
 `dist/`: plain boot at the expected ErrorBoundary (2 KB); stub-runtime boot renders the layout
 with the status bar, console only "no backend" rejections.
 
+### Tweaks after the author's first tests (2.34.1)
+
+- **"Alt - not working."** Reproduced in the 2.34.0 release build under a throwaway
+  `WRITEDOWN_HOME`, keys sent with SendKeys: Ctrl+End to Ln 151, then Alt+- back to Ln 1, Col 1.
+  The key reaches CodeMirror. The fault was the plan's merge rule ("a run of the same
+  navigation records only where it started"), built as written: each outline click starts where
+  the previous one landed, so Heading 31, 61, 91 in a row left one stop, and Alt+- went back to
+  the starting place and then reported the start of the history. The rule now applies to find
+  next / previous only (`RUN_KINDS`); every other navigation is a destination and always leaves
+  a stop. Node check: three outline clicks leave stops at lines 1, 31, 61; Alt+- from 91 goes to
+  61, then 31; a run of F3 is still one stop; the earlier 20 cases still pass.
+- **Word Count rule (author, 2026-10-29):** "count selection if > 1 char else whole doc. > one
+  line doesn't work for large lines." The selection counts when more than one character is
+  selected in total across ranges; otherwise the document.
+
 **Left for the author:** live checks 8 to 12 on a release build, and the look-and-feel check of
 STIX Two Text at 15 px in the `npm run tauri dev` loop (its x-height is smaller than Segoe UI's;
 the size was left alone).
