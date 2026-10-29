@@ -7,6 +7,144 @@ For each row in the table add a new row below it for your input, set item to ">>
 * Enter None, ... as impact on "speed" = user feel for speed of application. App MUST remain sprightly.  This is assessment of whether the feature would have any impact on baseline performance of the app in its core functions.
 * Under description add a **human-understandable** **short one- or two-line** summary and diagnosis (existing examples were too detailed and too complicated for me to understand!). Flag any issues.
 * **BELOW** the table and with title the Item number, add your developer issues and implementation plan - this is "notes for Claude". Here lies comments more like the ones you have been producing.
+* Note the spacer rows ( contain only ---) between items should be retained. these make it easier to view the table.
+
+
+Here lies comme.nts more dsa fdkl ase.
+
+## Decoder Ring
+* ⚪ = open new item (makes table easier to read)
+* ⚫ = implementation not started
+* ✅ = Claude implemented
+* 💚 = SM tested and passed
+* ❌ = Test shows issues
+* 🟨 = questions
+
+***
+
+## Batch K: 2026-10-24
+
+| Item | Effort HML | Status/Impact | Description |
+|--:|:---:|:---:|:-------------------------|
+| **K.01** | 🟨 |  | (Consider) HTML view includes mathjax (pended from J) |
+| >>CC | M | None for Markdown | **Doable without letting the page run any script: when the preview loads, Writedown renders the page's TeX itself with KaTeX, the math engine the Markdown preview already uses.** Covers Quarto and Pandoc output and hand-written MathJax pages. KaTeX handles nearly everything MathJax does; tabsets and plots still need a browser. Question below: build now or keep pended. |
+| | --- | |  |
+| **K.02** | 🟨 |  | Alt - steps back through cursor position, like ST |
+| >>CC | M | None | **Nothing like it exists yet, and Alt+- and Alt+Shift+- are free.** Writedown would remember where the caret was before each big move (a jump of more than about 10 lines, an outline click, a find, a tab switch); Alt+- walks back through those places and Alt+Shift+- forward, across files as in ST. Question below: across files or within one file. |
+| | --- | | |
+| **K.03** | 🟨 | | Add word count  to command palette, entire buffer or selection if longer than 1 line |
+| >>CC | L | None | **Easy; no count exists today.** A palette "Word Count" puts the count in the status bar: the selection when it spans more than one line, else the whole file. Recommend counting prose only, leaving out front matter, code cells and comments. |
+| | --- | | |
+| **K.04** | ⚪ | | Is it possible for the search box to be at the bottom rather than the top on the edit tab?    |
+| >>CC | L | None | **Yes, one setting.** We put the find panel at the top in 1.6.0; the editor's default, and Sublime's, is the bottom, where Go to Line (Ctrl+G) already opens. Recommend moving it, with no config option. |
+| | --- | | |
+| **K.05** | 🟨 | | Can we use a serif (house-kit) font for html previewer? Or have it be a config-defined font? (Numbers must still align properly)  |
+| >>CC | L | None | **Found why house-html pages look wrong: the kit loads STIX Two and Lato from Google Fonts, the preview blocks the network, and neither font is installed on DOOB.** Installing the two fonts fixes those pages with no code. For pages that name no font, a config default font, with table numbers kept aligned. Question below on which pages you mean. |
+| | --- | | |
+| **K.06** | 🟨 | | What is scope of the long word dict ... does not feel like it is all my long words? Is it by project?     |
+| >>CC | L | None | **Not by project: one dictionary for everything, fed only by files you open or save, keeping the last 50 files and the top 250 words of each.** And a bug: each window writes its whole copy back, so with several windows open they overwrite each other's words. Recommend fixing the overwrite and raising the limits. |
+| | --- | | |
+| **K.07** | 🟨 | | (Author, in the terminal, 2026-10-29.) Bring back the git marks in the tree (removed in 2.32.0), refreshed on occasional events such as a save, never continuously. |
+| >>CC | M | None at rest, to be measured by the idle check | **Planned in `dev/plan-background-safeguards-and-git-tree-marks.md`: marks refresh when you come back to Writedown, 2 s after a save, when the project's folders change, and on a palette command; at most once every 10 s.** The file watcher never triggers them and git can no longer take a lock, so the 2.31 loop cannot return. |
+| | --- | | |
+| **K.08** | 🟨 | | (Author, in the terminal, 2026-10-29.) Put a process in place so a performance bug like the git-status loop cannot happen again: general guidelines for background work, not only for git. |
+| >>CC | M | None (a counter per subprocess start) | **Same plan: written rules for any background work (dev-tree CLAUDE.md and the plan review), a script that measures a release build's idle CPU under load before handover, and an in-app tripwire that flags runaway subprocess starts.** |
+| | --- | | |
+
+---
+
+## Batch K: developer notes and implementation plans
+
+Reviewed 2026-10-29 against 2.32.0. Decisions waiting on the author are marked **Question**. Each item carries a **Background cost** line (trigger, highest rate, cost per run, writes, whether the writes can reach the trigger), per the rule proposed in K.08.
+
+### K.01: math in the HTML preview (`src/preview/HtmlPreview.tsx`; KaTeX, already bundled for the Markdown preview)
+
+Today the sealed frame (J.11) runs no script, so MathJax never starts and the TeX shows raw. Letting the page's scripts run stays out: a page script inside our window could reach the file-system bridge.
+
+Route: the frame is same-origin with scripts off, so Writedown's own code can edit the frame's document after it loads (it already does, for scrolling and links). On load:
+
+1. Find the math: elements `span.math.inline` and `span.math.display` (where Pandoc and Quarto put the TeX, as `\(…\)` and `\[…\]`), then text outside `pre`, `code`, `script`, `style` and `textarea` holding `\(…\)`, `\[…\]` or `$$…$$` (MathJax's default delimiters; single `$` is off by default in MathJax too, so it is not matched).
+2. Replace each with `katex.renderToString(tex, { displayMode, throwOnError: false, globalGroup: true })`, one shared `macros` object per page so a `\newcommand` in one equation carries to the later ones. A TeX error shows KaTeX's red source, never a broken page.
+3. KaTeX's stylesheet goes in as an inline `<style>` (the CSP allows inline styles), with its font URLs pointed at the app's own bundled KaTeX fonts; the CSP's `font-src` gains the app origin, which serves files from the installer, never the network.
+
+A cache from (TeX, display mode) to HTML, per document, means a refresh after typing renders only new or changed equations.
+
+Will not: run MathJax extensions or `\require`; see macros defined in a page's MathJax configuration script (KaTeX never reads scripts); show tabsets past the first tab, plotly figures or widgets. Quarto's equation numbers and cross-references are already plain HTML in the output, so they show.
+
+Background cost: trigger, the existing preview refresh (half a second after typing stops, HTML tabs only); rate, one pass per refresh; cost, about 0.1 to 1 ms per uncached equation, so a first pass over a page with 500 equations is up to a few hundred ms and later passes near zero; writes nothing.
+
+**Question:** build it now (M), or keep it pended.
+
+### K.02: jump back and forward (new `src/editor/jumpHistory.ts`, `keymap.ts`, `commandRegistry.ts`, `src/store.ts` `setActive`)
+
+Today nothing records past caret positions. Alt+- and Alt+Shift+- are unbound (Ctrl+- is font zoom). In Sublime, Alt+- (`jump_back`) returns to where the caret was before the last jump, across files, and Alt+Shift+- (`jump_forward`) reverses it.
+
+Build: a per-window list of positions (file, line, column), at most 100, session only. A position is recorded when:
+
+- one selection change that is not typing (its `userEvent` is not `input` or `delete`) moves the main caret more than 10 lines: an outline click, Ctrl+Home or Ctrl+End, a find, Go to Line, a click far away;
+- the active tab changes (the caret of the tab being left).
+
+A new record within 10 lines of the last one in the same file replaces it rather than stacking. Going back to a file whose tab is closed reopens it; a deleted file is skipped. Positions are kept as line and column, so edits above them shift them slightly, as in Sublime.
+
+Background cost: trigger, every selection change, so it sits on the typing path; cost, one comparison of two line numbers, constant time; writes nothing.
+
+**Question:** across files, as in Sublime (recommended, M), or within the current file only (L).
+
+### K.03: word count (`src/commands.ts`, new `src/editor/wordCount.ts`)
+
+Nothing counts words today.
+
+Build: palette "Word Count". Scope: if any selection spans more than one line, the selections, summed; otherwise the whole document. The result goes to the status bar: "Word count, selection: 1,234 words, 7,890 characters".
+
+Counting rule (recommended): prose only. Leave out the YAML front matter, fenced code blocks (Python cells included), HTML comments and display math; inline math counts as one word. A word is a run of letters or digits, with internal apostrophes and hyphens kept, so `don't` and `well-known` are one word each.
+
+Background cost: an explicit command only; one pass over the text, a few ms for a long document; writes nothing.
+
+**Question:** prose only (recommended), or every word in the file.
+
+### K.04: find panel at the bottom (`src/editor/Editor.tsx`)
+
+`search({ top: true, … })` at `Editor.tsx` line 178 was set in 1.6.0. CodeMirror's default, and Sublime's place, is the bottom, and Go to Line (Ctrl+G) already opens there, so the two would match. Change: `top: false`. No config option recommended (a knob for a one-time preference); say if you want `[editor] find_panel`. Check at build: the panel stays inside the editor pane with the preview split, and centering on a match (I.05, `scrollToMatch`) is unaffected.
+
+Background cost: none.
+
+### K.05: fonts in the HTML preview (`src/preview/HtmlPreview.tsx` `prepareHtml`, `src-tauri/src/config.rs`)
+
+Diagnosis: `house-html` sets text in STIX Two and headings in Lato, loaded from Google Fonts. The sealed preview blocks the network, so the stylesheet that would define those fonts never loads, and neither font is installed on DOOB (checked `C:\Windows\Fonts` and the per-user font folder). The preview then falls back to the page's next font, the Bootstrap theme's sans, or the browser default, Times New Roman.
+
+Two fixes, independent:
+
+1. **Install STIX Two Text, STIX Two Math and Lato on DOOB** (free, SIL Open Font License). The house CSS names those families, and with the Google stylesheet blocked the names resolve to installed fonts, so `house-html` pages show in the kit's fonts in the preview and in any offline browser. No code. Recommended first; verify on one rendered page.
+2. **`[html] font_family` in config**, unset by default, for pages that name no font of their own (hand-written pages, plain exports). Injected ahead of the page's own styles as `html { font-family: … }`, so a page's CSS still wins, with `td, th { font-variant-numeric: lining-nums tabular-nums; }` so figures line up in tables (STIX Two has tabular lining figures; checked at build).
+
+Background cost: none.
+
+**Question:** which pages you mean, `house-html` renders or your own unstyled pages; and whether the config font should override a page's own font (recommend not: the preview should show what a browser shows).
+
+### K.06: the Tab-completion word dictionary (`src/editor/wordFreq.ts`, `src-tauri/src/wordfreq.rs`)
+
+How it works today:
+
+- **One dictionary for everything, not per project:** `~/.writedown/word-frequency.json`, shared by all projects and windows.
+- **Fed only by files you open or save** in Writedown (a scan one second after each), never by the rest of the project.
+- **Small:** the 50 most recently scanned files, and from each the 250 most frequent words of 5 letters or more (`[editor] tab_complete_dict_min_len`). In a long document the rarer long words fall off, and a word used once seldom makes it.
+- **Bug:** each window loads the file once and later writes its whole copy back. With two windows open, the last one to save erases what the other learned; with several project windows open all day, most of it is lost.
+
+Proposed, in order of value:
+
+1. **Fix the overwrite:** read, merge per file (the newer scan wins) and write in one Rust command, `word_freq_merge`, in place of the plain write.
+2. **Raise the limits** to 300 files and 500 words each (a few MB of JSON at worst), and rebuild the in-memory totals right after a scan instead of at the next Tab press, so a bigger dictionary never slows Tab.
+3. Optional: palette "Word Dictionary: Learn This Project", one explicit pass over the project's `.md` and `.qmd` files, capped, skipping the usual build folders.
+
+The palette snippet "Large Word Report" shows what is in the dictionary today.
+
+Background cost: (1) and (2) run inside the existing scan; trigger, opening or saving a file; rate, at most one scan per file per second, the save debounced to 5 s; writes `~/.writedown/word-frequency.json`, which no trigger reads. (3) is explicit only, one pass proportional to the project's text files.
+
+**Question:** which of 1 to 3 (recommend 1 and 2, and 3 only if the dictionary still feels thin).
+
+### K.07 and K.08: git tree marks on user events; background-work safeguards
+
+Both are planned in `dev/plan-background-safeguards-and-git-tree-marks.md` (draft, for review), which records the author's rulings of 2026-10-29: all three safeguards, guidelines written for background work in general, and no periodic refresh of the marks.
 
 ***
 
@@ -14,54 +152,56 @@ For each row in the table add a new row below it for your input, set item to ">>
 
 | Item | Effort HML | Status/Impact | Description |
 |--:|:---:|:---:|:-------------------------|
-| **J.01** |✅| | Alt+Z emacs zap to character |
+| **J.01** |✅|💚| Alt+Z emacs zap to character: alt z taken, using alt x instead.  |
 | >>CC | L | None | **Easy: press Alt+Z, then a character, and everything from the caret up to and including the next occurrence of that character is deleted, as in Emacs.** Esc cancels; if the character never occurs, a status-bar note appears and nothing changes. One undo step, every cursor. One question below: delete the character itself (Emacs zap-to-char) or stop just before it. >>WDED: do the same as emacs.  |
-| **J.02** |✅| | Ctl+Alt+Shift+N => entirely new window (i.e., same as StartBar, writedown)  |
+| **J.02** |✅| 💚 | Ctl+Alt+Shift+N => entirely new window (i.e., same as StartBar, writedown)  |
 | >>CC | L | None | **Easy: a small command relaunches Writedown with no file, which is exactly what the Start menu does.** CHALLENGE: a bare launch reopens the last workspace, and that is usually the project of the window you pressed the key in, so you would get a second window on the same project. Recommend the new window opens empty with the project switcher already up. >>AGREE - good call.  |
-| **J.03** |✅| | ~~If you open a new window by double clicking from Explorer and the file not in a project then the project list (lower left) is missing~~ (Not an issue, opens in folder view; ignore) |
+| **J.03** |✅| ok | ~~If you open a new window by double clicking from Explorer and the file not in a project then the project list (lower left) is missing~~ (Not an issue, opens in folder view; ignore) |
 | >>CC | n/a | n/a | Agreed; no action. |
-| **J.04** |✅| | File->Save as dialog you lose the mouse pointer!! Only in this app, so must be a WD issue. |
+| **J.04** |✅|💚| File->Save as dialog you lose the mouse pointer!! Only in this app, so must be a WD issue. |
 | >>CC | L | None | **Not our code: a known bug in Microsoft's WebView2 runtime (the browser engine inside Writedown). Its September update added support for Windows' "Hide pointer while typing", and the pointer can stay hidden over a dialog opened right after typing.** DOOB has both the affected runtime and that setting turned on. Test first: untick Mouse settings, Pointer Options, "Hide pointer while typing". If Save As then behaves, the fix is one config line that turns the runtime feature off. >>CONFIRMED. I HAVE CHANGED MY SETTING FOR NOW. >>CC: Recommend shipping the one-line fix anyway. The setting is on by default in Windows, so other machines and other users hit the same bug, and you can then turn your setting back on. |
 | **J.05** |✅| DUPL | ~~File save as box - mouse disappears~~ |
 | >>CC | n/a | n/a | Same as J.04. |
-| **J.06** |✅| | Support Markdown definition list (blah\n: def of blah)  |
+| **J.06** |✅|💚 | Support Markdown definition list (blah\n: def of blah)  |
 | >>CC | L | None | **Easy: the official markdown-it definition-list plugin adds Pandoc's syntax (a term line, then `: definition`), so the preview matches what Quarto produces.** Plus a few lines of styling. The editor shows the `:` lines as plain text, with no special coloring. Found on the way: Alt+Q reflow would merge a term into its definition, so it must treat `: ` lines like list items. |
-| **J.07** |✅| | Diff against prev vesions -> add ability to pinpiont when selected line changed |
+| **J.07** |✅| 💚 | Diff against prev vesions -> add ability to pinpiont when selected line changed |
 | >>CC | M | None at rest | **Doable. Writedown keeps the last 20 saved versions of each file; the command follows the caret's line back through them, one diff at a time, to the save where it changed, then opens the diff pane on that save at that line.** Limit: 20 autosaves may cover only an hour or two. With git, the same question extends across all committed history. Your call below: saved versions, git, or both. >>PREV VERSIONS: Can we do the longer history keep (spaced out more) too? Like the synolgoy versioning. Maybe we do already. Git if file under git, else our saved versions.  >>CC: We don't today: it keeps the newest 20 and deletes the rest. Proposed: Synology-style thinning, keeping the newest 20 plus one per hour for a day, one per day for a month, one per week for a year, one per month after that. Git first for files in a repo, with saved versions for edits git has not seen yet. Details below. >>CC 2026-10-24: Ruled in the terminal: no skip for files in git. Added "Version History: Stats" and a narrow "Prune This Project…"; see notes. |
 | **J.08** |✅| DUPL | ~~When a project opens a new window and there are no files open we do not get the folder or project tabs~~ |
 | >>CC | n/a | n/a | Same as J.03; no action. |
-| **J.09** |✅| | ctrl+alt+shift+T table format: a) should format just the table surrounding the cursor and do nothing if not in a table but mention in the status bar; b) Use |--| or |:--| etc format (with no extra spaces), c) Cycle, first press make table "wide", second press cycle to narrow (all headers are --, cols are | content |, with just one space on either end). |
+| **J.09** |✅| 💚 | ctrl+alt+shift+T table format: a) should format just the table surrounding the cursor and do nothing if not in a table but mention in the status bar; b) Use |--| or |:--| etc format (with no extra spaces), c) Cycle, first press make table "wide", second press cycle to narrow (all headers are --, cols are | content |, with just one space on either end). |
 | >>CC | L | None | **All three are small changes to the one table formatter.** (a) Only the table at the cursor; outside a table, a status note and no change. Today, with no selection, it reformats every table in the file. (b) Delimiter row as `\|---\|:--\|`, no spaces. (c) First press aligns ("wide"), second compacts ("narrow"); the table's current shape decides, so there is no hidden state. CHALLENGE on \(c): resetting every column to `--` discards the dash counts that Pandoc and Quarto use as relative column widths when a table wraps, and this issues table relies on them. >>I know; the third cycle is mostly for cases where the table has gotten way too wide. I'd then go in an manually set the widths. |
-| **J.10** |✅| | Command Palette check for updates: for non DOOB machines; look at GH releases and download?  |
+| **J.10** |✅|💚| Command Palette check for updates: for non DOOB machines; look at GH releases and download?  |
 | >>CC | L | None (explicit command only) | **CHALLENGE: download-and-install is an auto-updater, which the spec lists as a non-goal, and a self-installing unsigned exe also trips SmartScreen.** Recommend the light version: a palette "Check for Updates" asks GitHub for the latest release (the repo is public), compares it with the running version, and opens the release page in your browser; you run the installer yourself. Lighter still: a verb that only opens the releases page, with no network access from the app at all. >>Agree, no auto install but takes you where you need to go/look. |
-| **J.11** |✅| | html file format - raw on left, preview on right, toc = h? tags. We've had this before...explain issues again!   |
+| **J.11** |✅| 💚| html file format - raw on left, preview on right, toc = h? tags. We've had this before...explain issues again! (Done: no mathjax, pend that)   |
 | >>CC | M | None for Markdown | **Doable as a static preview; the issues are the parts of a web page it cannot show.** (1) Safety: scripts in an HTML file, run inside our window, could reach the file-system bridge, so the preview must be a sealed frame with scripts off. (2) No network: fonts, styles and scripts from the web do not load. (3) Pages that depend on JavaScript (Quarto and Jupyter output: math, tabsets, interactive plots) show only partly; hand-written and static pages show in full. (4) No line-by-line scroll sync. (5) Large self-contained Quarto files are slow in the editor. An outline from the h1 to h6 tags is easy. >>Deffo outline. What are you suggesting on preview?  >>CC: A sealed preview: faithful for hand-written and static HTML and live as you type, but no JavaScript, so Quarto output shows raw math and only the first tab of a tabset. Plus "Open in Browser" for pages that need scripts. Details below. |
-| **J.12** |✅| | Red error messages (above the tabs below the windows bar) are too narrow to read. the red bar is too thin |
+| **J.12** |✅|💚 | Red error messages (above the tabs below the windows bar) are too narrow to read. the red bar is too thin |
 | >>CC | L | None | **Found it: a layout bug lets the panes squeeze the error strip; when their content is tall, the strip shrinks to a few pixels with its own scrollbar.** One CSS line stops the strip shrinking, and it then shows the whole message, up to about six lines before it scrolls. |
-| **J.13** |✅| | Quick switch project should list in MRU order, not alphabetical |
+| **J.13** |✅|💚 | Quick switch project should list in MRU order, not alphabetical |
 | >>CC | L | None | **Easy: the footer's project dropdown is already most-recent first; the Ctrl+Alt+P switcher builds its own, alphabetical list.** One shared sort fixes both. Small question below: list the current project last, so Ctrl+Alt+P then Enter flips to the previous project, as Alt+Tab does. |
-| **J.14** |✅| | Reopen closed tab... (pick from list MRU listing of recently open)  |
+| **J.14** |✅|💚 | Reopen closed tab... (pick from list MRU listing of recently open)  |
 | >>CC | L | None | **Ctrl+Shift+T already reopens closed tabs one at a time, newest first, but the list is held in memory: a restart or a project switch empties it.** Add a palette "Reopen Closed Tab…" listing them newest first; type to filter, Enter opens. Proposed: save the list with the project's session, capped at about 25, so it survives a restart. >>Agreed |
-| **J.15** |✅| | Make it clearer (at the top, yellow/red bar?) when a render is stale |
+| **J.15** |✅|💚 | Make it clearer (at the top, yellow/red bar?) when a render is stale |
 | >>CC | L | None | **Easy: a "Stale" badge exists, but it is small grey text. Proposed: the status row above the Rendered view becomes an amber band reading "Edited since this render: Ctrl+Shift+Enter re-renders", and the Rendered tab gets a dot.** A red level for "a code cell changed" can come later. Found on the way: the empty-render hint shows "press Ctrl+B", which is now Bold, and Ctrl+Shift+B renders from the file tree but runs the build command everywhere else. >>fix the misdirection obvs; don't want another bar; how about a prominent red dot in the tab name (❌Rendered) when it is stale. >>CC: Agreed, no bar. One snag: the render status line already uses ✗ to mean "cells raised errors", so ❌ would read as "failed". Suggest a red ● before "Rendered", with a tooltip; your call. |
-| **J.16** |✅| | Warnings: first of kind or all in python s/b and option with an easy way to toggle. |
+| **J.16** |✅| 💚| Warnings: first of kind or all in python s/b and option with an easy way to toggle. |
 | >>CC | L | None | **Easy. Today Python's default applies (each warning once per code location), and for warnings raised inside libraries that memory survives between renders, so they appear on the first render and then vanish until Python restarts.** Proposed: three modes, first of each kind (default), all, and off, reset at every render so each render is reproducible. Set in config, per document in front matter, and switched on the fly from the palette. >>AGREE |
-| **J.18** |✅| | Full Python LSP support, autocomplete, help etc. for python... again, we've been through this before...issues? practicality? Would be very nice...  Or poor man's version: right hand side window help tab that shows help on current function? |
+| **J.18** |✅|💚💚| (CtrlK CtrlH on caret) Full Python LSP support, autocomplete, help etc. for python... again, we've been through this before...issues? practicality? Would be very nice...  Or poor man's version: right hand side window help tab that shows help on current function? |
 | >>CC | M for the help tab; H for full LSP | None at rest | **The poor man's version is the right first step: a Help tab beside Preview showing the signature and docstring of the name at the caret, taken from the Python process that already runs your cells (Jupyter's Shift+Tab).** Completions from the same source can follow. Full LSP is more practical than in August, because CodeMirror now has an official client, but making a language server understand Python inside Markdown cells is the hard, untried part. Recommend the help tab now, and a language server for `.py` files later if wanted. >>OK - help is the big thing i want (I'm doing a lot of print(help(xx)). Let's start with that. At somepoint  i need to go back to ST for proper dev....though you are writing most of my code these days.  >>CC: Then the tab shows exactly what `help(x)` prints, with the signature on top. Details below. |
-| **J.17** |✅| | Insert code block wraps a selection, if any, ie select some text -> insert code block puts the code block around the selected text.  |
+| **J.17** |✅|💚 | Insert code block wraps a selection, if any, ie select some text -> insert code block puts the code block around the selected text.  |
 | >>CC | L | None | **Half there: "Insert: Python Code Cell" already wraps a selection, but there is no plain "Code Block" insert, and the wrap mishandles three cases.** A selection that starts mid-line produces a broken fence; LaTeX such as `\{` in the selection loses its backslash (Aligned Math has the same fault); leading tabs become spaces. Fix: wrap whole lines as plain text, and add "Insert: Code Block". >>This only applies for python code blocks. yes it needs to wrap whole lines. >>CC: Understood: Python cells only, no generic Code Block. The backslash and tab fixes stay, since a Python regex such as `r"\{"` loses its backslash the same way. |
-| **J.19** |✅| | Python execute cells: if there is a venv or .venv in the folder containing the file (or a parent directory), then use it for python evaluation. Add palette Which Python -> display the venv in use. |
+| **J.19** |✅|💚 | HOW TO TEST? Python execute cells: if there is a venv or .venv in the folder containing the file (or a parent directory), then use it for python evaluation. Add palette Which Python -> display the venv in use. |
 | >>CC | L | None | **Easy: at each render, look for `.venv` or `venv` in the document's folder, then in each parent folder, and use its Python.** Precedence: the document's own `wd-python`, then the nearest venv, then `[render] python`. A palette "Which Python" shows the interpreter for the current document and why it was chosen. Two side effects: switching between documents in different venvs restarts Python (seconds, for heavy imports), and a document that relied on the global Python's packages fails if its folder's venv lacks them. >>Understood on switching; can we cache them and swap?  >>CC: Yes. Keep up to three Python processes alive per window, one per interpreter, closing the least recently used. Switching back is instant and each one keeps its variables. The cost is memory, a few hundred MB per idle process with pandas loaded. |
-| **J.20** | | | Right click on @Ref -> open it via http://192.168.4.21:9124/view/@Ref; and palette -> open bibtex doc |
+| **J.20** |✅ | 💚💚| Right click on @Ref -> open it via http://192.168.4.21:9124/view/@Ref; and palette -> open bibtex doc |
 | >>CC | L | None | **Easy: right-clicking a citation key brings up a small menu, "Open @key in Bibliography Viewer", which opens the viewer's page for that key in your browser. A palette verb does the same for the key at the caret, and the hover card that already describes the reference gains an "Open" link.** The address goes in config as a template, never in code. Recommend `127.0.0.1` rather than the LAN address, since the viewer runs on DOOB itself. One question below on what "open bibtex doc" means. >>CC 2026-10-24: Ruled in the terminal: address in config; "open bibtex doc" means open the PDF or DjVu, which archivum's `/view` page already does, so menu and palette are one action. DjVu arrives as a browser download; see notes. |
-| **J.21** | | | (Author, in the terminal, 2026-10-24.) Why does the Unicode picker skip colored symbols? Most of what I want to find is colored. Can we add them? |
+| **J.21** |✅|💚 | (Author, in the terminal, 2026-10-24.) Why does the Unicode picker skip colored symbols? Most of what I want to find is colored. Can we add them? |
 | >>CC | L | None | **Skipped on purpose in August: the picker was scoped to math and technical symbols plus ten hand-picked emoji, and the colored characters sit in blocks that were never included.** Adding them is about 1,700 more rows, still loaded only when the picker first opens. One wrinkle: some symbols already in the picker (⚠ ❤ ✔ ☀) turn colored only when followed by an invisible selector character, so each needs a "color" twin in the list. Details below. |
-| **J.22** | | | (Author, in the terminal, 2026-10-24.) Citation keys such as `@S&P2019` show as not-found references although they are in the .bib; presumably the key matcher misses the `&`. Quick fix. |
+| **J.22** |✅|💚 | (Author, in the terminal, 2026-10-24.) Citation keys such as `@S&P2019` show as not-found references although they are in the .bib; presumably the key matcher misses the `&`. Quick fix. |
 | >>CC | L | None | **Confirmed: the key matcher stops at `&`, so `@S&P2019` is read as `@S`, which is not in the bibliography.** The same pattern appears in four places (the not-found check, the hover card, the `@` completion, and the citation pass in Render), and all four get the fix. Five keys in your .bib contain `&`. |
-| **J.xx** | | Watch — revisit if it recurs | 2026-09-24 ~18:30, v2.25.0: a GREAT2 window wedged — webview/JS dead but native window alive. It silently swallowed every Explorer file launch routed to it (I.07) and would not close. Second GREAT2 instance was open on another desktop at the time. **HAS NOT RECURRED** |
+| **J.23** | ✅|💚 | Bug found in testing about current dir and imports in Python, not finding modules in the same folder as the file -> fixed on the fly   |
+| **J.xx** |✅ | Watch — revisit if it recurs | 2026-09-24 ~18:30, v2.25.0: a GREAT2 window wedged — webview/JS dead but native window alive. It silently swallowed every Explorer file launch routed to it (I.07) and would not close. Second GREAT2 instance was open on another desktop at the time. **HAS NOT RECURRED** |
 | >>CC | L | None | **No crash, no log, no dump — the wedge is invisible by construction: release build has no devtools, and the app's own error logging goes through the same IPC that died.** A wedged window still ACKs `WM_COPYDATA`, so routing delivers files into the void. If it recurs: capture a minidump BEFORE killing (`rundll32 comsvcs.dll, MiniDump <pid> <file> full`; `target/release/writedown.pdb` has the symbols). Hardening ready to build on request: (a) heartbeat `instances/<pid>.json` from the frontend, launcher skips stale entries — kills the black hole whatever the cause; (b) enable the `devtools` Cargo feature in release so F12 works in the packaged exe. Related: `writedown.log` shows two prior unhandled rejections in the grid renderer (`getFormattedRow` reading `[0]` of undefined, Sep 07 + Sep 20) — a standing bug and plausible cousin. |
 
 ---
+
 
 ## Batch J: developer notes and implementation plans
 
@@ -3242,3 +3382,4 @@ print(len(str(x)), x)
 | asfd jasd                  | asdfa askdfj ;lasd jf |     tab     |
 | asfd jasd asdfasdf         |                     a | tab asdfasd |
 
+X like the ones you have been producing.
