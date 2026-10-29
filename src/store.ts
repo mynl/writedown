@@ -36,6 +36,7 @@ import {
   buildFile,
   helpPath,
   personalDictionaryPath,
+  gitTreeStatus,
   readBackup,
   readFile,
   setInstanceRoots,
@@ -191,6 +192,85 @@ let projReloadTimer: ReturnType<typeof setTimeout> | undefined;
  *  re-list (issue C.01). Only folders already in `dirCache` are ever added, so a busy
  *  watcher can never fan out into listing work for folders nobody can see. */
 const pendingDirRefresh = new Set<string>();
+
+// Git tree marks (issue K.07): refreshed only on events a person fires (window focus, a save,
+// a change of roots, the palette), never by the file watcher, whose events in 2.31.1 started a
+// `git status` loop. Every request goes through `requestGitMarks`: single-flight, at most one
+// sweep per GIT_MARKS_INTERVAL_MS; a manual request skips the interval but not single-flight.
+const GIT_MARKS_INTERVAL_MS = 10_000;
+/** A save asks for a sweep this long after it, so Save All and the save on blur coalesce. */
+const GIT_MARKS_AFTER_SAVE_MS = 2_000;
+let gitMarksRunning = false;
+/** A request arrived during a sweep: one more runs after it, manual if any request was. */
+let gitMarksAgain: "none" | "auto" | "manual" = "none";
+/** performance.now() at the start of the last sweep. */
+let gitMarksLastStart = -Infinity;
+/** The one timer that runs a request deferred to the end of the interval. */
+let gitMarksTimer: ReturnType<typeof setTimeout> | undefined;
+let gitMarksSaveTimer: ReturnType<typeof setTimeout> | undefined;
+// One-line footer notes, each at most once per session, never an error.
+let gitMarksNoRepoNoted = false;
+let gitMarksTimeoutNoted = false;
+
+const gitTreeOn = (s: { gitTreeOverride: boolean | null; editorSettings: EditorSettings | null }) =>
+  s.gitTreeOverride ?? s.editorSettings?.git_tree_marks ?? true;
+
+/** Ask for a tree-marks sweep 2 s from now; a later save restarts the wait. */
+function requestGitMarksAfterSave(): void {
+  clearTimeout(gitMarksSaveTimer);
+  gitMarksSaveTimer = setTimeout(() => useStore.getState().requestGitMarks(), GIT_MARKS_AFTER_SAVE_MS);
+}
+
+/** One sweep: every root's repository through one Rust call, then the marks and the folder
+ *  dots rebuilt from its entries. Only `requestGitMarks` calls this. */
+async function sweepGitMarks(): Promise<void> {
+  const s = useStore.getState();
+  const roots = s.projFolders.length ? s.projFolders : s.root ? [s.root] : [];
+  if (roots.length === 0) {
+    // Nothing to sweep, and the interval stays unspent for the roots about to arrive.
+    if (Object.keys(s.gitMarks).length) useStore.setState({ gitMarks: {}, gitDirMarks: {} });
+    return;
+  }
+  gitMarksRunning = true;
+  gitMarksLastStart = performance.now();
+  try {
+    const res = await gitTreeStatus(roots);
+    const now = useStore.getState();
+    if (res.skipped || !gitTreeOn(now)) return;
+    const marks: Record<string, string> = {};
+    const dirs: Record<string, true> = {};
+    for (const e of res.entries) {
+      marks[e.path] = e.state;
+      if (e.is_dir) dirs[e.path] = true;
+      // Roll a dot up the ancestor folders, from the same map: no extra git calls. Folders
+      // above the roots are never drawn, so stopping at the drive costs nothing visible.
+      let p = e.path;
+      for (;;) {
+        const parent = p.replace(/[\\/][^\\/]+$/, "");
+        if (parent === p || dirs[parent]) break;
+        dirs[parent] = true;
+        p = parent;
+      }
+    }
+    if (res.timed_out.length > 0 && !gitMarksTimeoutNoted) {
+      gitMarksTimeoutNoted = true;
+      now.showStatusMessage(`git tree marks: skipped ${res.timed_out.join(", ")} (git took longer than 3 s)`);
+    } else if (res.repos.length === 0 && !gitMarksNoRepoNoted) {
+      gitMarksNoRepoNoted = true;
+      now.showStatusMessage(
+        "git tree marks off: no repository among the project's folders (or git not found; set [git] exe in config.toml)",
+      );
+    }
+    useStore.setState({ gitMarks: marks, gitDirMarks: dirs });
+  } catch {
+    /* backend problem: keep the marks shown; the next request tries again */
+  } finally {
+    gitMarksRunning = false;
+    const again = gitMarksAgain;
+    gitMarksAgain = "none";
+    if (again !== "none") useStore.getState().requestGitMarks(again === "manual");
+  }
+}
 
 /** The first managed project (list order, name-sorted) whose folders contain `file` —
  *  where a files-only launch that opens a NEW window lands (issue I.07, author ruling
@@ -451,9 +531,20 @@ type AppState = {
     /** 1-based line of `other` to scroll to the center once the pane mounts. */
     line?: number;
   } | null;
-  /** Session override from the palette's Git: Gutter Marks On/Off verbs; null = follow
-   *  config ([git] gutter_marks, default false). */
+  /** Git tree marks (issues I.02, K.07): absolute file path → state (modified | added |
+   *  untracked | deleted | renamed), and the ancestor folders that roll a dot up.
+   *  Session-only, rebuilt by each sweep; never persisted. */
+  gitMarks: Record<string, string>;
+  gitDirMarks: Record<string, true>;
+  /** Session overrides from the palette's Git: … On/Off verbs; null = follow config
+   *  ([git] tree_marks default true, gutter_marks default false). */
+  gitTreeOverride: boolean | null;
   gitGutterOverride: boolean | null;
+  /** Ask for a git tree-marks sweep (issue K.07). Called on window focus, 2 s after a save,
+   *  on a change of roots, and from the palette (`manual`); never from the file watcher.
+   *  Single-flight and at most one sweep per 10 s; `manual` skips the 10 s, not the
+   *  single-flight. With the marks off it clears them and does nothing else. */
+  requestGitMarks: (manual?: boolean) => void;
   /** Small one-line input dialog (new file/folder names, etc.). `initial` prefills the
    *  input (selected, so typing replaces it) — used by rename-style prompts. */
   prompt: {
@@ -809,6 +900,9 @@ export const useStore = create<AppState>((set, get) => ({
   versionsFor: null,
   versionsMode: "restore" as const,
   diffAgainst: null,
+  gitMarks: {},
+  gitDirMarks: {},
+  gitTreeOverride: null,
   gitGutterOverride: null,
   prompt: null,
   treeMenu: null,
@@ -1702,6 +1796,33 @@ export const useStore = create<AppState>((set, get) => ({
       previewTab: s.previewTab === "diff" ? "live" : s.previewTab,
     })),
 
+  requestGitMarks: (manual = false) => {
+    const s = get();
+    if (!gitTreeOn(s)) {
+      if (Object.keys(s.gitMarks).length || Object.keys(s.gitDirMarks).length) set({ gitMarks: {}, gitDirMarks: {} });
+      return;
+    }
+    if (gitMarksRunning) {
+      if (manual) gitMarksAgain = "manual";
+      else if (gitMarksAgain === "none") gitMarksAgain = "auto";
+      return;
+    }
+    const wait = manual ? 0 : gitMarksLastStart + GIT_MARKS_INTERVAL_MS - performance.now();
+    if (wait > 0) {
+      // One timer at the interval's end serves every request made inside it.
+      if (gitMarksTimer === undefined) {
+        gitMarksTimer = setTimeout(() => {
+          gitMarksTimer = undefined;
+          get().requestGitMarks();
+        }, wait);
+      }
+      return;
+    }
+    clearTimeout(gitMarksTimer);
+    gitMarksTimer = undefined;
+    void sweepGitMarks();
+  },
+
   saveDoc: async (path, opts) => {
     if (isScratch(path)) return; // untitled buffers have no disk path — use Save As
     if (isImageDoc(path)) return; // viewer tabs hold no text — never write an image (spec §2)
@@ -1806,6 +1927,7 @@ export const useStore = create<AppState>((set, get) => ({
       const proj = get().projectFile;
       if (proj && samePath(path, proj)) void get().reloadProject();
       scheduleWordScan(path); // refresh this file's frequency-dictionary entry
+      requestGitMarksAfterSave(); // tree marks (issue K.07), 2 s on, coalescing Save All
       // Git gutter marks (issue I.02) repaint for the saved doc when it is the one on screen.
       const gutterOn = get().gitGutterOverride ?? get().editorSettings?.git_gutter_marks ?? false;
       if (gutterOn && path === get().activePath) {
@@ -2905,10 +3027,14 @@ useStore.subscribe((s, prev) => {
 });
 
 // Whenever the workspace roots change — folder open, project open/switch/close, session
-// restore — re-record this window's roots in the routing registry (issue I.07) so
-// Explorer launches land in the right window.
+// restore — sweep the git tree marks (issue K.07; bounded by the scheduler) and re-record
+// this window's roots in the routing registry (issue I.07) so Explorer launches land in the
+// right window.
 useStore.subscribe((s, prev) => {
+  // `[git] tree_marks` flipped in config.toml: clear the marks, or sweep for them.
+  if (s.editorSettings !== prev.editorSettings && gitTreeOn(s) !== gitTreeOn(prev)) s.requestGitMarks();
   if (s.projFolders !== prev.projFolders || s.root !== prev.root) {
+    s.requestGitMarks();
     const roots = s.projFolders.length ? s.projFolders : s.root ? [s.root] : [];
     void setInstanceRoots(roots).catch(() => {}); // older backend — routing simply absent
   }

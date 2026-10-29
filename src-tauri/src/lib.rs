@@ -14,6 +14,7 @@ mod session;
 mod spelling;
 mod sublime;
 mod titlebar;
+mod tripwire;
 mod update;
 mod watch;
 mod wordfreq;
@@ -50,7 +51,7 @@ fn launch_blank(state: tauri::State<LaunchBlank>) -> bool {
 #[tauri::command]
 fn new_window() -> Result<(), String> {
     let exe = std::env::current_exe().map_err(|e| format!("new window: {e}"))?;
-    std::process::Command::new(exe)
+    tripwire::command("window", exe)
         .arg("--blank")
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
@@ -264,6 +265,14 @@ pub fn run() {
             // Window routing (issue I.07): stamp the HWND marker, accept WM_COPYDATA,
             // and write this window's instance registry entry.
             instance::register(&app.handle());
+            // Subprocess counting (issue K.08): a runaway rate is logged and shown on the
+            // error bar, once per kind per session.
+            let trip_handle = app.handle().clone();
+            tripwire::init(move |trip| {
+                use tauri::Emitter;
+                config::log_error(trip_handle.clone(), trip.log_line());
+                let _ = trip_handle.emit("tripwire", trip);
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -335,6 +344,7 @@ pub fn run() {
             project::add_recent_project,
             wordfreq::word_freq_load,
             wordfreq::word_freq_save,
+            git::git_tree_status,
             git::git_show_index,
             git::git_line_history,
             instance::set_instance_roots,

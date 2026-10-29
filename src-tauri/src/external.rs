@@ -2,8 +2,6 @@
 //! Tool paths come from `[tools]` in config.toml, read per call (the same pattern as
 //! `files::show_hidden`), so a config edit applies immediately with no plumbing.
 
-use std::process::Command;
-
 fn tool(app: &tauri::AppHandle, key: &str) -> Option<String> {
     let dir = crate::config::writedown_dir(app).ok()?;
     let txt = std::fs::read_to_string(dir.join("config.toml")).ok()?;
@@ -21,7 +19,7 @@ pub fn open_external(app: tauri::AppHandle, path: String) -> Result<(), String> 
          in config.toml"
             .to_string()
     })?;
-    Command::new(&exe)
+    crate::tripwire::command("viewer", &exe)
         .arg(&path)
         .spawn()
         .map_err(|e| format!("launch {exe}: {e}"))?;
@@ -53,7 +51,7 @@ pub fn open_default(app: tauri::AppHandle, path: String) -> Result<(), String> {
 #[tauri::command]
 pub fn open_shell(app: tauri::AppHandle, dir: String) -> Result<(), String> {
     let exe = tool(&app, "shell").unwrap_or_else(|| "pwsh".to_string());
-    let mut cmd = Command::new(&exe);
+    let mut cmd = crate::tripwire::command("shell", &exe);
     cmd.current_dir(&dir);
     #[cfg(windows)]
     {
@@ -116,7 +114,7 @@ fn run_build_impl(command: &str, file: &str) -> Result<BuildResult, String> {
         .replace("$file_path", &ps_quote(&dir_s))
         .replace("$file", &ps_quote(file));
 
-    let mut cmd = Command::new("pwsh");
+    let mut cmd = crate::tripwire::command("build", "pwsh");
     cmd.args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &ps_body]);
     cmd.current_dir(dir);
     #[cfg(windows)]

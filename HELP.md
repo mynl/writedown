@@ -175,10 +175,20 @@ a selection wraps the selection — press `$` twice for `$$…$$`.
 
 ## Git marks
 
-In a git repository, per-line change stripes in the editor gutter mark lines changed, added
-or deleted against the index, that is since the last `git add` (`[git] gutter_marks`, off by default; **Git: Gutter Marks
-On / Off** for the session); they update on open and save. The file tree carries no git
-marks. Every git command Writedown runs (`rev-parse`, `show`, `blame`) is read-only and
+In a git repository, the file tree tints modified (amber), added/untracked (green) and
+deleted (red) files, and folders containing changes carry a small dot: on by default,
+`[git] tree_marks` in config, session verbs **Git: Tree Marks On / Off**. The marks are
+refreshed when you come back to Writedown from another window, 2 s after a save, when the
+project's folders change, and on **Git: Refresh Tree Marks**; at most once every 10 s, and
+never because files changed on disk. So they do not follow changes made by other programs
+while Writedown has focus: switching away and back, or **Git: Refresh Tree Marks**, updates
+them. Only repositories that contain a project folder are marked.
+
+Per-line change stripes in the editor gutter mark lines changed, added or deleted against the
+index, that is since the last `git add` (`[git] gutter_marks`, off by default; **Git: Gutter
+Marks On / Off** for the session); they update on open and save.
+
+Every git command Writedown runs (`rev-parse`, `status`, `show`, `blame`) is read-only and
 lock-free: it never takes `index.lock`, so it cannot collide with a commit in another
 program. Outside a repository (or with no git installed) the feature is silently off;
 `[git] exe` points at a git that is not on PATH.

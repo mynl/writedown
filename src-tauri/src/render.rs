@@ -267,7 +267,7 @@ impl Kernel {
         std::fs::write(&runner, include_str!("../runner.py"))
             .map_err(|e| format!("write {}: {e}", runner.display()))?;
 
-        let mut cmd = std::process::Command::new(python);
+        let mut cmd = crate::tripwire::command("python", python);
         cmd.arg("-u")
             .arg(&runner)
             // Backend fixed before any user import; user stderr is captured runner-side.

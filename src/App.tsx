@@ -86,6 +86,21 @@ function App() {
     return () => void p.then((un) => un());
   }, []);
 
+  // Subprocess tripwire (issue K.08): Rust counts every process it starts and, the first time a
+  // kind passes its limit for a minute, says so here, once per kind per session. Nothing is
+  // stopped; the point is that a runaway loop can no longer run silently for weeks.
+  useEffect(() => {
+    const p = listen<{ kind: string; count: number; limit: number; seconds: number }>("tripwire", (e) => {
+      const { kind, count, limit, seconds } = e.payload;
+      useStore.setState({
+        lastError:
+          `Background work is running away: ${count} ${kind} starts in ${seconds} s (limit ${limit} a minute). ` +
+          "Writedown keeps working; the details are in ~/.writedown/logs. Please report it.",
+      });
+    });
+    return () => void p.then((un) => un());
+  }, []);
+
   // Drop files or folders onto the window to open them (issue A.04). Tauri intercepts OS
   // drags at the webview (dragDropEnabled), which SUPPRESSES the HTML5 drag events — so
   // this window-level listener is the only route, and it hands us real absolute paths.
@@ -111,9 +126,12 @@ function App() {
     const saveAll = () => void useStore.getState().saveAll();
     // …and re-list the folders on screen (issue C.01). The Folder tab is watched by nobody
     // while a project is open, so an Explorer delete over there is only ever noticed here.
+    // Coming back is also when git state has most likely changed elsewhere (a commit in a
+    // terminal), so the tree marks are refreshed here (issue K.07; bounded by the scheduler).
     const recheck = () => {
       void useStore.getState().recheckActive();
       void useStore.getState().refreshVisibleDirs();
+      useStore.getState().requestGitMarks();
     };
     window.addEventListener("blur", saveAll);
     window.addEventListener("focus", recheck);

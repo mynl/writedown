@@ -51,9 +51,13 @@ trim_trailing_whitespace = true
 # datetime_format = "%Y-%m-%d %H:%M:%S"
 
 [git]
-# Git (read-only, lock-free `git show` / `git blame`; never any mutating command, no network).
-# gutter_marks adds per-line change stripes in the editor (updated on open and save),
+# Git (read-only, lock-free `git status` / `git show` / `git blame`; never any mutating
+# command, no network). tree_marks tints changed/added/untracked files in the sidebar,
+# refreshed when you come back to Writedown, 2 s after a save, when the project's folders
+# change, and on "Git: Refresh Tree Marks"; never from file activity, at most once per 10 s.
+# gutter_marks adds per-line change stripes in the editor (updated on open and save). Both
 # silently off outside a repo. exe: full path to git.exe when git is not on PATH.
+tree_marks = true
 gutter_marks = false
 # exe = "C:\\Program Files\\Git\\cmd\\git.exe"
 
@@ -233,10 +237,26 @@ timeout_ms = 5000
 # "pdf" = "my-pandoc-script $file"
 "#;
 
-/// `~/.writedown/`.
+/// `~/.writedown/`, or `WRITEDOWN_HOME` when that is set (see `home_override`).
 pub fn writedown_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    if let Some(dir) = home_override() {
+        return Ok(dir);
+    }
     let home = app.path().home_dir().map_err(|e| e.to_string())?;
     Ok(home.join(".writedown"))
+}
+
+/// The `WRITEDOWN_HOME` environment variable, when set and non-empty: it replaces
+/// `~/.writedown/` wholesale (issue K.08), so the idle check, or any test launch of the real
+/// exe, keeps its session, registry entry and logs out of the author's own app home. Needs no
+/// AppHandle, so the launcher's window registry (instance.rs) resolves the same folder.
+pub fn home_override() -> Option<PathBuf> {
+    home_from(std::env::var_os("WRITEDOWN_HOME"))
+}
+
+/// `home_override` on a given value, for the tests: an unset or empty variable is no override.
+fn home_from(value: Option<std::ffi::OsString>) -> Option<PathBuf> {
+    value.filter(|v| !v.is_empty()).map(PathBuf::from)
 }
 
 /// Create the app directory tree and a default `config.toml` if missing (spec §5).
@@ -396,9 +416,9 @@ pub struct EditorSettings {
     search_globs: Option<Vec<String>>,
     search_max_hits: Option<u64>,
     search_timeout_ms: Option<u64>,
-    /// `[git] gutter_marks` (default false), issue I.02. The palette's Git: Gutter Marks
-    /// On/Off verbs override it for the session only. (A `tree_marks` key left over from
-    /// before 2.32.0 is ignored, like any unknown key.)
+    /// `[git] tree_marks` (default true, issues I.02, K.07) / `gutter_marks` (default false).
+    /// The palette's Git: … On/Off verbs override these for the session only.
+    git_tree_marks: Option<bool>,
     git_gutter_marks: Option<bool>,
     /// `[bibliography] viewer_url` (issue J.20): a URL template for a citation's document,
     /// `{key}` replaced by the URL-encoded key in the frontend. Unset, the "Open Document"
@@ -558,6 +578,7 @@ pub fn load_editor_settings(app: tauri::AppHandle) -> Result<EditorSettings, Str
             .and_then(|v| v.as_integer())
             .filter(|n| *n > 0)
             .map(|n| n as u64),
+        git_tree_marks: val.get("git").and_then(|g| g.get("tree_marks")).and_then(|v| v.as_bool()),
         git_gutter_marks: val.get("git").and_then(|g| g.get("gutter_marks")).and_then(|v| v.as_bool()),
         bibliography_viewer_url: val
             .get("bibliography")
@@ -569,7 +590,16 @@ pub fn load_editor_settings(app: tauri::AppHandle) -> Result<EditorSettings, Str
 
 #[cfg(test)]
 mod tests {
-    use super::DEFAULT_CONFIG;
+    use super::{home_from, DEFAULT_CONFIG};
+
+    /// `WRITEDOWN_HOME` set replaces the app home; empty or unset leaves `~/.writedown/`.
+    #[test]
+    fn writedown_home_resolution() {
+        let set = home_from(Some(r"T:\idle\home".into()));
+        assert_eq!(set, Some(std::path::PathBuf::from(r"T:\idle\home")));
+        assert_eq!(home_from(Some("".into())), None);
+        assert_eq!(home_from(None), None);
+    }
 
     #[test]
     fn default_config_is_valid_toml_and_honest() {
@@ -588,8 +618,8 @@ mod tests {
         assert!(v.get("theme").is_none(), "[theme] is decorative");
         assert!(v.get("general").is_none(), "[general] is decorative");
         assert!(v.get("files").and_then(|f| f.get("extensions")).is_none());
-        // The git tree marks were removed in 2.32.0; only the gutter switch remains.
-        assert!(v.get("git").and_then(|g| g.get("tree_marks")).is_none());
+        // Both git switches: tree marks came back in K.07 (removed in 2.32.0), and the gutter.
+        assert_eq!(v.get("git").and_then(|g| g.get("tree_marks")).and_then(|t| t.as_bool()), Some(true));
         assert!(v.get("git").and_then(|g| g.get("gutter_marks")).is_some());
         // tab_size is a WIRED live key (editor indent width) — it stays in the template.
         assert!(v.get("editor").and_then(|e| e.get("tab_size")).is_some());

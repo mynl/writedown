@@ -15,7 +15,7 @@
 
 use serde::Serialize;
 use std::io::{BufRead, BufReader, Read};
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -333,7 +333,7 @@ fn search_impl(
     args.extend(user.into_iter().filter(|a| a != "--json"));
     args.extend(roots.iter().cloned());
 
-    let mut cmd = Command::new("rg");
+    let mut cmd = crate::tripwire::command("rg", "rg");
     cmd.args(&args).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
     #[cfg(windows)]
     {

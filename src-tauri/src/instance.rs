@@ -43,8 +43,12 @@ struct Entry {
 }
 
 /// `~/.writedown/instances/` without an AppHandle — the launcher runs before Tauri
-/// builds anything. Same resolution as config::writedown_dir (home_dir = USERPROFILE).
+/// builds anything. Same resolution as config::writedown_dir (`WRITEDOWN_HOME` first, then
+/// home_dir = USERPROFILE).
 fn instances_dir() -> Option<PathBuf> {
+    if let Some(dir) = crate::config::home_override() {
+        return Some(dir.join("instances"));
+    }
     let home = std::env::var("USERPROFILE").ok().filter(|s| !s.is_empty())?;
     Some(PathBuf::from(home).join(".writedown").join("instances"))
 }

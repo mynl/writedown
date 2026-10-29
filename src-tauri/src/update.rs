@@ -10,7 +10,7 @@
 //! git and ripgrep are (no console window, output captured), so nothing new is linked.
 
 use serde::Serialize;
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 
 /// The only URL Writedown ever requests. The repository is public.
 pub const LATEST_RELEASE_URL: &str = "https://api.github.com/repos/mynl/writedown/releases/latest";
@@ -51,7 +51,7 @@ fn host_of(url: &str) -> Option<&str> {
 /// limit, an unparsable reply) come back as a message for the error strip.
 #[tauri::command(async)]
 pub fn check_for_update() -> Result<UpdateInfo, String> {
-    let mut cmd = Command::new("curl.exe");
+    let mut cmd = crate::tripwire::command("update", "curl.exe");
     cmd.args([
         "-s",
         "-S", // with -s: still print the error message on failure

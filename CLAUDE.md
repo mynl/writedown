@@ -69,6 +69,21 @@ Each is a decision with its rejected alternative; revisit only with cause.
   after Quarto render was built and then removed for environment-coupling reasons that should
   have been visible up front.
 
+## Background work
+
+The general rules are in `V:\dev\CLAUDE.md` ("Background work and performance claims"). Here:
+
+- **The file watcher never starts work proportional to the roots and never starts a subprocess.**
+  It re-lists folders the tree has listed and reloads open files; Rust drops every other event
+  (2.32.0, `watch.rs`).
+- **Every subprocess starts through `tripwire::command(kind, exe)`**, which counts it; a test fails
+  on any other `Command::new` outside test code. A rate past the kind's limit is logged and shown
+  on the error bar.
+- **Every git call is lock-free** (`GIT_OPTIONAL_LOCKS=0`, set in `git.rs`).
+- **Idle check:** `npm run tauri build`, then `pwsh scripts/idle-check.ps1`. Part of the gate for
+  any change that touches background work. It opens a window for about two minutes under its own
+  `WRITEDOWN_HOME`, so the real `~/.writedown/` is never touched.
+
 ## Layout
 
 ```

@@ -287,7 +287,25 @@ export function appCommands(): Command[] {
       action: "insertSymbol",
       run: () => s().openPalette("symbols"),
     },
-    // Git gutter marks (issue I.02) — session overrides; config [git] sets the default.
+    // Git marks (issues I.02, K.07): session overrides; config [git] sets the defaults.
+    {
+      id: "git-tree-on",
+      title: "Git: Tree Marks On",
+      run: () => {
+        useStore.setState({ gitTreeOverride: true });
+        useStore.getState().requestGitMarks(true);
+      },
+    },
+    {
+      id: "git-tree-off",
+      title: "Git: Tree Marks Off",
+      run: () => useStore.setState({ gitTreeOverride: false, gitMarks: {}, gitDirMarks: {} }),
+    },
+    {
+      id: "git-tree-refresh",
+      title: "Git: Refresh Tree Marks",
+      run: () => useStore.getState().requestGitMarks(true),
+    },
     { id: "git-gutter-on", title: "Git: Gutter Marks On", run: () => useStore.setState({ gitGutterOverride: true }) },
     { id: "git-gutter-off", title: "Git: Gutter Marks Off", run: () => useStore.setState({ gitGutterOverride: false }) },
     // Explicit On/Off, not "Toggle": a verb must not change meaning with state.

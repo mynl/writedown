@@ -44,10 +44,10 @@ Here lies comme.nts more dsa fdkl ase.
 | **K.06** | ⚫ | | What is scope of the long word dict ... does not feel like it is all my long words? Is it by project?     |
 | >>CC | L | None | **Not by project: one dictionary for everything, fed only by files you open or save, keeping the last 50 files and the top 250 words of each.** And a bug: each window writes its whole copy back, so with several windows open they overwrite each other's words. Recommend fixing the overwrite and raising the limits. ==> fix the overwrite - leave limits. |
 | | --- | | |
-| **K.07** | ⚫ | | (Author, in the terminal, 2026-10-29.) Bring back the git marks in the tree (removed in 2.32.0), refreshed on occasional events such as a save, never continuously. |
+| **K.07** |✅| | (Author, in the terminal, 2026-10-29.) Bring back the git marks in the tree (removed in 2.32.0), refreshed on occasional events such as a save, never continuously. |
 | >>CC | M | None at rest, to be measured by the idle check | **Planned in `dev/plan-batch-k.md`: marks refresh when you come back to Writedown, 2 s after a save, when the project's folders change, and on a palette command; at most once every 10 s.** The file watcher never triggers them and git can no longer take a lock, so the 2.31 loop cannot return. |
 | | --- | | |
-| **K.08** | ⚫ | | (Author, in the terminal, 2026-10-29.) Put a process in place so a performance bug like the git-status loop cannot happen again: general guidelines for background work, not only for git. |
+| **K.08** |✅| | (Author, in the terminal, 2026-10-29.) Put a process in place so a performance bug like the git-status loop cannot happen again: general guidelines for background work, not only for git. |
 | >>CC | M | None (a counter per subprocess start) | **Same plan: written rules for any background work (dev-tree CLAUDE.md and the plan review), a script that measures a release build's idle CPU under load before handover, and an in-app tripwire that flags runaway subprocess starts.** |
 | | --- | | |
 
@@ -157,6 +157,8 @@ Background cost: (1) and (2) run inside the existing scan; trigger, opening or s
 ### K.07 and K.08: git tree marks on user events; background-work safeguards
 
 Both are planned in `dev/plan-batch-k.md` (sections 1 to 5, the first of its two bumps), which records the author's rulings of 2026-10-29: all three safeguards, guidelines written for background work in general, and no periodic refresh of the marks.
+
+- **Built:** K.07 and K.08 in 2.33.0 (2026-10-29). The plan is now `dev/done/plan-batch-k.md`; divergences are in its execution log.
 
 ***
 

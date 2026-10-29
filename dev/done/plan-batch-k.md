@@ -634,4 +634,92 @@ Second bump:
 
 ## Execution log
 
-(Filled in at execution.)
+Executed from 2026-10-29, from 2.32.0. Review found every named file, symbol and snippet as
+described (spawn sites, `writedown_dir`, `instances_dir`, `jumpToLine` at line 167, `search({ top:
+true })` at line 178, `.preview` font at line 707, the focus listener, the roots subscription, the
+word-frequency pair, the 2.31.1 tree-marks code); no name collisions for `tripwire`,
+`git_tree_status`, `requestGitMarks`, `countWords`, `mergeStores`, `jumpBack`, `jumpForward`,
+`docStart`, `docEnd`, `WRITEDOWN_HOME`. No blockers.
+
+### First bump
+
+**Divergences**
+
+- **[guidelines] wrapping.** The execute-plan skill wraps at 80 columns, so its two additions are
+  rewrapped to match; the words are the plan's. `V:\dev\CLAUDE.md` and the skill are outside any
+  repository and are not committed.
+- **[tripwire] report through a callback.** `tripwire::init` takes a closure (set in `setup` in
+  `lib.rs`, which logs through `config::log_error` and emits `tripwire`) instead of storing the
+  `AppHandle`. With the handle stored and `emit` called inside `tripwire.rs`, every spawn site,
+  ignored tests included, linked the Tauri runtime into the test binary, which then would not load
+  (`STATUS_ENTRYPOINT_NOT_FOUND`, the comctl32 v6 manifest the test exe lacks). Clean HEAD's test
+  binary links no Tauri runtime at all; the callback keeps it that way.
+- **[tripwire] message.** The trip fires the moment the count passes the limit, so the count is
+  always limit + 1; the log line and the error bar give the seconds since the window opened
+  instead ("121 git starts in 14 s (limit 120 a minute)"), which says how fast it is running.
+- **[tripwire] limits.** Peaks confirmed: `git`, tree marks at most 6 sweeps a minute of one
+  `rev-parse` per root and one `status` per repository, the gutter two per open, save or tab switch
+  while on, blame three or four per request; `rg` one per query on Enter; `python` up to
+  `max_kernels` at warm-up plus restarts; the rest one per command. Kept 120 / 60 / 30 / 30. 120
+  `git` equals ten roots in ten repositories swept every 10 s for a whole minute, so it is about
+  three times the five-root peak the plan names, not three times any project size; the 2.31.1 loop
+  ran at about 400 a minute.
+- **[tripwire] kinds:** `git`, `rg`, `python`, `viewer` (`open_external`), `shell`, `build`,
+  `window` (`new_window`), `update` (`curl.exe`).
+- **[idle-check] own WebView2 data folder.** The script also sets `WEBVIEW2_USER_DATA_FOLDER`
+  under the fixture. A host using the default data folder joins the browser process of any
+  Writedown window already open, so the test window's frontend would run outside the measured
+  tree (and under the author's process). The script fails if the tree holds no
+  `msedgewebview2.exe`.
+- **[idle-check] git sampling** uses `Get-Process -Name git` and its `Parent` (PowerShell 7),
+  faster than a CIM query; the CIM query builds the process tree at each phase's start and end.
+
+**Idle check 1, baseline** (2026-10-29, release build of 2.32.0 plus [tripwire] and [app-home],
+before [tree-marks]): settle 15 s 4.82% of one core; phase A 60 s 0.36%, 0 git starts; phase B
+30 s 1.09%, 0 git starts; tree of 7 processes, 6 of them WebView2; no tripwire line. Pass. The real
+`~/.writedown/` was untouched (`session.json` older than the run, `instances/` empty) and the
+fixture was deleted.
+
+- **[tree-marks] timeout.** `run_timed` reads stdout on its own thread (a large `status` cannot
+  stall git against a full pipe while the deadline is polled every 5 ms) and at the deadline kills
+  the whole tree with `taskkill /T /F`: the `git.exe` on PATH is Git for Windows' launcher, and
+  killing it alone leaves the real git running. `taskkill` is its own tripwire kind. The test
+  stands `cmd /C ping -n 30` in for git; it returns at the 0.5 s deadline and no `ping.exe`
+  survives it. The 3 s timeout applies to the sweep's two calls only; the gutter and blame keep
+  their untimed calls (a blame on a long history can take longer than 3 s).
+- **[tree-marks] one command builder.** `git_command` builds every git call (tripwire, `-C`,
+  `GIT_OPTIONAL_LOCKS=0`, no console window) for `run_git`, `run_git_stdin` and the sweep.
+- **[tree-marks] dedupe tests.** The dedupe is a pure `push_unique` (case-insensitive), tested
+  alone; a second test sweeps a real temporary repository with two roots inside it and one
+  outside (one repository swept, two entries, no `index.lock` left), and skips with a note where
+  git is not on PATH.
+- **[tree-marks] folder dots** roll up to the drive instead of stopping at the swept root, since a
+  sweep is now per repository, not per root. A root above a repository (the idle check's `work`
+  above `work\repo`) also gets its dot; folders above the roots are never drawn.
+- **[tree-marks] scheduler details.** A request with no roots clears the marks without spending
+  the 10 s interval, so the first real sweep is not delayed by a focus event that arrived before
+  the project loaded. A store subscription re-requests when `[git] tree_marks` flips in
+  config.toml, so turning it off clears the marks at once.
+- **[tree-marks] footer notes** reworded without a dash ("git tree marks off: no repository among
+  the project's folders (or git not found; set [git] exe in config.toml)"), and a second
+  once-per-session note names repositories skipped by the timeout.
+
+**Idle check 2, first bump** (release build of 2.33.0, marks on), run twice: settle 16.92% and
+9.06% of one core, with 1 and 3 git starts sampled (the startup sweep); phase A 0.39% and 0.80%,
+0 git starts; phase B 3.78% and 1.29%, 0 git starts; no tripwire line. Pass. Phase B's spread
+between runs (1.09% at baseline, 3.78%, 1.29%) is WebView2 noise, not a trend; phase A's 0.80%
+is the closest any run came to its 1% limit.
+
+**Gates (2026-10-29, all green):** `npm run build` (inside `npm run tauri build`): tsc and vite,
+built. `cargo test` (cwd `src-tauri/`): 97 passed, 0 failed, 15 ignored; no warnings. New:
+`tripwire::tests::{window_trips_once_and_resets, every_spawn_goes_through_the_tripwire}`,
+`config::tests::writedown_home_resolution`, `git::tests::{porcelain_codes_map_to_states,
+porcelain_parses_to_absolute_paths, roots_in_one_repository_dedupe,
+tree_status_sweeps_each_repository_once, timeout_kills_a_stuck_child}`.
+`npx madge --circular --extensions ts,tsx src/main.tsx`: no circular dependency. Headless
+smoke-boot of `dist/` in Edge: the plain boot stops at the expected `getCurrentWindow()`
+ErrorBoundary (2 KB DOM); the stub-runtime boot renders the layout with the status bar, and the
+console holds only "no backend" rejections. (Edge must be pointed at `localhost`, not
+`127.0.0.1`: `vite preview` listens on the IPv6 loopback.)
+
+**Left for the author:** live checks 1 to 7 on a release build.

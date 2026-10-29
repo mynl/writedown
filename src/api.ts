@@ -221,7 +221,17 @@ export const gitLineHistory = (path: string, line: number, contents: string) =>
 
 export const createFile = (path: string) => invoke<void>("create_file", { path });
 
-// ---- Git gutter marks (issue I.02) — read-only, lock-free `git` invocations, off the UI thread ----
+// ---- Git marks (issues I.02, K.07) — read-only, lock-free `git` invocations, off the UI thread ----
+/** One changed path from `git status`, absolute; state ∈ modified | added | untracked |
+ *  deleted | renamed. Untracked directories arrive as one collapsed entry (is_dir). */
+export type GitEntry = { path: string; state: string; is_dir: boolean };
+/** One tree-marks sweep. `repos` empty: no git, or no root in a repository (feature silently
+ *  off). `timed_out`: roots or repositories skipped after 3 s. `skipped`: a sweep was already
+ *  running, nothing was done. */
+export type GitTreeStatus = { entries: GitEntry[]; repos: string[]; timed_out: string[]; skipped: boolean };
+/** Sweep every root's repository once (issue K.07). Called only through the store's
+ *  `requestGitMarks` scheduler, never from the file watcher. */
+export const gitTreeStatus = (roots: string[]) => invoke<GitTreeStatus>("git_tree_status", { roots });
 /** The index version of `path` for the gutter diff: null = no git/not a repo (feature
  *  off), "" = untracked (every buffer line counts as added). */
 export const gitShowIndex = (path: string) => invoke<string | null>("git_show_index", { path });
@@ -436,8 +446,9 @@ export type EditorSettings = {
   search_globs: string[] | null;
   search_max_hits: number | null;
   search_timeout_ms: number | null;
-  /** `[git] gutter_marks` (default false), issue I.02. The palette's Git: Gutter Marks
-   *  On/Off verbs override it for the session. */
+  /** `[git] tree_marks` (default true) / `gutter_marks` (default false), issues I.02, K.07.
+   *  Session overrides come from the palette's Git: … On/Off verbs. */
+  git_tree_marks: boolean | null;
   git_gutter_marks: boolean | null;
   /** `[bibliography] viewer_url` (issue J.20): template for a citation's document page,
    *  `{key}` replaced by the URL-encoded key. Null when unset. */

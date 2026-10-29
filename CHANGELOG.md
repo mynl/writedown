@@ -5,6 +5,24 @@ All notable changes to Writedown are recorded here. Format follows
 [Semantic Versioning](https://semver.org/). Newest first. The terse git commit
 messages point here for detail.
 
+## [2.33.0] - 2026-10-29
+
+Git tree marks return, on user events only, with safeguards so background work cannot loop
+silently again (Batch K, K.07 and K.08). Plan: `dev/done/plan-batch-k.md`.
+
+### Added
+
+- **Git tree marks are back**, refreshed when you return to Writedown, 2 s after a save, when
+  the project's folders change, and on **Git: Refresh Tree Marks** (new); never from file
+  activity, at most once per 10 s, and lock-free. `[git] tree_marks` and **Git: Tree Marks
+  On / Off** as before 2.32.0.
+- **A runaway rate of subprocess starts is logged and shown on the error bar**, once per kind
+  per session (for git, more than 120 starts within a minute). Nothing is stopped.
+- **`WRITEDOWN_HOME`** moves `~/.writedown/` elsewhere, so a test launch never touches the
+  real one.
+- **Developer:** `scripts/idle-check.ps1` measures a release build's idle CPU and git starts
+  while other programs write under its folders; part of the gate for background work.
+
 ## [2.32.0] - 2026-10-28
 
 A project can hold whole drives as folders and stay idle. Plan:
