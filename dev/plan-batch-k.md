@@ -7,9 +7,7 @@ is pended by the author and not in this plan. This plan stands alone: no convers
 needed to review or implement it. The Batch K table and its developer notes in
 `writedown-issues.md` hold the original diagnoses; where they differ, this plan wins.
 
-**Status: ruled 2026-10-29, ready for review and execution.** One point the review confirms with
-the author before [word-count] starts: the K.03 counting rule (no explicit ruling; the
-recommendation is adopted, see [word-count]).
+**Status: ruled 2026-10-29, ready for review and execution.** Every item has a ruling.
 
 Ten steps in two version bumps:
 
@@ -48,7 +46,7 @@ are assigned at execution. [guidelines] also edits two files outside any reposit
 - K.05: "this is for the rendered views created by Writedown. If you load an HTML page you honor
   its style specification."
 - K.06: "fix the overwrite, leave limits", confirmed.
-- K.03: no explicit ruling (asked twice); the recommendation is adopted.
+- K.03: prose only, as recommended, confirmed.
 
 ---
 
@@ -374,14 +372,13 @@ position, update it.
   than one line, the text of every non-empty selection range; otherwise the whole document. The
   result goes to the status bar through `showStatusMessage`: "Word count, selection: 1,234 words,
   7,890 characters" (or "document"), integers comma-separated.
-- **Counting rule. No ruling recorded; this is the recommendation, confirm at review.** Prose only.
+- **Counting rule (author, 2026-10-29): prose only.**
   Removed before counting: the YAML front matter at the top, fenced code blocks (``` and `~~~`,
   Python cells included), HTML comments and tags, display math (`$$ … $$`), and link and image
   targets (the `(…)` after `]`). Inline math (`$…$`) counts as one word, a citation (`@key`) as
   one. A word is a maximal run of letters and digits (`\p{L}`, `\p{N}`), with an internal
   apostrophe or hyphen keeping the run together (`don't`, `well-known`). Characters: the code
-  points of the text kept, spaces included, line breaks excluded. If the author rules "every
-  word" instead, the removal step is skipped.
+  points of the text kept, spaces included, line breaks excluded.
 - **Verification.** No frontend test runner exists. The executor checks `countWords` with a
   throwaway node script in the session scratchpad (Node 26 runs the `.ts` module directly) on:
   a plain sentence; front matter alone (0 words); a Python cell between two paragraphs (cell

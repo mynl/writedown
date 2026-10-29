@@ -32,7 +32,7 @@ Here lies comme.nts more dsa fdkl ase.
 | **K.02** | ⚫ |  | Alt - steps back through cursor position, like ST |
 | >>CC | M | None | **Nothing like it exists yet, and Alt+- and Alt+Shift+- are free.** Writedown would remember where the caret was before each big move (a jump of more than about 10 lines, an outline click, a find, a tab switch); Alt+- walks back through those places and Alt+Shift+- forward, across files as in ST. Question below: across files or within one file. ==>within current file (but remember across files) |
 | | --- | | |
-| **K.03** | 🟨 | | Add word count  to command palette, entire buffer or selection if longer than 1 line |
+| **K.03** | ⚫ | | Add word count  to command palette, entire buffer or selection if longer than 1 line |
 | >>CC | L | None | **Easy; no count exists today.** A palette "Word Count" puts the count in the status bar: the selection when it spans more than one line, else the whole file. Recommend counting prose only, leaving out front matter, code cells and comments. |
 | | --- | | |
 | **K.04** | ⚫ | | Is it possible for the search box to be at the bottom rather than the top on the edit tab?    |
@@ -106,7 +106,7 @@ Background cost: an explicit command only; one pass over the text, a few ms for 
 
 **Question:** prose only (recommended), or every word in the file.
 
-**Open 2026-10-29:** no ruling recorded. `dev/plan-batch-k.md` [word-count] adopts the recommendation (prose only) and asks for confirmation at review.
+**Resolved 2026-10-29 (author):** prose only, as recommended. See [word-count] in `dev/plan-batch-k.md`.
 
 ### K.04: find panel at the bottom (`src/editor/Editor.tsx`)
 
