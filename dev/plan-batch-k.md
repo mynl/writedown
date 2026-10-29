@@ -7,9 +7,9 @@ is pended by the author and not in this plan. This plan stands alone: no convers
 needed to review or implement it. The Batch K table and its developer notes in
 `writedown-issues.md` hold the original diagnoses; where they differ, this plan wins.
 
-**Status: ruled 2026-10-29, ready for review and execution.** Two points the review confirms with
-the author before execution starts: the K.03 counting rule (no ruling recorded; the recommendation
-is adopted, see [word-count]) and the reading of the K.02 ruling (see [jump-back]).
+**Status: ruled 2026-10-29, ready for review and execution.** One point the review confirms with
+the author before [word-count] starts: the K.03 counting rule (no explicit ruling; the
+recommendation is adopted, see [word-count]).
 
 Ten steps in two version bumps:
 
@@ -22,7 +22,7 @@ Ten steps in two version bumps:
 | first | **[tree-marks]** | K.07 | Git tree marks back, refreshed only on user events, bounded and lock-free | `git.rs`, store, tree, commands, config, help |
 | second | **[find-bottom]** | K.04 | The find panel opens at the bottom of the editor | `src/editor/Editor.tsx` |
 | second | **[word-count]** | K.03 | Palette "Word Count" | new `src/editor/wordCount.ts`, `src/commands.ts` |
-| second | **[jump-back]** | K.02 | Alt+- and Alt+Shift+- move through big caret moves, per file | new `src/editor/jumpHistory.ts`, keymap, registry |
+| second | **[jump-back]** | K.02 | Alt+- and Alt+Shift+- move through the places you navigated from, per file | new `src/editor/jumpHistory.ts`, `editorView.ts`, keymap, registry |
 | second | **[preview-font]** | K.05 | STIX Two Text in the Markdown and Quarto preview, configurable, aligned table figures | `package.json`, `src/App.css`, config |
 | second | **[word-dictionary]** | K.06 | Windows stop overwriting each other's Tab-completion words | `src/editor/wordFreq.ts`, `src-tauri/src/wordfreq.rs` |
 
@@ -40,12 +40,15 @@ are assigned at execution. [guidelines] also edits two files outside any reposit
 - K.07: tree marks come back, refreshed only on user events; no periodic timer ("things aren't
   changing much in the background").
 - K.01 (math in the HTML preview): keep pended.
-- K.02: "within current file (but remember across files)".
+- K.02: "within current file (but remember across files)": one history per file, kept while you
+  work in other files, and never a jump between files ("ST does that and it is annoying").
+  Navigation only, not every place the caret rested: "we are trying to pick up navigation rather
+  than all the micro-caret rest points".
 - K.04: agreed, bottom, no config option.
 - K.05: "this is for the rendered views created by Writedown. If you load an HTML page you honor
   its style specification."
-- K.06: "fix the overwrite, leave limits".
-- K.03: no ruling recorded.
+- K.06: "fix the overwrite, leave limits", confirmed.
+- K.03: no explicit ruling (asked twice); the recommendation is adopted.
 
 ---
 
@@ -389,46 +392,76 @@ position, update it.
 **Background cost.** An explicit command only; one pass over the text, a few ms for a long
 document; writes nothing.
 
-## 8. [jump-back] Alt+- and Alt+Shift+- through big caret moves (K.02)
+## 8. [jump-back] Alt+- and Alt+Shift+- through the places you navigated from (K.02)
 
-**Ruling (2026-10-29):** "within current file (but remember across files)". Read as: Alt+- and
-Alt+Shift+- move only within the current file, through that file's own history; every file keeps
-its history while you work in others, so coming back to a file finds it intact. **Confirm this
-reading at review.** (The alternative was Sublime's single history that crosses files.)
+**Rulings (2026-10-29):** one history per file, kept while you work in other files, and Alt+-
+never moves to another file ("ST does that and it is annoying"). Navigation only: "we are trying
+to pick up navigation rather than all the micro-caret rest points".
+
+**How Sublime does it, and why this differs.** Sublime's jump history (`history_list.py` in its
+Default package, read 2026-10-29) records on every selection change and every tab switch, in one
+list per window that crosses files. Repeats of the same command within one second merge into one
+record, so each typing burst, run of arrow presses, click or find becomes a stop. That
+fine-grained, cross-file history is what the rulings reject. Kept from Sublime: positions move
+with edits (it stores them as regions in the buffer), a run of the same command leaves one
+record, recording after a step back drops the forward part, and back and forward are never
+themselves recorded.
 
 **Current behavior.** No caret history. Alt+- and Alt+Shift+- are unbound; Ctrl+- is font zoom.
 
 **Change.**
 
 - New `src/editor/jumpHistory.ts`: a module-level map from normalized path to `{ list, index }`,
-  positions as line and column, at most 100 per file and 200 files (least recently used dropped),
-  session only, never persisted. The record, merge, truncate, back, forward and clamp logic are
-  pure functions; the editor wiring is a thin layer over them.
-- **What gets recorded: the place the caret rested before a jump.** An `EditorView.updateListener`
-  in the editor extensions watches selection changes. When the main caret moves more than 10
-  lines in one transaction and the caret had rested within 10 lines of its old place for at least
-  one second, the old place is recorded. Outline clicks, Find and F3, Go to Line, Ctrl+Home and
-  Ctrl+End, and a click far away all qualify after you have been reading somewhere; a run of
-  PageDown presses records only where it started, because the caret never rests between them.
-  Typing never moves the caret 10 lines. A new record within 10 lines of the newest one replaces
-  it; recording after a step back drops the forward part, as a browser does.
+  positions as document offsets, at most 100 per file and 200 files (least recently used
+  dropped), session only, never persisted. The record, merge, truncate, back, forward, map and
+  clamp logic are pure functions; the editor wiring is a thin layer over them.
+- **What gets recorded: the place you navigated FROM**, for these navigations only:
+  1. `jumpToLine` (`src/editor/editorView.ts`, line 167), the one helper behind outline clicks,
+     Find in Files hits and palette go-tos (`Outline.tsx`, `Palette.tsx`, the pending jump in
+     `Editor.tsx`): one call at its top records the caret before the move. A jump into a file
+     just opened, whose caret is still at its start and whose history is empty, records nothing.
+  2. Find next and previous (F3, Shift+F3, Enter in the find panel): CodeMirror tags these
+     transactions `userEvent: "select.search"`, so an `EditorView.updateListener` records
+     `tr.startState.selection.main.head`. Select All Matches (`select.search.matches`) is not
+     navigation and is skipped.
+  3. Go to Line (Ctrl+G): CodeMirror's dialog moves the caret with no `userEvent`, so the record
+     is made when the `gotoLine` registry command runs, at the place Ctrl+G was pressed.
+  4. Ctrl+Home and Ctrl+End: today these come from CodeMirror's default keymap (through
+     `basicSetup`), not from Writedown's registry. Add registry actions `docStart` and `docEnd`,
+     bound in `DEFAULT_KEYS`, which record and then run CodeMirror's `cursorDocStart` and
+     `cursorDocEnd`. The Shift variants (extend the selection) stay as they are and record
+     nothing.
+- **Never recorded:** typing, arrows, PageUp and PageDown, Home and End, mouse clicks and drags,
+  scrolling, undo and redo, and the moves Alt+- and Alt+Shift+- make.
+- **Merging:** a run of the same navigation records only where it started (if the newest record
+  came from the same kind of navigation and the caret is still exactly where that navigation left
+  it, nothing is recorded, so ten F3 presses leave one record). A record on the same line as the
+  newest one is skipped. Recording after a step back drops the forward part, as a browser does.
+- **Positions move with edits:** on each document change in the active file, its positions are
+  mapped through the change (`tr.changes.mapPos`). When a change replaces the whole document (a
+  file reloaded after an outside edit), positions keep their line and column instead. A file
+  edited outside Writedown while not active clamps its positions to the new length.
 - **Back (Alt+-):** at the newest end, first record the current place (so forward can return to
   it), then move to the previous entry, centered. At the oldest entry, a status note "Start of
-  jump history". **Forward (Alt+Shift+-)** the reverse. A position past the end of the file
-  clamps to it. Moves made by back and forward are not themselves recorded.
+  jump history". **Forward (Alt+Shift+-)** the reverse, with "End of jump history".
 - Keymap `{ key: "Alt+-", action: "jumpBack" }` and `{ key: "Alt+Shift+-", action: "jumpForward" }`;
   registry entries "Jump Back" and "Jump Forward" (palette too). Check at build how the keymap
   parser and CodeMirror name these keys: with Shift held the key arrives as `_` on a US layout,
   so the forward binding may need CodeMirror's `Alt-_` form. Both must work, and `[keys]` must
   rebind them.
-- Edits above a recorded position shift it slightly, since positions are line and column, as in
-  Sublime.
 - **Verification.** The pure functions are checked with a throwaway node script, as in
-  [word-count]; the keys and the rest rule live.
+  [word-count]: a run of the same kind records once; the same line is skipped; a record after a
+  step back drops the forward part; back at the newest end records the current place; mapping
+  through an insertion above and a deletion around a position; a whole-document replacement keeps
+  line and column; clamping. The keys and each navigation source are checked live.
 
-**Background cost.** Trigger: every selection change, so this sits on the typing path. Cost per
-change: compare two line numbers and read a timestamp, constant time, no allocation unless a
-record is made. Writes nothing.
+**Background cost.** Trigger: navigation commands (fired by the person) for recording; each
+document change in the active file for mapping, which puts the mapping on the typing path. Cost:
+at most 100 `mapPos` calls per edit (microseconds), and one `userEvent` check per selection
+change. Writes nothing.
+
+**What it won't do.** A click far away, PageDown or scrolling is not a jump and leaves no record.
+Alt+- never opens or switches to another file. The history ends with the session.
 
 ## 9. [preview-font] STIX Two Text in Writedown's own preview (K.05)
 
@@ -549,9 +582,11 @@ Second bump:
 8. Ctrl+F and Ctrl+H open at the bottom of the editor; F3 still centers the match.
 9. **Word Count** on a document, and on a selection over several lines; a selection within one
    line counts the whole document.
-10. In a long file, after reading somewhere for a moment: an outline click, then Alt+- returns
-    and Alt+Shift+- goes forward. Switch to another file and back: Alt+- still walks the first
-    file's history, and never jumps to another file.
+10. In a long file: an outline click, a Ctrl+G and a run of F3 presses, then Alt+- returns
+    through those starting places in reverse (one stop for the whole F3 run) and Alt+Shift+-
+    goes forward. Clicks, arrows and PageDown in between leave no stops. Type a paragraph above
+    a recorded place, then Alt+-: it lands on the same text. Switch to another file and back:
+    Alt+- still walks the first file's history, and never jumps to another file.
 11. The Live and Rendered tabs show STIX Two Text and a numeric table lines up;
     `[preview] font_family = "Georgia"` in config.toml changes it on save; an HTML file's preview
     still uses the page's own fonts.
@@ -572,8 +607,9 @@ First bump:
 Second bump:
 
 - **Added:** **Word Count** in the palette, for the selection or the whole document, prose only.
-- **Added:** Alt+- and Alt+Shift+- step back and forward through the places you jumped from, per
-  file.
+- **Added:** Alt+- and Alt+Shift+- step back and forward through the places you navigated from
+  (outline, Find in Files, Find, Go to Line, Ctrl+Home and Ctrl+End), within the current file;
+  each file keeps its own history.
 - **Changed:** the find panel opens at the bottom of the editor, as in Sublime.
 - **Changed:** the preview sets text in STIX Two Text, the house kit's face, with table figures
   aligned; `[preview] font_family` changes it. HTML files keep their own styles.

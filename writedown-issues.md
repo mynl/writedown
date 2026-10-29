@@ -92,7 +92,7 @@ Background cost: trigger, every selection change, so it sits on the typing path;
 
 **Question:** across files, as in Sublime (recommended, M), or within the current file only (L).
 
-**Resolved 2026-10-29 (author):** within the current file, but remember across files. Planned as one history per file, kept while you work in other files; Alt+- never leaves the current file. Positions are recorded where the caret rested at least a second before a jump, so a run of PageDown records only its start. See [jump-back] in `dev/plan-batch-k.md`; the reading of the ruling is confirmed at review.
+**Resolved 2026-10-29 (author):** within the current file, but remember across files: one history per file, kept while you work in other files, and Alt+- never leaves the current file (Sublime crosses files, "and it is annoying"). Navigation only, "rather than all the micro-caret rest points". Checked against Sublime's own `history_list.py`: it records every change of command (each typing burst, click, arrow run) and every tab switch, so it is not the model. Planned: record the place you navigated from, for outline clicks, Find in Files hits and palette go-tos (`jumpToLine`), Find next and previous, Go to Line, and Ctrl+Home and Ctrl+End; a run of F3 leaves one record; positions move with edits. See [jump-back] in `dev/plan-batch-k.md`.
 
 ### K.03: word count (`src/commands.ts`, new `src/editor/wordCount.ts`)
 
